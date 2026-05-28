@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RequestStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum VerificationAction {
+  upload
+  approved
+  rejected
+  automated_approved
+  automated_rejected
+}
+
+enum AccountMergeStatus {
+  pending
+  pending_score
+  pending_merge
+  completed
+  cancelled
+  expired
+  failed
+}
+
+enum ExternalNotificationStatus {
+  pending
+  completed
+  failed
+}
+
+model LgpdRequest {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  userId       String
+  email        String
+  status       RequestStatus @default(pending)
+  fileName     String?
+  filePath     String?
+  s3Key        String?       @map("s3_key")
+  fileSize     Int?
+  errorMessage String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  downloadedAt DateTime?
+  expiresAt    DateTime?
+
+  @@map("lgpd_requests")
+}
+
+model DeleteAccountRequest {
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  userId                String
+  email                 String
+  status                RequestStatus @default(pending)
+  reason                String?
+  servicesNotified      String[]      @default([])
+  errorMessage          String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  softDeletedAt         DateTime?
+  scheduledHardDeleteAt DateTime?
+  cancelledAt           DateTime?
+  completedAt           DateTime?
+
+  @@index([status, scheduledHardDeleteAt])
+  @@map("delete_account_requests")
+}
+
+model PrivacySetting {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @unique @map("user_id")
+  settings  Json
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("user_privacy_settings")
+}
+
+model AccountMergeRequest {
+  id                   String             @id @default(uuid(7)) @db.Uuid
+  requesterUserId      String             @map("requester_user_id")
+  candidateUserId      String             @map("candidate_user_id")
+  primaryUserId        String?            @map("primary_user_id")
+  secondaryUserId      String?            @map("secondary_user_id")
+  selectedPrimaryEmail String?            @map("selected_primary_email")
+  secondaryEmails      String[]           @default([]) @map("secondary_emails")
+  status               AccountMergeStatus @default(pending)
+  scoreBreakdown       Json               @map("score_breakdown")
+  externalScores       Json?              @map("external_scores")
+  errorMessage         String?            @map("error_message")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  expiresAt            DateTime           @map("expires_at")
+  completedAt          DateTime?          @map("completed_at")
+
+  notifications AccountMergeExternalNotification[]
+
+  @@index([requesterUserId])
+  @@index([candidateUserId])
+  @@index([primaryUserId])
+  @@index([secondaryUserId])
+  @@index([status, expiresAt])
+  @@map("account_merge_requests")
+}
+
+model AccountMergeExternalNotification {
+  id             String                     @id @default(uuid(7)) @db.Uuid
+  mergeRequestId String                     @map("merge_request_id") @db.Uuid
+  eventId        String                     @unique @map("event_id")
+  backendName    String                     @map("backend_name")
+  url            String
+  audience       String?
+  oldUserId      String                     @map("old_user_id")
+  newUserId      String                     @map("new_user_id")
+  payload        Json
+  status         ExternalNotificationStatus @default(pending)
+  attemptCount   Int                        @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime?                  @map("next_attempt_at")
+  lastAttemptAt  DateTime?                  @map("last_attempt_at")
+  lastStatusCode Int?                       @map("last_status_code")
+  lastResponse   Json?                      @map("last_response")
+  lastError      String?                    @map("last_error")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  completedAt    DateTime?                  @map("completed_at")
+
+  mergeRequest AccountMergeRequest @relation(fields: [mergeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([mergeRequestId])
+  @@index([status, nextAttemptAt])
+  @@map("account_merge_external_notifications")
+}
+
+model StudentVerificationDocument {
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  userId                 String
+  originalFileName       String
+  storedFileName         String
+  filePath               String
+  s3Key                  String?
+  mimeType               String
+  fileSize               Int
+  status                 VerificationStatus @default(pending)
+  rejectionReason        String?
+  verifiedBy             String?
+  verificationDate       DateTime?
+  authenticationCode     String?
+  extractedName          String?
+  documentEmissionDate   DateTime?
+  documentExpirationDate DateTime?
+  isDocumentValid        Boolean?           @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  logs StudentVerificationLog[]
+
+  @@map("student_verification_documents")
+}
+
+model StudentVerificationLog {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  userId      String
+  documentId  String             @db.Uuid
+  action      VerificationAction
+  performedBy String
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+
+  document StudentVerificationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("student_verification_logs")
+}
+
+model DiscordLink {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  userId            String
+  discordId         String    @unique
+  discordUsername   String
+  discordGlobalName String
+  discordAvatarHash String?
+  isVerified        Boolean   @default(false)
+  serverInviteUsed  String?
+  assignedRole      String?
+  deleted           Boolean   @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("discord_links")
+}
+
+model DiscordRoleSetting {
+  id                    String   @id @default(uuid(7)) @db.Uuid
+  roleId                String   @unique @map("role_id") @db.Text
+  roleName              String   @map("role_name") @db.Text
+  isEnabledForSelection Boolean  @default(false) @map("is_enabled_for_selection")
+  isBlacklisted         Boolean  @default(false) @map("is_blacklisted")
+  hasPermissions        Boolean  @default(false) @map("has_permissions")
+  roleColor             String?  @map("role_color") @db.Text
+  rolePosition          Int      @default(0) @map("role_position")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("discord_role_settings")
+}
+
+model DiscordServerSettings {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  settingKey   String   @unique
+  settingValue String
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("discord_server_settings")
+}

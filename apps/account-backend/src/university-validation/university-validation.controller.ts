@@ -1,0 +1,659 @@
+import {
+  Body,
+  Controller,
+  Post,
+  Session,
+  Param,
+  Logger,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+  InternalServerErrorException,
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  HttpStatus,
+  HttpException,
+  UseGuards,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
+import { Request } from 'express';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
+import { UniversityValidationService } from './university-validation.service';
+import { AtomicValidationDto } from './university-validation.types';
+import { UserService } from '../auth/services/user.service';
+import { KeycloakService } from '../auth/services/keycloak.service';
+import { AuthSession } from '../auth/auth.controller';
+import { CaptchaService } from './services/captcha.service';
+import { UniversityValidation } from '../auth/guards/auth.decorator';
+import { CsrfGuard } from '../auth/csrf/csrf.guard';
+
+type LoggedRequest = Request<Record<string, string>, unknown, unknown>;
+
+const MAX_PDF_UPLOAD_FILE_SIZE = 10 * 1024 * 1024;
+const PDF_UPLOAD_OPTIONS = {
+  limits: {
+    fileSize: MAX_PDF_UPLOAD_FILE_SIZE,
+  },
+  fileFilter: (
+    _request: unknown,
+    file: Express.Multer.File,
+    callback: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
+    if (file.mimetype !== 'application/pdf') {
+      callback(
+        new BadRequestException('Tipo de arquivo não permitido. Envie um PDF.'),
+        false,
+      );
+      return;
+    }
+
+    callback(null, true);
+  },
+};
+
+// Simple request logging interceptor
+@Injectable()
+export class RequestLoggingInterceptor implements NestInterceptor {
+  private readonly logger = new Logger('RequestLoggingInterceptor');
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<LoggedRequest>();
+    const { method, url, body, headers } = request;
+
+    this.logger.debug(`=== INCOMING HTTP REQUEST ===`);
+    this.logger.debug(`${method} ${url}`);
+    this.logger.debug(`Headers:`, {
+      'content-type': headers['content-type'],
+      'content-length': headers['content-length'],
+      'user-agent': headers['user-agent'],
+    });
+    this.logger.debug(`Body:`, {
+      body,
+      bodyType: typeof body,
+      bodyKeys:
+        body && typeof body === 'object' ? Object.keys(body) : 'not object',
+      bodyStringified: JSON.stringify(body),
+    });
+
+    return next
+      .handle()
+      .pipe(tap(() => this.logger.debug(`Request completed successfully`)));
+  }
+}
+
+@ApiTags('university-validation')
+@Controller('university-validation')
+export class UniversityValidationController {
+  private readonly logger = new Logger(UniversityValidationController.name);
+
+  constructor(
+    private readonly universityValidationService: UniversityValidationService,
+    private readonly userService: UserService,
+    private readonly captchaService: CaptchaService,
+    private readonly keycloakService: KeycloakService,
+  ) {}
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('captcha')
+  @UseInterceptors(FileInterceptor('pdfFile', PDF_UPLOAD_OPTIONS))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload PDF file to extract authCode and get captcha',
+    type: 'multipart/form-data',
+    schema: {
+      type: 'object',
+      properties: {
+        pdfFile: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload PDF and get captcha for university validation',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF processed and captcha obtained successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        captchaImage: { type: 'string' },
+        sessionId: { type: 'string' },
+        authCode: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - User not authenticated',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - University role verification already completed',
+  })
+  async getCaptcha(
+    @Session() session: AuthSession & { universityValidationId?: string },
+    @UploadedFile() pdfFile?: Express.Multer.File,
+  ): Promise<{
+    captchaImage: string;
+    sessionId: string;
+    enrollmentNumber?: string;
+  }> {
+    if (!pdfFile) {
+      throw new BadRequestException('PDF file is required');
+    }
+
+    // AuthGuard ensures user is authenticated
+    const userId = session.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    // Check cooldown before processing captcha request
+    const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+    if (cooldownStatus.inCooldown) {
+      throw new BadRequestException(
+        `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
+      );
+    }
+
+    // Get current user's enrollment number
+    let enrollmentNumber: string | undefined;
+
+    try {
+      // Check if user is authenticated
+      if (session.user?.id) {
+        const userProfile = await this.userService.findById(session.user.id);
+        enrollmentNumber = userProfile?.enrollmentNumber;
+        this.logger.debug(
+          `Retrieved enrollment number for user ${session.user.id}: ${enrollmentNumber}`,
+        );
+      } else {
+        this.logger.warn('No authenticated user found in session');
+      }
+    } catch (error) {
+      this.logger.error('Error retrieving user enrollment number:', error);
+      // Continue without enrollment number - it's optional
+    }
+
+    // Extract authCode from PDF
+    const authCode =
+      await this.universityValidationService.extractAuthCodeFromPdf(
+        pdfFile.buffer,
+      );
+
+    if (!authCode) {
+      throw new BadRequestException(
+        'Código de autenticidade não encontrado no PDF. Verifique se o documento é válido e contém um código de autenticidade.',
+      );
+    }
+
+    // Extract enrollment number from PDF
+    const pdfEnrollmentNumber =
+      await this.universityValidationService.extractEnrollmentFromPdf(
+        pdfFile.buffer,
+      );
+
+    // Use PDF enrollment if available, otherwise fall back to user's enrollment
+    const sessionEnrollmentNumber = pdfEnrollmentNumber || enrollmentNumber;
+
+    const sessionId =
+      session.universityValidationId || Math.random().toString(36).substring(2);
+    session.universityValidationId = sessionId;
+
+    const captchaSession = await this.universityValidationService.getCaptcha(
+      sessionId,
+      userId,
+      authCode,
+      sessionEnrollmentNumber,
+    );
+
+    // Record captcha request attempt to start cooldown for next request
+    this.captchaService.recordCaptchaRequest(userId);
+
+    return {
+      captchaImage: captchaSession.captchaImageBase64!,
+      sessionId: captchaSession.sessionId,
+      enrollmentNumber,
+    };
+  }
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('clear-session/:sessionId')
+  @ApiOperation({ summary: 'Limpar sessão de validação' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sessão limpa com sucesso',
+    type: Object,
+  })
+  clearSession(
+    @Session() session: AuthSession & { universityValidationId?: string },
+    @Param('sessionId') paramSessionId: string,
+  ): { success: boolean } {
+    // AuthGuard ensures user is authenticated
+    const userId = session.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    const sessionId = session.universityValidationId || paramSessionId;
+    this.universityValidationService.clearSession(sessionId, userId);
+    delete session.universityValidationId;
+    return { success: true };
+  }
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('cooldown-status')
+  @ApiOperation({ summary: 'Get captcha cooldown status for current user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cooldown status retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        inCooldown: { type: 'boolean' },
+        remainingSeconds: { type: 'number' },
+        attempts: { type: 'number' },
+        nextCooldownSeconds: { type: 'number' },
+      },
+    },
+  })
+  getCooldownStatus(@Session() session: AuthSession): {
+    inCooldown: boolean;
+    remainingSeconds: number;
+    attempts: number;
+    nextCooldownSeconds: number;
+  } {
+    // AuthGuard ensures user is authenticated
+    const userId = session.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    return this.captchaService.getCooldownStatus(userId);
+  }
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('validate-atomic')
+  @ApiOperation({
+    summary: 'Atomic validation - get captcha and validate in one flow',
+    description:
+      'This endpoint handles captcha and validation atomically to avoid server-side session issues',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Validation result or captcha for user input',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        isValid: { type: 'boolean' },
+        captchaImage: { type: 'string' },
+        needsCaptcha: { type: 'boolean' },
+        error: { type: 'string' },
+        pdfUrl: { type: 'string' },
+      },
+    },
+  })
+  async validateAtomic(
+    @Body() body: AtomicValidationDto,
+    @Session() session: AuthSession,
+  ): Promise<{
+    success: boolean;
+    valid?: boolean;
+    isValid?: boolean;
+    captchaImage?: string;
+    needsCaptcha?: boolean;
+    error?: string;
+    message?: string;
+    pdfUrl?: string;
+  }> {
+    // AuthGuard ensures user is authenticated
+    const userId = session.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    try {
+      this.logger.debug('Atomic validation request received:', {
+        body,
+        hasCaptchaCode: !!body.captchaCode,
+        hasSessionId: !!body.sessionId,
+        captchaCodeLength: body.captchaCode?.length,
+      });
+
+      // Ensure we have sessionId and captchaCode for session-based validation
+      if (!body.sessionId || !body.captchaCode) {
+        return {
+          success: false,
+          error: 'SessionId and captchaCode are required for validation',
+        };
+      }
+
+      // CRITICAL: Always fetch fresh user attributes from Keycloak to avoid caching issues
+      // This ensures validation uses the most up-to-date enrollment number
+      this.logger.debug(
+        'Fetching fresh user attributes from Keycloak to avoid cache',
+      );
+      const freshAttributes =
+        await this.keycloakService.getUserAttributes(userId);
+      const enrollmentNumber = freshAttributes.enrollmentNumber?.[0];
+
+      this.logger.debug('Fresh enrollment number from Keycloak:', {
+        userId,
+        enrollmentNumber,
+        source: 'keycloak_fresh_fetch',
+        cachedEnrollment: user.enrollmentNumber,
+        cacheMismatch: user.enrollmentNumber !== enrollmentNumber,
+      });
+
+      // Ensure we have an enrollment number
+      if (!enrollmentNumber) {
+        return {
+          success: false,
+          error: 'Número de matrícula não encontrado no perfil do usuário',
+        };
+      }
+
+      this.logger.debug('About to call validateDocument with stored session:', {
+        sessionId: body.sessionId,
+        captchaCodeLength: body.captchaCode.length,
+        hasEnrollmentNumber: !!enrollmentNumber,
+        enrollmentNumber: enrollmentNumber,
+        userId: userId,
+        parameterOrder: 'sessionId, enrollmentNumber, captchaCode, userId',
+      });
+
+      // validateDocument uses the stored session with cookies from captcha generation
+      // and retrieves the auth code internally from the session
+      const result = await this.universityValidationService.validateDocument(
+        body.sessionId,
+        enrollmentNumber, // Now guaranteed to be defined
+        body.captchaCode,
+        userId,
+      );
+
+      // Handle cooldown based on validation result
+      if (result.success && result.isValid) {
+        // Success: clear cooldown
+        this.captchaService.recordSuccessfulAttempt(userId);
+      } else if (result.needsNewCaptcha) {
+        // Failed captcha: record failed attempt and apply cooldown
+        const cooldownResult = this.captchaService.recordFailedAttempt(userId);
+        this.logger.debug('Applied cooldown for failed captcha attempt:', {
+          userId: userId,
+          cooldownSeconds: cooldownResult.cooldownSeconds,
+        });
+      }
+
+      // Transform the result to match the expected response format
+      return {
+        success: result.success,
+        valid: result.isValid,
+        isValid: result.isValid,
+        error: result.error,
+        message: result.error, // Use error as message for consistency
+        needsCaptcha: result.needsNewCaptcha,
+        pdfUrl: result.pdfUrl,
+      };
+    } catch (error) {
+      this.logger.error('Atomic validation error:', error);
+      return {
+        success: false,
+        error: 'Erro interno do servidor',
+      };
+    }
+  }
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('atomic-captcha')
+  @UseInterceptors(FileInterceptor('pdfFile', PDF_UPLOAD_OPTIONS))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description:
+      'Upload PDF file to extract authCode and get initial captcha for atomic flow',
+    type: 'multipart/form-data',
+    schema: {
+      type: 'object',
+      properties: {
+        pdfFile: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Get captcha for atomic validation flow',
+    description:
+      'Processes PDF to extract auth code and returns initial captcha image',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF processed and captcha obtained for atomic flow',
+    schema: {
+      type: 'object',
+      properties: {
+        authCode: { type: 'string' },
+        captchaImage: { type: 'string' },
+        sessionId: { type: 'string' },
+      },
+    },
+  })
+  async getAtomicCaptcha(
+    @Session() userSession: AuthSession,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ captchaImage: string; sessionId: string }> {
+    try {
+      if (!file) {
+        throw new BadRequestException('Arquivo PDF é obrigatório');
+      }
+
+      // AuthGuard ensures user is authenticated
+      const userId = userSession.user?.id;
+      if (!userId) {
+        throw new BadRequestException('User authentication required');
+      }
+
+      // Check cooldown before processing captcha request
+      const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+      if (cooldownStatus.inCooldown) {
+        throw new BadRequestException(
+          `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
+        );
+      }
+
+      // Extract auth code from PDF
+      const authCode =
+        await this.universityValidationService.extractAuthCodeFromPdf(
+          file.buffer,
+        );
+
+      // Extract enrollment number from PDF
+      const enrollmentNumber =
+        await this.universityValidationService.extractEnrollmentFromPdf(
+          file.buffer,
+        );
+
+      if (!authCode) {
+        throw new BadRequestException(
+          'Código de autenticação não encontrado no arquivo PDF. Verifique se o arquivo é um comprovante de matrícula válido.',
+        );
+      }
+
+      // Generate a session ID
+      const sessionId =
+        Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+      // Get captcha and create session with both auth code and enrollment
+      const session = await this.universityValidationService.getCaptcha(
+        sessionId,
+        userId,
+        authCode,
+        enrollmentNumber || undefined,
+      );
+
+      if (!session.captchaImageBase64) {
+        throw new InternalServerErrorException(
+          'Não foi possível obter a imagem do captcha',
+        );
+      }
+
+      // Record captcha request attempt to start cooldown for next request
+      this.captchaService.recordCaptchaRequest(userId);
+
+      return {
+        captchaImage: `data:image/jpeg;base64,${session.captchaImageBase64}`,
+        sessionId: sessionId,
+      };
+    } catch (error) {
+      this.logger.error('Error in atomic captcha:', error);
+
+      // Handle network error that triggered manual fallback
+      if (
+        error instanceof Error &&
+        error.message === 'NETWORK_ERROR_MANUAL_FALLBACK'
+      ) {
+        const networkError = error as Error & {
+          fallbackToManual: boolean;
+          manualApprovalId: string;
+          originalError: unknown;
+        };
+
+        this.logger.warn('Network error triggered manual fallback', {
+          manualApprovalId: networkError.manualApprovalId,
+          originalError: (
+            networkError.originalError as { message?: string; code?: string }
+          )?.message,
+        });
+
+        throw new BadRequestException({
+          message:
+            'Erro de conexão com o servidor da universidade. Seu documento foi redirecionado para aprovação manual.',
+          fallbackToManual: true,
+          manualApprovalId: networkError.manualApprovalId,
+        });
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Erro ao processar arquivo PDF');
+    }
+  }
+
+  @UniversityValidation()
+  @UseGuards(CsrfGuard)
+  @Post('refresh-captcha')
+  @ApiOperation({ summary: 'Get a new captcha for existing session' })
+  @ApiBody({
+    description: 'Session ID to refresh captcha for',
+    type: 'object',
+    schema: {
+      type: 'object',
+      properties: {
+        sessionId: {
+          type: 'string',
+          description: 'Session ID from previous captcha request',
+        },
+      },
+      required: ['sessionId'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'New captcha generated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid session or cooldown active',
+  })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
+  async refreshCaptcha(
+    @Body() body: { sessionId: string },
+    @Session() session: AuthSession,
+  ): Promise<{ captchaImage: string; sessionId: string }> {
+    // AuthGuard ensures user is authenticated
+    const userId = session.user?.id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    const { sessionId } = body;
+
+    this.logger.debug('Refreshing captcha', { sessionId, userId });
+
+    // Check if user is in cooldown period
+    const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+    if (cooldownStatus.inCooldown) {
+      throw new BadRequestException(
+        `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
+      );
+    }
+
+    try {
+      // Get a new captcha for the existing session
+      const newSession = await this.universityValidationService.refreshCaptcha(
+        sessionId,
+        userId,
+      );
+
+      if (!newSession.captchaImageBase64) {
+        throw new InternalServerErrorException(
+          'Não foi possível obter a nova imagem do captcha',
+        );
+      }
+
+      // Record captcha request attempt to start cooldown for next request
+      this.captchaService.recordCaptchaRequest(userId);
+
+      return {
+        captchaImage: `data:image/jpeg;base64,${newSession.captchaImageBase64}`,
+        sessionId: sessionId,
+      };
+    } catch (error) {
+      this.logger.error('Error refreshing captcha:', error);
+
+      // Handle network error during captcha refresh
+      if (error instanceof Error && error.message === 'CAPTCHA_NETWORK_ERROR') {
+        this.logger.warn('Network error during captcha refresh', {
+          sessionId,
+          userId,
+        });
+
+        throw new BadRequestException({
+          message:
+            'Erro de conexão com o servidor da universidade durante a atualização do captcha.',
+          isNetworkError: true,
+        });
+      }
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Erro ao atualizar captcha');
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "name": "account-backend",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/account-backend/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run nest build"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run jest"
+      }
+    },
+    "test-watch": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run jest --watch"
+      }
+    },
+    "test-cov": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run jest --coverage"
+      }
+    },
+    "test-debug": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun exec node --inspect-brk -r tsconfig-paths/register -r ts-node/register ../../node_modules/jest/bin/jest.js --runInBand"
+      }
+    },
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run jest --config ./test/jest-e2e.json"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run eslint \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.ts\" --fix --no-error-on-unmatched-pattern"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["^build"],
+      "cache": false,
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run nest start --watch"
+      }
+    },
+    "serve-prod": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "node dist/main"
+      }
+    },
+    "serve-debug": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["^build"],
+      "cache": false,
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run nest start --debug --watch"
+      }
+    },
+    "setup-python": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "cd scripts && chmod +x setup_python_env.sh && ./setup_python_env.sh"
+      }
+    }
+  }
+}

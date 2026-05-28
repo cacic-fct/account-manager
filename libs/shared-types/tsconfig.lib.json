@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "../../dist/libs/shared-types",
+    "rootDir": "src",
+    "module": "commonjs",
+    "target": "ES2023",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "incremental": true
+  },
+  "include": ["src/**/*"]
+}
