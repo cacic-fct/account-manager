@@ -1,0 +1,15 @@
+# Training Data - Do not commit actual training data to version control
+*.jpg
+*.jpeg
+*.png
+*.json
+training_log.txt
+training_data_export.csv
+
+# Keep README and processing script
+!README.md
+!process-training-data.js
+!.gitignore
+
+# Allow example files if any
+!example_*
