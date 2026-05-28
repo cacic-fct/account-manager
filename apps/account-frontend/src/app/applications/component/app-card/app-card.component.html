@@ -1,0 +1,33 @@
+<mat-card class="app-card">
+  <div class="app-icon">
+    @if (app().iconUrl) {
+      <img
+        [src]="app().iconUrl"
+        [alt]="app().name + ' logo'"
+        class="app-logo"
+      />
+    } @else {
+      <mat-icon class="default-icon">apps</mat-icon>
+    }
+  </div>
+  <mat-card-content>
+    <h3 class="app-name">{{ app().name }}</h3>
+    @if (app().description) {
+      <p class="app-description">{{ app().description }}</p>
+    }
+    @if (app().category) {
+      <span class="app-category">{{ app().category }}</span>
+    }
+  </mat-card-content>
+  <mat-card-actions>
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="openApp()"
+      [disabled]="!app().enabled"
+    >
+      <mat-icon>launch</mat-icon>
+      Abrir
+    </button>
+  </mat-card-actions>
+</mat-card>

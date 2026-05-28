@@ -1,0 +1,13 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/admin">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Integração com o Discord</span>
+</mat-toolbar>
+
+@if (isDiscordAdmin()) {
+  <div class="admin-section">
+    <app-discord-admin></app-discord-admin>
+    <app-discord-role-admin></app-discord-role-admin>
+  </div>
+}

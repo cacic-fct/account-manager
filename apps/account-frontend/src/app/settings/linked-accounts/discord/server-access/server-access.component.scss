@@ -1,0 +1,395 @@
+:host {
+  display: block;
+  height: 100%;
+
+  // CSS Custom Properties for consistent theming
+  --surface-color: #fafafa;
+  --card-background: #ffffff;
+  --text-primary: #1c1b1f;
+  --text-secondary: #49454f;
+  --text-tertiary: #79747e;
+  --border-color: #e7e0ec;
+  --surface-variant: #e7e0ec;
+  --chip-background-student: #e8def8;
+  --chip-text-student: #1d192b;
+  --chip-background-unesp: #e8def8;
+  --chip-text-unesp: #1d192b;
+  --chip-background-visitor: #e7e0ec;
+  --chip-text-visitor: #49454f;
+  --benefit-background: rgba(103, 80, 164, 0.05);
+  --benefit-background-featured: #ffd8e4;
+  --benefit-border-featured: #7d5260;
+  --feature-item-background: rgba(103, 80, 164, 0.08);
+
+  // Dark theme
+  @media (prefers-color-scheme: dark) {
+    --surface-color: #1c1b1f;
+    --card-background: #2b2930;
+    --text-primary: #e6e1e5;
+    --text-secondary: #cac4d0;
+    --text-tertiary: #938f99;
+    --border-color: #49454f;
+    --surface-variant: #49454f;
+    --chip-background-student: #4f378b;
+    --chip-text-student: #e8def8;
+    --chip-background-unesp: #625b71;
+    --chip-text-unesp: #e8def8;
+    --chip-background-visitor: #49454f;
+    --chip-text-visitor: #cac4d0;
+    --benefit-background: rgba(208, 188, 255, 0.08);
+    --benefit-background-featured: rgba(125, 82, 96, 0.2);
+    --benefit-border-featured: #d0bcff;
+    --feature-item-background: rgba(208, 188, 255, 0.08);
+  }
+}
+
+.content-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// Loading and Error States
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  min-height: 200px;
+
+  p {
+    margin: 16px 0 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+}
+
+.error-card,
+.info-card {
+  text-align: center;
+
+  .error-icon {
+    background-color: var(--mdc-theme-error, #ba1a1a);
+    color: var(--mdc-theme-on-error, white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .info-icon {
+    background-color: var(--mdc-theme-primary, #6200ea);
+    color: var(--mdc-theme-on-primary, white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  mat-card-actions {
+    justify-content: center;
+    padding: 16px 24px;
+  }
+}
+
+// Card Styling
+mat-card {
+  border-radius: 12px;
+  background-color: var(--card-background);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24);
+  transition: box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow:
+      0 4px 8px rgba(0, 0, 0, 0.12),
+      0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-header {
+    padding-bottom: 8px;
+
+    mat-card-title {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    mat-card-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    [mat-card-avatar] {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+      }
+    }
+  }
+}
+
+// Access Level Card
+.access-level-card {
+  .access-icon {
+    background-color: var(--mdc-theme-secondary, #625b71);
+    color: var(--mdc-theme-on-secondary, white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .access-status {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .status-chip {
+    font-size: 14px;
+    font-weight: 500;
+    height: 40px;
+    display: flex;
+    align-items: center;
+
+    &.student {
+      background-color: var(--chip-background-student);
+      color: var(--chip-text-student);
+    }
+
+    &.unesp {
+      background-color: var(--chip-background-unesp);
+      color: var(--chip-text-unesp);
+    }
+
+    &.visitor {
+      background-color: var(--chip-background-visitor);
+      color: var(--chip-text-visitor);
+    }
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+  }
+
+  .access-description {
+    .description-text {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+  }
+}
+
+// Benefits Card
+.benefits-card {
+  .benefits-icon {
+    background-color: var(--mdc-theme-tertiary, #7d5260);
+    color: var(--mdc-theme-on-tertiary, white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .benefits-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .benefit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    background-color: var(--benefit-background);
+    transition: all 0.2s ease;
+
+    &.featured {
+      background-color: var(--benefit-background-featured);
+      border-left: 4px solid var(--benefit-border-featured);
+    }
+
+    .benefit-icon {
+      color: var(--mdc-theme-tertiary, #7d5260);
+      margin-top: 2px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+
+      @media (prefers-color-scheme: dark) {
+        color: var(--benefit-border-featured);
+      }
+    }
+
+    .benefit-content {
+      flex: 1;
+
+      h4 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+// Invitation Cards
+.invitation-card {
+  &.success {
+    border-top: 4px solid var(--mdc-theme-primary, #6200ea);
+
+    .invite-icon {
+      background-color: var(--mdc-theme-primary, #6200ea);
+      color: var(--mdc-theme-on-primary, white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  &.warning {
+    border-top: 4px solid var(--mdc-theme-error, #ba1a1a);
+
+    .warning-icon {
+      background-color: var(--mdc-theme-error, #ba1a1a);
+      color: var(--mdc-theme-on-error, white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .invite-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .invite-description p {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .invite-features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background-color: var(--feature-item-background);
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        color: var(--text-secondary);
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+        }
+      }
+    }
+  }
+
+  .warning-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .invite-actions {
+    padding: 16px 24px;
+    justify-content: center;
+
+    .join-button {
+      font-weight: 500;
+      padding: 0 24px;
+      height: 40px;
+
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// Upgrade Card
+.upgrade-card {
+  .upgrade-icon {
+    background-color: var(--mdc-theme-tertiary, #7d5260);
+    color: var(--mdc-theme-on-tertiary, white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .upgrade-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  mat-card-actions {
+    padding: 16px 24px;
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+
+  .page-header .page-title {
+    font-size: 18px;
+  }
+
+  mat-card .card-header mat-card-title {
+    font-size: 16px;
+  }
+
+  .invite-content .invite-features {
+    flex-direction: column;
+
+    .feature-item {
+      justify-content: flex-start;
+    }
+  }
+}
+
+// Dark theme adjustments are now handled by CSS custom properties above

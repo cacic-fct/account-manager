@@ -1,0 +1,105 @@
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .setting-item {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .setting-info {
+    flex: 1;
+    max-width: 300px;
+  }
+
+  .setting-form {
+    flex: 2;
+  }
+}
+
+.setting-info h3 {
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.setting-description {
+  margin: 0 0 8px 0;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.last-updated {
+  margin: 0;
+  color: #999;
+  font-size: 0.8em;
+}
+
+.new-setting {
+  margin: 0;
+  color: #2196f3;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.setting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.setting-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.setting-actions button {
+  gap: 8px;
+}
+
+.no-settings {
+  text-align: center;
+  padding: 32px;
+  color: #666;
+}
+
+.no-settings mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+}
+
+.actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+}
+
+.actions button {
+  gap: 8px;
+}
+
+mat-divider {
+  margin: 16px 0;
+}

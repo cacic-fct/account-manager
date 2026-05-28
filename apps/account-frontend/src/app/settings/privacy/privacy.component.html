@@ -1,0 +1,30 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/settings">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Privacidade</span>
+</mat-toolbar>
+
+<div class="settings-container">
+  <mat-list>
+    <mat-list-item routerLink="/settings/privacy/analytics">
+      <mat-icon matListItemIcon>timeline</mat-icon>
+      <span matListItemTitle>Análise</span>
+      <span matListItemLine>Rastreamento e diagnóstico</span>
+    </mat-list-item>
+    <mat-list-item routerLink="/settings/privacy/lgpd">
+      <mat-icon matListItemIcon>article_person</mat-icon>
+      <span matListItemTitle>Meus dados</span>
+      <span matListItemLine>Solicitações LGPD</span>
+    </mat-list-item>
+    <a
+      mat-list-item
+      href="https://cacic.dev.br/legal/privacy-policy"
+      target="_blank"
+      rel="noopener"
+    >
+      <mat-icon matListItemIcon>front_hand</mat-icon>
+      <span matListItemTitle>Política de privacidade</span>
+    </a>
+  </mat-list>
+</div>

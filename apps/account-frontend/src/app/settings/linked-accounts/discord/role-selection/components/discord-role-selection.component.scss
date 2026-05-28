@@ -1,0 +1,245 @@
+.role-selection-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+
+  p {
+    margin: 0;
+    color: var(--mdc-theme-on-surface, #000);
+    font-size: 14px;
+  }
+}
+
+.error-card,
+.success-card {
+  margin-top: 16px;
+
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.error-card {
+  background-color: var(--mdc-theme-error-container, #ffebee);
+  color: var(--mdc-theme-on-error-container, #b71c1c);
+
+  .error-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .error-text {
+    flex: 1;
+
+    h4 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0 0 16px 0;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    button {
+      margin-top: 8px;
+    }
+  }
+}
+
+.success-card {
+  background-color: var(--mdc-theme-primary-container, #e3f2fd);
+  color: var(--mdc-theme-on-primary-container, #0d47a1);
+}
+
+.roles-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.role-item {
+  padding: 8px 12px;
+  border: 1px solid var(--mdc-theme-outline, #e0e0e0);
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: var(--mdc-theme-surface-variant, #f5f5f5);
+  }
+
+  mat-checkbox {
+    width: 100%;
+
+    ::ng-deep .mdc-form-field {
+      width: 100%;
+    }
+
+    ::ng-deep .mdc-checkbox {
+      margin-right: 8px;
+    }
+  }
+}
+
+.role-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.role-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.role-name {
+  font-weight: 500;
+  color: var(--mdc-theme-on-surface, #000);
+}
+
+.role-color {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--mdc-theme-outline, #ccc);
+  flex-shrink: 0;
+}
+
+.permission-chip {
+  font-size: 12px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.no-roles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--mdc-theme-on-surface-variant, #666);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    opacity: 0.6;
+  }
+
+  p {
+    margin: 0;
+    line-height: 1.4;
+
+    &:first-of-type {
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    &:last-of-type {
+      font-size: 14px;
+    }
+  }
+}
+
+.cooldown-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: var(--mdc-theme-warning-container, #fff3cd);
+  color: var(--mdc-theme-on-warning-container, #856404);
+  border-radius: 4px;
+  font-size: 14px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+mat-card-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    mat-spinner {
+      margin: 0;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 600px) {
+  .role-selection-container {
+    padding: 16px;
+  }
+
+  .role-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .permission-chip {
+    align-self: flex-end;
+  }
+
+  mat-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}

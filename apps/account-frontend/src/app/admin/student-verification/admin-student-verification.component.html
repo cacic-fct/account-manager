@@ -1,0 +1,150 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/admin">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Verificação de Estudantes - Admin</span>
+</mat-toolbar>
+
+<div class="admin-container">
+  <mat-card class="admin-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>school</mat-icon>
+        Documentos Pendentes de Verificação
+      </mat-card-title>
+      <mat-card-subtitle>
+        Gerencie os documentos enviados pelos estudantes
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (loading()) {
+        <div class="loading-content">
+          <mat-icon>refresh</mat-icon>
+          <p>Carregando documentos...</p>
+        </div>
+      } @else if (documents().length === 0) {
+        <div class="empty-content">
+          <mat-icon>description</mat-icon>
+          <p>Nenhum documento pendente de verificação</p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table mat-table [dataSource]="documents()" class="full-width">
+            <!-- Full Name Column -->
+            <ng-container matColumnDef="fullName">
+              <th mat-header-cell *matHeaderCellDef>Nome Completo</th>
+              <td mat-cell *matCellDef="let document">
+                {{ document.fullName || document.email }}
+              </td>
+            </ng-container>
+
+            <!-- Email Column -->
+            <ng-container matColumnDef="email">
+              <th mat-header-cell *matHeaderCellDef>Email do Estudante</th>
+              <td mat-cell *matCellDef="let document">{{ document.email }}</td>
+            </ng-container>
+
+            <!-- File Name Column -->
+            <ng-container matColumnDef="fileName">
+              <th mat-header-cell *matHeaderCellDef>Arquivo</th>
+              <td mat-cell *matCellDef="let document">
+                {{ document.originalFileName }}
+              </td>
+            </ng-container>
+
+            <!-- Authentication Code Column -->
+            <ng-container matColumnDef="authCode">
+              <th mat-header-cell *matHeaderCellDef>Código de Autenticidade</th>
+              <td mat-cell *matCellDef="let document">
+                @if (document.authenticationCode) {
+                  <div class="auth-code-cell">
+                    <code class="auth-code">{{
+                      document.authenticationCode
+                    }}</code>
+                    <button
+                      mat-icon-button
+                      (click)="
+                        openUniversityVerification(document.authenticationCode)
+                      "
+                      matTooltip="Verificar no site da universidade"
+                      class="verify-button"
+                    >
+                      <mat-icon>open_in_new</mat-icon>
+                    </button>
+                  </div>
+                } @else {
+                  <span class="no-code">N/A</span>
+                }
+              </td>
+            </ng-container>
+
+            <!-- Submission Date Column -->
+            <ng-container matColumnDef="submissionDate">
+              <th mat-header-cell *matHeaderCellDef>Data de Envio</th>
+              <td mat-cell *matCellDef="let document">
+                {{ document.createdAt | date: "dd/MM/yyyy HH:mm" }}
+              </td>
+            </ng-container>
+
+            <!-- Status Column -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let document">
+                <mat-chip [color]="getStatusColor(document.status)" highlighted>
+                  {{ getStatusText(document.status) }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Ações</th>
+              <td mat-cell *matCellDef="let document">
+                <div class="action-buttons">
+                  <button
+                    mat-icon-button
+                    (click)="downloadDocument(document.id)"
+                    matTooltip="Baixar documento"
+                  >
+                    <mat-icon>download</mat-icon>
+                  </button>
+
+                  @if (document.status === "pending") {
+                    <button
+                      mat-icon-button
+                      color="primary"
+                      (click)="approveDocument(document.id)"
+                      matTooltip="Aprovar"
+                    >
+                      <mat-icon>check</mat-icon>
+                    </button>
+
+                    <button
+                      mat-icon-button
+                      color="warn"
+                      (click)="rejectDocument(document.id)"
+                      matTooltip="Rejeitar"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+      }
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="loadPendingDocuments()">
+        <mat-icon>refresh</mat-icon>
+        Atualizar
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

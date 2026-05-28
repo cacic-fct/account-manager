@@ -1,0 +1,34 @@
+<div class="edit-profile-container">
+  <mat-card class="edit-profile-card">
+    <mat-card-header>
+      <mat-card-title>Editar perfil</mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="form-container">
+        <app-profile-form
+          [initialData]="initialFormData()"
+          [identityFieldLocks]="identityFieldLocks()"
+          [isEditMode]="true"
+          [layoutMode]="'all-in-one'"
+          (savingChange)="onSavingChange($event)"
+          (saveSuccess)="onProfileSaveSuccess($event)"
+          (saveError)="onProfileSaveError($event)"
+        />
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <div class="actions-container">
+        <button
+          mat-button
+          type="button"
+          (click)="cancel()"
+          [disabled]="isSubmitting()"
+        >
+          Cancelar
+        </button>
+      </div>
+    </mat-card-actions>
+  </mat-card>
+</div>

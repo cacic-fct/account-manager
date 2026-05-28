@@ -1,0 +1,149 @@
+<div class="role-selection-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>gavel</mat-icon>
+        Seleção de cargos
+      </mat-card-title>
+      <mat-card-subtitle>
+        Escolha os cargos do Discord para receber notificações quando for
+        mencionado.
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (isLoading()) {
+        <div class="loading-container">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Obtendo seus cargos...</p>
+        </div>
+      } @else if (errorMessage()) {
+        <mat-card class="error-card">
+          <mat-card-content>
+            <div class="error-content">
+              <mat-icon color="warn">error</mat-icon>
+              <div class="error-text">
+                <h4>Não foi possível obter a lista de cargos</h4>
+                <p>{{ errorMessage() }}</p>
+                @if (
+                  errorMessage().includes("log in") ||
+                  errorMessage().includes("authenticated")
+                ) {
+                  <button
+                    mat-raised-button
+                    color="primary"
+                    (click)="redirectToLogin()"
+                  >
+                    Log In
+                  </button>
+                } @else if (errorMessage().includes("link")) {
+                  <button
+                    mat-raised-button
+                    color="primary"
+                    (click)="redirectToDiscordLink()"
+                  >
+                    Vincular conta do Discord
+                  </button>
+                } @else {
+                  <button
+                    mat-raised-button
+                    color="primary"
+                    (click)="retryLoading()"
+                  >
+                    Tentar novamente
+                  </button>
+                }
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      } @else {
+        @if (selectableRoles().length > 0) {
+          <form [formGroup]="roleForm" (ngSubmit)="onSubmit()">
+            <div class="roles-section">
+              @for (role of selectableRoles(); track role.id) {
+                <div class="role-item">
+                  <mat-checkbox [formControlName]="role.id">
+                    <div class="role-info">
+                      <div class="role-details">
+                        <span class="role-name">{{ role.name }}</span>
+                        @if (role.color && role.color !== "#000000") {
+                          <span
+                            class="role-color"
+                            [style.background-color]="role.color"
+                          ></span>
+                        }
+                      </div>
+                      @if (role.hasPermissions) {
+                        <mat-chip class="permission-chip" color="warn">
+                          <mat-icon>security</mat-icon>
+                          Tem permissões
+                        </mat-chip>
+                      }
+                    </div>
+                  </mat-checkbox>
+                </div>
+              }
+            </div>
+
+            <mat-card-actions>
+              @if (isSaving()) {
+                <button
+                  type="submit"
+                  mat-raised-button
+                  color="primary"
+                  disabled
+                >
+                  <mat-spinner diameter="16"></mat-spinner>
+                  Atualizando...
+                </button>
+              } @else {
+                <button
+                  type="submit"
+                  mat-raised-button
+                  color="primary"
+                  [disabled]="!canSubmit()"
+                >
+                  <mat-icon>save</mat-icon>
+                  Atualizar
+                </button>
+              }
+
+              @if (isOnCooldown()) {
+                <div class="cooldown-message">
+                  <mat-icon color="warn">schedule</mat-icon>
+                  <span>{{ cooldownMessage() }}</span>
+                </div>
+              }
+
+              <button
+                type="button"
+                mat-button
+                [disabled]="isSaving()"
+                (click)="onReset()"
+              >
+                <mat-icon>refresh</mat-icon>
+                Redefinir
+              </button>
+            </mat-card-actions>
+          </form>
+        } @else {
+          <div class="no-roles">
+            <mat-icon>info</mat-icon>
+            <p>Não há cargos disponíveis para seleção.</p>
+            <p>Contate um administrador se você acredita que isso é um erro.</p>
+          </div>
+        }
+      }
+    </mat-card-content>
+  </mat-card>
+
+  @if (successMessage()) {
+    <mat-card class="success-card">
+      <mat-card-content>
+        <mat-icon color="primary">check_circle</mat-icon>
+        <span>{{ successMessage() }}</span>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

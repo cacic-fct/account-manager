@@ -1,0 +1,37 @@
+.edit-profile-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.edit-profile-card {
+  max-width: 500px;
+  width: 100%;
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.actions-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+mat-card-title {
+  margin-bottom: 8px;
+}
+
+mat-card-subtitle {
+  color: #666;
+}

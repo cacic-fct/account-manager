@@ -1,0 +1,210 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/settings/privacy">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Meus dados</span>
+</mat-toolbar>
+<div class="lgpd-container">
+  <mat-card class="info-card">
+    <mat-card-header>
+      <mat-card-title>Solicitar dados</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="info-points">
+        <p>
+          <mat-icon>schedule</mat-icon> O processamento pode levar alguns
+          minutos
+        </p>
+        <p><mat-icon>timer</mat-icon> Necessário 24 horas entre solicitações</p>
+        <p><mat-icon>event</mat-icon> Arquivos expiram em 7 dias</p>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="createRequest()"
+        [disabled]="isCreatingRequest() || !canCreateNewRequest()"
+        class="create-request-btn"
+      >
+        @if (isCreatingRequest()) {
+          <ng-container>
+            <mat-spinner diameter="20"></mat-spinner>
+            Processando...
+          </ng-container>
+        } @else if (!canCreateNewRequest()) {
+          <ng-container>
+            <mat-icon>schedule</mat-icon>
+            Dados já solicitados
+          </ng-container>
+        } @else {
+          <ng-container>
+            <mat-icon>download</mat-icon>
+            Solicitar Meus Dados
+          </ng-container>
+        }
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="requests-card">
+    <mat-card-header>
+      <mat-card-title>Minhas Solicitações</mat-card-title>
+      <mat-card-subtitle>
+        Histórico de solicitações de dados
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      @if (isLoading()) {
+        <div class="loading-container">
+          <mat-spinner></mat-spinner>
+          <p>Carregando solicitações...</p>
+        </div>
+      } @else if (requests().length === 0) {
+        <div class="empty-state">
+          <mat-icon>folder_open</mat-icon>
+          <p>Nenhuma solicitação encontrada</p>
+          <p class="subtitle">
+            Faça sua primeira solicitação de dados usando o botão acima.
+          </p>
+        </div>
+      } @else {
+        <div class="table-container">
+          <table mat-table [dataSource]="requests()" class="requests-table">
+            <!-- Status Column -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let request">
+                <mat-chip [color]="getStatusColor(request.status)">
+                  {{ getStatusLabel(request.status) }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <!-- Created At Column -->
+            <ng-container matColumnDef="createdAt">
+              <th mat-header-cell *matHeaderCellDef>Data da Solicitação</th>
+              <td mat-cell *matCellDef="let request">
+                {{ formatDate(request.createdAt) }}
+              </td>
+            </ng-container>
+
+            <!-- File Name Column -->
+            <ng-container matColumnDef="fileName">
+              <th mat-header-cell *matHeaderCellDef>Arquivo</th>
+              <td mat-cell *matCellDef="let request">
+                @if (request.fileName) {
+                  <div class="file-info">
+                    <mat-icon>folder_zip</mat-icon>
+                    <span>{{ request.fileName }}</span>
+                  </div>
+                } @else {
+                  <span class="no-file">-</span>
+                }
+              </td>
+            </ng-container>
+
+            <!-- File Size Column -->
+            <ng-container matColumnDef="fileSize">
+              <th mat-header-cell *matHeaderCellDef>Tamanho</th>
+              <td mat-cell *matCellDef="let request">
+                {{ formatFileSize(request.fileSize) }}
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Ações</th>
+              <td mat-cell *matCellDef="let request">
+                @if (request.status === "completed") {
+                  @if (canDownload(request)) {
+                    <button
+                      mat-icon-button
+                      color="primary"
+                      (click)="downloadFile(request)"
+                      matTooltip="Baixar arquivo"
+                    >
+                      <mat-icon>download</mat-icon>
+                    </button>
+                  } @else if (isExpired(request)) {
+                    <mat-chip color="warn">
+                      <mat-icon>event_busy</mat-icon>
+                      Expirado
+                    </mat-chip>
+                  }
+                } @else if (request.status === "failed") {
+                  <mat-chip color="warn">
+                    <mat-icon>error</mat-icon>
+                    Erro
+                  </mat-chip>
+                } @else if (request.status === "processing") {
+                  <mat-chip color="primary">
+                    <mat-icon>autorenew</mat-icon>
+                    Processando
+                  </mat-chip>
+                } @else {
+                  <mat-chip color="accent">
+                    <mat-icon>schedule</mat-icon>
+                    Aguardando
+                  </mat-chip>
+                }
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+      }
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="refreshRequests()">
+        <mat-icon>refresh</mat-icon>
+        Atualizar
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="danger-card">
+    <mat-card-header>
+      <mat-card-title class="danger-title">
+        <mat-icon>warning</mat-icon>
+        Exclusão de conta
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Ao solicitar a exclusão, sua conta será desativada imediatamente e seus
+        dados deixarão de aparecer nos sistemas CACiC. Para prevenir fraude,
+        invasões e exclusões indevidas, os dados ficam retidos por 1 ano antes
+        da exclusão definitiva.
+      </p>
+      <p>
+        Durante esse período, sistemas externos integrados serão avisados para
+        agendar a exclusão e poderão cancelar o processo se a conta for
+        reativada pela administração.
+      </p>
+    </mat-card-content>
+    <mat-card-actions>
+      <button
+        mat-raised-button
+        color="warn"
+        (click)="openDeleteAccountDialog()"
+        [disabled]="isDeletingAccount()"
+        class="delete-account-btn"
+      >
+        @if (isDeletingAccount()) {
+          <ng-container>
+            <mat-spinner diameter="20"></mat-spinner>
+            Processando exclusão...
+          </ng-container>
+        } @else {
+          <ng-container>
+            <mat-icon>delete_forever</mat-icon>
+            Solicitar Exclusão da Conta
+          </ng-container>
+        }
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

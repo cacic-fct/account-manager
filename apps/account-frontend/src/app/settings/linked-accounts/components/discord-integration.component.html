@@ -1,0 +1,209 @@
+<mat-card class="discord-card">
+  <mat-card-header class="card-header">
+    <div class="header-content">
+      <div class="title-section">
+        <div class="icon-wrapper">
+          <mat-icon class="discord-icon">discord</mat-icon>
+        </div>
+        <div class="title-text">
+          <mat-card-title>Discord</mat-card-title>
+        </div>
+      </div>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content class="card-content">
+    <!-- Dynamic status banner -->
+    @if (currentBanner()) {
+      <div class="status-banner" [class]="currentBanner()!.type">
+        <div class="status-content">
+          <mat-icon class="status-icon">{{ currentBanner()!.icon }}</mat-icon>
+          <div class="status-text">
+            <h3>{{ currentBanner()!.title }}</h3>
+            <p>{{ currentBanner()!.message }}</p>
+          </div>
+        </div>
+        @if (currentBanner()!.dismissible) {
+          <button
+            mat-icon-button
+            class="dismiss-button"
+            (click)="dismissBanner()"
+            matTooltip="Dispensar"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+    }
+
+    @if (isLoading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="32"></mat-spinner>
+        <p>Carregando informações do Discord...</p>
+      </div>
+    } @else if (hasLoadError()) {
+      <div class="error-state">
+        <div class="error-icon">
+          <mat-icon>error_outline</mat-icon>
+        </div>
+        <h3>Erro ao carregar</h3>
+        <p>Não foi possível carregar o status da integração com o Discord.</p>
+        <button mat-raised-button color="primary" (click)="loadDiscordStatus()">
+          <mat-icon>refresh</mat-icon>
+          Tentar novamente
+        </button>
+      </div>
+    } @else {
+      @if (discordStatus()?.isLinked) {
+        <div class="linked-section">
+          <!-- Quick Status Overview -->
+          <div class="status-overview">
+            @if (discordStatus()?.eligibleForRole === "student") {
+              <div class="status-item primary">
+                <mat-icon>school</mat-icon>
+                <div class="status-text">
+                  <span class="status-label">Estudante verificado</span>
+                  <span class="status-subtitle"
+                    >Acesso completo ao servidor</span
+                  >
+                </div>
+              </div>
+            } @else if (discordStatus()?.eligibleForRole === "unesp") {
+              <div class="status-item secondary">
+                <mat-icon>school</mat-icon>
+                <div class="status-text">
+                  <span class="status-label">Unespiano</span>
+                  <span class="status-subtitle">Acesso por convite</span>
+                </div>
+              </div>
+            } @else {
+              <div class="status-item tertiary">
+                <mat-icon>person</mat-icon>
+                <div class="status-text">
+                  <span class="status-label">Visitante</span>
+                  <span class="status-subtitle">Acesso básico</span>
+                </div>
+              </div>
+            }
+
+            <button
+              mat-button
+              color="primary"
+              class="view-details-button"
+              routerLink="discord/server-access"
+            >
+              <mat-icon>info</mat-icon>
+              Ver detalhes
+            </button>
+          </div>
+
+          @if (discordStatus()?.discordLinks) {
+            <div class="accounts-container">
+              <h4 class="section-title">Contas vinculadas</h4>
+              <div class="accounts-grid">
+                @for (
+                  account of discordStatus()?.discordLinks;
+                  track account.id
+                ) {
+                  <div class="account-card">
+                    <div class="account-header">
+                      <div class="account-avatar">
+                        <img
+                          [src]="
+                            getDiscordAvatarUrl(
+                              account.discordId,
+                              account.discordAvatarHash
+                            )
+                          "
+                          [alt]="account.discordGlobalName + ' avatar'"
+                          class="avatar-image"
+                          (error)="onAvatarError($event)"
+                        />
+                        <mat-icon class="fallback-icon">person</mat-icon>
+                      </div>
+                      <div class="account-details">
+                        <div class="account-name">
+                          {{ account.discordGlobalName }}
+                        </div>
+                        <div class="account-username">
+                          {{ account.discordUsername }}
+                        </div>
+                      </div>
+                      <button
+                        mat-icon-button
+                        class="unlink-button"
+                        (click)="
+                          unlinkDiscordAccount(
+                            account.id,
+                            account.discordGlobalName
+                          )
+                        "
+                        [disabled]="isUnlinking()"
+                        matTooltip="Desvincular conta"
+                      >
+                        @if (isUnlinking()) {
+                          <mat-spinner diameter="16"></mat-spinner>
+                        } @else {
+                          <mat-icon>link_off</mat-icon>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Not linked state -->
+        <div class="unlinked-section">
+          <div class="unlinked-content">
+            <div class="unlinked-icon">
+              <mat-icon>link_off</mat-icon>
+            </div>
+            <h3>Conecte sua conta do Discord</h3>
+            <p>Vincule sua conta para acessar o servidor do CACiC.</p>
+          </div>
+        </div>
+      }
+    }
+  </mat-card-content>
+
+  <mat-card-actions class="card-actions">
+    @if (!isLoading()) {
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="linkDiscord()"
+        [disabled]="isLinking()"
+        class="link-button"
+      >
+        @if (isLinking()) {
+          <mat-spinner diameter="16"></mat-spinner>
+          Conectando...
+        } @else {
+          <ng-container>
+            <mat-icon>add_link</mat-icon>
+            @if (discordStatus()?.isLinked) {
+              Vincular outra conta
+            } @else {
+              Vincular conta
+            }
+          </ng-container>
+        }
+      </button>
+
+      @if (discordStatus()?.isLinked) {
+        <button
+          mat-button
+          color="primary"
+          routerLink="discord/server-access"
+          class="server-access-button"
+        >
+          <mat-icon>groups</mat-icon>
+          Acesso ao servidor
+        </button>
+      }
+    }
+  </mat-card-actions>
+</mat-card>

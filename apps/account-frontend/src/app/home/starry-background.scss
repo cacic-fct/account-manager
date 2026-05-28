@@ -1,0 +1,360 @@
+// Starry Background Styles - Individual star twinkling
+// This file contains styles for individual star elements that twinkle independently
+
+@use "styles/animations";
+
+// Base starry background structure
+.starry-background {
+  position: relative;
+  overflow: hidden;
+}
+
+// Star container positioning - fixed to viewport for parallax effect
+.star-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0; // Behind all content
+  // Enable GPU acceleration for smooth resizing
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+// Individual star styling - optimized for performance
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+  // Enable GPU acceleration for smooth animations
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+// Individual twinkling animations - each with different timing patterns
+// Stars will randomly select one of these 20 animations
+@keyframes twinkle1 {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  23% {
+    opacity: 1;
+  }
+  27% {
+    opacity: 0.3;
+  }
+  31% {
+    opacity: 1;
+  }
+}
+
+@keyframes twinkle2 {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  67% {
+    opacity: 0.8;
+  }
+  71% {
+    opacity: 0.2;
+  }
+  75% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes twinkle3 {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  18% {
+    opacity: 0.1;
+  }
+  21% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes twinkle4 {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  89% {
+    opacity: 0.85;
+  }
+  92% {
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes twinkle5 {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  41% {
+    opacity: 0.6;
+  }
+  45% {
+    opacity: 0.05;
+  }
+  49% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes twinkle6 {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  7% {
+    opacity: 0.75;
+  }
+  10% {
+    opacity: 0.25;
+  }
+  13% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes twinkle7 {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  78% {
+    opacity: 0.55;
+  }
+  83% {
+    opacity: 0.15;
+  }
+  88% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes twinkle8 {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  34% {
+    opacity: 0.65;
+  }
+  38% {
+    opacity: 0.1;
+  }
+  42% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes twinkle9 {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  52% {
+    opacity: 0.9;
+  }
+  55% {
+    opacity: 0.35;
+  }
+  58% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes twinkle10 {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  12% {
+    opacity: 0.7;
+  }
+  16% {
+    opacity: 0.05;
+  }
+  20% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes twinkle11 {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  64% {
+    opacity: 0.8;
+  }
+  68% {
+    opacity: 0.2;
+  }
+  72% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes twinkle12 {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  28% {
+    opacity: 0.5;
+  }
+  32% {
+    opacity: 0.03;
+  }
+  36% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes twinkle13 {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  83% {
+    opacity: 0.85;
+  }
+  87% {
+    opacity: 0.4;
+  }
+  91% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes twinkle14 {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  5% {
+    opacity: 0.6;
+  }
+  9% {
+    opacity: 0.08;
+  }
+  13% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes twinkle15 {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  71% {
+    opacity: 0.75;
+  }
+  76% {
+    opacity: 0.25;
+  }
+  81% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes twinkle16 {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  19% {
+    opacity: 0.55;
+  }
+  23% {
+    opacity: 0.02;
+  }
+  27% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes twinkle17 {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  46% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  54% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes twinkle18 {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  91% {
+    opacity: 0.65;
+  }
+  95% {
+    opacity: 0.12;
+  }
+  99% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes twinkle19 {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  37% {
+    opacity: 0.7;
+  }
+  41% {
+    opacity: 0.06;
+  }
+  45% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes twinkle20 {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  59% {
+    opacity: 0.9;
+  }
+  62% {
+    opacity: 0.45;
+  }
+  65% {
+    opacity: 0.9;
+  }
+}

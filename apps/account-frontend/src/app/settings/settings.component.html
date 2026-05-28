@@ -1,0 +1,66 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/applications">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Opções</span>
+  <span class="spacer"></span>
+  <button mat-icon-button (click)="logout()">
+    <mat-icon>logout</mat-icon>
+  </button>
+</mat-toolbar>
+<div class="settings-container">
+  <div class="profile-section">
+    @if (currentUser(); as currentUserData) {
+      <img
+        [src]="user().avatarUrl"
+        alt="Avatar"
+        class="avatar"
+        (error)="onImageError($event)"
+      />
+      <h3>{{ user().name }}</h3>
+      <h4>{{ user().email }}</h4>
+    } @else {
+      <div
+        class="avatar"
+        style="
+          background-color: #f0f0f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        "
+      >
+        <mat-icon>person</mat-icon>
+      </div>
+      <h3>Loading...</h3>
+    }
+  </div>
+
+  @if (isAdmin()) {
+    <mat-list>
+      <mat-list-item routerLink="/admin">
+        <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+        <h4>Administração</h4>
+      </mat-list-item>
+    </mat-list>
+
+    <mat-divider></mat-divider>
+  }
+
+  <mat-list>
+    <mat-list-item routerLink="/settings/profile/edit">
+      <mat-icon matListItemIcon>person</mat-icon>
+      <h4>Perfil</h4>
+    </mat-list-item>
+
+    <mat-list-item routerLink="/settings/privacy">
+      <mat-icon matListItemIcon>front_hand</mat-icon>
+      <h4>Privacidade</h4>
+    </mat-list-item>
+    <mat-list-item routerLink="/settings/linked-accounts">
+      <mat-icon matListItemIcon>link</mat-icon>
+      <h4>Integrações</h4>
+    </mat-list-item>
+  </mat-list>
+
+  <mat-divider></mat-divider>
+</div>

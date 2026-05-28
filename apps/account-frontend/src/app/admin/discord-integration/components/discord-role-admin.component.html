@@ -1,0 +1,213 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>admin_panel_settings</mat-icon>
+      Gerenciamento de Cargos do Discord
+    </mat-card-title>
+    <mat-card-subtitle>
+      Configure quais cargos os usuários podem selecionar para si mesmos
+    </mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Carregando cargos do Discord...</p>
+      </div>
+    } @else {
+      <!-- Sync Button -->
+      <div class="sync-section">
+        <button
+          mat-raised-button
+          color="primary"
+          [disabled]="isSyncing()"
+          (click)="syncRoles()"
+          class="sync-button"
+        >
+          @if (isSyncing()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <mat-icon>sync</mat-icon>
+          }
+          Sincronizar Cargos do Discord
+        </button>
+        <p class="sync-description">Buscar os cargos do servidor</p>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <!-- User Instructions -->
+      <div class="instructions">
+        <mat-icon>info</mat-icon>
+        <span
+          >Clique para selecionar/desselecionar cargos. Segure
+          <kbd>Shift</kbd> e clique para selecionar um intervalo a partir da sua
+          última seleção. Cargos marcados com
+          <mat-icon inline>block</mat-icon> estão na lista negra e não podem ser
+          selecionados por razões de segurança.</span
+        >
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <!-- Currently Enabled Roles -->
+      @if (currentlyEnabledRoles().length > 0) {
+        <div class="section">
+          <h3>Cargos Atualmente Selecionáveis pelo Usuário</h3>
+          <div class="role-chips">
+            @for (role of currentlyEnabledRoles(); track role.id) {
+              <mat-chip-set>
+                <mat-chip
+                  [style.backgroundColor]="getRoleColor(role)"
+                  [style.color]="
+                    role.color === '#000000' ? '#ffffff' : '#ffffff'
+                  "
+                >
+                  {{ role.name }}
+                  @if (role.hasPermissions) {
+                    <mat-icon matChipTrailingIcon>warning</mat-icon>
+                  }
+                </mat-chip>
+              </mat-chip-set>
+            }
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+      }
+
+      <form [formGroup]="roleForm">
+        <!-- Multi-selection: Hold Shift and click to select/deselect multiple roles at once -->
+
+        <!-- Roles With Permissions (Dangerous) -->
+        @if (rolesWithPermissions().length > 0) {
+          <div class="section">
+            <h3 class="danger-title">
+              <mat-icon>warning</mat-icon>
+              Cargos com Permissões (Use com Cautela)
+            </h3>
+            <p class="danger-description">
+              Estes cargos têm permissões administrativas ou de moderação. Só os
+              habilite se você confia que os usuários tenham essas permissões.
+            </p>
+
+            <div class="role-list" formArrayName="rolesWithPermissions">
+              @for (
+                role of rolesWithPermissions();
+                track role.id;
+                let i = $index
+              ) {
+                <div
+                  class="role-item danger-role"
+                  [class.anchor-point]="
+                    isAnchorPoint(i, 'rolesWithPermissions')
+                  "
+                >
+                  <mat-checkbox
+                    [formControlName]="i"
+                    (click)="handleRoleClick($event, i, 'rolesWithPermissions')"
+                  >
+                    <div class="role-info">
+                      <span
+                        class="role-name"
+                        [style.color]="getRoleColor(role)"
+                        [class.blacklisted]="role.isBlacklisted"
+                      >
+                        {{ role.name }}
+                        @if (role.isBlacklisted) {
+                          <mat-icon class="blacklisted-icon" inline
+                            >block</mat-icon
+                          >
+                        }
+                      </span>
+                    </div>
+                  </mat-checkbox>
+                </div>
+              }
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+        }
+
+        <!-- Roles Without Permissions (Safe) -->
+        @if (rolesWithoutPermissions().length > 0) {
+          <div class="section">
+            <h3 class="safe-title">
+              <mat-icon>check_circle</mat-icon>
+              Cargos Seguros (Sem Permissões)
+            </h3>
+            <p class="safe-description">
+              Estes cargos não têm permissões perigosas e são seguros para os
+              usuários selecionarem.
+            </p>
+
+            <div class="role-list" formArrayName="rolesWithoutPermissions">
+              @for (
+                role of rolesWithoutPermissions();
+                track role.id;
+                let i = $index
+              ) {
+                <div
+                  class="role-item safe-role"
+                  [class.anchor-point]="
+                    isAnchorPoint(i, 'rolesWithoutPermissions')
+                  "
+                >
+                  <mat-checkbox
+                    [formControlName]="i"
+                    (click)="
+                      handleRoleClick($event, i, 'rolesWithoutPermissions')
+                    "
+                  >
+                    <div class="role-info">
+                      <span
+                        class="role-name"
+                        [style.color]="getRoleColor(role)"
+                        [class.blacklisted]="role.isBlacklisted"
+                      >
+                        {{ role.name }}
+                        @if (role.isBlacklisted) {
+                          <mat-icon class="blacklisted-icon" inline
+                            >block</mat-icon
+                          >
+                        }
+                      </span>
+                    </div>
+                  </mat-checkbox>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Action Buttons -->
+        <div class="actions">
+          <button
+            mat-raised-button
+            color="primary"
+            [disabled]="!hasChanges() || isSaving()"
+            (click)="saveChanges()"
+          >
+            @if (isSaving()) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>save</mat-icon>
+            }
+            Salvar Alterações
+          </button>
+
+          <button
+            mat-button
+            [disabled]="!hasChanges() || isSaving()"
+            (click)="resetChanges()"
+          >
+            <mat-icon>undo</mat-icon>
+            Redefinir Alterações
+          </button>
+        </div>
+      </form>
+    }
+  </mat-card-content>
+</mat-card>

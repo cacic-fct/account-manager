@@ -1,0 +1,28 @@
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.usage-card-content,
+.empty-state-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.usage-card-content p,
+.empty-state-content p {
+  margin: 0;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.verification-warning {
+  display: block;
+  margin-top: 6px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-error);
+}

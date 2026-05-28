@@ -1,0 +1,173 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1rem;
+  .logo {
+    height: 40px;
+  }
+  .title {
+    padding-left: 1rem;
+  }
+  .spacer {
+    flex: 1;
+  }
+  .search-box {
+    width: 200px;
+    margin-right: 1rem;
+  }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .user-name {
+      font-weight: 500;
+    }
+  }
+}
+
+.menu-header {
+  padding: 16px;
+
+  .user-details {
+    .user-email {
+      font-size: 14px;
+    }
+  }
+}
+
+.container {
+  padding: 2rem;
+
+  h2 {
+    margin-bottom: 1rem;
+  }
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+
+  mat-spinner {
+    margin-bottom: 1rem;
+  }
+
+  p {
+    font-size: 1rem;
+  }
+}
+
+.no-apps-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+
+  .no-apps-icon {
+    font-size: 72px;
+    width: 72px;
+    height: 72px;
+
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin: 0 0 1rem;
+
+    font-weight: 400;
+  }
+
+  p {
+    margin: 0;
+
+    font-size: 0.875rem;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .search-box {
+    width: 100px;
+  }
+
+  .app-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+}
+
+.beta-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--md-sys-color-primary-container, #e3f2fd);
+  color: var(--md-sys-color-on-primary-container, #1976d2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// Global styles for the alpha info dialog
+:host ::ng-deep .alpha-info-dialog {
+  .mat-mdc-dialog-container {
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .mat-mdc-dialog-surface {
+    border-radius: 16px;
+  }
+}

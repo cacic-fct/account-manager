@@ -1,0 +1,38 @@
+<section class="hero-section">
+  <!-- Individual twinkling stars -->
+  <div class="star-container">
+    @for (star of stars(); track $index) {
+      <app-star [star]="star" />
+    }
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-visual">
+      <app-cacic-logo class="hero-icon" fillColor="#fff" />
+    </div>
+    <div class="hero-text">
+      <h1 class="hero-title">
+        <span class="brand-highlight">Conta CACiC</span>
+      </h1>
+      <h2 class="hero-subtitle">
+        Acesse todos os recursos e serviços oferecidos pelas entidades
+        acadêmicas em um só lugar.
+      </h2>
+
+      <div class="hero-actions">
+        <button
+          mat-raised-button
+          color="primary"
+          class="login-button"
+          (click)="login()"
+          [disabled]="isLoggingIn()"
+        >
+          <mat-icon>login</mat-icon>
+          {{ isLoggingIn() ? "Entrando..." : "Entrar com o Google" }}
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<app-value-proposition />

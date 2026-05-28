@@ -1,0 +1,110 @@
+<div class="profile-form-container">
+  @if (isStepperLayout()) {
+    <mat-stepper class="profile-stepper" [linear]="true">
+      <ng-template matStepperIcon="edit">
+        <mat-icon>check</mat-icon>
+      </ng-template>
+      <ng-template matStepperIcon="done">
+        <mat-icon>check</mat-icon>
+      </ng-template>
+
+      <mat-step [stepControl]="personalGroup" label="Dados pessoais">
+        <div class="step-pane">
+          <app-profile-form-personal-step
+            [formGroup]="personalGroup"
+            [isUnespUser]="isUnespUser()"
+            [fullNameLocked]="identityFieldLocks().fullName"
+            [identityDocumentLocked]="identityFieldLocks().identityDocument"
+            [countryCodeOptions]="countryCodeOptions"
+            (phoneInput)="formatPhoneInput()"
+            (phoneBlur)="onPhoneBlur()"
+          />
+        </div>
+
+        <div class="step-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            matStepperNext
+            [disabled]="personalGroup.invalid"
+          >
+            Continuar
+          </button>
+        </div>
+      </mat-step>
+
+      <mat-step [stepControl]="academicGroup" label="Dados acadêmicos">
+        <div class="step-pane">
+          <app-profile-form-academic-step
+            [formGroup]="academicGroup"
+            [shouldShowUnespRoleSelection]="shouldShowUnespRoleSelection()"
+            [showEnrollmentNumber]="showEnrollmentNumber()"
+            [unespRoleOptions]="unespRoleOptions"
+            [isEditMode]="isEditMode()"
+            [isUserVerified]="isUserVerified()"
+            [unespRoleWillReset]="willResetVerification('unespRole')"
+            [enrollmentWillReset]="willResetVerification('enrollmentNumber')"
+          />
+        </div>
+
+        <div class="step-actions">
+          <button mat-button type="button" matStepperPrevious>Voltar</button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="submitProfile()"
+            [disabled]="profileForm.invalid || isSubmitting()"
+          >
+            {{ isSubmitting() ? "Salvando..." : "Salvar" }}
+          </button>
+        </div>
+      </mat-step>
+    </mat-stepper>
+  }
+
+  @if (isAllInOneLayout()) {
+    <div class="all-in-one-layout">
+      <section class="form-section">
+        <h3 class="section-title">Dados pessoais</h3>
+        <app-profile-form-personal-step
+          [formGroup]="personalGroup"
+          [isUnespUser]="isUnespUser()"
+          [fullNameLocked]="identityFieldLocks().fullName"
+          [identityDocumentLocked]="identityFieldLocks().identityDocument"
+          [countryCodeOptions]="countryCodeOptions"
+          (phoneInput)="formatPhoneInput()"
+          (phoneBlur)="onPhoneBlur()"
+        />
+      </section>
+      @if (shouldShowUnespRoleSelection()) {
+        <section class="form-section">
+          <h3 class="section-title">Dados acadêmicos</h3>
+          <app-profile-form-academic-step
+            [formGroup]="academicGroup"
+            [shouldShowUnespRoleSelection]="shouldShowUnespRoleSelection()"
+            [showEnrollmentNumber]="showEnrollmentNumber()"
+            [unespRoleOptions]="unespRoleOptions"
+            [isEditMode]="isEditMode()"
+            [isUserVerified]="isUserVerified()"
+            [unespRoleWillReset]="willResetVerification('unespRole')"
+            [enrollmentWillReset]="willResetVerification('enrollmentNumber')"
+          />
+        </section>
+      }
+
+      <div class="step-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="submitProfile()"
+          [disabled]="profileForm.invalid || isSubmitting()"
+        >
+          {{ isSubmitting() ? "Salvando..." : "Salvar" }}
+        </button>
+      </div>
+    </div>
+  }
+</div>
