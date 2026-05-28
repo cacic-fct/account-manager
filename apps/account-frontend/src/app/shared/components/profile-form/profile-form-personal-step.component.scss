@@ -1,0 +1,47 @@
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.usage-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.usage-card-content p {
+  margin: 0;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.phone-field-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.country-code-field {
+  flex: 0 0 170px;
+  min-width: 140px;
+}
+
+.phone-number-field {
+  flex: 1 1 0;
+  min-width: 220px;
+}
+
+.checkbox-container {
+  margin-top: 4px;
+}
+
+.locked-field-message {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+  margin: 4px 0 0 32px;
+}

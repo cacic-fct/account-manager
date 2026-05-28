@@ -1,0 +1,24 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/applications">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Administração</span>
+</mat-toolbar>
+<div class="settings-container">
+  <mat-list>
+    <mat-list-item routerLink="/admin/student-verification">
+      <mat-icon matListItemIcon>person</mat-icon>
+      <h4>Validação estudante</h4>
+    </mat-list-item>
+
+    <mat-list-item routerLink="/admin/discord-integration">
+      <mat-icon matListItemIcon>discord</mat-icon>
+      <h4>Integração Discord</h4>
+    </mat-list-item>
+
+    <mat-list-item routerLink="/admin/account-deletion">
+      <mat-icon matListItemIcon>manage_accounts</mat-icon>
+      <h4>Exclusão de contas</h4>
+    </mat-list-item>
+  </mat-list>
+</div>

@@ -1,0 +1,758 @@
+// CSS Custom Properties for theming
+:host {
+  // Light theme (default)
+  --card-background: #ffffff;
+  --card-border: #e0e0e0;
+  --card-shadow: rgba(0, 0, 0, 0.1);
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8f9fa;
+  --surface-tertiary: #fafafa;
+  --border-color: #e0e0e0;
+  --avatar-background: #f5f5f5;
+  --error-background: #ffebee;
+  --error-text: #d32f2f;
+  --success-background: #f1f8e9;
+  --success-border: #c8e6c9;
+  --success-text: #2e7d32;
+  --info-background: #e3f2fd;
+  --info-border: #2196f3;
+  --info-text: #1565c0;
+  --invite-success-bg: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+  --invite-warning-bg: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%);
+  --benefit-highlight-bg: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+  --primary-color: #6200ea;
+  --secondary-color: #625b71;
+  --tertiary-color: #7d5260;
+
+  // Dark theme
+  @media (prefers-color-scheme: dark) {
+    --card-background: #1e1e1e;
+    --card-border: #333333;
+    --card-shadow: rgba(0, 0, 0, 0.3);
+    --text-primary: #e0e0e0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #808080;
+    --surface-primary: #2d2d2d;
+    --surface-secondary: #242424;
+    --surface-tertiary: #1a1a1a;
+    --border-color: #333333;
+    --avatar-background: #333333;
+    --error-background: #3d1a1a;
+    --error-text: #ef5350;
+    --success-background: #1a2e1a;
+    --success-border: #2d5a2d;
+    --success-text: #81c784;
+    --info-background: #1a2332;
+    --info-border: #1976d2;
+    --info-text: #64b5f6;
+    --invite-success-bg: linear-gradient(135deg, #1a2e1a 0%, #2d5a2d 100%);
+    --invite-warning-bg: linear-gradient(135deg, #2d2419 0%, #3d1a28 100%);
+    --benefit-highlight-bg: linear-gradient(135deg, #1a2e1a 0%, #2d5a2d 100%);
+    --primary-color: #bb86fc;
+    --secondary-color: #d0bcff;
+    --tertiary-color: #efb8c8;
+  }
+}
+
+// Discord card styling
+.discord-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px var(--card-shadow);
+  overflow: hidden;
+  background: var(--card-background);
+}
+
+// Header styling
+.card-header {
+  background: #5865f2;
+  color: white;
+  padding: 24px;
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .title-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+  }
+
+  .discord-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    color: white;
+  }
+
+  .title-text {
+    flex: 1;
+
+    mat-card-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: white;
+    }
+
+    mat-card-subtitle {
+      margin: 4px 0 0 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+    }
+  }
+}
+
+// Card content
+.card-content {
+  padding: 24px;
+}
+
+// Loading state
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 0;
+  text-align: center;
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+}
+
+// Status banners
+.status-banner {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border-left: 4px solid;
+  position: relative;
+
+  &.success {
+    background: var(--success-background);
+    border-left-color: #4caf50;
+
+    .status-icon {
+      color: #4caf50;
+    }
+
+    .status-text h3 {
+      color: var(--success-text);
+    }
+  }
+
+  &.error {
+    background: var(--error-background);
+    border-left-color: #f44336;
+
+    .status-icon {
+      color: #f44336;
+    }
+
+    .status-text h3 {
+      color: #d32f2f;
+
+      @media (prefers-color-scheme: dark) {
+        color: #ef5350;
+      }
+    }
+  }
+
+  &.warning {
+    background: var(--invite-warning-bg);
+    border-left-color: #ff9800;
+
+    .status-icon {
+      color: #ff9800;
+    }
+
+    .status-text h3 {
+      color: #f57c00;
+
+      @media (prefers-color-scheme: dark) {
+        color: #ffb74d;
+      }
+    }
+  }
+
+  &.info {
+    background: var(--info-background);
+    border-left-color: var(--info-border);
+
+    .status-icon {
+      color: var(--info-border);
+    }
+
+    .status-text h3 {
+      color: var(--info-text);
+    }
+  }
+
+  .status-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+  }
+
+  .status-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .status-text {
+    flex: 1;
+
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+
+  .dismiss-button {
+    margin-left: auto;
+    color: var(--text-secondary);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+
+      @media (prefers-color-scheme: dark) {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+}
+
+// Section titles
+.section-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+// Status Overview (new simplified section)
+.status-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 24px;
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &.primary mat-icon {
+      color: var(--primary-color);
+    }
+
+    &.secondary mat-icon {
+      color: var(--secondary-color);
+    }
+
+    &.tertiary mat-icon {
+      color: var(--tertiary-color);
+    }
+
+    .status-text {
+      display: flex;
+      flex-direction: column;
+
+      .status-label {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--text-primary);
+      }
+
+      .status-subtitle {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+    }
+  }
+
+  .view-details-button {
+    flex-shrink: 0;
+    height: 36px;
+    min-width: 120px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+    }
+  }
+}
+
+// Unlinked section styling
+.unlinked-section {
+  .unlinked-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 40px 20px;
+
+    .unlinked-icon {
+      margin-bottom: 16px;
+
+      mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: var(--text-muted);
+      }
+    }
+
+    h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      max-width: 300px;
+    }
+  }
+}
+
+// Accounts container
+.accounts-container {
+  margin-bottom: 24px;
+}
+
+.accounts-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+// Account cards
+.account-card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px var(--card-shadow);
+  transition: all 0.2s ease;
+
+  .account-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .account-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--avatar-background);
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .fallback-icon {
+      color: var(--text-secondary);
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      display: none;
+      position: absolute;
+    }
+
+    mat-icon {
+      color: var(--text-secondary);
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .account-details {
+    flex: 1;
+  }
+
+  .account-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .account-username {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-family: "Roboto Mono", monospace;
+  }
+
+  .role-section {
+    margin-bottom: 12px;
+  }
+
+  .role-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .account-actions {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .unlink-button {
+    color: #f44336;
+
+    &:hover {
+      background: rgba(244, 67, 54, 0.1);
+
+      @media (prefers-color-scheme: dark) {
+        background: rgba(244, 67, 54, 0.2);
+      }
+    }
+  }
+}
+
+// Role chips
+.role-student {
+  background-color: #4caf50;
+  color: white;
+}
+
+.role-visitor {
+  background-color: #ff9800;
+  color: white;
+}
+
+// Server invite
+.server-invite {
+  background: var(--invite-success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+
+  &.warning {
+    background: var(--invite-warning-bg);
+    border-color: #ffcc02;
+
+    .invite-icon {
+      background: rgba(255, 193, 7, 0.1);
+
+      mat-icon {
+        color: #ff9800;
+      }
+    }
+
+    .invite-text h4 {
+      color: #f57c00;
+
+      @media (prefers-color-scheme: dark) {
+        color: #ffb74d;
+      }
+    }
+  }
+
+  .invite-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .invite-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 12px;
+
+    @media (prefers-color-scheme: dark) {
+      background: rgba(76, 175, 80, 0.2);
+    }
+
+    mat-icon {
+      color: #4caf50;
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .invite-text {
+    flex: 1;
+
+    h4 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--success-text);
+    }
+
+    p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+
+  .invite-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+// Benefits section
+.benefits-section {
+  margin-top: 24px;
+  margin-bottom: 1rem;
+}
+
+.benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+
+  &.highlight {
+    background: var(--benefit-highlight-bg);
+    border: 1px solid var(--success-border);
+  }
+
+  mat-icon {
+    color: #4caf50;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  span {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+}
+
+// Card actions
+.card-actions {
+  padding: 16px 24px 24px;
+  background: var(--surface-tertiary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .link-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+    height: 44px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .server-access-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    font-weight: 500;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+// Error state styling
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 0;
+  text-align: center;
+
+  .error-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    background: var(--error-background);
+    border-radius: 50%;
+
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+      color: #f44336;
+    }
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .card-header {
+    padding: 20px;
+
+    .title-section {
+      gap: 12px;
+    }
+
+    .icon-wrapper {
+      width: 40px;
+      height: 40px;
+    }
+
+    .discord-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .title-text mat-card-title {
+      font-size: 20px;
+    }
+  }
+
+  .card-content {
+    padding: 20px;
+  }
+
+  .accounts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .server-invite .invite-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .card-actions {
+    padding: 16px 20px 20px;
+    flex-direction: column;
+
+    .link-button,
+    .server-access-button {
+      width: 100%;
+      justify-content: center;
+      min-width: unset;
+    }
+  }
+
+  .status-overview {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .status-item {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .view-details-button {
+      min-width: unset;
+      width: 100%;
+    }
+  }
+}

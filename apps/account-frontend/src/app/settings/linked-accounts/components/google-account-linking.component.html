@@ -1,0 +1,177 @@
+<mat-card class="google-linking-card">
+  <mat-card-header>
+    <mat-icon mat-card-avatar>account_circle</mat-icon>
+    <mat-card-title>Google</mat-card-title>
+    <mat-card-subtitle>Contas de login e e-mails vinculados</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (currentUser(); as user) {
+      <div class="email-summary">
+        <div>
+          <span class="label">Principal</span>
+          <strong>{{ user.email }}</strong>
+        </div>
+
+        @if (user.secondaryEmails?.length) {
+          <mat-chip-set aria-label="E-mails secundários">
+            @for (email of user.secondaryEmails; track email) {
+              <mat-chip>{{ email }}</mat-chip>
+            }
+          </mat-chip-set>
+        }
+      </div>
+    }
+
+    @if (isLoading() && !mergeRequest()) {
+      <div class="loading-row">
+        <mat-spinner diameter="22"></mat-spinner>
+        <span>Carregando...</span>
+      </div>
+    }
+
+    @if (mergeRequest(); as request) {
+      <mat-divider></mat-divider>
+
+      <section class="merge-review">
+        <div class="merge-heading">
+          <mat-icon>merge_type</mat-icon>
+          <div>
+            <h3>{{ statusTitle(request) }}</h3>
+            <p>{{ statusMessage(request) }}</p>
+          </div>
+        </div>
+
+        @if (isProcessing(request)) {
+          <div class="processing-state">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            @if (request.status === "pending_merge") {
+              <span>
+                Confirmações externas:
+                {{ request.notificationSummary.completed }} concluída(s),
+                {{ request.notificationSummary.pending }} pendente(s)
+              </span>
+            }
+          </div>
+        }
+
+        @if (request.scores.length) {
+          <div class="score-grid">
+            @if (primaryScore(); as score) {
+              <div class="score-panel winner">
+                <span class="score-label">Permanecerá ativo</span>
+                <strong>{{ score.displayName || score.email }}</strong>
+                <span>{{ score.email }}</span>
+                <div class="score-value">{{ score.score }} pts</div>
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="progressValue(score.score)"
+                ></mat-progress-bar>
+              </div>
+            }
+
+            @if (secondaryScore(); as score) {
+              <div class="score-panel">
+                <span class="score-label">Será incorporado</span>
+                <strong>{{ score.displayName || score.email }}</strong>
+                <span>{{ score.email }}</span>
+                <div class="score-value">{{ score.score }} pts</div>
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="progressValue(score.score)"
+                ></mat-progress-bar>
+              </div>
+            }
+          </div>
+        }
+
+        @if (request.status === "pending") {
+          <mat-form-field appearance="outline">
+            <mat-label>E-mail principal</mat-label>
+            <mat-select
+              [ngModel]="selectedPrimaryEmail()"
+              (ngModelChange)="selectedPrimaryEmail.set($event)"
+            >
+              @for (email of request.primaryEmailOptions; track email) {
+                <mat-option [value]="email">{{ email }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        } @else if (request.selectedPrimaryEmail) {
+          <div class="selected-email">
+            <span class="label">E-mail principal escolhido</span>
+            <strong>{{ request.selectedPrimaryEmail }}</strong>
+          </div>
+        }
+
+        @if (request.scores.length) {
+          <mat-list class="score-list">
+            @for (score of request.scores; track score.userId) {
+              <mat-list-item>
+                <mat-icon matListItemIcon>analytics</mat-icon>
+                <div matListItemTitle>{{ score.email }}</div>
+                <div matListItemLine>
+                  @for (
+                    item of score.contributions;
+                    track item.source + item.label
+                  ) {
+                    <span>{{ item.label }} +{{ item.points }}</span>
+                  }
+                </div>
+              </mat-list-item>
+            }
+          </mat-list>
+        }
+      </section>
+    }
+  </mat-card-content>
+
+  <mat-card-actions align="end">
+    @if (mergeRequest(); as request) {
+      @if (request.status === "pending") {
+        <button mat-button type="button" (click)="cancelMerge()">
+          Cancelar
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="confirmMerge()"
+          [disabled]="isConfirming() || !selectedPrimaryEmail()"
+        >
+          @if (isConfirming()) {
+            <mat-spinner diameter="18"></mat-spinner>
+          } @else {
+            <mat-icon>check</mat-icon>
+          }
+          Continuar
+        </button>
+      } @else if (request.status === "completed") {
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="startLinking()"
+        >
+          <mat-icon>add_link</mat-icon>
+          Vincular outra conta
+        </button>
+      }
+    } @else {
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="startLinking()"
+        [disabled]="isLoading()"
+      >
+        @if (isLoading()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          <mat-icon>add_link</mat-icon>
+        }
+        Vincular outra conta Google
+      </button>
+    }
+  </mat-card-actions>
+</mat-card>

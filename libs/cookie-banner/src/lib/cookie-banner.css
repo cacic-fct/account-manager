@@ -1,0 +1,229 @@
+.cacic-cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--cacic-cookie-banner-z-index, 1000);
+  padding: 1rem 1.5rem;
+  background-color: var(--cacic-cookie-banner-surface, #fafafa);
+  border-top: 3px solid var(--cacic-cookie-banner-primary, #1976d2);
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.12);
+  animation: cacic-cookie-banner-slide-up 0.3s ease-out;
+  font-family: var(
+    --cacic-cookie-banner-font-family,
+    'Inter',
+    'Inter Variable',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif
+  );
+}
+
+.cacic-cookie-banner_content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.cacic-cookie-banner_text {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+}
+
+.cacic-cookie-banner_icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+  width: 32px;
+  height: 32px;
+}
+
+.cacic-cookie-banner_text-content {
+  flex: 1;
+}
+
+.cacic-cookie-banner_text-content p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--cacic-cookie-banner-on-surface, #616161);
+  line-height: 1.4;
+}
+
+.cacic-cookie-banner_text-content a {
+  color: var(--cacic-cookie-banner-primary, #1976d2);
+  text-decoration: none;
+}
+
+.cacic-cookie-banner_text-content a:hover {
+  text-decoration: underline;
+}
+
+.cacic-cookie-banner_actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.cacic-cookie-banner_accept {
+  min-width: 120px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--cacic-cookie-banner-primary-contrast, #ffffff);
+  background: var(--cacic-cookie-banner-primary, #1976d2);
+}
+
+.cacic-cookie-banner_accept:disabled {
+  cursor: wait;
+  background-color: var(--cacic-cookie-banner-disabled-surface, #e0e0e0);
+  color: var(--cacic-cookie-banner-disabled-text, #757575);
+}
+
+.cacic-cookie-banner_accept-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.cacic-cookie-banner_spinner {
+  display: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: cacic-cookie-banner-spin 0.8s linear infinite;
+}
+
+.cacic-cookie-banner_accept-loading .cacic-cookie-banner_accept-icon {
+  display: none;
+}
+
+.cacic-cookie-banner_accept-loading .cacic-cookie-banner_spinner {
+  display: inline-block;
+}
+
+@keyframes cacic-cookie-banner-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cacic-cookie-banner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .cacic-cookie-banner {
+    background-color: var(--cacic-cookie-banner-surface, #303030);
+    box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.24);
+  }
+
+  .cacic-cookie-banner_text-content p {
+    color: var(--cacic-cookie-banner-on-surface, #bdbdbd);
+  }
+
+  .cacic-cookie-banner_text-content a {
+    color: var(--cacic-cookie-banner-primary, #90caf9);
+  }
+
+  .cacic-cookie-banner_accept:disabled {
+    background-color: var(--cacic-cookie-banner-disabled-surface, #424242);
+    color: var(--cacic-cookie-banner-disabled-text, #9e9e9e);
+  }
+}
+
+@media (max-width: 768px) {
+  .cacic-cookie-banner {
+    padding: 1rem;
+  }
+
+  .cacic-cookie-banner_content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .cacic-cookie-banner_text {
+    align-items: center;
+    text-align: center;
+  }
+
+  .cacic-cookie-banner_icon {
+    margin-top: 0;
+  }
+
+  .cacic-cookie-banner_text-content p {
+    font-size: 0.85rem;
+  }
+
+  .cacic-cookie-banner_actions {
+    justify-content: center;
+  }
+
+  .cacic-cookie-banner_accept {
+    width: 100%;
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cacic-cookie-banner_text {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .cacic-cookie-banner {
+    border-top-width: 4px;
+    background-color: #ffffff;
+    border-color: #000000;
+  }
+
+  .cacic-cookie-banner_text-content p {
+    color: #000000;
+    font-weight: 500;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .cacic-cookie-banner {
+      background-color: #000000;
+      border-color: #ffffff;
+    }
+
+    .cacic-cookie-banner_text-content p {
+      color: #ffffff;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cacic-cookie-banner,
+  .cacic-cookie-banner_spinner {
+    animation: none;
+  }
+}

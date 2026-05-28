@@ -1,0 +1,63 @@
+{
+  "name": "account-frontend",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/account-frontend/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng build"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng test --watch=false"
+      }
+    },
+    "watch": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "cache": false,
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng build --watch --configuration development"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "cache": false,
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng serve"
+      }
+    },
+    "serve-ssr": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "node dist/cacic-account-manager/server/server.mjs"
+      }
+    },
+    "storybook": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "cache": false,
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng run cacic-account-manager:storybook"
+      }
+    },
+    "build-storybook": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng run cacic-account-manager:build-storybook"
+      }
+    }
+  }
+}

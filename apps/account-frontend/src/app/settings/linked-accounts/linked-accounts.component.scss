@@ -1,0 +1,30 @@
+.linked-accounts-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  .spacer {
+    flex: 1 1 auto;
+  }
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.google-section,
+.discord-section {
+  margin-bottom: 24px;
+}
+
+.verification-section {
+  margin-bottom: 24px;
+}
+
+.admin-section {
+  margin-top: 24px;
+}

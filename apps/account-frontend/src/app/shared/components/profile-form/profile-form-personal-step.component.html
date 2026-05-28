@@ -1,0 +1,107 @@
+<div class="step-content" [formGroup]="formGroup()">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Nome completo</mat-label>
+    <input
+      matInput
+      formControlName="fullname"
+      required
+      [readonly]="fullNameLocked()"
+      [readonly]="isUnespUser()"
+    />
+    <mat-icon matSuffix>person</mat-icon>
+
+    @if (hasError("fullname", "required")) {
+      <mat-error>Campo obrigatório</mat-error>
+    }
+    @if (hasError("fullname", "minlength")) {
+      <mat-error>Precisa ter no mínimo 2 caracteres</mat-error>
+    }
+    @if (fullNameLocked()) {
+      <mat-hint>Contate o CACiC para atualizar esse dado</mat-hint>
+    } @else {
+      <mat-hint>
+        Não será possível alterar seu nome completo após salvar.
+      </mat-hint>
+    }
+  </mat-form-field>
+
+  <div class="phone-field-row">
+    <mat-form-field appearance="outline" class="country-code-field">
+      <mat-label>DDI</mat-label>
+      <mat-select formControlName="countryCode">
+        @for (option of countryCodeOptions(); track option.iso2) {
+          <mat-option [value]="option.iso2">
+            {{ option.label }} {{ option.dialCode }}
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="phone-number-field">
+      <mat-label>Celular</mat-label>
+      <input
+        matInput
+        formControlName="phone"
+        type="tel"
+        required
+        (input)="phoneInput.emit()"
+        (blur)="phoneBlur.emit()"
+      />
+      <mat-icon matSuffix>phone</mat-icon>
+      @if (hasError("phone", "required")) {
+        <mat-error>Campo obrigatório</mat-error>
+      }
+      @if (hasError("phone", "invalidPhone")) {
+        <mat-error>Insira um número válido</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  @if (isForeigner()) {
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>País do passaporte</mat-label>
+      <mat-select formControlName="passportCountry">
+        @for (option of resolvedPassportCountryOptions(); track option.iso2) {
+          <mat-option [value]="option.iso2">{{ option.label }}</mat-option>
+        }
+      </mat-select>
+      <mat-icon matSuffix>flag</mat-icon>
+      @if (hasError("passportCountry", "required")) {
+        <mat-error>Selecione o país do passaporte</mat-error>
+      }
+    </mat-form-field>
+  }
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>{{ getIdentityDocumentLabel() }}</mat-label>
+    <input
+      matInput
+      formControlName="identityDocument"
+      required
+      [readonly]="identityDocumentLocked()"
+    />
+    <mat-icon matSuffix>badge</mat-icon>
+    @if (hasError("identityDocument", "required")) {
+      <mat-error>Campo obrigatório</mat-error>
+    }
+    @if (hasError("identityDocument", "invalidCPF")) {
+      <mat-error>Insira um CPF válido</mat-error>
+    }
+    @if (identityDocumentLocked()) {
+      <mat-hint>Contate o CACiC para atualizar esse dado</mat-hint>
+    }
+  </mat-form-field>
+
+  <div class="checkbox-container">
+    <mat-checkbox formControlName="isForeigner">Não tenho CPF</mat-checkbox>
+    @if (identityDocumentLocked()) {
+      <div class="locked-field-message">
+        Contate o CACiC para atualizar esse dado
+      </div>
+    } @else {
+      <div class="locked-field-message">
+        Não será possível alterar seu documento após salvar.
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,116 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>admin_panel_settings</mat-icon>
+      Configurações do Servidor Discord
+    </mat-card-title>
+    <mat-card-subtitle>
+      Gerenciar configuração do servidor Discord e links de convite
+    </mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Carregando configurações do servidor...</p>
+      </div>
+    } @else {
+      <div class="settings-list">
+        @for (setting of allSettings(); track setting.id) {
+          <div class="setting-item">
+            <div class="setting-info">
+              <h3>{{ getSettingDisplayName(setting.key) }}</h3>
+              <p class="setting-description">{{ setting.description }}</p>
+              @if (setting.id.startsWith("new-")) {
+                <p class="new-setting">
+                  Nova configuração - será criada quando salva
+                </p>
+              } @else {
+                <p class="last-updated">
+                  Última atualização: {{ setting.updatedAt | date: "medium" }}
+                </p>
+              }
+            </div>
+
+            <div class="setting-form" [attr.data-setting-key]="setting.key">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ getSettingDisplayName(setting.key) }}</mat-label>
+                <input
+                  matInput
+                  [value]="pendingChanges()[setting.key] || setting.value"
+                  (input)="updateSettingValue(setting.key, $event)"
+                  placeholder="Digite o link de convite"
+                  type="url"
+                />
+                <mat-icon matSuffix>link</mat-icon>
+              </mat-form-field>
+
+              <div class="setting-actions">
+                <button
+                  mat-raised-button
+                  color="primary"
+                  (click)="saveSetting(setting.key)"
+                  [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
+                >
+                  @if (isSaving(setting.key)) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  } @else {
+                    <mat-icon>save</mat-icon>
+                  }
+                  Salvar
+                </button>
+
+                <button
+                  mat-stroked-button
+                  (click)="resetSetting(setting.key)"
+                  [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
+                >
+                  <mat-icon>undo</mat-icon>
+                  Redefinir
+                </button>
+              </div>
+            </div>
+          </div>
+
+          @if (!$last) {
+            <mat-divider></mat-divider>
+          }
+        }
+
+        @if (settings().length === 0) {
+          <div class="no-settings">
+            <mat-icon>settings</mat-icon>
+            <p>
+              Nenhuma configuração de servidor encontrada. As configurações
+              serão criadas automaticamente quando você salvá-las.
+            </p>
+          </div>
+        }
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="actions">
+        <button mat-stroked-button (click)="refreshSettings()">
+          <mat-icon>refresh</mat-icon>
+          Atualizar Configurações
+        </button>
+
+        <button
+          mat-raised-button
+          color="accent"
+          (click)="registerMetadata()"
+          [disabled]="isRegisteringMetadata()"
+        >
+          @if (isRegisteringMetadata()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <mat-icon>cloud_upload</mat-icon>
+          }
+          Registrar Metadados do Discord
+        </button>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

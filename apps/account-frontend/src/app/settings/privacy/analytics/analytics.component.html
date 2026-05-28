@@ -1,0 +1,48 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/settings/privacy">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Análise</span>
+</mat-toolbar>
+
+<div class="analytics-container">
+  <mat-card class="settings-card">
+    <mat-card-content>
+      <div class="toggles-container">
+        @for (toggle of privacyToggles(); track toggle.key) {
+          <div class="toggle-item">
+            <div class="toggle-info">
+              <div class="toggle-header">
+                <mat-icon
+                  [class]="
+                    'toggle-icon ' + (toggle.enabled ? 'enabled' : 'disabled')
+                  "
+                >
+                  {{ toggle.icon }}
+                </mat-icon>
+                <h3>{{ toggle.title }}</h3>
+              </div>
+              <p class="toggle-description">{{ toggle.description }}</p>
+            </div>
+            <div class="toggle-control">
+              @if (toggle.loading) {
+                <mat-spinner diameter="24"></mat-spinner>
+              } @else {
+                <mat-slide-toggle
+                  [checked]="toggle.enabled"
+                  (change)="onToggleChange(toggle.key, $event.checked)"
+                  [disabled]="isUpdating()"
+                  color="primary"
+                ></mat-slide-toggle>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <p>
+        Ao manter essas opções ativadas, você nos ajuda a construir aplicações
+        melhores, mais rápidas e mais estáveis!
+      </p>
+    </mat-card-content>
+  </mat-card>
+</div>

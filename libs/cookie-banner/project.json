@@ -1,0 +1,19 @@
+{
+  "name": "cookie-banner",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "cookie-banner/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/cookie-banner",
+        "main": "cookie-banner/src/index.ts",
+        "tsConfig": "cookie-banner/tsconfig.lib.json",
+        "assets": ["cookie-banner/*.md"]
+      }
+    }
+  }
+}

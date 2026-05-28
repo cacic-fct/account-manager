@@ -1,0 +1,165 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1rem;
+  .logo {
+    height: 40px;
+  }
+  .title {
+    padding-left: 1rem;
+  }
+  .spacer {
+    flex: 1;
+  }
+  .search-box {
+    width: 200px;
+    margin-right: 1rem;
+  }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .user-name {
+      font-weight: 500;
+    }
+  }
+}
+
+.onboarding-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 20px;
+  padding-top: 10px;
+}
+
+.onboarding-card {
+  max-width: 500px;
+  width: 100%;
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+mat-card-title {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+mat-card-subtitle {
+  text-align: center;
+  color: #666;
+}
+
+.privacy-summary {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 24px;
+  max-width: 760px;
+}
+
+.privacy-accordion {
+  width: 100%;
+}
+
+.privacy-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.privacy-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: none;
+  justify-content: center;
+  margin-top: 0;
+  z-index: 10;
+}
+
+.privacy-fab button {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+}
+
+@media (max-width: 680px) {
+  .privacy-fab {
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+  }
+}
+
+.privacy-section {
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.privacy-section h3 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.privacy-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.privacy-item:last-child {
+  margin-bottom: 0;
+}
+
+.privacy-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(63, 81, 181, 0.08);
+  color: var(--mat-sys-primary);
+  flex-shrink: 0;
+}
+
+.privacy-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.privacy-description {
+  margin: 0;
+  color: var(--mat-sys-secondary);
+  line-height: 1.5;
+}
+
+.privacy-summary-usage {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.menu-header {
+  padding: 16px;
+
+  .user-details {
+    .user-email {
+      font-size: 14px;
+    }
+  }
+}

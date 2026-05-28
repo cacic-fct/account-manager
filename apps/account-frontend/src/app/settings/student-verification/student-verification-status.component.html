@@ -1,0 +1,116 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/settings">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Status da Verificação</span>
+</mat-toolbar>
+
+<div class="status-container">
+  @if (loading()) {
+    <mat-card class="status-card">
+      <mat-card-content>
+        <div class="loading-content">
+          <mat-icon>refresh</mat-icon>
+          <p>Carregando status...</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (verificationStatus(); as status) {
+    <mat-card class="status-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>school</mat-icon>
+          Status da Verificação do RA
+        </mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content>
+        <div class="status-section">
+          <div class="status-chip-container">
+            <mat-chip-set>
+              <mat-chip [color]="getStatusColor(status.status)" highlighted>
+                <mat-icon matChipIcon>{{
+                  getStatusIcon(status.status)
+                }}</mat-icon>
+                {{ getStatusText(status.status) }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          @if (status.status === "not_submitted") {
+            <div class="info-message">
+              <mat-icon>info</mat-icon>
+              <p>Você ainda não enviou nenhum documento para verificação.</p>
+            </div>
+          }
+
+          @if (status.status === "pending") {
+            <div class="info-message">
+              <mat-icon>schedule</mat-icon>
+              <p>
+                Seu documento foi enviado em
+                {{ status.submissionDate | date: "dd/MM/yyyy HH:mm" }} e está
+                aguardando verificação.
+              </p>
+            </div>
+          }
+
+          @if (status.status === "approved") {
+            <div class="success-message">
+              <mat-icon>check_circle</mat-icon>
+              <p>Seu registro acadêmico foi verificado com sucesso!</p>
+              @if (status.verificationDate) {
+                <p class="verification-date">
+                  Verificado em:
+                  {{ status.verificationDate | date: "dd/MM/yyyy HH:mm" }}
+                </p>
+              }
+            </div>
+          }
+
+          @if (status.status === "rejected") {
+            <div class="error-message">
+              <mat-icon>cancel</mat-icon>
+              <p>Seu documento foi rejeitado.</p>
+              @if (status.rejectionReason) {
+                <p class="rejection-reason">
+                  <strong>Motivo:</strong> {{ status.rejectionReason }}
+                </p>
+              }
+              @if (status.verificationDate) {
+                <p class="verification-date">
+                  Rejeitado em:
+                  {{ status.verificationDate | date: "dd/MM/yyyy HH:mm" }}
+                </p>
+              }
+            </div>
+          }
+        </div>
+      </mat-card-content>
+
+      <mat-card-actions align="end">
+        @if (
+          status.status === "not_submitted" || status.status === "rejected"
+        ) {
+          <button
+            mat-raised-button
+            color="primary"
+            routerLink="/settings/student-verification"
+          >
+            @if (status.status === "not_submitted") {
+              Enviar Documento
+            } @else {
+              Enviar Novo Documento
+            }
+          </button>
+        } @else {
+          <button mat-button routerLink="/settings">
+            Voltar às Configurações
+          </button>
+        }
+      </mat-card-actions>
+    </mat-card>
+  }
+</div>

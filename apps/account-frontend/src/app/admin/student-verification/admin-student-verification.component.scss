@@ -1,0 +1,139 @@
+.admin-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+  min-height: calc(100vh - 64px);
+  background-color: #f5f5f5;
+}
+
+.admin-card {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 1rem;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+mat-card-header {
+  margin-bottom: 1.5rem;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading-content,
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 0;
+  color: #666;
+}
+
+.loading-content mat-icon,
+.empty-content mat-icon {
+  font-size: 3rem;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
+}
+
+.loading-content mat-icon {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.table-container {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.action-buttons button {
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+}
+
+.auth-code-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-code {
+  font-family: monospace;
+  font-size: 0.75rem;
+  background-color: #f5f5f5;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verify-button {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 16px;
+}
+
+.no-code {
+  color: #999;
+  font-style: italic;
+}
+
+mat-chip {
+  font-size: 0.75rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .admin-container {
+    padding: 1rem;
+  }
+
+  .admin-card {
+    margin-top: 0;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  /* Hide less important columns on mobile */
+  .mat-column-submissionDate {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .mat-column-fileName {
+    display: none;
+  }
+}

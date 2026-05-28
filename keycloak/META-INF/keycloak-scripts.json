@@ -1,0 +1,8 @@
+{
+  "authenticators": [
+    {
+      "name": "Post-user creation script",
+      "fileName": "user-creation.js"
+    }
+  ]
+}

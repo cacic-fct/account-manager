@@ -1,0 +1,127 @@
+<mat-card class="verification-card">
+  <mat-card-header class="card-header">
+    <div class="header-content">
+      <div class="title-section">
+        <div class="icon-wrapper">
+          <mat-icon class="unesp-icon">school</mat-icon>
+        </div>
+        <div class="title-text">
+          <mat-card-title>Unesp</mat-card-title>
+          <mat-card-subtitle
+            >Verificação de estudante da graduação</mat-card-subtitle
+          >
+        </div>
+      </div>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content class="card-content">
+    <!-- Dynamic status banner -->
+    @if (currentBanner()) {
+      <div class="status-banner" [class]="currentBanner()!.type">
+        <div class="status-content">
+          <mat-icon class="status-icon">{{ currentBanner()!.icon }}</mat-icon>
+          <div class="status-text">
+            <h3>{{ currentBanner()!.title }}</h3>
+            <p>{{ currentBanner()!.message }}</p>
+          </div>
+        </div>
+        @if (currentBanner()!.dismissible) {
+          <button
+            mat-icon-button
+            class="dismiss-button"
+            (click)="dismissBanner()"
+            matTooltip="Dispensar"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+    }
+
+    @if (isLoading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="32"></mat-spinner>
+        <p>Carregando status de verificação...</p>
+      </div>
+    } @else if (hasLoadError()) {
+      <div class="error-state">
+        <div class="error-icon">
+          <mat-icon>error_outline</mat-icon>
+        </div>
+        <h3>Erro ao carregar</h3>
+        <p>Não foi possível carregar o status de verificação.</p>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="loadVerificationStatus()"
+        >
+          <mat-icon>refresh</mat-icon>
+          Tentar novamente
+        </button>
+      </div>
+    } @else {
+      <div class="verification-content">
+        @if (verificationStatus()) {
+          <div class="status-section">
+            <div class="status-chip-container">
+              <mat-chip
+                [color]="getStatusColor(verificationStatus()!.status)"
+                highlighted
+              >
+                <mat-icon matChipIcon>{{
+                  getStatusIcon(verificationStatus()!.status)
+                }}</mat-icon>
+                {{ getStatusText(verificationStatus()!.status) }}
+              </mat-chip>
+            </div>
+            <div class="status-details">
+              @if (verificationStatus()!.status === "pending") {
+                <div class="info-message">
+                  <mat-icon>schedule</mat-icon>
+                  <p>
+                    Documento enviado em
+                    {{ formatDate(verificationStatus()!.submissionDate!) }}.
+                    Aguarde a análise.
+                  </p>
+                </div>
+              } @else if (verificationStatus()!.status === "rejected") {
+                <div class="error-message">
+                  <mat-icon>cancel</mat-icon>
+                  <div>
+                    <p>Documento rejeitado.</p>
+                    @if (verificationStatus()!.rejectionReason) {
+                      <p class="rejection-reason">
+                        <strong>Motivo:</strong>
+                        {{ verificationStatus()!.rejectionReason }}
+                      </p>
+                    }
+                  </div>
+                </div>
+              } @else if (verificationStatus()!.status === "approved") {
+                <div class="success-message">
+                  <mat-icon>verified</mat-icon>
+                  <p>
+                    Documento aprovado. Você está verificado como estudante.
+                  </p>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </mat-card-content>
+
+  <mat-card-actions class="card-actions">
+    <button
+      mat-raised-button
+      color="primary"
+      routerLink="unesp/student-verification"
+      class="details-button"
+    >
+      <mat-icon>info</mat-icon>
+      Ver detalhes / Enviar documento
+    </button>
+  </mat-card-actions>
+</mat-card>

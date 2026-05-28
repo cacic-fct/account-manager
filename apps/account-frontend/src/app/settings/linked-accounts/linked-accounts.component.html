@@ -1,0 +1,25 @@
+<div class="linked-accounts-container">
+  <mat-toolbar color="primary" class="toolbar">
+    <button mat-icon-button routerLink="/settings">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <span>Integrações</span>
+    <span class="spacer"></span>
+  </mat-toolbar>
+
+  <div class="content">
+    <div class="google-section">
+      <app-google-account-linking></app-google-account-linking>
+    </div>
+
+    <!-- Discord Integration Section -->
+    <div class="discord-section">
+      <app-discord-integration></app-discord-integration>
+    </div>
+
+    <!-- Student Verification Section -->
+    <div class="verification-section">
+      <app-student-verification-card></app-student-verification-card>
+    </div>
+  </div>
+</div>

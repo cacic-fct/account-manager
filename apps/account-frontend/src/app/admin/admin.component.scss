@@ -1,0 +1,16 @@
+.settings-container {
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+mat-list-item {
+  .option-text {
+    margin-left: auto;
+    font-size: 0.9rem;
+  }
+
+  mat-slide-toggle {
+    margin-left: auto;
+  }
+}

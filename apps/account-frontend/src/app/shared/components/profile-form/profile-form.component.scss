@@ -1,0 +1,36 @@
+.profile-form-container {
+  width: 100%;
+}
+
+.profile-stepper {
+  width: 100%;
+}
+
+.step-pane {
+  padding-top: 12px;
+}
+
+.all-in-one-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  color: var(--mat-sys-on-surface);
+}
+
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}

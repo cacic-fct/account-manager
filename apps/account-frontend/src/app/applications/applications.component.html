@@ -1,0 +1,100 @@
+<mat-toolbar class="toolbar">
+  <app-cacic-logo class="logo" fillColor="light-dark(#000, #fff)" />
+  <h1 class="title">
+    Conta
+    <button
+      class="beta-badge"
+      (click)="openAlphaInfo()"
+      title="Clique para saber mais sobre a versão alpha"
+      aria-label="Informações sobre a versão alpha"
+    >
+      alpha
+    </button>
+  </h1>
+  <span class="spacer"></span>
+
+  <div class="user-info">
+    <button
+      matIconButton
+      [matMenuTriggerFor]="menu"
+      class="avatar-btn"
+      aria-label="Abrir menu do usuário"
+    >
+      @if (currentUser()?.picture) {
+        <img
+          [ngSrc]="currentUser()?.picture!"
+          class="avatar"
+          fill="true"
+          alt="Avatar do usuário"
+          priority
+        />
+      } @else {
+        <mat-icon class="avatar">account_circle</mat-icon>
+      }
+    </button>
+  </div>
+
+  <mat-menu #menu="matMenu">
+    <div class="menu-header">
+      <div class="user-details">
+        <span class="user-name">{{ userDisplayName() }}</span>
+        <br />
+        <span class="user-email">{{ currentUser()?.email }}</span>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+    @if (isAdmin()) {
+      <button mat-menu-item routerLink="/admin">
+        <mat-icon>admin_panel_settings</mat-icon>
+        Administração
+      </button>
+    }
+    <button mat-menu-item routerLink="/settings">
+      <mat-icon>settings</mat-icon>
+      Opções
+    </button>
+    <button mat-menu-item (click)="logout()">
+      <mat-icon>logout</mat-icon>
+      Sair
+    </button>
+  </mat-menu>
+</mat-toolbar>
+
+<div class="container">
+  <section>
+    <h2>Meus aplicativos</h2>
+
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-spinner></mat-spinner>
+        <p>Carregando...</p>
+      </div>
+    }
+
+    @if (!isLoading() && applications().length === 0) {
+      <div class="no-apps-container">
+        <mat-icon class="no-apps-icon">apps</mat-icon>
+        <h3>Nenhum aplicativo disponível</h3>
+        <p>
+          Entre em contato com o CACiC se precisar de acesso a aplicativos
+          específicos.
+        </p>
+      </div>
+    }
+
+    @if (!isLoading() && applications().length > 0) {
+      <div class="app-grid">
+        @for (app of applications(); track app.id) {
+          <app-card [app]="app" />
+        }
+      </div>
+    }
+  </section>
+  <section>
+    <h2>Minhas integrações</h2>
+
+    <div class="app-grid">
+      <app-discord-integration-card />
+    </div>
+  </section>
+</div>

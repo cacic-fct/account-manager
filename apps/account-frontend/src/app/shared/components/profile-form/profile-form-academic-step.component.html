@@ -1,0 +1,68 @@
+<div class="step-content" [formGroup]="formGroup()">
+  @if (shouldShowUnespRoleSelection()) {
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Vínculo com a Unesp</mat-label>
+      <mat-select formControlName="unespRole">
+        <mat-option value="">Não aplicável</mat-option>
+        @for (option of unespRoleOptions(); track option.value) {
+          <mat-option [value]="option.value">
+            {{ option.label }}
+          </mat-option>
+        }
+      </mat-select>
+      <mat-icon matSuffix>work</mat-icon>
+      @if (showUnespRoleResetWarning()) {
+        <mat-icon
+          matSuffix
+          color="warn"
+          matTooltip="Alterar este campo irá invalidar sua verificação"
+          >warning</mat-icon
+        >
+      }
+      <mat-hint>
+        @if (showUnespRoleResetWarning()) {
+          <span class="verification-warning">
+            Alterar este campo irá invalidar sua verificação.
+          </span>
+        }
+      </mat-hint>
+    </mat-form-field>
+  }
+
+  @if (showEnrollmentNumber()) {
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Registro Acadêmico (RA)</mat-label>
+      <input matInput formControlName="enrollmentNumber" />
+      <mat-icon matSuffix>badge</mat-icon>
+      @if (showEnrollmentResetWarning()) {
+        <mat-icon
+          matSuffix
+          color="warn"
+          matTooltip="Alterar este campo irá invalidar sua verificação"
+          >warning</mat-icon
+        >
+      }
+
+      <mat-hint>
+        @if (showEnrollmentResetWarning()) {
+          <span class="verification-warning">
+            Alterar este campo irá invalidar sua verificação.
+          </span>
+        }
+      </mat-hint>
+
+      @if (hasError("enrollmentNumber", "required")) {
+        <mat-error>Campo obrigatório para alunos</mat-error>
+      }
+    </mat-form-field>
+  }
+
+  @if (!shouldShowUnespRoleSelection() && !showEnrollmentNumber()) {
+    <mat-card appearance="outlined" class="empty-state-card">
+      <mat-card-content class="empty-state-content">
+        <mat-icon>check_circle</mat-icon>
+        <p>Nenhum dado acadêmico adicional é necessário no momento.</p>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>
