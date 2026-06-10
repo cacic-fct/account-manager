@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import sys
-import PyPDF2
+from pypdf import PdfReader
 
 def extract_text_from_pdf(pdf_path):
     """Extract text from PDF file"""
     try:
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = PdfReader(file)
             text = ''
             
             for page in pdf_reader.pages:
-                text += page.extract_text()
+                text += page.extract_text() or ""
             
             return text
     except Exception as e:

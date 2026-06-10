@@ -5,6 +5,7 @@ Test script for PDF verification
 
 import sys
 import os
+from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(__file__))
 
 from verify_pdf import verify_pdf_document
@@ -16,13 +17,15 @@ def create_test_pdf():
     
     filename = "test_document.pdf"
     c = canvas.Canvas(filename, pagesize=letter)
+    expires_at = datetime.now() + timedelta(days=180)
+    expiration_text = expires_at.strftime("Documento válido até às %H:%M do dia %d/%m/%Y")
     
     # Add test content
     c.drawString(100, 750, "UNIVERSIDADE ESTADUAL PAULISTA")
     c.drawString(100, 730, "Documento emitido às 22:11 do dia 02/08/2025")
     c.drawString(100, 710, "Código de autenticidade:")
     c.drawString(100, 690, "5532-5403-026B-302B-CB37-2FE5-8CD5-FF95")
-    c.drawString(100, 670, "Documento válido até às 22:11 do dia 29/01/2026")
+    c.drawString(100, 670, expiration_text)
     c.drawString(100, 650, "")
     c.drawString(100, 630, "Este é um documento de teste para verificação do sistema.")
     

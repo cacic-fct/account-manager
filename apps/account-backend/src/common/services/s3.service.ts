@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
+  type _Object,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
@@ -232,18 +233,31 @@ export class S3Service {
     }>
   > {
     try {
-      const command = new ListObjectsV2Command({
-        Bucket: this.bucketName,
-        Prefix: prefix,
-      });
+      const contents: _Object[] = [];
+      let continuationToken: string | undefined;
+      let isTruncated = true;
 
-      const response = await this.s3Client.send(command);
+      while (isTruncated) {
+        const response = await this.s3Client.send(
+          new ListObjectsV2Command({
+            Bucket: this.bucketName,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+          }),
+        );
 
-      return (response.Contents || []).map((obj) => ({
-        key: obj.Key!,
-        size: obj.Size || 0,
-        lastModified: obj.LastModified,
-      }));
+        contents.push(...(response.Contents ?? []));
+        continuationToken = response.NextContinuationToken;
+        isTruncated = response.IsTruncated === true && !!continuationToken;
+      }
+
+      return contents
+        .filter((obj): obj is _Object & { Key: string } => !!obj.Key)
+        .map((obj) => ({
+          key: obj.Key,
+          size: obj.Size || 0,
+          lastModified: obj.LastModified,
+        }));
     } catch (error: unknown) {
       this.logger.error(`Failed to list files with prefix ${prefix}:`, error);
       throw new Error(

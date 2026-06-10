@@ -154,12 +154,6 @@ export class PrivacyController {
       type: 'object',
       properties: {
         shouldShow: { type: 'boolean', example: false },
-        acceptedAt: {
-          type: 'string',
-          format: 'date-time',
-          example: '2025-01-15T10:30:00Z',
-          nullable: true,
-        },
       },
     },
   })

@@ -123,7 +123,7 @@ export class PrivacyApiController {
     }
 
     const settings = userSettings.settings;
-    const enabled = settings[settingType as PrivacySettingTypeValue];
+    const enabled = Boolean(settings[settingType as PrivacySettingTypeValue]);
 
     return {
       settingType: settingType as PrivacySettingTypeValue,

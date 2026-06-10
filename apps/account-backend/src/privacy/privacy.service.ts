@@ -21,13 +21,24 @@ type PrivacySettingRecord = Omit<PrivacySetting, 'settings' | 'metadata'> & {
 export class PrivacyService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private normalizeSettings(value: unknown): PrivacySettings {
-    const defaults: PrivacySettings = {
+  private getDefaultSettings(): PrivacySettings {
+    return {
       analytics_tracking: true,
       error_debugging: true,
       performance_monitoring: true,
       cookie_banner_accepted: false,
     };
+  }
+
+  private getDefaultMetadata(): Record<string, string> {
+    return {
+      source: 'default_creation',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  private normalizeSettings(value: unknown): PrivacySettings {
+    const defaults = this.getDefaultSettings();
 
     if (!value || typeof value !== 'object') {
       return defaults;
@@ -73,41 +84,17 @@ export class PrivacyService {
    * Get privacy settings for a user, creating defaults if they don't exist
    */
   async getUserPrivacySettings(userId: string): Promise<PrivacySettingRecord> {
-    const userSettings = await this.prisma.privacySetting.findUnique({
+    const userSettings = await this.prisma.privacySetting.upsert({
       where: { userId },
+      create: {
+        userId,
+        settings: this.getDefaultSettings() as unknown as Prisma.InputJsonValue,
+        metadata: this.getDefaultMetadata(),
+      },
+      update: {},
     });
-
-    if (!userSettings) {
-      return this.createDefaultSettings(userId);
-    }
 
     return this.toRecord(userSettings);
-  }
-
-  /**
-   * Create default privacy settings for a new user
-   */
-  private async createDefaultSettings(
-    userId: string,
-  ): Promise<PrivacySettingRecord> {
-    const defaultSettings: PrivacySettings = {
-      analytics_tracking: true,
-      error_debugging: true,
-      performance_monitoring: true,
-      cookie_banner_accepted: false,
-    };
-
-    const created = await this.prisma.privacySetting.create({
-      data: {
-        userId,
-        settings: defaultSettings as unknown as Prisma.InputJsonValue,
-        metadata: {
-          source: 'default_creation',
-          createdAt: new Date().toISOString(),
-        },
-      },
-    });
-    return this.toRecord(created);
   }
 
   /**
@@ -239,15 +226,7 @@ export class PrivacyService {
   async initializeUserPrivacySettings(
     userId: string,
   ): Promise<PrivacySettingRecord> {
-    const existingSettings = await this.prisma.privacySetting.findUnique({
-      where: { userId },
-    });
-
-    if (existingSettings) {
-      return this.toRecord(existingSettings);
-    }
-
-    return this.createDefaultSettings(userId);
+    return this.getUserPrivacySettings(userId);
   }
 
   /**

@@ -31,7 +31,8 @@ export class LgpdProcessor extends WorkerHost {
         await this.lgpdService.processAccountHardDeletion(job.data.requestId);
         return;
       default:
-        this.logger.warn(`Unknown LGPD job: ${job.name}`);
+        this.logger.error(`Unknown LGPD job: ${job.name}`);
+        throw new Error(`Unknown LGPD job: ${job.name}`);
     }
   }
 }
