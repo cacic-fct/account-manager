@@ -91,10 +91,10 @@ export class PrivacySettingResponseDto {
   @ApiProperty({
     description: 'Privacy settings as JSONB object',
     example: {
-      analytics_tracking: true,
-      error_debugging: true,
+      analytics_tracking: false,
+      error_debugging: false,
       performance_monitoring: false,
-      cookie_banner_accepted: true,
+      cookie_banner_accepted: false,
     },
     type: () => Object,
   })

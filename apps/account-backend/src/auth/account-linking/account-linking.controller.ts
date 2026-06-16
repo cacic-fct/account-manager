@@ -198,14 +198,26 @@ export class AccountLinkingController {
   @ApiOperation({ summary: 'Get a pending account merge request' })
   @ApiResponse({ status: 200 })
   @Auth()
-  @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('merge-requests/:id')
-  getMergeRequest(
+  async getMergeRequest(
     @Param('id') id: string,
     @Session() session: AuthSession,
   ): Promise<AccountMergeRequestDto> {
-    return this.accountLinkingService.getRequest(id, session.user!.keycloakId);
+    const request = await this.accountLinkingService.getRequest(
+      id,
+      session.user!.keycloakId,
+    );
+
+    if (
+      request.primaryUserId &&
+      ['pending_merge', 'completed'].includes(request.status) &&
+      session.user?.keycloakId !== request.primaryUserId
+    ) {
+      await this.switchSessionToUser(session, request.primaryUserId);
+    }
+
+    return request;
   }
 
   @ApiOperation({ summary: 'Confirm an account merge' })
@@ -223,18 +235,6 @@ export class AccountLinkingController {
       session.user!.keycloakId,
       dto.primaryEmail,
     );
-
-    const primaryUser = await this.userService.findByKeycloakId(
-      result.primaryUserId,
-    );
-    if (primaryUser && session.user) {
-      session.user = {
-        id: primaryUser.id,
-        email: primaryUser.email,
-        keycloakId: primaryUser.keycloakId,
-        isOnboarded: primaryUser.isOnboarded,
-      };
-    }
 
     return result;
   }
@@ -267,5 +267,22 @@ export class AccountLinkingController {
     } catch {
       return false;
     }
+  }
+
+  private async switchSessionToUser(
+    session: AuthSession,
+    keycloakId: string,
+  ): Promise<void> {
+    const primaryUser = await this.userService.findByKeycloakId(keycloakId);
+    if (!primaryUser || !session.user) {
+      return;
+    }
+
+    session.user = {
+      id: primaryUser.id,
+      email: primaryUser.email,
+      keycloakId: primaryUser.keycloakId,
+      isOnboarded: primaryUser.isOnboarded,
+    };
   }
 }

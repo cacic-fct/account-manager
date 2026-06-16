@@ -62,7 +62,7 @@ export class JwtService {
       throw new Error('KEYCLOAK_URL and KEYCLOAK_REALM must be configured');
     }
 
-    const jwksUri = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid_connect/certs`;
+    const jwksUri = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/certs`;
 
     this.jwksClient = jwksClient({
       jwksUri,

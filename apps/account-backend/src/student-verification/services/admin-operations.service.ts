@@ -101,6 +101,9 @@ export class AdminOperationsService {
           }`,
           error instanceof Error ? error.stack : undefined,
         );
+        throw new BadRequestException(
+          'Não foi possível marcar o usuário como verificado no CACiC SSO. A aprovação foi cancelada.',
+        );
       }
     }
 

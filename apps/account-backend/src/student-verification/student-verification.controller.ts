@@ -46,12 +46,7 @@ interface AuthSession {
 }
 
 const MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-]);
+const ALLOWED_DOCUMENT_MIME_TYPES = new Set(['application/pdf']);
 
 const studentVerificationUploadOptions = {
   limits: {
@@ -103,7 +98,7 @@ export class StudentVerificationController {
   @ApiOperation({
     summary: 'Upload document for student verification',
     description:
-      'Upload a PDF or image document for verification. Requires authentication and university role verification must not be completed.',
+      'Upload a PDF document for verification. Requires authentication and university role verification must not be completed.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -114,7 +109,7 @@ export class StudentVerificationController {
         document: {
           type: 'string',
           format: 'binary',
-          description: 'Document file (PDF, JPG, PNG)',
+          description: 'Document file (PDF, up to 10MB)',
         },
         isManualFallback: {
           type: 'boolean',

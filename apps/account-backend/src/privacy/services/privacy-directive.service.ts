@@ -30,7 +30,7 @@ export class PrivacyDirectiveService {
    * Similar to NYT's PURR system - tells frontend what to show/hide
    */
   async generateDirectivesForUser(userId: string): Promise<PrivacyDirective[]> {
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
     const directives: PrivacyDirective[] = [];
 
     if (!userSettings) {
@@ -78,8 +78,9 @@ export class PrivacyDirectiveService {
       );
     } else {
       const settings = userSettings.settings;
+      const hasCookieConsent = settings.cookie_banner_accepted;
       // Existing user - check if cookie banner was accepted
-      if (!settings.cookie_banner_accepted) {
+      if (!hasCookieConsent) {
         directives.push({
           type: PRIVACY_DIRECTIVE_TYPES.UI_COOKIE_BANNER,
           value: DIRECTIVE_VALUES.SHOW,
@@ -97,31 +98,34 @@ export class PrivacyDirectiveService {
       directives.push(
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING,
-          value: settings.analytics_tracking
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.analytics_tracking
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING,
-          value: settings.error_debugging
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.error_debugging
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING,
-          value: settings.performance_monitoring
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.performance_monitoring
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
@@ -179,7 +183,7 @@ export class PrivacyDirectiveService {
     directives: PrivacyDirective[],
     userId: string,
   ): Promise<void> {
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
     const lastUpdated = userSettings?.updatedAt || new Date();
 
     // Create compact directive map

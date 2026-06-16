@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
 
@@ -29,27 +29,22 @@ export class CookieBannerService {
 
     this._isLoading.set(true);
 
-    return this.apiService
-      .getCookieBannerStatus()
-      .pipe(
-        tap((response) => {
-          this._shouldShowBanner.set(response.shouldShow);
-          this._hasChecked.set(true);
-          this._isLoading.set(false);
-        }),
-        catchError((error) => {
-          console.error('Error checking cookie banner status:', error);
-          // On error, assume we should show the banner for safety
-          this._shouldShowBanner.set(true);
-          this._hasChecked.set(true);
-          this._isLoading.set(false);
-          return of(true);
-        }),
-      )
-      .pipe(
-        tap(() => {}), // Ensure we return the boolean value
-        map(() => this._shouldShowBanner()),
-      );
+    return this.apiService.getCookieBannerStatus().pipe(
+      tap((response) => {
+        this._shouldShowBanner.set(response.shouldShow);
+        this._hasChecked.set(true);
+        this._isLoading.set(false);
+      }),
+      catchError((error) => {
+        console.error('Error checking cookie banner status:', error);
+        // On error, assume we should show the banner for safety
+        this._shouldShowBanner.set(true);
+        this._hasChecked.set(true);
+        this._isLoading.set(false);
+        return of(true);
+      }),
+      map(() => this._shouldShowBanner()),
+    );
   }
 
   /**

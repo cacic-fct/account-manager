@@ -88,8 +88,8 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     type: BannerType,
     title: string,
     message: string,
-    dismissible: boolean = true,
-    autoHide: boolean = false,
+    dismissible = true,
+    autoHide = false,
   ): void {
     if (this.bannerTimeout) {
       clearTimeout(this.bannerTimeout);

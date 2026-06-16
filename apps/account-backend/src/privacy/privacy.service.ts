@@ -23,9 +23,9 @@ export class PrivacyService {
 
   private getDefaultSettings(): PrivacySettings {
     return {
-      analytics_tracking: true,
-      error_debugging: true,
-      performance_monitoring: true,
+      analytics_tracking: false,
+      error_debugging: false,
+      performance_monitoring: false,
       cookie_banner_accepted: false,
     };
   }
@@ -95,6 +95,16 @@ export class PrivacyService {
     });
 
     return this.toRecord(userSettings);
+  }
+
+  async findUserPrivacySettings(
+    userId: string,
+  ): Promise<PrivacySettingRecord | null> {
+    const userSettings = await this.prisma.privacySetting.findUnique({
+      where: { userId },
+    });
+
+    return userSettings ? this.toRecord(userSettings) : null;
   }
 
   /**
@@ -248,6 +258,10 @@ export class PrivacyService {
 
   async getUserSettings(userId: string): Promise<PrivacySettingRecord> {
     return this.getUserPrivacySettings(userId);
+  }
+
+  async findUserSettings(userId: string): Promise<PrivacySettingRecord | null> {
+    return this.findUserPrivacySettings(userId);
   }
 
   async getUserSetting(

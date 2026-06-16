@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,7 +24,7 @@ import { AuthService } from '../shared/services/auth/auth.service';
     RouterLink,
   ],
 })
-export class SettingsComponent implements OnInit {
+export class SettingsComponent {
   private authService = inject(AuthService);
 
   // Get current user from auth service
@@ -59,8 +59,6 @@ export class SettingsComponent implements OnInit {
   backgroundPlay = true;
   downloadWifiOnly = false;
   autoplay = true;
-
-  ngOnInit(): void {}
 
   // Handle image loading errors by falling back to a default avatar
   onImageError(event: Event): void {

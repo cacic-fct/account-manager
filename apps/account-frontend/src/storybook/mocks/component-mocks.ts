@@ -32,8 +32,8 @@ export const mockApplication: Application = {
   id: 'app_1',
   name: 'Portal do Aluno',
   description: 'Acesso rápido aos principais serviços acadêmicos.',
-  url: 'https://cacic.dev.br/portal',
-  iconUrl: 'https://cacic.dev.br/icon.svg',
+  url: 'https://example.org/portal',
+  iconUrl: 'https://example.org/icon.svg',
   category: 'academic',
   enabled: true,
 };

@@ -103,7 +103,7 @@ export class AccountLinkingService {
       where: { id: requestId },
     });
 
-    if (!request || request.requesterUserId !== sessionUserId) {
+    if (!request || !this.canReadRequest(request, sessionUserId)) {
       throw new NotFoundException('Merge request not found');
     }
 
@@ -232,10 +232,6 @@ export class AccountLinkingService {
         (email) => email !== request.selectedPrimaryEmail,
       );
 
-      await this.transferLocalData(
-        decision.primaryUserId,
-        decision.secondaryUserId,
-      );
       await this.transferFederatedIdentities(
         decision.primaryUserId,
         decision.secondaryUserId,
@@ -270,25 +266,45 @@ export class AccountLinkingService {
         false,
       );
 
-      const notifications = await this.createExternalMergeNotifications({
-        mergeRequestId: request.id,
-        oldUserId: decision.secondaryUserId,
-        newUserId: decision.primaryUserId,
-      });
+      const { notifications, updated } = await this.prisma.$transaction(
+        async (tx) => {
+          await this.transferLocalData(
+            tx,
+            decision.primaryUserId,
+            decision.secondaryUserId,
+          );
 
-      const updated = await this.prisma.accountMergeRequest.update({
-        where: { id: request.id },
-        data: {
-          status: notifications.length > 0 ? 'pending_merge' : 'completed',
-          primaryUserId: decision.primaryUserId,
-          secondaryUserId: decision.secondaryUserId,
-          secondaryEmails,
-          scoreBreakdown: decision.scores as unknown as Prisma.InputJsonValue,
-          externalScores:
-            decision.externalScores as unknown as Prisma.InputJsonValue,
-          completedAt: notifications.length > 0 ? null : new Date(),
+          const notifications = await this.createExternalMergeNotifications(
+            tx,
+            {
+              mergeRequestId: request.id,
+              oldUserId: decision.secondaryUserId,
+              newUserId: decision.primaryUserId,
+            },
+          );
+
+          const updated = await tx.accountMergeRequest.update({
+            where: { id: request.id },
+            data: {
+              status: notifications.length > 0 ? 'pending_merge' : 'completed',
+              primaryUserId: decision.primaryUserId,
+              secondaryUserId: decision.secondaryUserId,
+              secondaryEmails,
+              scoreBreakdown:
+                decision.scores as unknown as Prisma.InputJsonValue,
+              externalScores:
+                decision.externalScores as unknown as Prisma.InputJsonValue,
+              completedAt: notifications.length > 0 ? null : new Date(),
+            },
+          });
+
+          return { notifications, updated };
         },
-      });
+        {
+          maxWait: 10_000,
+          timeout: 30_000,
+        },
+      );
 
       await Promise.all(
         notifications.map((notification) =>
@@ -543,11 +559,14 @@ export class AccountLinkingService {
     );
   }
 
-  private async createExternalMergeNotifications(payload: {
-    mergeRequestId: string;
-    oldUserId: string;
-    newUserId: string;
-  }) {
+  private async createExternalMergeNotifications(
+    tx: Prisma.TransactionClient,
+    payload: {
+      mergeRequestId: string;
+      oldUserId: string;
+      newUserId: string;
+    },
+  ) {
     const occurredAt = new Date().toISOString();
     const backends = this.getExternalBackends().filter(
       (backend) => backend.mergeUrl,
@@ -564,7 +583,7 @@ export class AccountLinkingService {
           occurredAt,
         };
 
-        return this.prisma.accountMergeExternalNotification.create({
+        return tx.accountMergeExternalNotification.create({
           data: {
             mergeRequestId: payload.mergeRequestId,
             eventId,
@@ -678,55 +697,54 @@ export class AccountLinkingService {
   }
 
   private async transferLocalData(
+    tx: Prisma.TransactionClient,
     primaryUserId: string,
     secondaryUserId: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.discordLink.updateMany({
-        where: { userId: secondaryUserId },
-        data: { userId: primaryUserId },
-      });
-      await tx.studentVerificationDocument.updateMany({
-        where: { userId: secondaryUserId },
-        data: { userId: primaryUserId },
-      });
-      await tx.studentVerificationLog.updateMany({
-        where: { userId: secondaryUserId },
-        data: { userId: primaryUserId },
-      });
-      await tx.lgpdRequest.updateMany({
-        where: { userId: secondaryUserId },
-        data: { userId: primaryUserId },
-      });
-      await tx.deleteAccountRequest.updateMany({
-        where: { userId: secondaryUserId },
-        data: { userId: primaryUserId },
-      });
-
-      const [primaryPrivacy, secondaryPrivacy] = await Promise.all([
-        tx.privacySetting.findUnique({ where: { userId: primaryUserId } }),
-        tx.privacySetting.findUnique({ where: { userId: secondaryUserId } }),
-      ]);
-
-      if (secondaryPrivacy && !primaryPrivacy) {
-        await tx.privacySetting.update({
-          where: { userId: secondaryUserId },
-          data: { userId: primaryUserId },
-        });
-      } else if (secondaryPrivacy && primaryPrivacy) {
-        await tx.privacySetting.update({
-          where: { userId: primaryUserId },
-          data: {
-            metadata: {
-              mergedFrom: secondaryUserId,
-              primaryMetadata: primaryPrivacy.metadata,
-              secondaryMetadata: secondaryPrivacy.metadata,
-            },
-          },
-        });
-        await tx.privacySetting.delete({ where: { userId: secondaryUserId } });
-      }
+    await tx.discordLink.updateMany({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
     });
+    await tx.studentVerificationDocument.updateMany({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+    await tx.studentVerificationLog.updateMany({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+    await tx.lgpdRequest.updateMany({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+    await tx.deleteAccountRequest.updateMany({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+
+    const [primaryPrivacy, secondaryPrivacy] = await Promise.all([
+      tx.privacySetting.findUnique({ where: { userId: primaryUserId } }),
+      tx.privacySetting.findUnique({ where: { userId: secondaryUserId } }),
+    ]);
+
+    if (secondaryPrivacy && !primaryPrivacy) {
+      await tx.privacySetting.update({
+        where: { userId: secondaryUserId },
+        data: { userId: primaryUserId },
+      });
+    } else if (secondaryPrivacy && primaryPrivacy) {
+      await tx.privacySetting.update({
+        where: { userId: primaryUserId },
+        data: {
+          metadata: {
+            mergedFrom: secondaryUserId,
+            primaryMetadata: primaryPrivacy.metadata,
+            secondaryMetadata: secondaryPrivacy.metadata,
+          },
+        },
+      });
+      await tx.privacySetting.delete({ where: { userId: secondaryUserId } });
+    }
   }
 
   private async transferFederatedIdentities(
@@ -940,14 +958,9 @@ export class AccountLinkingService {
       }
 
       return parsed
-        .filter((item): item is ExternalMergeBackend => {
-          return (
-            !!item &&
-            typeof item === 'object' &&
-            'name' in item &&
-            typeof item.name === 'string'
-          );
-        })
+        .filter((item): item is ExternalMergeBackend =>
+          this.isExternalMergeBackend(item),
+        )
         .map((item) => ({
           name: item.name,
           scoreUrl: item.scoreUrl,
@@ -997,11 +1010,15 @@ export class AccountLinkingService {
           item &&
           typeof item === 'object' &&
           'userId' in item &&
-          'score' in item &&
-          typeof item.userId === 'string' &&
-          typeof item.score === 'number'
+          'score' in item
         ) {
-          scores[item.userId] = item.score;
+          const record = item as Record<string, unknown>;
+          if (
+            typeof record.userId === 'string' &&
+            typeof record.score === 'number'
+          ) {
+            scores[record.userId] = record.score;
+          }
         }
       }
     }
@@ -1062,5 +1079,34 @@ export class AccountLinkingService {
       completedAt: request.completedAt?.toISOString(),
       createdAt: request.createdAt.toISOString(),
     };
+  }
+
+  private canReadRequest(
+    request: {
+      requesterUserId: string;
+      primaryUserId: string | null;
+    },
+    sessionUserId: string,
+  ): boolean {
+    return (
+      request.requesterUserId === sessionUserId ||
+      request.primaryUserId === sessionUserId
+    );
+  }
+
+  private isExternalMergeBackend(
+    value: unknown,
+  ): value is ExternalMergeBackend {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const record = value as Record<string, unknown>;
+    return (
+      typeof record.name === 'string' &&
+      (record.scoreUrl === undefined || typeof record.scoreUrl === 'string') &&
+      (record.mergeUrl === undefined || typeof record.mergeUrl === 'string') &&
+      (record.audience === undefined || typeof record.audience === 'string')
+    );
   }
 }

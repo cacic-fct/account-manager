@@ -15,6 +15,7 @@ import { NecordModule } from 'necord';
 import { GatewayIntentBits } from 'discord.js';
 import { PrismaModule } from './prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
 
 const getRequiredEnv = (name: string): string => {
   const value = process.env[name];
@@ -40,6 +41,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
         }),
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     CommonModule,
     LgpdModule,

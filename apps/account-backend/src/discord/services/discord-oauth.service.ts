@@ -26,7 +26,11 @@ export class DiscordOAuthService {
   /**
    * Get Discord OAuth URL for linking
    */
-  getDiscordAuthUrl(_userId: string): { authUrl: string; state: string } {
+  getDiscordAuthUrl(userId: string): { authUrl: string; state: string } {
+    if (!userId.trim()) {
+      throw new BadRequestException('User ID is required');
+    }
+
     const clientId = process.env.DISCORD_CLIENT_ID;
     if (!clientId) {
       throw new BadRequestException('Discord client ID not configured');

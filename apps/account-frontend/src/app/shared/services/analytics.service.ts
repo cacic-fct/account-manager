@@ -73,8 +73,8 @@ export class AnalyticsService {
 
     // Initialize dataLayer
     window.dataLayer = window.dataLayer || [];
-    window.gtag = function gtag() {
-      window.dataLayer!.push(arguments);
+    window.gtag = (...args: unknown[]) => {
+      window.dataLayer!.push(args);
     };
 
     window.gtag('js', new Date());

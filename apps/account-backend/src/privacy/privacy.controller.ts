@@ -5,6 +5,7 @@ import {
   Put,
   Body,
   Param,
+  ParseEnumPipe,
   Session,
   UseGuards,
 } from '@nestjs/common';
@@ -21,7 +22,10 @@ import {
   BulkUpdatePrivacySettingsDto,
   PrivacySettingResponseDto,
 } from './dto/privacy-setting.dto';
-import { PrivacySettingTypeValue } from './constants/privacy-setting.constants';
+import {
+  PRIVACY_SETTING_TYPES,
+  PrivacySettingTypeValue,
+} from './constants/privacy-setting.constants';
 import { Auth } from '../auth/guards/auth.decorator';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { AuthSession } from '../auth/auth.controller';
@@ -94,7 +98,8 @@ export class PrivacyController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Put('settings/:settingType')
   async updatePrivacySetting(
-    @Param('settingType') settingType: PrivacySettingTypeValue,
+    @Param('settingType', new ParseEnumPipe(PRIVACY_SETTING_TYPES))
+    settingType: PrivacySettingTypeValue,
     @Body() updateData: UpdatePrivacySettingDto,
     @Session() session: AuthSession,
   ) {
@@ -246,17 +251,26 @@ export class PrivacyController {
         analyticsTracking: {
           type: 'data-handling',
           name: 'analytics-tracking',
-          action: settingValues.analytics_tracking ? 'enable' : 'disable',
+          action:
+            cookieBannerAccepted && settingValues.analytics_tracking
+              ? 'enable'
+              : 'disable',
         },
         errorDebugging: {
           type: 'data-handling',
           name: 'error-debugging',
-          action: settingValues.error_debugging ? 'enable' : 'disable',
+          action:
+            cookieBannerAccepted && settingValues.error_debugging
+              ? 'enable'
+              : 'disable',
         },
         performanceMonitoring: {
           type: 'data-handling',
           name: 'performance-monitoring',
-          action: settingValues.performance_monitoring ? 'enable' : 'disable',
+          action:
+            cookieBannerAccepted && settingValues.performance_monitoring
+              ? 'enable'
+              : 'disable',
         },
       },
       userId: session.user!.id,

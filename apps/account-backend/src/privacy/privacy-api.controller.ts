@@ -57,7 +57,7 @@ export class PrivacyApiController {
       throw new BadRequestException('User ID is required');
     }
 
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
 
     if (!userSettings) {
       throw new NotFoundException('User not found or has no privacy settings');
@@ -116,7 +116,7 @@ export class PrivacyApiController {
       throw new BadRequestException('Invalid setting type');
     }
 
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
 
     if (!userSettings) {
       throw new NotFoundException('User privacy settings not found');
@@ -156,11 +156,17 @@ export class PrivacyApiController {
       throw new BadRequestException('User ID is required');
     }
 
-    const consent = await this.privacyService.getCookieConsent(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
+
+    if (!userSettings) {
+      throw new NotFoundException('User privacy settings not found');
+    }
 
     return {
-      hasConsent: consent.hasConsent,
-      consentDate: consent.consentDate,
+      hasConsent: userSettings.settings.cookie_banner_accepted,
+      consentDate: userSettings.settings.cookie_banner_accepted
+        ? userSettings.updatedAt
+        : null,
     };
   }
 

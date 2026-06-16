@@ -476,7 +476,7 @@ export class LgpdService {
     }
   }
 
-  async cleanupExpiredFiles(): Promise<void> {
+  async cleanupExpiredFiles(): Promise<number> {
     const now = new Date();
     const expiredRequests = await this.prisma.lgpdRequest.findMany({
       where: {
@@ -512,6 +512,8 @@ export class LgpdService {
         },
       });
     }
+
+    return deletedRequestIds.length;
   }
 
   async requestAccountDeletion(
@@ -755,9 +757,9 @@ export class LgpdService {
       const failures: AccountDeletionFailure[] = [];
       const hardDeletionServices = [
         'external-backends.delete',
-        'keycloak.deleteUser',
+        'application-data.deleteUserApplicationData',
         'user-service.deleteUserData',
-        'application-data.deleteUserLgpdData',
+        'keycloak.deleteUser',
       ];
 
       try {
@@ -771,13 +773,34 @@ export class LgpdService {
       }
 
       try {
-        await this.keycloakService.deleteUser(request.userId);
-        notifiedServices.push('keycloak.deleteUser');
+        await this.deleteUserApplicationData(request.userId, request.id);
+        notifiedServices.push('application-data.deleteUserApplicationData');
       } catch (error) {
-        this.logger.error('Error deleting user from Keycloak', error);
+        this.logger.error('Error deleting application data', error);
         failures.push(
-          this.toAccountDeletionFailure('keycloak', 'deleteUser', error),
+          this.toAccountDeletionFailure(
+            'application-data',
+            'deleteUserApplicationData',
+            error,
+          ),
         );
+      }
+
+      if (failures.some((failure) => failure.service === 'application-data')) {
+        await this.prisma.deleteAccountRequest.update({
+          where: { id: requestId },
+          data: {
+            status: 'failed',
+            servicesNotified: notifiedServices,
+            errorMessage: this.serializeAccountDeletionFailures(
+              failures,
+              hardDeletionServices.filter(
+                (service) => !notifiedServices.includes(service),
+              ),
+            ),
+          },
+        });
+        return;
       }
 
       try {
@@ -795,16 +818,12 @@ export class LgpdService {
       }
 
       try {
-        await this.deleteUserLgpdData(request.userId);
-        notifiedServices.push('application-data.deleteUserLgpdData');
+        await this.keycloakService.deleteUser(request.userId);
+        notifiedServices.push('keycloak.deleteUser');
       } catch (error) {
-        this.logger.error('Error deleting LGPD data', error);
+        this.logger.error('Error deleting user from Keycloak', error);
         failures.push(
-          this.toAccountDeletionFailure(
-            'application-data',
-            'deleteUserLgpdData',
-            error,
-          ),
+          this.toAccountDeletionFailure('keycloak', 'deleteUser', error),
         );
       }
 
@@ -832,6 +851,9 @@ export class LgpdService {
           completedAt: new Date(),
           servicesNotified: notifiedServices,
           errorMessage: null,
+          userId: `deleted:${request.id}`,
+          email: `deleted-${request.id}@deleted.local`,
+          reason: null,
         },
       });
     } catch (error) {
@@ -850,18 +872,33 @@ export class LgpdService {
     }
   }
 
-  private async deleteUserLgpdData(userId: string): Promise<void> {
-    const userRequests = await this.prisma.lgpdRequest.findMany({
-      where: { userId },
-    });
+  private async deleteUserApplicationData(
+    userId: string,
+    currentDeleteRequestId: string,
+  ): Promise<void> {
+    const [lgpdRequests, studentDocuments] = await Promise.all([
+      this.prisma.lgpdRequest.findMany({
+        where: { userId },
+        select: { id: true, s3Key: true, filePath: true },
+      }),
+      this.prisma.studentVerificationDocument.findMany({
+        where: { userId },
+        select: { id: true, s3Key: true, filePath: true },
+      }),
+    ]);
 
-    for (const request of userRequests) {
+    const fileDeletionFailures: string[] = [];
+
+    for (const request of lgpdRequests) {
       if (request.s3Key) {
         try {
           await this.s3Service.deleteFile(request.s3Key);
           this.logger.debug(`Deleted LGPD file from S3: ${request.s3Key}`);
         } catch (error) {
           this.logger.error(`Error deleting S3 file ${request.s3Key}`, error);
+          fileDeletionFailures.push(
+            `lgpd:${request.id}:${this.getErrorMessage(error)}`,
+          );
         }
       }
 
@@ -872,8 +909,72 @@ export class LgpdService {
       }
     }
 
-    await this.prisma.lgpdRequest.deleteMany({ where: { userId } });
-    await this.prisma.discordLink.deleteMany({ where: { userId } });
+    for (const document of studentDocuments) {
+      if (document.s3Key) {
+        try {
+          await this.s3Service.deleteFile(document.s3Key);
+          this.logger.debug(
+            `Deleted student verification file from S3: ${document.s3Key}`,
+          );
+        } catch (error) {
+          this.logger.error(`Error deleting S3 file ${document.s3Key}`, error);
+          fileDeletionFailures.push(
+            `student-verification:${document.id}:${this.getErrorMessage(error)}`,
+          );
+        }
+      }
+
+      if (document.filePath) {
+        this.logger.verbose(
+          `Legacy file path found during deletion: ${document.filePath}`,
+        );
+      }
+    }
+
+    if (fileDeletionFailures.length > 0) {
+      throw new Error(
+        `Failed to delete ${fileDeletionFailures.length} S3 file(s): ${fileDeletionFailures.join('; ')}`,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const mergeRequestUserFilter = {
+        OR: [
+          { requesterUserId: userId },
+          { candidateUserId: userId },
+          { primaryUserId: userId },
+          { secondaryUserId: userId },
+        ],
+      };
+      const mergeRequestIds = await tx.accountMergeRequest.findMany({
+        where: mergeRequestUserFilter,
+        select: { id: true },
+      });
+
+      await tx.accountMergeExternalNotification.deleteMany({
+        where: {
+          OR: [
+            { oldUserId: userId },
+            { newUserId: userId },
+            { mergeRequestId: { in: mergeRequestIds.map(({ id }) => id) } },
+          ],
+        },
+      });
+      await tx.accountMergeRequest.deleteMany({
+        where: mergeRequestUserFilter,
+      });
+      await tx.studentVerificationLog.deleteMany({ where: { userId } });
+      await tx.studentVerificationDocument.deleteMany({ where: { userId } });
+      await tx.privacySetting.deleteMany({ where: { userId } });
+      await tx.lgpdRequest.deleteMany({ where: { userId } });
+      await tx.discordLink.deleteMany({ where: { userId } });
+      await tx.deleteAccountRequest.deleteMany({
+        where: {
+          userId,
+          id: { not: currentDeleteRequestId },
+        },
+      });
+    });
   }
 
   async getPendingAccountDeletionRequests(): Promise<

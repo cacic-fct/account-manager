@@ -24,7 +24,7 @@ export class PhoneValidationService {
 
   parsePhoneValue(
     phone: string,
-    defaultCountry: string = 'BR',
+    defaultCountry = 'BR',
   ): ParsedPhoneValue {
     const normalizedCountry = this.normalizeCountryCode(defaultCountry);
     const cleaned = phone?.trim() || '';
@@ -52,7 +52,7 @@ export class PhoneValidationService {
   }
 
   // Format phone number to E.164 for backend submission.
-  formatToInternational(phone: string, countryCode: string = 'BR'): string {
+  formatToInternational(phone: string, countryCode = 'BR'): string {
     if (!phone) {
       return '';
     }
@@ -65,7 +65,7 @@ export class PhoneValidationService {
   // Validate international phone number using libphonenumber-js
   isValidInternationalPhone(
     phone: string,
-    countryCode: string = 'BR',
+    countryCode = 'BR',
   ): boolean {
     if (!phone) {
       return false;
@@ -86,7 +86,7 @@ export class PhoneValidationService {
   }
 
   // Format phone number using the national formatting rules for the selected country.
-  formatToNational(phone: string, countryCode: string = 'BR'): string {
+  formatToNational(phone: string, countryCode = 'BR'): string {
     if (!phone) {
       return '';
     }
