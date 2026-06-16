@@ -13,7 +13,11 @@ on:
           - m2m-contracts
           - account-privacy
           - cookie-banner
+
   push:
+    branches:
+      - main
+      - dev
     paths:
       - libs/m2m-contracts/**
       - libs/account-privacy/**
@@ -30,9 +34,19 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+
+    # Extra defense:
+    # - no PR / pull_request_target execution
+    # - only the canonical repository owner
+    # - only trusted publish branches
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      !startsWith(github.event.release.tag_name, 'app-')
+      github.event_name != 'pull_request' &&
+      github.event_name != 'pull_request_target' &&
+      github.repository_owner == 'cacic-fct' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        github.ref == 'refs/heads/dev'
+      )
 
     steps:
       - name: Checkout
@@ -92,27 +106,39 @@ jobs:
             fi
           fi
 
+          any_changed=false
+          if [[ "${m2m_contracts}" == "true" || "${account_privacy}" == "true" || "${cookie_banner}" == "true" ]]; then
+            any_changed=true
+          fi
+
           {
             echo "m2m_contracts=${m2m_contracts}"
             echo "account_privacy=${account_privacy}"
             echo "cookie_banner=${cookie_banner}"
+            echo "any_changed=${any_changed}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
-        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        if: steps.changes.outputs.any_changed == 'true'
+
+      - name: Configure registries
+        if: steps.changes.outputs.any_changed == 'true'
+        shell: bash
+        run: |
+          cat > .npmrc <<'EOF'
+          registry=https://registry.npmjs.org/
+          @cacic-fct:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          always-auth=false
+          EOF
 
       - name: Install dependencies
-        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        if: steps.changes.outputs.any_changed == 'true'
         run: bun install --frozen-lockfile
-
-      - name: Configure GitHub Packages
-        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
-        run: |
-          echo "@cacic-fct:registry=https://npm.pkg.github.com" > ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build M2M contracts
         if: steps.changes.outputs.m2m_contracts == 'true'
@@ -121,7 +147,22 @@ jobs:
       - name: Publish M2M contracts
         if: steps.changes.outputs.m2m_contracts == 'true'
         working-directory: dist/libs/m2m-contracts
-        run: bun publish
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+          if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
+            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+          }
+          NODE
+
+          bun publish --registry https://npm.pkg.github.com --tolerate-republish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build account privacy
         if: steps.changes.outputs.account_privacy == 'true'
@@ -130,7 +171,22 @@ jobs:
       - name: Publish account privacy
         if: steps.changes.outputs.account_privacy == 'true'
         working-directory: dist/libs/account-privacy
-        run: bun publish
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+          if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
+            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+          }
+          NODE
+
+          bun publish --registry https://npm.pkg.github.com --tolerate-republish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build cookie banner
         if: steps.changes.outputs.cookie_banner == 'true'
@@ -139,4 +195,19 @@ jobs:
       - name: Publish cookie banner
         if: steps.changes.outputs.cookie_banner == 'true'
         working-directory: dist/libs/cookie-banner
-        run: bun publish
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+          if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
+            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+          }
+          NODE
+
+          bun publish --registry https://npm.pkg.github.com --tolerate-republish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
