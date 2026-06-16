@@ -6,7 +6,7 @@
       "@cacic/shared-types/*": ["dist/libs/shared-types/*"],
       "@cacic/shared-utils": ["dist/libs/shared-utils/index"],
       "@cacic/shared-utils/*": ["dist/libs/shared-utils/*"],
-      "@cacic-fct/m2m-contracts": ["dist/libs/m2m-contracts/index"]
+      "@cacic-fct/account-manager-m2m-contracts": ["dist/libs/m2m-contracts/index"]
     }
   },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]

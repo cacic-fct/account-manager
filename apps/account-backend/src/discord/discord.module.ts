@@ -5,7 +5,6 @@ import { DiscordRoleController } from './controllers/discord-role.controller';
 import { DiscordOAuthModule } from './oauth/discord-oauth.module';
 import { DiscordLinksModule } from './links/discord-links.module';
 import { DiscordAdminModule } from './admin/discord-admin.module';
-import { DiscordBotModule } from './bot/discord-bot.module';
 import { DiscordServicesModule } from './services/discord-services.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -17,7 +16,6 @@ import { AuthModule } from '../auth/auth.module';
     DiscordOAuthModule,
     DiscordLinksModule,
     DiscordAdminModule,
-    DiscordBotModule,
   ],
   controllers: [DiscordController, DiscordRoleController],
 })

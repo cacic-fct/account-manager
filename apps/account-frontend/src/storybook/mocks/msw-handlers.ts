@@ -3,7 +3,9 @@ import { delay, http, HttpResponse } from 'msw';
 import {
   mockDiscordStatusLinked,
   mockDiscordStatusNotLinked,
+  mockAdminSelectableRoles,
   mockRoles,
+  mockServerSettings,
   mockUserRoles,
   mockVerificationStatusApproved,
   mockVerificationStatusNotSubmitted,
@@ -11,7 +13,7 @@ import {
   mockVerificationStatusRejected,
 } from './component-mocks';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = '*/api';
 
 export const authHandlers = {
   csrf: http.get(`${API_BASE}/csrf/token`, () =>
@@ -98,6 +100,46 @@ export const discordHandlers = {
       { status: 429 },
     ),
   ),
+  adminStatus: http.get(`${API_BASE}/discord/admin/status`, () =>
+    HttpResponse.json({ isAdmin: true }),
+  ),
+  adminStatusForbidden: http.get(`${API_BASE}/discord/admin/status`, () =>
+    HttpResponse.json({ isAdmin: false }),
+  ),
+  adminStatusDelayed: http.get(`${API_BASE}/discord/admin/status`, async () => {
+    await delay(1200);
+    return HttpResponse.json({ isAdmin: true });
+  }),
+  serverSettings: http.get(`${API_BASE}/discord/admin/settings`, () =>
+    HttpResponse.json(mockServerSettings),
+  ),
+  updateServerSettingSuccess: http.put(
+    `${API_BASE}/discord/admin/settings/:key`,
+    async ({ params, request }) => {
+      const body = (await request.json()) as { value?: string };
+      return HttpResponse.json({
+        id: `setting_${String(params['key'])}`,
+        key: String(params['key']),
+        value: body.value ?? '',
+        description: 'Configuração atualizada pelo Storybook',
+        updatedAt: new Date('2026-06-16T12:00:00.000Z'),
+      });
+    },
+  ),
+  adminRoles: http.get(`${API_BASE}/discord/roles/admin`, () =>
+    HttpResponse.json(mockAdminSelectableRoles),
+  ),
+  updateRoleSelectionSuccess: http.put(
+    `${API_BASE}/discord/roles/admin/selection`,
+    async () => {
+      await delay(500);
+      return HttpResponse.json({ message: 'Cargos atualizados com sucesso' });
+    },
+  ),
+  syncRolesSuccess: http.post(`${API_BASE}/discord/roles/admin/sync`, async () => {
+    await delay(500);
+    return HttpResponse.json({ message: 'Cargos sincronizados com sucesso' });
+  }),
 };
 
 export const studentVerificationHandlers = {

@@ -1,0 +1,17 @@
+.linked-account-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  .spacer {
+    flex: 1 1 auto;
+  }
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}

@@ -11,25 +11,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import type { StudentVerificationDocument as StudentDocument } from '@cacic/shared-types';
 import { StudentVerificationService } from '../../shared/services/student-verification/student-verification.service';
 import { MatDialog } from '@angular/material/dialog';
 import { RejectDocumentDialogComponent } from './reject-document-dialog.component';
 import { environment } from '../../../environments/environment';
 import { LoggerService } from '../../shared/services/logger.service';
-
-export interface StudentDocument {
-  id: string;
-  userId: string;
-  email: string;
-  fullName?: string;
-  originalFileName: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: Date;
-  verificationDate?: Date;
-  rejectionReason?: string;
-  authenticationCode?: string;
-  extractedName?: string;
-}
 
 @Component({
   selector: 'app-admin-student-verification',

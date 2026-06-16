@@ -12,7 +12,6 @@ import {
 } from '../dto/discord-link.dto';
 import { DiscordOAuthService } from './discord-oauth.service';
 import { DiscordRoleService } from './discord-role.service';
-import { DiscordMetadataService } from './discord-metadata.service';
 import { DiscordSettingsService } from './discord-settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -24,7 +23,6 @@ export class DiscordLinkService {
     private readonly prisma: PrismaService,
     private readonly discordOAuthService: DiscordOAuthService,
     private readonly discordRoleService: DiscordRoleService,
-    private readonly discordMetadataService: DiscordMetadataService,
     private readonly discordSettingsService: DiscordSettingsService,
   ) {}
 
@@ -87,30 +85,40 @@ export class DiscordLinkService {
     }
 
     try {
-      await this.discordRoleService.assignUserRole(discordLink);
+      await this.discordRoleService.assignUserRole(discordLink, {
+        reason: 'discord-account-linked',
+      });
     } catch (error) {
       this.logger.error('Failed to assign Discord role', error);
-    }
-
-    try {
-      await this.discordMetadataService.pushUserMetadataToDiscord(
-        discordLink,
-        tokenResponse.access_token,
-      );
-    } catch (error) {
-      this.logger.error('Failed to push metadata to Discord', error);
     }
 
     return this.toDto(discordLink);
   }
 
   async getDiscordLinkStatus(userId: string): Promise<DiscordLinkStatusDto> {
-    const discordLinks = await this.prisma.discordLink.findMany({
+    let discordLinks = await this.prisma.discordLink.findMany({
       where: { userId, deleted: false },
     });
 
     const eligibleForRole =
       await this.discordRoleService.checkRoleEligibility(userId);
+
+    if (discordLinks.some((link) => link.isVerified)) {
+      try {
+        await this.discordRoleService.syncUserDiscordRoles(
+          userId,
+          'discord-status-refresh',
+        );
+        discordLinks = await this.prisma.discordLink.findMany({
+          where: { userId, deleted: false },
+        });
+      } catch (error) {
+        this.logger.warn('Failed to refresh Discord managed role status', {
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
 
     let inviteLink: string | undefined;
     if (
@@ -142,11 +150,23 @@ export class DiscordLinkService {
       throw new NotFoundException('No Discord link found for this user');
     }
 
+    try {
+      await this.discordRoleService.removeManagedRolesForDiscordLink(
+        discordLink,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to remove Discord managed roles on unlink', {
+        linkId: discordLink.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
     await this.prisma.discordLink.update({
       where: { id: discordLink.id },
       data: {
         deleted: true,
         deletedAt: new Date(),
+        assignedRole: null,
       },
     });
   }
@@ -188,13 +208,26 @@ export class DiscordLinkService {
       );
     }
 
-    return await this.prisma.discordLink.update({
+    const restoredLink = await this.prisma.discordLink.update({
       where: { id: discordLink.id },
       data: {
         deleted: false,
         deletedAt: null,
       },
     });
+
+    try {
+      await this.discordRoleService.assignUserRole(restoredLink, {
+        reason: 'discord-link-restored',
+      });
+    } catch (error) {
+      this.logger.warn('Failed to assign Discord role after restoring link', {
+        linkId: restoredLink.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    return restoredLink;
   }
 
   private toDto(discordLink: DiscordLink): DiscordLinkDto {

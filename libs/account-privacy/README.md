@@ -1,4 +1,4 @@
-# @cacic-fct/account-privacy
+# @cacic-fct/account-manager-privacy
 
 Angular client for reading CACiC account privacy preferences from the account API.
 
@@ -13,7 +13,7 @@ Configure GitHub Packages for the CACiC FCT scope:
 Then install with Bun:
 
 ```bash
-bun add @cacic-fct/account-privacy
+bun add @cacic-fct/account-manager-privacy
 ```
 
 ## Use
@@ -22,7 +22,7 @@ bun add @cacic-fct/account-privacy
 import {
   CacicAccountPrivacyService,
   provideCacicAccountPrivacy,
-} from '@cacic-fct/account-privacy';
+} from '@cacic-fct/account-manager-privacy';
 ```
 
 Add the provider to the application config when the account API base URL differs from the default:

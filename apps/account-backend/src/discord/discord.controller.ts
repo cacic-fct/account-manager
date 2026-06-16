@@ -17,6 +17,7 @@ import {
   ApiParam,
   ApiResponse,
 } from '@nestjs/swagger';
+import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { DiscordOAuthService } from './services/discord-oauth.service';
@@ -119,13 +120,13 @@ export class DiscordController {
     try {
       if (!code || !state) {
         return res.redirect(
-          `${this.appConfig.frontendUrl}settings/linked-accounts?error=missing_parameters`,
+          this.discordIntegrationUrl({ error: 'missing_parameters' }),
         );
       }
 
       if (!session.discordOAuthState) {
         return res.redirect(
-          `${this.appConfig.frontendUrl}settings/linked-accounts?error=invalid_state`,
+          this.discordIntegrationUrl({ error: 'invalid_state' }),
         );
       }
 
@@ -144,9 +145,7 @@ export class DiscordController {
         },
       );
 
-      return res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?success=true`,
-      );
+      return res.redirect(this.discordIntegrationUrl({ success: 'true' }));
     } catch (error) {
       this.logger.error('Discord OAuth callback error', error);
 
@@ -156,9 +155,7 @@ export class DiscordController {
         errorType = 'already_linked';
       }
 
-      return res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?error=${errorType}`,
-      );
+      return res.redirect(this.discordIntegrationUrl({ error: errorType }));
     }
   }
 
@@ -220,5 +217,14 @@ export class DiscordController {
       linkId,
     );
     return { message: 'Conta do Discord desvinculada com sucesso' };
+  }
+
+  private discordIntegrationUrl(query: Record<string, string>): string {
+    const url = new URL(
+      LINKED_ACCOUNT_ROUTE_PATHS.discord,
+      this.appConfig.frontendUrl,
+    );
+    url.search = new URLSearchParams(query).toString();
+    return url.toString();
   }
 }

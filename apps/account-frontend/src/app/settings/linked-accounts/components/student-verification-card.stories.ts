@@ -21,7 +21,10 @@ type Story = StoryObj<StudentVerificationCardComponent>;
 export const NotSubmitted: Story = {
   parameters: {
     msw: {
-      handlers: [authHandlers.csrf, studentVerificationHandlers.statusNotSubmitted],
+      handlers: [
+        authHandlers.csrf,
+        studentVerificationHandlers.statusNotSubmitted,
+      ],
     },
   },
 };

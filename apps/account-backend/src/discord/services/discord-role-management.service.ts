@@ -10,6 +10,7 @@ import {
   RoleSelectionResponseDto,
 } from '../dto/discord-roles.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DISCORD_AUTOMATED_ROLE_IDS } from '../constants/discord-managed-roles';
 
 type RoleSettingInput = {
   roleId: string;
@@ -26,6 +27,7 @@ export class DiscordRoleManagementService {
   private readonly logger = new Logger(DiscordRoleManagementService.name);
 
   private readonly BLACKLISTED_ROLE_IDS: string[] = [
+    ...DISCORD_AUTOMATED_ROLE_IDS,
     '1389425145088839811',
     '533902992219570187',
     '872223819799089192',
@@ -39,7 +41,6 @@ export class DiscordRoleManagementService {
     '1400509075183108287',
     '1390438330835140608',
     '533902369692581909',
-    '872241575336476712',
   ];
 
   private readonly BLACKLISTED_ROLE_NAMES = ['server booster'];
@@ -120,7 +121,10 @@ export class DiscordRoleManagementService {
       .map(this.mapToRoleDto);
 
     const selectableRoles = allRoles
-      .filter((role) => role.isEnabledForSelection && !role.isBlacklisted)
+      .filter(
+        (role) =>
+          role.isEnabledForSelection && !this.isRoleSettingBlacklisted(role),
+      )
       .map(this.mapToRoleDto);
 
     return {
@@ -135,6 +139,7 @@ export class DiscordRoleManagementService {
       where: {
         isEnabledForSelection: true,
         isBlacklisted: false,
+        roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
       },
       orderBy: { rolePosition: 'desc' },
     });
@@ -159,6 +164,9 @@ export class DiscordRoleManagementService {
         where: {
           roleId: { in: dto.enabledRoleIds },
           isBlacklisted: false,
+          NOT: {
+            roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+          },
         },
         data: { isEnabledForSelection: true },
       });
@@ -256,6 +264,9 @@ export class DiscordRoleManagementService {
         roleId: { in: dto.selectedRoleIds },
         isEnabledForSelection: true,
         isBlacklisted: false,
+        NOT: {
+          roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+        },
       },
     });
 
@@ -270,7 +281,10 @@ export class DiscordRoleManagementService {
     const member = await guild.members.fetch(discordLink.discordId);
 
     const allSelectableRoles = await this.prisma.discordRoleSetting.findMany({
-      where: { isEnabledForSelection: true },
+      where: {
+        isEnabledForSelection: true,
+        roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
+      },
     });
 
     const currentSelectableRoleIds = member.roles.cache
@@ -343,6 +357,12 @@ export class DiscordRoleManagementService {
     );
   }
 
+  private isRoleSettingBlacklisted(role: DiscordRoleSetting): boolean {
+    return (
+      role.isBlacklisted || DISCORD_AUTOMATED_ROLE_IDS.includes(role.roleId)
+    );
+  }
+
   private async upsertRoleSetting(data: RoleSettingInput): Promise<void> {
     await this.prisma.discordRoleSetting.upsert({
       where: { roleId: data.roleId },
@@ -363,8 +383,10 @@ export class DiscordRoleManagementService {
     color: roleSetting.roleColor || '#000000',
     position: roleSetting.rolePosition,
     hasPermissions: roleSetting.hasPermissions,
-    isBlacklisted: roleSetting.isBlacklisted,
+    isBlacklisted:
+      roleSetting.isBlacklisted ||
+      DISCORD_AUTOMATED_ROLE_IDS.includes(roleSetting.roleId),
     isEnabled: roleSetting.isEnabledForSelection,
-    isManaged: false,
+    isManaged: DISCORD_AUTOMATED_ROLE_IDS.includes(roleSetting.roleId),
   });
 }

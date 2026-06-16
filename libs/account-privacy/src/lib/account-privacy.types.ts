@@ -3,7 +3,7 @@ import type {
   PrivacyMetadata,
   PrivacySettings,
   PrivacySettingTypeValue,
-} from '@cacic-fct/m2m-contracts';
+} from '@cacic-fct/account-manager-m2m-contracts';
 
 export type CacicPrivacySettingKey = PrivacySettingTypeValue;
 export type CacicPrivacyPreferences = PrivacySettings;

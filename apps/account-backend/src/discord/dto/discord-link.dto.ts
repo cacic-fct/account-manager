@@ -47,7 +47,7 @@ export class DiscordLinkDto {
 
   @ApiProperty({
     description: 'Role assigned in Discord server',
-    example: 'Student',
+    example: 'student',
     required: false,
   })
   assignedRole?: string;
@@ -99,7 +99,7 @@ export class DiscordLinkStatusDto {
 
   @ApiProperty({
     description: 'Which role user is eligible for',
-    example: false,
+    example: 'student',
   })
   eligibleForRole: 'student' | 'unesp' | 'visitor';
 }

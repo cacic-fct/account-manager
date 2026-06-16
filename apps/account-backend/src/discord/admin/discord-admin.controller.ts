@@ -16,7 +16,6 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { DiscordSettingsService } from '../services/discord-settings.service';
-import { DiscordMetadataService } from '../services/discord-metadata.service';
 import { DiscordLinkService } from '../services/discord-link.service';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { Auth, DiscordAdmin } from '../../auth/guards/auth.decorator';
@@ -46,7 +45,6 @@ interface SessionUser {
 export class DiscordAdminController {
   constructor(
     private readonly discordSettingsService: DiscordSettingsService,
-    private readonly discordMetadataService: DiscordMetadataService,
     private readonly discordLinkService: DiscordLinkService,
     private readonly keycloakService: KeycloakService,
   ) {}
@@ -145,30 +143,6 @@ export class DiscordAdminController {
     @Body() dto: UpdateServerSettingDto,
   ): Promise<ServerSettingDto> {
     return await this.discordSettingsService.updateServerSetting(key, dto);
-  }
-
-  @ApiOperation({
-    summary: 'Register Discord application metadata',
-    description: 'Register role metadata with Discord for Linked Roles feature',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Application metadata registered successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - User not authenticated',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Discord admin role required',
-  })
-  @DiscordAdmin()
-  @UseGuards(CsrfGuard)
-  @Post('register-metadata')
-  async registerApplicationMetadata(): Promise<{ message: string }> {
-    await this.discordMetadataService.registerApplicationMetadata();
-    return { message: 'Discord application metadata registered successfully' };
   }
 
   @ApiOperation({

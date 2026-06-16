@@ -53,6 +53,12 @@ type AccountDeletionFailure = {
   message: string;
 };
 
+const LGPD_ACTIVE_REQUEST_EXPIRATION_DAYS = 7;
+const LGPD_ACTIVE_REQUEST_EXPIRATION_MS =
+  LGPD_ACTIVE_REQUEST_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
+const LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE =
+  'Solicitação expirada automaticamente após 7 dias sem conclusão. Faça uma nova solicitação para gerar seus dados.';
+
 @Injectable()
 export class LgpdService {
   private readonly logger = new Logger(LgpdService.name);
@@ -72,6 +78,8 @@ export class LgpdService {
   ) {}
 
   async createRequest(userId: string, email: string): Promise<LgpdRequestDto> {
+    await this.expireStaleActiveRequests(userId);
+
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
@@ -131,6 +139,8 @@ export class LgpdService {
   }
 
   async getRequestById(id: string, userId: string): Promise<LgpdRequestDto> {
+    await this.expireStaleActiveRequests(userId);
+
     const request = await this.prisma.lgpdRequest.findFirst({
       where: { id, userId },
     });
@@ -145,6 +155,8 @@ export class LgpdService {
   }
 
   async getUserRequests(userId: string): Promise<LgpdRequestListDto[]> {
+    await this.expireStaleActiveRequests(userId);
+
     const requests = await this.prisma.lgpdRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
@@ -201,6 +213,11 @@ export class LgpdService {
     });
 
     if (!request) return;
+
+    if (this.isActiveRequestExpired(request)) {
+      await this.markActiveRequestExpired(requestId);
+      return;
+    }
 
     try {
       await this.prisma.lgpdRequest.update({
@@ -519,6 +536,53 @@ export class LgpdService {
     }
 
     return deletedRequestIds.length;
+  }
+
+  async cleanupExpiredRequests(): Promise<number> {
+    return this.expireStaleActiveRequests();
+  }
+
+  private async expireStaleActiveRequests(userId?: string): Promise<number> {
+    const result = await this.prisma.lgpdRequest.updateMany({
+      where: {
+        ...(userId ? { userId } : {}),
+        status: { in: ['pending', 'processing'] },
+        createdAt: { lte: this.getActiveRequestExpirationCutoff() },
+      },
+      data: {
+        status: 'failed',
+        errorMessage: LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE,
+      },
+    });
+
+    if (result.count > 0) {
+      this.logger.warn(
+        `Expired ${result.count} stale active LGPD request(s)${userId ? ` for user ${userId}` : ''}`,
+      );
+    }
+
+    return result.count;
+  }
+
+  private async markActiveRequestExpired(requestId: string): Promise<void> {
+    await this.prisma.lgpdRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'failed',
+        errorMessage: LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE,
+      },
+    });
+  }
+
+  private isActiveRequestExpired(request: LgpdRequest): boolean {
+    return (
+      (request.status === 'pending' || request.status === 'processing') &&
+      request.createdAt <= this.getActiveRequestExpirationCutoff()
+    );
+  }
+
+  private getActiveRequestExpirationCutoff(): Date {
+    return new Date(Date.now() - LGPD_ACTIVE_REQUEST_EXPIRATION_MS);
   }
 
   async requestAccountDeletion(

@@ -62,10 +62,6 @@ async function bootstrap() {
 
   setupSwagger(app);
 
-  if (process.env.NODE_ENV === 'production') {
-    void registerDiscordMetadata();
-  }
-
   // Enable global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -199,74 +195,4 @@ function setupSwagger(app: INestApplication<any>): void {
     },
   };
   SwaggerModule.setup('swagger', app, documentFactory, swaggerCustomOptions);
-}
-
-/**
- * Registers Discord role connection metadata for the application.
- * This should be called once after deployment or when metadata changes.
- * Requires DISCORD_CLIENT_ID and DISCORD_BOT_TOKEN in environment variables.
- */
-async function registerDiscordMetadata(): Promise<void> {
-  const discordLogger = new Logger('DiscordMetadata');
-  const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
-  const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-  if (!DISCORD_CLIENT_ID || !DISCORD_BOT_TOKEN) {
-    discordLogger.warn(
-      'Discord metadata registration skipped: missing DISCORD_CLIENT_ID or DISCORD_BOT_TOKEN',
-    );
-    return;
-  }
-
-  const url = `https://discord.com/api/v10/applications/${DISCORD_CLIENT_ID}/role-connections/metadata`;
-  const body = [
-    {
-      key: 'has_unesp_email',
-      name: 'Possui e-mail institucional',
-      description: 'Possui e-mail @unesp.br?',
-      type: 7,
-    },
-    {
-      key: 'is_student',
-      name: 'É aluno',
-      description: 'É aluno da graduação?',
-      type: 7,
-    },
-    {
-      key: 'is_computer_science_student',
-      name: 'É aluno da computação',
-      description: 'É aluno do BCC?',
-      type: 7,
-    },
-    {
-      key: 'is_not_unesp_email',
-      name: 'Não possui e-mail institucional',
-      description: 'Precisa não possuir e-mail @unesp.br vinculado',
-      type: 7,
-    },
-  ];
-
-  try {
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const errorText = await res.text();
-      discordLogger.error(
-        'Failed to register Discord metadata',
-        res.status,
-        errorText,
-      );
-    } else {
-      discordLogger.log(
-        'Discord role connection metadata registered successfully.',
-      );
-    }
-  } catch (err) {
-    discordLogger.error('Error registering Discord metadata', err);
-  }
 }

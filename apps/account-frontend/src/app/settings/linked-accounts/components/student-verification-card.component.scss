@@ -170,12 +170,10 @@
         padding: 20px;
         border-radius: 12px;
         margin-bottom: 24px;
-        border-left: 4px solid;
         position: relative;
 
         &.success {
           background: var(--success-background);
-          border-left-color: #4caf50;
 
           .status-icon {
             color: #4caf50;
@@ -188,7 +186,6 @@
 
         &.error {
           background: var(--error-background);
-          border-left-color: #f44336;
 
           .status-icon {
             color: #f44336;
@@ -201,7 +198,6 @@
 
         &.warning {
           background: var(--warning-background);
-          border-left-color: #ff9800;
 
           .status-icon {
             color: #ff9800;
@@ -214,7 +210,6 @@
 
         &.info {
           background: var(--info-background);
-          border-left-color: var(--info-border);
 
           .status-icon {
             color: var(--info-text);
@@ -337,7 +332,6 @@
 
       .info-message {
         background: var(--info-background);
-        border-left: 4px solid var(--info-border);
 
         mat-icon {
           color: var(--info-text);
@@ -346,7 +340,6 @@
 
       .error-message {
         background: var(--error-background);
-        border-left: 4px solid #f44336;
 
         mat-icon {
           color: #f44336;
@@ -484,7 +477,6 @@
         padding: 16px;
         background-color: var(--warning-background);
         border-radius: 8px;
-        border-left: 4px solid #ff9800;
         border: 1px dashed #ffb74d;
 
         .dev-checkbox {

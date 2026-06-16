@@ -2,10 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Client, Guild, GuildMember } from 'discord.js';
 import type { DiscordLink } from '@prisma/client';
 import { UserService } from '../auth/services/user.service';
-import { UserProfile } from '../auth/interfaces/auth.interface';
-import { isUndergraduateStudentRole } from '@cacic/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
-import { isUnespEmail } from '@cacic/shared-utils';
+import { DiscordRoleService } from './services/discord-role.service';
 
 @Injectable()
 export class DiscordBotService {
@@ -14,6 +12,7 @@ export class DiscordBotService {
   constructor(
     private readonly prisma: PrismaService,
     private userService: UserService,
+    private readonly discordRoleService: DiscordRoleService,
   ) {}
 
   async assignNickname(
@@ -41,7 +40,7 @@ export class DiscordBotService {
         where: { discordId: member.id, deleted: false },
       });
       if (!discordLink) {
-        this.logger.warn(`No Discord link found for user: ${discordUserId}`);
+        this.logger.debug(`No Discord link found for user: ${discordUserId}`);
         return;
       }
 
@@ -140,45 +139,13 @@ export class DiscordBotService {
         );
       }
 
-      const eligibleRole = this.getUserEligibleRole(user);
-
-      const roleMapping = {
-        student: 'Computer Science Student',
-        unesp: 'Unesp Student',
-        visitor: 'Visitor',
-      } as const;
-
-      const roleName = roleMapping[eligibleRole];
-
-      const role = guild.roles.cache.find((r) => r.name === roleName);
-      if (role) {
-        try {
-          await member.roles.add(role);
-          this.logger.log(
-            `Discord role assigned - User: ${member.user.username}, Role: ${roleName}, Eligibility: ${eligibleRole}`,
-            {
-              userId: discordLink.userId,
-              discordId: discordLink.discordId,
-              userEmail: user?.email,
-              isVerified: user?.unespRoleVerified,
-              unespRole: user?.unespRole,
-              enrollmentNumber: user?.enrollmentNumber,
-            },
-          );
-
-          await this.prisma.discordLink.update({
-            where: { id: discordLink.id },
-            data: { assignedRole: roleName },
-          });
-        } catch (error) {
-          this.logger.error(
-            `Failed to assign role ${roleName} to ${member.user.username}:`,
-            error,
-          );
-        }
-      } else {
-        this.logger.warn(`Role ${roleName} not found in guild ${guild.name}`);
-      }
+      await this.discordRoleService.assignUserRole(discordLink, {
+        client,
+        guildId,
+        discordUserId,
+        member,
+        reason: 'discord-link-or-join-sync',
+      });
     } catch (error) {
       this.logger.error(`Error in assignRoleAndNickname:`, error);
     }
@@ -224,41 +191,18 @@ export class DiscordBotService {
         member.id,
         discordLink,
       );
+    } else {
+      await this.discordRoleService.ensureRegistrationRoleForMember(
+        member,
+        'discord-member-joined-without-linked-account',
+      );
+      this.logger.debug(
+        `No CACiC Discord link found for joined member ${member.id}; registration role ensured`,
+      );
     }
   }
 
   private async getGuild(client: Client, guildId: string): Promise<Guild> {
     return await client.guilds.fetch(guildId);
-  }
-
-  private getUserEligibleRole(
-    user: UserProfile,
-  ): 'student' | 'unesp' | 'visitor' {
-    if (!isUnespEmail(user?.email)) {
-      return 'visitor';
-    }
-
-    if (user.unespRoleVerified && this.isComputerScienceStudent(user)) {
-      return 'student';
-    }
-
-    return 'unesp';
-  }
-
-  private isComputerScienceStudent(user: UserProfile): boolean {
-    if (!user.unespRole || !isUndergraduateStudentRole(user.unespRole)) {
-      return false;
-    }
-
-    const enrollmentNumber = user.enrollmentNumber;
-    if (!enrollmentNumber || enrollmentNumber.length < 4) {
-      return false;
-    }
-
-    return enrollmentNumber.substring(2, 4) === '12';
-  }
-
-  private isEligibleForStudentRole(user: UserProfile): boolean {
-    return this.getUserEligibleRole(user) === 'student';
   }
 }

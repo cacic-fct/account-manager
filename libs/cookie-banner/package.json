@@ -1,5 +1,5 @@
 {
-  "name": "@cacic-fct/cookie-banner",
+  "name": "@cacic-fct/account-manager-cookie-banner",
   "version": "0.0.1",
   "description": "CACiC cookie consent banner with vanilla and Angular entry points.",
   "license": "AGPL-3.0-only",

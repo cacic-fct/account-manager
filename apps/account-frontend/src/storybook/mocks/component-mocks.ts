@@ -2,6 +2,7 @@ import type { Application, User } from '@cacic/shared-types';
 import type {
   DiscordLinkStatus,
   DiscordRole,
+  SelectableRoles,
   UserRoles,
   ServerSetting,
 } from '../../app/shared/services/api.service';
@@ -130,19 +131,96 @@ export const mockUserRoles: UserRoles = {
   ),
 };
 
+const mockAdminRoleDiretoria: DiscordRole = {
+  id: 'admin_role_1',
+  name: 'Diretoria',
+  color: '#f1c40f',
+  position: 30,
+  hasPermissions: true,
+  isBlacklisted: false,
+  isEnabled: true,
+  isManaged: false,
+};
+
+const mockAdminRoleModeracao: DiscordRole = {
+  id: 'admin_role_2',
+  name: 'Moderação',
+  color: '#e74c3c',
+  position: 25,
+  hasPermissions: true,
+  isBlacklisted: false,
+  isEnabled: false,
+  isManaged: false,
+};
+
+const mockAdminRoleBot: DiscordRole = {
+  id: 'admin_role_3',
+  name: 'Bot',
+  color: '#2c2f33',
+  position: 24,
+  hasPermissions: true,
+  isBlacklisted: true,
+  isEnabled: false,
+  isManaged: true,
+};
+
+const mockAdminRoleAluno: DiscordRole = {
+  id: 'admin_role_4',
+  name: 'Aluno',
+  color: '#5865f2',
+  position: 20,
+  hasPermissions: false,
+  isBlacklisted: false,
+  isEnabled: true,
+  isManaged: false,
+};
+
+const mockAdminRoleEventos: DiscordRole = {
+  id: 'admin_role_5',
+  name: 'Eventos',
+  color: '#2ecc71',
+  position: 18,
+  hasPermissions: false,
+  isBlacklisted: false,
+  isEnabled: true,
+  isManaged: false,
+};
+
+const mockAdminRoleSemCor: DiscordRole = {
+  id: 'admin_role_6',
+  name: 'Sem cor personalizada',
+  color: '#000000',
+  position: 10,
+  hasPermissions: false,
+  isBlacklisted: false,
+  isEnabled: false,
+  isManaged: false,
+};
+
+export const mockAdminSelectableRoles: SelectableRoles = {
+  rolesWithPermissions: [
+    mockAdminRoleDiretoria,
+    mockAdminRoleModeracao,
+    mockAdminRoleBot,
+  ],
+  rolesWithoutPermissions: [
+    mockAdminRoleAluno,
+    mockAdminRoleEventos,
+    mockAdminRoleSemCor,
+  ],
+  selectableRoles: [
+    mockAdminRoleDiretoria,
+    mockAdminRoleAluno,
+    mockAdminRoleEventos,
+  ],
+};
+
 export const mockServerSettings: ServerSetting[] = [
   {
     id: 's1',
-    key: 'invite_link',
+    key: 'student_invite_link',
     value: 'https://discord.gg/cacic',
-    description: 'Convite padrão do servidor',
-    updatedAt: new Date('2026-03-01T00:00:00.000Z'),
-  },
-  {
-    id: 's2',
-    key: 'welcome_channel',
-    value: '#boas-vindas',
-    description: 'Canal de boas-vindas',
+    description: 'Convite do servidor de Discord para estudantes',
     updatedAt: new Date('2026-03-01T00:00:00.000Z'),
   },
 ];

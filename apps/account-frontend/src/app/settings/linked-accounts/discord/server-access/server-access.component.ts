@@ -65,7 +65,7 @@ export class DiscordServerAccessComponent implements OnInit {
   hasVisitorRole(): boolean {
     return (
       this.discordStatus()?.discordLinks?.some(
-        (link) => link.assignedRole?.toLowerCase() === 'visitor',
+        (link) => link.assignedRole === 'visitor',
       ) || false
     );
   }

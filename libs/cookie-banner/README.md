@@ -1,4 +1,4 @@
-# @cacic-fct/cookie-banner
+# @cacic-fct/account-manager-cookie-banner
 
 CACiC cookie consent banner with vanilla JavaScript and Angular entry points.
 
@@ -13,7 +13,7 @@ Configure GitHub Packages for the CACiC FCT scope:
 Then install with Bun:
 
 ```bash
-bun add @cacic-fct/cookie-banner
+bun add @cacic-fct/account-manager-cookie-banner
 ```
 
 ## Angular
@@ -22,7 +22,7 @@ bun add @cacic-fct/cookie-banner
 import {
   CookieBannerComponent,
   type CookieBannerOptions,
-} from '@cacic-fct/cookie-banner/angular';
+} from '@cacic-fct/account-manager-cookie-banner/angular';
 ```
 
 ```html
@@ -32,7 +32,7 @@ import {
 ## Vanilla
 
 ```ts
-import { createCookieBanner } from '@cacic-fct/cookie-banner';
+import { createCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
 
 createCookieBanner({
   privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',

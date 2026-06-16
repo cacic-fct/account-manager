@@ -50,7 +50,7 @@ export class DiscordOAuthService {
     params.append('client_id', clientId);
     params.append('redirect_uri', redirectUri);
     params.append('response_type', 'code');
-    params.append('scope', 'identify role_connections.write');
+    params.append('scope', 'identify');
     params.append('state', state);
 
     return {

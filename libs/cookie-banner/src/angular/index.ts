@@ -3,11 +3,11 @@
  *
  * Usage:
  * ```typescript
- * import { CookieBannerComponent } from '@cacic/cookie-banner/angular';
+ * import { CookieBannerComponent } from '@cacic-fct/account-manager-cookie-banner/angular';
  * ```
  *
  * This entry point exports the Angular wrapper component.
- * For the vanilla JS implementation, import from '@cacic/cookie-banner'.
+ * For the vanilla JS implementation, import from '@cacic-fct/account-manager-cookie-banner'.
  */
 
 export { CookieBannerComponent } from './cookie-banner.component.js';

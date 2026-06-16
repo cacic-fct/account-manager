@@ -6,7 +6,7 @@
     "outDir": "../../dist/libs/account-privacy",
     "rootDir": "src",
     "paths": {
-      "@cacic-fct/m2m-contracts": ["dist/libs/m2m-contracts/index"]
+      "@cacic-fct/account-manager-m2m-contracts": ["dist/libs/m2m-contracts/index"]
     },
     "types": [],
     "lib": ["DOM", "ES2022"]

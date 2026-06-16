@@ -73,7 +73,7 @@ import {
             <button
               mat-icon-button
               matTooltip="Gerenciar vínculo"
-              routerLink="/settings/linked-accounts"
+              routerLink="/settings/linked-accounts/discord"
               color="primary"
             >
               <mat-icon>settings</mat-icon>

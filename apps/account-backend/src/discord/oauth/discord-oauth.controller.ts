@@ -1,6 +1,7 @@
 import { Controller, Get, Logger, Query, Res, Session } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { DiscordOAuthService } from '../services/discord-oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig, AppConfig } from '../../config/app.config';
@@ -93,7 +94,7 @@ export class DiscordOAuthController {
     try {
       if (!code || !state) {
         return res.redirect(
-          `${this.appConfig.frontendUrl}settings/linked-accounts?error=missing_parameters`,
+          this.discordIntegrationUrl({ error: 'missing_parameters' }),
         );
       }
 
@@ -104,8 +105,17 @@ export class DiscordOAuthController {
     } catch (error) {
       this.logger.error('Discord OAuth callback error', error);
       return res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?error=callback_failed`,
+        this.discordIntegrationUrl({ error: 'callback_failed' }),
       );
     }
+  }
+
+  private discordIntegrationUrl(query: Record<string, string>): string {
+    const url = new URL(
+      LINKED_ACCOUNT_ROUTE_PATHS.discord,
+      this.appConfig.frontendUrl,
+    );
+    url.search = new URLSearchParams(query).toString();
+    return url.toString();
   }
 }

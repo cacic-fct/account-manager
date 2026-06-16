@@ -1,4 +1,4 @@
-# @cacic-fct/m2m-contracts
+# @cacic-fct/account-manager-m2m-contracts
 
 Framework-agnostic contracts for CACiC Account Manager machine-to-machine APIs.
 
@@ -17,7 +17,7 @@ Configure GitHub Packages for the CACiC FCT scope:
 Then install with Bun:
 
 ```bash
-bun add @cacic-fct/m2m-contracts
+bun add @cacic-fct/account-manager-m2m-contracts
 ```
 
 ## Use
@@ -29,7 +29,7 @@ import {
   PRIVACY_SETTING_TYPES,
   type M2MBulkPrivacySettingsRequest,
   type M2MPrivacySettingResponse,
-} from '@cacic-fct/m2m-contracts';
+} from '@cacic-fct/account-manager-m2m-contracts';
 
 const body: M2MBulkPrivacySettingsRequest = {
   settings: [

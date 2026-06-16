@@ -1,4 +1,10 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -31,6 +37,7 @@ import { LoggerService } from '../../../shared/services/logger.service';
   ],
   templateUrl: './discord-admin.component.html',
   styleUrl: './discord-admin.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiscordAdminComponent implements OnInit {
   private apiService = inject(ApiService);
@@ -41,7 +48,6 @@ export class DiscordAdminComponent implements OnInit {
   settings = signal<ServerSetting[]>([]);
   pendingChanges = signal<Record<string, string>>({});
   savingStates = signal<Record<string, boolean>>({});
-  isRegisteringMetadata = signal(false);
 
   // Known setting keys with display names and descriptions
   private readonly settingDisplayNames: Record<string, string> = {
@@ -238,29 +244,6 @@ export class DiscordAdminComponent implements OnInit {
           input.value = currentValue;
         }
       }
-    });
-  }
-
-  registerMetadata(): void {
-    this.isRegisteringMetadata.set(true);
-    this.apiService.registerDiscordMetadata().subscribe({
-      next: (response) => {
-        this.isRegisteringMetadata.set(false);
-        this.snackBar.open(
-          'Discord metadata registered successfully! You can now set up Linked Roles in Discord.',
-          'Close',
-          { duration: 5000 },
-        );
-      },
-      error: (error: HttpErrorResponse) => {
-        this.logger.error('Error registering Discord metadata', error);
-        this.isRegisteringMetadata.set(false);
-        this.snackBar.open(
-          'Failed to register Discord metadata. Please check your Discord bot configuration.',
-          'Close',
-          { duration: 5000 },
-        );
-      },
     });
   }
 

@@ -3,7 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import {
   CookieBannerComponent,
   CookieBannerOptions,
-} from '@cacic-fct/cookie-banner/angular';
+} from '@cacic-fct/account-manager-cookie-banner/angular';
 import { MatIconRegistry } from '@angular/material/icon';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
 import { AuthService } from './shared/services/auth/auth.service';

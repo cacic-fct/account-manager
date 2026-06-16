@@ -65,14 +65,12 @@
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 24px;
-  border-left: 4px solid;
   display: flex;
   align-items: center;
   gap: 16px;
 
   &.success {
     background: var(--success-message-background);
-    border-left-color: #4caf50;
 
     .status-icon {
       color: #4caf50;
@@ -85,7 +83,6 @@
 
   &.error {
     background: var(--error-message-background);
-    border-left-color: #f44336;
 
     .status-icon {
       color: #f44336;
@@ -98,7 +95,6 @@
 
   &.warning {
     background: var(--chip-background-pending);
-    border-left-color: #ff9800;
 
     .status-icon {
       color: #ff9800;
@@ -111,7 +107,6 @@
 
   &.info {
     background: var(--info-message-background);
-    border-left-color: #2196f3;
 
     .status-icon {
       color: #2196f3;
@@ -308,7 +303,6 @@ mat-card {
         background: var(--error-message-background);
         padding: 12px;
         border-radius: 6px;
-        border-left: 4px solid #f44336;
         font-size: 14px;
         color: var(--text-primary);
       }

@@ -1,8 +1,10 @@
-<mat-card>
+<mat-card class="roles-card">
   <mat-card-header>
-    <mat-card-title>
+    <div mat-card-avatar class="card-avatar">
       <mat-icon>admin_panel_settings</mat-icon>
-      Gerenciamento de Cargos do Discord
+    </div>
+    <mat-card-title>
+      Cargos do Discord
     </mat-card-title>
     <mat-card-subtitle>
       Configure quais cargos os usuários podem selecionar para si mesmos
@@ -16,8 +18,11 @@
         <p>Carregando cargos do Discord...</p>
       </div>
     } @else {
-      <!-- Sync Button -->
       <div class="sync-section">
+        <div>
+          <h3>Sincronização</h3>
+          <p class="sync-description">Buscar os cargos atuais do servidor.</p>
+        </div>
         <button
           mat-raised-button
           color="primary"
@@ -30,14 +35,12 @@
           } @else {
             <mat-icon>sync</mat-icon>
           }
-          Sincronizar Cargos do Discord
+          Sincronizar
         </button>
-        <p class="sync-description">Buscar os cargos do servidor</p>
       </div>
 
       <mat-divider></mat-divider>
 
-      <!-- User Instructions -->
       <div class="instructions">
         <mat-icon>info</mat-icon>
         <span
@@ -54,33 +57,29 @@
       <!-- Currently Enabled Roles -->
       @if (currentlyEnabledRoles().length > 0) {
         <div class="section">
-          <h3>Cargos Atualmente Selecionáveis pelo Usuário</h3>
-          <div class="role-chips">
+          <mat-chip-set class="role-chips">
             @for (role of currentlyEnabledRoles(); track role.id) {
-              <mat-chip-set>
-                <mat-chip
-                  [style.backgroundColor]="getRoleColor(role)"
-                  [style.color]="
-                    role.color === '#000000' ? '#ffffff' : '#ffffff'
-                  "
-                >
-                  {{ role.name }}
-                  @if (role.hasPermissions) {
-                    <mat-icon matChipTrailingIcon>warning</mat-icon>
-                  }
-                </mat-chip>
-              </mat-chip-set>
+              <mat-chip
+                class="role-chip"
+                [style.background-color]="getRoleColor(role)"
+                [style.color]="getRoleTextColor(role)"
+                [style.--mdc-chip-elevated-container-color]="getRoleColor(role)"
+                [style.--mdc-chip-label-text-color]="getRoleTextColor(role)"
+                [style.--mdc-chip-with-icon-icon-color]="getRoleTextColor(role)"
+              >
+                {{ role.name }}
+                @if (role.hasPermissions) {
+                  <mat-icon matChipTrailingIcon>warning</mat-icon>
+                }
+              </mat-chip>
             }
-          </div>
+          </mat-chip-set>
         </div>
 
         <mat-divider></mat-divider>
       }
 
       <form [formGroup]="roleForm">
-        <!-- Multi-selection: Hold Shift and click to select/deselect multiple roles at once -->
-
-        <!-- Roles With Permissions (Dangerous) -->
         @if (rolesWithPermissions().length > 0) {
           <div class="section">
             <h3 class="danger-title">
@@ -99,7 +98,7 @@
                 let i = $index
               ) {
                 <div
-                  class="role-item danger-role"
+                  class="role-item"
                   [class.anchor-point]="
                     isAnchorPoint(i, 'rolesWithPermissions')
                   "
@@ -110,17 +109,24 @@
                   >
                     <div class="role-info">
                       <span
-                        class="role-name"
-                        [style.color]="getRoleColor(role)"
-                        [class.blacklisted]="role.isBlacklisted"
-                      >
-                        {{ role.name }}
-                        @if (role.isBlacklisted) {
-                          <mat-icon class="blacklisted-icon" inline
-                            >block</mat-icon
-                          >
-                        }
+                        class="role-swatch"
+                        [style.background-color]="getRoleColor(role)"
+                        [attr.aria-label]="'Cor do cargo ' + role.name"
+                      ></span>
+                      <span class="role-copy">
+                        <span
+                          class="role-name"
+                          [class.blacklisted]="role.isBlacklisted"
+                        >
+                          {{ role.name }}
+                        </span>
+                        <span class="role-meta">
+                          {{ role.isBlacklisted ? "Bloqueado" : "Permissões elevadas" }}
+                        </span>
                       </span>
+                      @if (role.isBlacklisted) {
+                        <mat-icon class="blacklisted-icon" inline>block</mat-icon>
+                      }
                     </div>
                   </mat-checkbox>
                 </div>
@@ -131,7 +137,6 @@
           <mat-divider></mat-divider>
         }
 
-        <!-- Roles Without Permissions (Safe) -->
         @if (rolesWithoutPermissions().length > 0) {
           <div class="section">
             <h3 class="safe-title">
@@ -150,7 +155,7 @@
                 let i = $index
               ) {
                 <div
-                  class="role-item safe-role"
+                  class="role-item"
                   [class.anchor-point]="
                     isAnchorPoint(i, 'rolesWithoutPermissions')
                   "
@@ -163,17 +168,24 @@
                   >
                     <div class="role-info">
                       <span
-                        class="role-name"
-                        [style.color]="getRoleColor(role)"
-                        [class.blacklisted]="role.isBlacklisted"
-                      >
-                        {{ role.name }}
-                        @if (role.isBlacklisted) {
-                          <mat-icon class="blacklisted-icon" inline
-                            >block</mat-icon
-                          >
-                        }
+                        class="role-swatch"
+                        [style.background-color]="getRoleColor(role)"
+                        [attr.aria-label]="'Cor do cargo ' + role.name"
+                      ></span>
+                      <span class="role-copy">
+                        <span
+                          class="role-name"
+                          [class.blacklisted]="role.isBlacklisted"
+                        >
+                          {{ role.name }}
+                        </span>
+                        <span class="role-meta">
+                          {{ role.isBlacklisted ? "Bloqueado" : "Sem permissões sensíveis" }}
+                        </span>
                       </span>
+                      @if (role.isBlacklisted) {
+                        <mat-icon class="blacklisted-icon" inline>block</mat-icon>
+                      }
                     </div>
                   </mat-checkbox>
                 </div>
@@ -182,7 +194,6 @@
           </div>
         }
 
-        <!-- Action Buttons -->
         <div class="actions">
           <button
             mat-raised-button

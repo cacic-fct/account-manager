@@ -20,7 +20,7 @@ import {
   PrivacySettings,
   PRIVACY_SETTING_TYPE_VALUES,
   PrivacySettingTypeValue,
-} from '@cacic-fct/m2m-contracts';
+} from '@cacic-fct/account-manager-m2m-contracts';
 
 export class UpdatePrivacySettingDto implements PrivacySettingUpdate {
   @ApiProperty({

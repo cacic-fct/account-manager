@@ -185,7 +185,6 @@ export interface UniversityValidationDialogData {
         padding: 8px;
         background-color: #ffebee;
         border-radius: 4px;
-        border-left: 4px solid #f44336;
       }
 
       .info-message {
@@ -197,7 +196,6 @@ export interface UniversityValidationDialogData {
         padding: 8px;
         background-color: #e3f2fd;
         border-radius: 4px;
-        border-left: 4px solid #1976d2;
       }
 
       mat-dialog-actions {

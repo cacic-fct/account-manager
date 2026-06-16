@@ -147,12 +147,10 @@
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 24px;
-  border-left: 4px solid;
   position: relative;
 
   &.success {
     background: var(--success-background);
-    border-left-color: #4caf50;
 
     .status-icon {
       color: #4caf50;
@@ -165,7 +163,6 @@
 
   &.error {
     background: var(--error-background);
-    border-left-color: #f44336;
 
     .status-icon {
       color: #f44336;
@@ -182,7 +179,6 @@
 
   &.warning {
     background: var(--invite-warning-bg);
-    border-left-color: #ff9800;
 
     .status-icon {
       color: #ff9800;
@@ -199,7 +195,6 @@
 
   &.info {
     background: var(--info-background);
-    border-left-color: var(--info-border);
 
     .status-icon {
       color: var(--info-border);
@@ -479,6 +474,11 @@
 // Role chips
 .role-student {
   background-color: #4caf50;
+  color: white;
+}
+
+.role-unesp {
+  background-color: #2196f3;
   color: white;
 }
 

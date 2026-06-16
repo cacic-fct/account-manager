@@ -16,7 +16,7 @@ import {
   DiscordLinkStatus,
 } from '../../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../../shared/components/confirmation-dialog.component';
-import { getDiscordAvatarUrl, isUnespEmail } from '@cacic/shared-utils';
+import { getDiscordAvatarUrl } from '@cacic/shared-utils';
 
 type BannerType = 'success' | 'error' | 'warning' | 'info';
 
@@ -354,7 +354,15 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   getRoleChipClass(role: string): string {
-    return role?.toLowerCase() === 'student' ? 'role-student' : 'role-visitor';
+    if (role === 'student') {
+      return 'role-student';
+    }
+
+    if (role === 'unesp') {
+      return 'role-unesp';
+    }
+
+    return 'role-visitor';
   }
 
   getDiscordAvatarUrl(discordId: string, avatarHash?: string): string {
@@ -373,7 +381,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   hasVisitorRole(): boolean {
     return (
       this.discordStatus()?.discordLinks?.some(
-        (link) => link.assignedRole?.toLowerCase() === 'visitor',
+        (link) => link.assignedRole === 'visitor',
       ) || false
     );
   }

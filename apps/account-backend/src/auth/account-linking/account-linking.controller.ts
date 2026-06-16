@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { Response } from 'express';
 import { createAppConfig, AppConfig } from '../../config/app.config';
@@ -104,9 +105,7 @@ export class AccountLinkingController {
       this.logger.error('Google account-linking resume failed', error);
       delete session.accountLinkingState;
       delete session.accountLinkingUserId;
-      res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?accountLink=failed`,
-      );
+      res.redirect(this.googleIntegrationUrl({ accountLink: 'failed' }));
     }
   }
 
@@ -143,9 +142,7 @@ export class AccountLinkingController {
       }
 
       if (oauthError || !code) {
-        res.redirect(
-          `${this.appConfig.frontendUrl}settings/linked-accounts?accountLink=failed`,
-        );
+        res.redirect(this.googleIntegrationUrl({ accountLink: 'failed' }));
         return;
       }
 
@@ -168,7 +165,7 @@ export class AccountLinkingController {
 
       if (candidate.keycloakId === requesterUserId) {
         res.redirect(
-          `${this.appConfig.frontendUrl}settings/linked-accounts?accountLink=already-linked`,
+          this.googleIntegrationUrl({ accountLink: 'already-linked' }),
         );
         return;
       }
@@ -182,16 +179,12 @@ export class AccountLinkingController {
         accountLink: 'merge-required',
         merge_request: mergeRequest.id,
       });
-      res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?${params.toString()}`,
-      );
+      res.redirect(this.googleIntegrationUrl(params));
     } catch (error) {
       this.logger.error('Google account-linking callback failed', error);
       delete session.accountLinkingState;
       delete session.accountLinkingUserId;
-      res.redirect(
-        `${this.appConfig.frontendUrl}settings/linked-accounts?accountLink=failed`,
-      );
+      res.redirect(this.googleIntegrationUrl({ accountLink: 'failed' }));
     }
   }
 
@@ -267,6 +260,23 @@ export class AccountLinkingController {
     } catch {
       return false;
     }
+  }
+
+  private googleIntegrationUrl(
+    query?: URLSearchParams | Record<string, string>,
+  ): string {
+    const url = new URL(
+      LINKED_ACCOUNT_ROUTE_PATHS.google,
+      this.appConfig.frontendUrl,
+    );
+
+    if (query instanceof URLSearchParams) {
+      url.search = query.toString();
+    } else if (query) {
+      url.search = new URLSearchParams(query).toString();
+    }
+
+    return url.toString();
   }
 
   private async switchSessionToUser(

@@ -1,5 +1,5 @@
 {
-  "name": "@cacic-fct/account-privacy",
+  "name": "@cacic-fct/account-manager-privacy",
   "version": "0.0.1",
   "description": "Angular client for CACiC account privacy preferences.",
   "license": "AGPL-3.0-only",
@@ -20,7 +20,7 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@cacic-fct/m2m-contracts": "0.0.1",
+    "@cacic-fct/account-manager-m2m-contracts": "0.0.1",
     "tslib": "^2.8.0"
   },
   "peerDependencies": {

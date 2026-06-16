@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Context, On, Once, ContextOf } from 'necord';
+import { Cron } from '@nestjs/schedule';
+import type { GuildMember } from 'discord.js';
 import { DiscordBotService } from './discord-bot.service';
 import { DiscordClientService } from './services/discord-client.service';
+import { DiscordRoleService } from './services/discord-role.service';
 
 @Injectable()
 export class DiscordEventsService {
@@ -10,6 +13,7 @@ export class DiscordEventsService {
   constructor(
     private discordBotService: DiscordBotService,
     private discordClientService: DiscordClientService,
+    private readonly discordRoleService: DiscordRoleService,
   ) {}
 
   @Once('ready')
@@ -19,6 +23,15 @@ export class DiscordEventsService {
 
     // Set the client in our service for dependency injection
     this.discordClientService.setClient(client);
+
+    void this.discordRoleService
+      .syncAllLinkedMemberRoles('discord-bot-ready')
+      .catch((error) => {
+        this.logger.warn(
+          'Failed to sync Discord managed roles on ready',
+          error,
+        );
+      });
   }
 
   @On('guildMemberAdd')
@@ -67,12 +80,58 @@ export class DiscordEventsService {
   }
 
   @On('guildMemberUpdate')
-  public onGuildMemberUpdate(
-    @Context() [, newMember]: ContextOf<'guildMemberUpdate'>,
+  public async onGuildMemberUpdate(
+    @Context() [oldMember, newMember]: ContextOf<'guildMemberUpdate'>,
   ) {
     // Handle member updates if needed
     this.logger.log(
       `Member updated: ${newMember.user.username} (${newMember.id})`,
+    );
+
+    if (
+      this.didRolesChange(oldMember, newMember) &&
+      this.hasNoAssignableRoles(newMember)
+    ) {
+      await this.discordRoleService.syncGuildMemberRoleState(
+        newMember,
+        'discord-member-roles-cleared',
+      );
+    }
+  }
+
+  @Cron('*/30 * * * *')
+  public async syncManagedRoles(): Promise<void> {
+    await this.discordRoleService.syncAllLinkedMemberRoles(
+      'scheduled-discord-managed-role-sync',
+    );
+  }
+
+  @Cron('0 0 * * 0')
+  public async syncGuildMemberRoleState(): Promise<void> {
+    await this.discordRoleService.syncAllGuildMemberRoleState(
+      'weekly-discord-guild-member-role-state-sync',
+    );
+  }
+
+  private didRolesChange(
+    oldMember: Pick<GuildMember, 'roles'>,
+    newMember: Pick<GuildMember, 'roles'>,
+  ) {
+    if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
+      return true;
+    }
+
+    return oldMember.roles.cache.some(
+      (role) => !newMember.roles.cache.has(role.id),
+    );
+  }
+
+  private hasNoAssignableRoles(
+    member: Pick<GuildMember, 'guild' | 'roles'>,
+  ): boolean {
+    return (
+      member.roles.cache.filter((role) => role.id !== member.guild.id).size ===
+      0
     );
   }
 }

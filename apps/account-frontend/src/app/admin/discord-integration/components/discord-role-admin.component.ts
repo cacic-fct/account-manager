@@ -11,7 +11,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ReactiveFormsModule,
   FormBuilder,
-  FormGroup,
   FormArray,
   FormControl,
 } from '@angular/forms';
@@ -36,7 +35,6 @@ import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
 
 @Component({
   selector: 'app-discord-role-admin',
-  standalone: true,
   imports: [
     MatCardModule,
     MatButtonModule,
@@ -47,8 +45,8 @@ import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
     MatDividerModule,
     MatChipsModule,
     MatDialogModule,
-    ReactiveFormsModule
-],
+    ReactiveFormsModule,
+  ],
   templateUrl: './discord-role-admin.component.html',
   styleUrl: './discord-role-admin.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -387,8 +385,9 @@ export class DiscordRoleAdminComponent implements OnInit {
   }
 
   private hexToNumber(hexColor: string): number {
-    if (!hexColor || hexColor === '#000000' || hexColor === '#99aab5') return 0;
-    return parseInt(hexColor.replace('#', ''), 16);
+    const normalizedColor = this.normalizeRoleColor(hexColor);
+    if (normalizedColor === '#99aab5') return 0;
+    return parseInt(normalizedColor.replace('#', ''), 16);
   }
 
   private applyChanges(): void {
@@ -398,7 +397,7 @@ export class DiscordRoleAdminComponent implements OnInit {
     this.apiService
       .updateDiscordRoleSelection({ enabledRoleIds: selectedIds })
       .subscribe({
-        next: (response: { message: string }) => {
+        next: () => {
           this.snackBar.open('Role selection updated successfully!', 'Close', {
             duration: 3000,
           });
@@ -453,7 +452,7 @@ export class DiscordRoleAdminComponent implements OnInit {
     this.isSyncing.set(true);
 
     this.apiService.syncDiscordRoles().subscribe({
-      next: (response: { message: string }) => {
+      next: () => {
         this.snackBar.open('Discord roles synced successfully!', 'Close', {
           duration: 3000,
         });
@@ -480,6 +479,53 @@ export class DiscordRoleAdminComponent implements OnInit {
   }
 
   getRoleColor(role: DiscordRole): string {
-    return role.color && role.color !== '#000000' ? role.color : '#99aab5';
+    return this.normalizeRoleColor(role.color);
+  }
+
+  getRoleTextColor(role: DiscordRole): '#000000' | '#ffffff' {
+    return this.getReadableTextColor(this.getRoleColor(role));
+  }
+
+  private normalizeRoleColor(color: string | null | undefined): string {
+    if (!color || color === '#000000') {
+      return '#99aab5';
+    }
+
+    const trimmed = color.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+      return trimmed.toLowerCase();
+    }
+
+    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+      const [, r, g, b] = trimmed;
+      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+    }
+
+    return '#99aab5';
+  }
+
+  private getReadableTextColor(color: string): '#000000' | '#ffffff' {
+    const luminance = this.getRelativeLuminance(color);
+    const contrastWithBlack = (luminance + 0.05) / 0.05;
+    const contrastWithWhite = 1.05 / (luminance + 0.05);
+
+    return contrastWithBlack >= contrastWithWhite ? '#000000' : '#ffffff';
+  }
+
+  private getRelativeLuminance(color: string): number {
+    const red = parseInt(color.slice(1, 3), 16);
+    const green = parseInt(color.slice(3, 5), 16);
+    const blue = parseInt(color.slice(5, 7), 16);
+
+    const [linearRed, linearGreen, linearBlue] = [red, green, blue].map(
+      (channel) => {
+        const value = channel / 255;
+        return value <= 0.03928
+          ? value / 12.92
+          : Math.pow((value + 0.055) / 1.055, 2.4);
+      },
+    );
+
+    return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue;
   }
 }

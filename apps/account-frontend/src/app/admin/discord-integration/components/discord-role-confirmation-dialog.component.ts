@@ -8,7 +8,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 
-
 export interface DiscordRoleChange {
   roleId: string;
   name: string;
@@ -48,6 +47,8 @@ export interface RoleChangeData {
                   class="role-chip added-chip"
                   [style.background-color]="formatColor(role.color)"
                   [style.color]="getTextColor(role.color)"
+                  [style.--mdc-chip-elevated-container-color]="formatColor(role.color)"
+                  [style.--mdc-chip-label-text-color]="getTextColor(role.color)"
                 >
                   {{ role.name }}
                 </mat-chip>
@@ -68,6 +69,8 @@ export interface RoleChangeData {
                   class="role-chip removed-chip"
                   [style.background-color]="formatColor(role.color)"
                   [style.color]="getTextColor(role.color)"
+                  [style.--mdc-chip-elevated-container-color]="formatColor(role.color)"
+                  [style.--mdc-chip-label-text-color]="getTextColor(role.color)"
                 >
                   {{ role.name }}
                 </mat-chip>
@@ -214,8 +217,8 @@ export interface RoleChangeData {
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule
-],
+    MatChipsModule,
+  ],
 })
 export class DiscordRoleConfirmationDialogComponent {
   constructor(
@@ -238,18 +241,29 @@ export class DiscordRoleConfirmationDialogComponent {
     return `#${color.toString(16).padStart(6, '0')}`;
   }
 
-  getTextColor(color: number): string {
-    if (color === 0) return '#2c2f33';
+  getTextColor(color: number): '#000000' | '#ffffff' {
+    const luminance = this.getRelativeLuminance(this.formatColor(color));
+    const contrastWithBlack = (luminance + 0.05) / 0.05;
+    const contrastWithWhite = 1.05 / (luminance + 0.05);
 
-    // Convert to RGB
-    const r = (color >> 16) & 255;
-    const g = (color >> 8) & 255;
-    const b = color & 255;
+    return contrastWithBlack >= contrastWithWhite ? '#000000' : '#ffffff';
+  }
 
-    // Calculate luminance
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  private getRelativeLuminance(color: string): number {
+    const red = parseInt(color.slice(1, 3), 16);
+    const green = parseInt(color.slice(3, 5), 16);
+    const blue = parseInt(color.slice(5, 7), 16);
 
-    return luminance > 0.5 ? '#2c2f33' : '#ffffff';
+    const [linearRed, linearGreen, linearBlue] = [red, green, blue].map(
+      (channel) => {
+        const value = channel / 255;
+        return value <= 0.03928
+          ? value / 12.92
+          : Math.pow((value + 0.055) / 1.055, 2.4);
+      },
+    );
+
+    return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue;
   }
 
   onCancel(): void {

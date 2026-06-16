@@ -425,16 +425,6 @@ export class ApiService {
     );
   }
 
-  registerDiscordMetadata(): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
-      `${this.baseUrl}/discord/admin/register-metadata`,
-      {},
-      {
-        withCredentials: true,
-      },
-    );
-  }
-
   // Admin methods for Discord server settings
   getServerSettings(): Observable<ServerSetting[]> {
     return this.cacheService.getOrSet(

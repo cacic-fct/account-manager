@@ -1,11 +1,13 @@
-<mat-card>
+<mat-card class="settings-card">
   <mat-card-header>
+    <div mat-card-avatar class="card-avatar">
+      <mat-icon>link</mat-icon>
+    </div>
     <mat-card-title>
-      <mat-icon>admin_panel_settings</mat-icon>
-      Configurações do Servidor Discord
+      Configurações do servidor
     </mat-card-title>
     <mat-card-subtitle>
-      Gerenciar configuração do servidor Discord e links de convite
+      Link de convite usado na experiência de vínculo com o Discord
     </mat-card-subtitle>
   </mat-card-header>
 
@@ -18,19 +20,16 @@
     } @else {
       <div class="settings-list">
         @for (setting of allSettings(); track setting.id) {
-          <div class="setting-item">
+          <article class="setting-item" [class.is-new]="setting.id.startsWith('new-')">
             <div class="setting-info">
-              <h3>{{ getSettingDisplayName(setting.key) }}</h3>
+              <div class="setting-heading">
+                <h3>{{ getSettingDisplayName(setting.key) }}</h3>
+                @if (setting.id.startsWith("new-")) {
+                  <span class="setting-pill">Nova</span>
+                }
+              </div>
               <p class="setting-description">{{ setting.description }}</p>
-              @if (setting.id.startsWith("new-")) {
-                <p class="new-setting">
-                  Nova configuração - será criada quando salva
-                </p>
-              } @else {
-                <p class="last-updated">
-                  Última atualização: {{ setting.updatedAt | date: "medium" }}
-                </p>
-              }
+              <p class="setting-key">{{ setting.key }}</p>
             </div>
 
             <div class="setting-form" [attr.data-setting-key]="setting.key">
@@ -52,6 +51,7 @@
                   color="primary"
                   (click)="saveSetting(setting.key)"
                   [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
+                  [attr.aria-label]="'Salvar ' + getSettingDisplayName(setting.key)"
                 >
                   @if (isSaving(setting.key)) {
                     <mat-spinner diameter="20"></mat-spinner>
@@ -65,17 +65,20 @@
                   mat-stroked-button
                   (click)="resetSetting(setting.key)"
                   [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
+                  [attr.aria-label]="'Redefinir ' + getSettingDisplayName(setting.key)"
                 >
                   <mat-icon>undo</mat-icon>
                   Redefinir
                 </button>
               </div>
-            </div>
-          </div>
 
-          @if (!$last) {
-            <mat-divider></mat-divider>
-          }
+              @if (!setting.id.startsWith("new-")) {
+                <p class="last-updated">
+                  Atualizado em {{ setting.updatedAt | date: "dd/MM/yyyy HH:mm" }}
+                </p>
+              }
+            </div>
+          </article>
         }
 
         @if (settings().length === 0) {
@@ -94,21 +97,7 @@
       <div class="actions">
         <button mat-stroked-button (click)="refreshSettings()">
           <mat-icon>refresh</mat-icon>
-          Atualizar Configurações
-        </button>
-
-        <button
-          mat-raised-button
-          color="accent"
-          (click)="registerMetadata()"
-          [disabled]="isRegisteringMetadata()"
-        >
-          @if (isRegisteringMetadata()) {
-            <mat-spinner diameter="20"></mat-spinner>
-          } @else {
-            <mat-icon>cloud_upload</mat-icon>
-          }
-          Registrar Metadados do Discord
+          Atualizar
         </button>
       </div>
     }

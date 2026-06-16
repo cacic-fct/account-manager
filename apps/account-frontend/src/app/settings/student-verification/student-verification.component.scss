@@ -54,7 +54,6 @@ mat-card-title {
   padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 8px;
-  border-left: 4px solid #1976d2;
 }
 
 .upload-section {
@@ -133,7 +132,6 @@ mat-card-title {
   padding: 1rem;
   background-color: #fff3e0;
   border-radius: 8px;
-  border-left: 4px solid #ff9800;
   border: 1px dashed #ffb74d;
 
   .dev-checkbox {
@@ -164,7 +162,6 @@ mat-card-title {
 
   @media (prefers-color-scheme: dark) {
     background-color: #2d2419;
-    border-left-color: #ffb74d;
     border-color: #ff9800;
 
     .dev-checkbox .dev-label {
@@ -188,12 +185,10 @@ mat-card-actions {
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 24px;
-  border-left: 4px solid;
   position: relative;
 
   &.success {
     background: #e8f5e8;
-    border-left-color: #4caf50;
 
     .status-icon {
       color: #4caf50;
@@ -214,7 +209,6 @@ mat-card-actions {
 
   &.error {
     background: #ffebee;
-    border-left-color: #f44336;
 
     .status-icon {
       color: #f44336;
@@ -235,7 +229,6 @@ mat-card-actions {
 
   &.warning {
     background: #fff3e0;
-    border-left-color: #ff9800;
 
     .status-icon {
       color: #ff9800;
@@ -256,7 +249,6 @@ mat-card-actions {
 
   &.info {
     background: #e3f2fd;
-    border-left-color: #2196f3;
 
     .status-icon {
       color: #2196f3;
