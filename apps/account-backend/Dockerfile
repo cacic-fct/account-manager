@@ -2,7 +2,8 @@ FROM oven/bun:1-alpine AS bun
 
 FROM node:22-alpine AS base
 
-ENV BUN_INSTALL=/usr/local
+ENV BUN_INSTALL=/usr/local \
+    PUPPETEER_SKIP_DOWNLOAD=true
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 

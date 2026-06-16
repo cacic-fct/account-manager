@@ -8,7 +8,8 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
-ENV PATH="/app/node_modules/.bin:$PATH"
+ENV PATH="/app/node_modules/.bin:$PATH" \
+    PUPPETEER_SKIP_DOWNLOAD=true
 
 FROM base AS deps
 

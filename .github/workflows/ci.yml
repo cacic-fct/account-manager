@@ -48,6 +48,7 @@ jobs:
         run: bun install --frozen-lockfile
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Generate Prisma client
         run: bunx prisma generate --schema apps/account-backend/prisma/schema.prisma
@@ -144,6 +145,7 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Remove package registry auth material
         run: |

@@ -119,13 +119,14 @@ jobs:
         with:
           registries: |
             https://registry.npmjs.org/
-            @cacic-fct:https://npm.pkg.github.com/|$GITHUB_TOKEN
+            @cacic-fct:https://npm.pkg.github.com/|$NPM_CONFIG_TOKEN
 
       - name: Install dependencies
         if: steps.changes.outputs.any_changed == 'true'
         run: bun install --frozen-lockfile
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Build M2M contracts
         if: steps.changes.outputs.m2m_contracts == 'true'
@@ -148,7 +149,7 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build account privacy
         if: steps.changes.outputs.account_privacy == 'true'
@@ -171,7 +172,7 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build cookie banner
         if: steps.changes.outputs.cookie_banner == 'true'
@@ -194,4 +195,4 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
