@@ -502,15 +502,20 @@ export class LgpdService {
     }
 
     if (deletedRequestIds.length > 0) {
-      await this.prisma.lgpdRequest.updateMany({
-        where: { id: { in: deletedRequestIds } },
-        data: {
-          filePath: null,
-          fileName: null,
-          fileSize: null,
-          s3Key: null,
-        },
-      });
+      await this.prisma.$transaction([
+        this.prisma.lgpdRequest.updateMany({
+          where: { id: { in: deletedRequestIds } },
+          data: {
+            filePath: null,
+            fileName: null,
+            fileSize: null,
+            s3Key: null,
+          },
+        }),
+        this.prisma.lgpdRequest.deleteMany({
+          where: { id: { in: deletedRequestIds } },
+        }),
+      ]);
     }
 
     return deletedRequestIds.length;

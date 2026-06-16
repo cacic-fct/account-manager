@@ -306,18 +306,79 @@ export class AccountLinkingService {
         },
       );
 
-      await Promise.all(
-        notifications.map((notification) =>
-          this.accountMergeQueue.add(
-            ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
-            { notificationId: notification.id },
-            {
-              jobId: `notify:${notification.id}:0`,
-              removeOnComplete: true,
+      let failedNotificationIds: string[] = [];
+
+      try {
+        const enqueueResults = await Promise.all(
+          notifications.map(async (notification) => {
+            try {
+              await this.accountMergeQueue.add(
+                ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
+                { notificationId: notification.id },
+                {
+                  jobId: `notify:${notification.id}:0`,
+                  removeOnComplete: true,
+                },
+              );
+              return { notificationId: notification.id, queued: true };
+            } catch (error: unknown) {
+              return { notificationId: notification.id, queued: false, error };
+            }
+          }),
+        );
+
+        const failedEnqueues = enqueueResults.filter(
+          (
+            result,
+          ): result is {
+            notificationId: string;
+            queued: false;
+            error: unknown;
+          } => !result.queued,
+        );
+
+        if (failedEnqueues.length > 0) {
+          failedNotificationIds = failedEnqueues.map(
+            ({ notificationId }) => notificationId,
+          );
+          throw new Error(
+            failedEnqueues
+              .map(({ notificationId, error }) => {
+                const message =
+                  error instanceof Error
+                    ? error.message
+                    : 'Unknown queue error';
+                return `${notificationId}: ${message}`;
+              })
+              .join('; '),
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown queue error';
+
+        this.logger.error(
+          'Failed to enqueue account merge external notification jobs',
+          {
+            requestId,
+            notificationIds: failedNotificationIds,
+            errorMessage,
+          },
+        );
+
+        if (failedNotificationIds.length > 0) {
+          await this.prisma.accountMergeExternalNotification.updateMany({
+            where: { id: { in: failedNotificationIds } },
+            data: {
+              status: 'failed',
+              lastError: errorMessage,
+              nextAttemptAt: null,
             },
-          ),
-        ),
-      );
+          });
+        }
+
+        throw error;
+      }
 
       if (updated.status === 'completed') {
         this.logger.log('Account merge completed without external backends', {

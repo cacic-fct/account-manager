@@ -274,7 +274,14 @@ export class AccountLinkingController {
     keycloakId: string,
   ): Promise<void> {
     const primaryUser = await this.userService.findByKeycloakId(keycloakId);
-    if (!primaryUser || !session.user) {
+    if (!primaryUser) {
+      this.logger.warn(
+        `Unable to switch session: user not found for keycloakId ${keycloakId}`,
+      );
+      return;
+    }
+
+    if (!session.user) {
       return;
     }
 

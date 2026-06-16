@@ -27,7 +27,7 @@ export class DiscordOAuthService {
    * Get Discord OAuth URL for linking
    */
   getDiscordAuthUrl(userId: string): { authUrl: string; state: string } {
-    if (!userId.trim()) {
+    if (typeof userId !== 'string' || !userId.trim()) {
       throw new BadRequestException('User ID is required');
     }
 

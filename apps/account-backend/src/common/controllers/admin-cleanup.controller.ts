@@ -19,6 +19,10 @@ export class AdminCleanupController {
         success: { type: 'boolean' },
         cleanedFiles: { type: 'number' },
       },
+      example: {
+        success: true,
+        cleanedFiles: 5,
+      },
     },
   })
   @Admin()

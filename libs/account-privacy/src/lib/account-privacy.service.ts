@@ -37,7 +37,9 @@ export class CacicAccountPrivacyService {
   readonly settings = this.settingsSignal.asReadonly();
   readonly loaded = this.loadedSignal.asReadonly();
   readonly loading = this.loadingSignal.asReadonly();
-  readonly preferences = computed(() => this.resolvePreferences());
+  readonly preferences = computed(() =>
+    this.clonePreferences(this.resolvePreferences()),
+  );
   readonly analyticsEnabled = computed(() =>
     this.isAllowedByPreferences('analytics_tracking'),
   );
@@ -128,7 +130,7 @@ export class CacicAccountPrivacyService {
   }
 
   getPreferencesSnapshot(): CacicPrivacyPreferences {
-    return this.preferences();
+    return this.clonePreferences(this.preferences());
   }
 
   private resolvePreferences(): CacicPrivacyPreferences {
@@ -140,6 +142,12 @@ export class CacicAccountPrivacyService {
     return this.loadedSignal()
       ? this.config.unavailablePreferences
       : this.config.initialPreferences;
+  }
+
+  private clonePreferences(
+    preferences: CacicPrivacyPreferences,
+  ): CacicPrivacyPreferences {
+    return Object.freeze({ ...preferences });
   }
 
   private isAllowedByPreferences(

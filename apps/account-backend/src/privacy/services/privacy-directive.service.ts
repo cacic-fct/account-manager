@@ -316,7 +316,7 @@ export class PrivacyDirectiveService {
       }
 
       // Check if user settings have been updated since cache
-      const userSettings = await this.privacyService.getUserSettings(userId);
+      const userSettings = await this.privacyService.findUserSettings(userId);
       if (
         userSettings &&
         data.lastUpdated &&

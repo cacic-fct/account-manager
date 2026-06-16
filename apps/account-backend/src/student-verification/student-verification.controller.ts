@@ -117,12 +117,32 @@ export class StudentVerificationController {
           default: false,
         },
       },
+      example: {
+        document: '<binary PDF file>',
+        isManualFallback: false,
+      },
     },
   })
   @ApiResponse({
     status: 201,
     description: 'Document uploaded successfully',
-    type: UploadResponseDto,
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        documentId: { type: 'string' },
+        status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+        authenticationCode: { type: 'string' },
+        extractedName: { type: 'string' },
+      },
+      example: {
+        message: 'Document uploaded successfully',
+        documentId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        status: 'pending',
+        authenticationCode: 'ABC123456',
+        extractedName: 'Maria Silva',
+      },
+    },
   })
   @ApiResponse({
     status: 400,
