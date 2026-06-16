@@ -16,7 +16,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "apps/account-backend",
-        "command": "bun run jest"
+        "command": "bun run jest --config jest.config.ts"
       }
     },
     "test-watch": {
@@ -30,7 +30,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "apps/account-backend",
-        "command": "bun run jest --coverage"
+        "command": "bun run jest --config jest.config.ts --coverage"
       }
     },
     "test-debug": {

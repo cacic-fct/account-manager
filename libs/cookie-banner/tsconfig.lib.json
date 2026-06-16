@@ -1,9 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "../dist/out-tsc",
+    "outDir": "../../dist/libs/cookie-banner",
+    "rootDir": "src",
     "declaration": true,
-    "types": ["node"],
+    "declarationMap": true,
+    "types": [],
     "lib": ["DOM", "ES2022"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"],

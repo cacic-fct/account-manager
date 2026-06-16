@@ -2,7 +2,12 @@
   "name": "@cacic/cacic-account-manager",
   "version": "0.0.0",
   "license": "AGPL-3.0-only",
-  "scripts": {},
+  "scripts": {
+    "build:packages": "bunx nx run-many --target=build --projects=account-privacy,cookie-banner",
+    "publish:account-privacy": "bunx nx build account-privacy && cd dist/libs/account-privacy && bun publish",
+    "publish:cookie-banner": "bunx nx build cookie-banner && cd dist/libs/cookie-banner && bun publish",
+    "publish:packages": "bun run publish:account-privacy && bun run publish:cookie-banner"
+  },
   "private": true,
   "dependencies": {
     "@angular/animations": "^21.2.11",

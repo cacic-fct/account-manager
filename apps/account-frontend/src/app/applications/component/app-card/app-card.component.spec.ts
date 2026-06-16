@@ -14,6 +14,11 @@ describe('AppCardComponent', () => {
 
     fixture = TestBed.createComponent(AppCardComponent);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('app', {
+      id: 'test-app',
+      name: 'Test app',
+      enabled: true,
+    });
     fixture.detectChanges();
   });
 

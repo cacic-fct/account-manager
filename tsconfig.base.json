@@ -9,6 +9,8 @@
       "@cacic/shared-types/*": ["libs/shared-types/src/*"],
       "@cacic/shared-utils": ["libs/shared-utils/src/index.ts"],
       "@cacic/shared-utils/*": ["libs/shared-utils/src/*"],
+      "@cacic-fct/account-privacy": ["libs/account-privacy/src/index.ts"],
+      "@cacic-fct/account-privacy/*": ["libs/account-privacy/src/*"],
       "@cacic-fct/cookie-banner": ["libs/cookie-banner/src/index.ts"],
       "@cacic-fct/cookie-banner/angular": [
         "libs/cookie-banner/src/angular/index.ts"

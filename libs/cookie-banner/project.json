@@ -1,18 +1,17 @@
 {
   "name": "cookie-banner",
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "cookie-banner/src",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "root": "libs/cookie-banner",
+  "sourceRoot": "libs/cookie-banner/src",
   "projectType": "library",
   "tags": [],
   "targets": {
     "build": {
-      "executor": "@nx/js:tsc",
-      "outputs": ["{options.outputPath}"],
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/libs/cookie-banner"],
       "options": {
-        "outputPath": "dist/cookie-banner",
-        "main": "cookie-banner/src/index.ts",
-        "tsConfig": "cookie-banner/tsconfig.lib.json",
-        "assets": ["cookie-banner/*.md"]
+        "cwd": "libs/cookie-banner",
+        "command": "bunx ngc -p tsconfig.lib.json && mkdir -p ../../dist/libs/cookie-banner/lib && cp package.json README.md ../../dist/libs/cookie-banner/ && cp src/lib/cookie-banner.css ../../dist/libs/cookie-banner/lib/cookie-banner.css"
       }
     }
   }

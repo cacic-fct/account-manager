@@ -1,11 +1,50 @@
-# cookie-banner
+# @cacic-fct/cookie-banner
 
-This library was generated with [Nx](https://nx.dev).
+CACiC cookie consent banner with vanilla JavaScript and Angular entry points.
+
+## Install
+
+Configure GitHub Packages for the CACiC FCT scope:
+
+```ini
+@cacic-fct:registry=https://npm.pkg.github.com
+```
+
+Then install with Bun:
+
+```bash
+bun add @cacic-fct/cookie-banner
+```
+
+## Angular
+
+```ts
+import {
+  CookieBannerComponent,
+  type CookieBannerOptions,
+} from '@cacic-fct/cookie-banner/angular';
+```
+
+```html
+<lib-cookie-banner [config]="cookieBannerConfig" />
+```
+
+## Vanilla
+
+```ts
+import { createCookieBanner } from '@cacic-fct/cookie-banner';
+
+createCookieBanner({
+  privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',
+});
+```
 
 ## Building
 
-Run `nx build cookie-banner` to build the library.
+Run `bunx nx build cookie-banner` to build the library.
 
-## Running unit tests
+## Publishing
 
-Run `nx test cookie-banner` to execute the unit tests via [Jest](https://jestjs.io).
+This package has an independent release cycle. Updates under `libs/cookie-banner` trigger the package publishing workflow, so bump this package's own `version` before merging changes that should be published.
+
+Run `bun run publish:cookie-banner` from the repository root when publishing manually.

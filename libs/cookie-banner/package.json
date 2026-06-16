@@ -1,22 +1,40 @@
 {
-  "name": "@cacic/cookie-banner",
+  "name": "@cacic-fct/cookie-banner",
   "version": "0.0.1",
-  "private": true,
-  "type": "commonjs",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "description": "CACiC cookie consent banner with vanilla and Angular entry points.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
+      "types": "./index.d.ts",
+      "default": "./index.js"
     },
     "./angular": {
-      "types": "./src/angular/index.d.ts",
-      "default": "./src/angular/index.js"
-    }
+      "types": "./angular/index.d.ts",
+      "default": "./angular/index.js"
+    },
+    "./styles.css": "./lib/cookie-banner.css"
   },
-  "dependencies": {
-    "tslib": "^2.3.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cacic-fct/account-manager.git",
+    "directory": "libs/cookie-banner"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=19",
+    "@angular/core": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@angular/common": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    }
   },
   "sideEffects": [
     "**/*.css"

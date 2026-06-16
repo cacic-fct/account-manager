@@ -1,0 +1,116 @@
+name: Publish packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to publish
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - account-privacy
+          - cookie-banner
+  push:
+    paths:
+      - libs/account-privacy/**
+      - libs/cookie-banner/**
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      !startsWith(github.event.release.tag_name, 'app-')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed packages
+        id: changes
+        shell: bash
+        run: |
+          account_privacy=false
+          cookie_banner=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            case "${{ inputs.package }}" in
+              all)
+                account_privacy=true
+                cookie_banner=true
+                ;;
+              account-privacy)
+                account_privacy=true
+                ;;
+              cookie-banner)
+                cookie_banner=true
+                ;;
+            esac
+          else
+            base="${{ github.event.before }}"
+
+            if ! git rev-parse --verify "${base}^{commit}" >/dev/null 2>&1; then
+              base="$(git rev-list --max-parents=0 HEAD)"
+            fi
+
+            changed_files="$(git diff --name-only "${base}" "${{ github.sha }}")"
+
+            if grep -q '^libs/account-privacy/' <<< "${changed_files}"; then
+              account_privacy=true
+            fi
+
+            if grep -q '^libs/cookie-banner/' <<< "${changed_files}"; then
+              cookie_banner=true
+            fi
+          fi
+
+          {
+            echo "account_privacy=${account_privacy}"
+            echo "cookie_banner=${cookie_banner}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Configure GitHub Packages
+        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        run: |
+          echo "@cacic-fct:registry=https://npm.pkg.github.com" > ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build account privacy
+        if: steps.changes.outputs.account_privacy == 'true'
+        run: bunx nx build account-privacy
+
+      - name: Publish account privacy
+        if: steps.changes.outputs.account_privacy == 'true'
+        working-directory: dist/libs/account-privacy
+        run: bun publish
+
+      - name: Build cookie banner
+        if: steps.changes.outputs.cookie_banner == 'true'
+        run: bunx nx build cookie-banner
+
+      - name: Publish cookie banner
+        if: steps.changes.outputs.cookie_banner == 'true'
+        working-directory: dist/libs/cookie-banner
+        run: bun publish

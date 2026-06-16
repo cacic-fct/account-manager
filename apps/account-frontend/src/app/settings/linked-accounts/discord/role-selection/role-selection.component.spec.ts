@@ -14,7 +14,6 @@ describe('RoleSelectionComponent', () => {
 
     fixture = TestBed.createComponent(RoleSelectionComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
   });
 
   it('should create', () => {

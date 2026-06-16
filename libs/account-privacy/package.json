@@ -1,0 +1,31 @@
+{
+  "name": "@cacic-fct/account-privacy",
+  "version": "0.0.1",
+  "description": "Angular client for CACiC account privacy preferences.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cacic-fct/account-manager.git",
+    "directory": "libs/account-privacy"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "dependencies": {
+    "tslib": "^2.8.0"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=19",
+    "@angular/core": ">=19",
+    "rxjs": "^7.8.0"
+  },
+  "sideEffects": false
+}

@@ -5,8 +5,12 @@
   right: 0;
   z-index: var(--cacic-cookie-banner-z-index, 1000);
   padding: 1rem 1.5rem;
-  background-color: var(--cacic-cookie-banner-surface, #fafafa);
-  border-top: 3px solid var(--cacic-cookie-banner-primary, #1976d2);
+  background-color: var(
+    --mat-sys-surface,
+    var(--cacic-cookie-banner-surface, #fafafa)
+  );
+  border-top: 3px solid
+    var(--mat-sys-primary, var(--cacic-cookie-banner-primary, #1976d2));
   box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.12);
   animation: cacic-cookie-banner-slide-up 0.3s ease-out;
   font-family: var(
@@ -53,12 +57,15 @@
 .cacic-cookie-banner_text-content p {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--cacic-cookie-banner-on-surface, #616161);
+  color: var(
+    --mat-sys-on-surface-variant,
+    var(--cacic-cookie-banner-on-surface, #616161)
+  );
   line-height: 1.4;
 }
 
 .cacic-cookie-banner_text-content a {
-  color: var(--cacic-cookie-banner-primary, #1976d2);
+  color: var(--mat-sys-primary, var(--cacic-cookie-banner-primary, #1976d2));
   text-decoration: none;
 }
 
@@ -85,14 +92,26 @@
   font: inherit;
   font-weight: 500;
   cursor: pointer;
-  color: var(--cacic-cookie-banner-primary-contrast, #ffffff);
-  background: var(--cacic-cookie-banner-primary, #1976d2);
+  color: var(
+    --mat-sys-on-primary,
+    var(--cacic-cookie-banner-primary-contrast, #ffffff)
+  );
+  background: var(
+    --mat-sys-primary,
+    var(--cacic-cookie-banner-primary, #1976d2)
+  );
 }
 
 .cacic-cookie-banner_accept:disabled {
   cursor: wait;
-  background-color: var(--cacic-cookie-banner-disabled-surface, #e0e0e0);
-  color: var(--cacic-cookie-banner-disabled-text, #757575);
+  color: var(
+    --mat-sys-on-surface-variant,
+    var(--cacic-cookie-banner-disabled-text, #757575)
+  );
+  background-color: var(
+    --mat-sys-surface-container-highest,
+    var(--cacic-cookie-banner-disabled-surface, #e0e0e0)
+  );
 }
 
 .cacic-cookie-banner_accept-icon {

@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, test, and build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+
+    if: >
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Prisma client
+        run: bunx prisma generate --schema apps/account-backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/db?schema=public
+
+      - name: Derive Nx SHAs
+        uses: nrwl/nx-set-shas@v5
+
+      - name: Lint affected projects
+        run: bunx nx affected -t eslint:lint --parallel=3
+
+      - name: Run unit tests
+        run: bunx nx run-many --target=test --all --parallel=3
+
+      - name: Build apps and libraries
+        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
+
+      - name: Collect coverage reports
+        id: coverage
+        shell: bash
+        run: |
+          if [ ! -d coverage ]; then
+            echo "has_reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t reports < <(find coverage -type f \( -name 'lcov.info' -o -name 'coverage-final.json' -o -name 'coverage.xml' -o -name 'clover.xml' \) | sort)
+
+          if [ "${#reports[@]}" -eq 0 ]; then
+            echo "has_reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          reports_csv="$(IFS=,; echo "${reports[*]}")"
+          echo "has_reports=true" >> "$GITHUB_OUTPUT"
+          echo "files=$reports_csv" >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage to Codecov
+        if: steps.coverage.outputs.has_reports == 'true'
+        uses: codecov/codecov-action@v6
+        with:
+          flags: unit
+          files: ${{ steps.coverage.outputs.files }}
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  prepare-untrusted-pr:
+    name: Prepare untrusted PR dependencies
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect sensitive file changes
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+
+          changed_files="$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)"
+
+          echo "$changed_files"
+
+          if echo "$changed_files" | grep -E '(^\.github/workflows/.*\.ya?ml$|(^|/)(package\.json|bun\.lock|\.npmrc|bunfig\.toml)$|^apps/account-backend/prisma/|^apps/account-backend/prisma\.config\.ts$)'; then
+            echo "::error::Fork PR changed CI/CD, dependency, or auth-related files."
+            echo "::error::A maintainer must review this and run full CI from a trusted branch."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies without lifecycle scripts
+        run: bun install --frozen-lockfile --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove npm auth material
+        run: |
+          rm -f ~/.npmrc
+          rm -f .npmrc
+          unset NODE_AUTH_TOKEN
+
+      - name: Upload prepared dependencies
+        uses: actions/upload-artifact@v6
+        with:
+          name: untrusted-pr-node-modules
+          path: |
+            node_modules
+            apps/**/node_modules
+            libs/**/node_modules
+          retention-days: 1
+          include-hidden-files: false
+
+  untrusted-pr-checks:
+    name: Untrusted PR checks
+    runs-on: ubuntu-latest
+
+    needs:
+      - prepare-untrusted-pr
+
+    permissions:
+      contents: read
+
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Download prepared dependencies
+        uses: actions/download-artifact@v6
+        with:
+          name: untrusted-pr-node-modules
+          path: .
+
+      - name: Generate Prisma client
+        run: bunx prisma generate --schema apps/account-backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/db?schema=public
+
+      - name: Derive Nx SHAs
+        uses: nrwl/nx-set-shas@v5
+
+      - name: Lint affected projects
+        run: bunx nx affected -t eslint:lint --parallel=3
+
+      - name: Run affected unit tests
+        run: bunx nx affected -t test --parallel=3
+
+      - name: Build apps and libraries
+        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
