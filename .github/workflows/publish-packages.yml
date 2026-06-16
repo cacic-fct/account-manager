@@ -17,7 +17,6 @@ on:
   push:
     branches:
       - main
-      - dev
     paths:
       - libs/m2m-contracts/**
       - libs/account-privacy/**
@@ -35,10 +34,6 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
-    # Extra defense:
-    # - no PR / pull_request_target execution
-    # - only the canonical repository owner
-    # - only trusted publish branches
     if: >
       github.event_name != 'pull_request' &&
       github.event_name != 'pull_request_target' &&
