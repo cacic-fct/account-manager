@@ -6,17 +6,28 @@ import {
   PRIVACY_DIRECTIVE_TYPES,
   DIRECTIVE_VALUES,
   PRIVACY_HEADER_NAME,
+  CACIC_PURR_COOKIE_NAME,
+  CACIC_PURR_QUICK_COOKIE_NAME,
+  CacicPurrCookiePayload,
+  PrivacyDataDirectiveType,
+  PrivacyDataDirectiveValue,
+  PrivacyDirectiveDataMap,
+  PrivacyDirectiveUiMap,
+  PrivacyUiDirectiveType,
+  PrivacyUiDirectiveValue,
 } from '../constants/privacy-directives';
 import { PrivacyService } from '../privacy.service';
 import { Response } from 'express';
 
-interface CacicPurrCookiePayload {
-  directives: Record<string, string>;
-  userId: string;
-  expires: string;
-  lastUpdated: string;
-  version: string;
-}
+type UiPrivacyDirective = PrivacyDirective & {
+  type: PrivacyUiDirectiveType;
+  value: PrivacyUiDirectiveValue;
+};
+
+type DataPrivacyDirective = PrivacyDirective & {
+  type: PrivacyDataDirectiveType;
+  value: PrivacyDataDirectiveValue;
+};
 
 @Injectable()
 export class PrivacyDirectiveService {
@@ -211,7 +222,7 @@ export class PrivacyDirectiveService {
     const signedPayload = this.buildSignedCookieValue(encodedPayload);
 
     // Set the cacic-purr cookie
-    response.cookie('cacic-purr', signedPayload, {
+    response.cookie(CACIC_PURR_COOKIE_NAME, signedPayload, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -221,7 +232,7 @@ export class PrivacyDirectiveService {
 
     // Also set a simpler cookie for quick JS access (like PURR's approach)
     response.cookie(
-      'cacic-purr-quick',
+      CACIC_PURR_QUICK_COOKIE_NAME,
       JSON.stringify({
         cookieBanner:
           directivesMap[PRIVACY_DIRECTIVE_TYPES.UI_COOKIE_BANNER] || 'show',
@@ -336,23 +347,35 @@ export class PrivacyDirectiveService {
    */
   async getDirectivesAsJson(userId: string): Promise<{
     directives: PrivacyDirective[];
-    ui: Record<string, string>;
-    data: Record<string, string>;
+    ui: PrivacyDirectiveUiMap;
+    data: PrivacyDirectiveDataMap;
   }> {
     const directives = await this.generateDirectivesForUser(userId);
 
     // Separate UI and data directives for easier consumption
-    const ui: Record<string, string> = {};
-    const data: Record<string, string> = {};
+    const ui: PrivacyDirectiveUiMap = {};
+    const data: PrivacyDirectiveDataMap = {};
 
     directives.forEach((directive) => {
-      if (directive.type.startsWith('ui_')) {
+      if (this.isUiDirective(directive)) {
         ui[directive.type] = directive.value;
-      } else if (directive.type.startsWith('data_')) {
+      } else if (this.isDataDirective(directive)) {
         data[directive.type] = directive.value;
       }
     });
 
     return { directives, ui, data };
+  }
+
+  private isUiDirective(
+    directive: PrivacyDirective,
+  ): directive is UiPrivacyDirective {
+    return directive.type.startsWith('ui_');
+  }
+
+  private isDataDirective(
+    directive: PrivacyDirective,
+  ): directive is DataPrivacyDirective {
+    return directive.type.startsWith('data_');
   }
 }

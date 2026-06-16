@@ -1,3 +1,3 @@
-export * from './lib/account-privacy.config';
-export * from './lib/account-privacy.service';
-export * from './lib/account-privacy.types';
+export * from './lib/account-privacy.config.js';
+export * from './lib/account-privacy.service.js';
+export * from './lib/account-privacy.types.js';

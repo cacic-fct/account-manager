@@ -15,6 +15,7 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { M2M_PRIVACY_ROLES } from '@cacic-fct/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import { PrivacyService } from './privacy.service';
 import {
@@ -30,7 +31,7 @@ import {
 @Controller('v1/privacy')
 @UseGuards(M2MGuard)
 @M2MProtected()
-@RequireRoles('privacy:read')
+@RequireRoles(M2M_PRIVACY_ROLES.READ)
 @ApiBearerAuth()
 export class PrivacyApiController {
   constructor(private readonly privacyService: PrivacyService) {}
@@ -176,7 +177,7 @@ export class PrivacyApiController {
     description:
       'Record that user has given cookie consent. Requires M2M authentication with privacy:write realm role.',
   })
-  @RequireRoles('privacy:write')
+  @RequireRoles(M2M_PRIVACY_ROLES.WRITE)
   @ApiResponse({
     status: 200,
     description: 'Cookie consent recorded successfully',
@@ -199,7 +200,7 @@ export class PrivacyApiController {
     description:
       'Update multiple privacy settings at once. Requires M2M authentication with privacy:write realm role.',
   })
-  @RequireRoles('privacy:write')
+  @RequireRoles(M2M_PRIVACY_ROLES.WRITE)
   @ApiResponse({
     status: 200,
     description: 'Privacy settings updated successfully',

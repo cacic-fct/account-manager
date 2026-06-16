@@ -14,11 +14,11 @@ import {
 import {
   CACIC_ACCOUNT_PRIVACY_CONFIG,
   CacicAccountPrivacyConfig,
-} from './account-privacy.config';
+} from './account-privacy.config.js';
 import type {
   CacicAccountPrivacySetting,
   CacicPrivacyPreferences,
-} from './account-privacy.types';
+} from './account-privacy.types.js';
 
 @Injectable({ providedIn: 'root' })
 export class CacicAccountPrivacyService {

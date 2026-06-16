@@ -68,6 +68,34 @@ JWT_CLOCK_SKEW_TOLERANCE=30
 
 ## Using the API
 
+### Contracts package
+
+Use `@cacic-fct/m2m-contracts` in TypeScript callers to share endpoint
+helpers, role names, setting keys, directive constants, and request/response
+types with Account Manager.
+
+```bash
+bun add @cacic-fct/m2m-contracts
+```
+
+```ts
+import {
+  M2M_PRIVACY_ROLES,
+  M2M_PRIVACY_ROUTES,
+  PRIVACY_SETTING_TYPES,
+  type M2MBulkPrivacySettingsRequest,
+} from '@cacic-fct/m2m-contracts';
+
+const body: M2MBulkPrivacySettingsRequest = {
+  settings: [
+    {
+      settingType: PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING,
+      enabled: false,
+    },
+  ],
+};
+```
+
 ### 1. Get Access Token from Keycloak
 
 ```bash

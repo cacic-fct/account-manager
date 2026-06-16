@@ -60,7 +60,7 @@ jobs:
         run: bunx nx run-many --target=test --all --parallel=3
 
       - name: Build apps and libraries
-        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
+        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,m2m-contracts,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
 
       - name: Collect coverage reports
         id: coverage
@@ -203,4 +203,4 @@ jobs:
         run: bunx nx affected -t test --parallel=3
 
       - name: Build apps and libraries
-        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
+        run: bunx nx run-many --target=build --projects=account-frontend,account-backend,m2m-contracts,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3

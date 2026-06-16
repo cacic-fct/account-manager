@@ -10,12 +10,19 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  BulkUpdatePrivacySettingsByType,
+  M2MBulkPrivacySettingsRequest,
+  M2MPrivacySettingResponse,
+  M2MPrivacySettingUpdate,
+  PrivacyMetadata,
+  PrivacySettingRecord,
+  PrivacySettingUpdate,
   PrivacySettings,
   PRIVACY_SETTING_TYPE_VALUES,
   PrivacySettingTypeValue,
-} from '../constants/privacy-setting.constants';
+} from '@cacic-fct/m2m-contracts';
 
-export class UpdatePrivacySettingDto {
+export class UpdatePrivacySettingDto implements PrivacySettingUpdate {
   @ApiProperty({
     description: 'Whether the setting is enabled',
     example: true,
@@ -30,10 +37,10 @@ export class UpdatePrivacySettingDto {
   })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: PrivacyMetadata;
 }
 
-export class BulkUpdatePrivacySettingsDto {
+export class BulkUpdatePrivacySettingsDto implements BulkUpdatePrivacySettingsByType {
   @ApiProperty({
     description: 'Analytics tracking setting',
     required: false,
@@ -75,7 +82,7 @@ export class BulkUpdatePrivacySettingsDto {
   performance_monitoring?: UpdatePrivacySettingDto;
 }
 
-export class PrivacySettingResponseDto {
+export class PrivacySettingResponseDto implements PrivacySettingRecord {
   @ApiProperty({
     description: 'Setting ID',
     example: 'f5fc286c-2025-4567-8901-234567890abc',
@@ -106,7 +113,7 @@ export class PrivacySettingResponseDto {
     example: { source: 'user_action', lastUpdated: '2024-01-01T00:00:00Z' },
     type: () => Object,
   })
-  metadata?: Record<string, any>;
+  metadata?: PrivacyMetadata;
 
   @ApiProperty({
     description: 'When the settings were created',
@@ -122,7 +129,7 @@ export class PrivacySettingResponseDto {
 }
 
 // For API endpoints that need setting type and value
-export class UpdatePrivacySettingWithTypeDto {
+export class UpdatePrivacySettingWithTypeDto implements M2MPrivacySettingUpdate {
   @ApiProperty({
     description: 'Type of privacy setting',
     enum: PRIVACY_SETTING_TYPE_VALUES,
@@ -145,10 +152,10 @@ export class UpdatePrivacySettingWithTypeDto {
   })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: PrivacyMetadata;
 }
 
-export class BulkPrivacySettingsDto {
+export class BulkPrivacySettingsDto implements M2MBulkPrivacySettingsRequest {
   @ApiProperty({
     description: 'List of privacy settings to update',
     type: () => [UpdatePrivacySettingWithTypeDto],
@@ -161,7 +168,7 @@ export class BulkPrivacySettingsDto {
 }
 
 // Response DTO for API endpoints
-export class ApiPrivacySettingResponseDto {
+export class ApiPrivacySettingResponseDto implements M2MPrivacySettingResponse {
   @ApiProperty({
     description: 'Setting type',
     enum: PRIVACY_SETTING_TYPE_VALUES,

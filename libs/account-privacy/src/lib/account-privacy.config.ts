@@ -4,7 +4,7 @@ import {
   Provider,
   makeEnvironmentProviders,
 } from '@angular/core';
-import type { CacicPrivacyPreferences } from './account-privacy.types';
+import type { CacicPrivacyPreferences } from './account-privacy.types.js';
 
 export interface CacicAccountPrivacyConfig {
   apiBaseUrl: string;

@@ -4,6 +4,7 @@ import {
   PrivacySettings,
   PRIVACY_SETTING_TYPES,
   PrivacySettingTypeValue,
+  createDefaultPrivacySettings,
 } from './constants/privacy-setting.constants';
 import {
   UpdatePrivacySettingDto,
@@ -14,7 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 type PrivacySettingRecord = Omit<PrivacySetting, 'settings' | 'metadata'> & {
   settings: PrivacySettings;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 @Injectable()
@@ -22,12 +23,7 @@ export class PrivacyService {
   constructor(private readonly prisma: PrismaService) {}
 
   private getDefaultSettings(): PrivacySettings {
-    return {
-      analytics_tracking: false,
-      error_debugging: false,
-      performance_monitoring: false,
-      cookie_banner_accepted: false,
-    };
+    return createDefaultPrivacySettings();
   }
 
   private getDefaultMetadata(): Record<string, string> {
@@ -65,11 +61,13 @@ export class PrivacyService {
     };
   }
 
-  private normalizeMetadata(value: unknown): Record<string, any> | undefined {
+  private normalizeMetadata(
+    value: unknown,
+  ): Record<string, unknown> | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return undefined;
     }
-    return value as Record<string, any>;
+    return value as Record<string, unknown>;
   }
 
   private toRecord(setting: PrivacySetting): PrivacySettingRecord {
@@ -291,7 +289,7 @@ export class PrivacyService {
     settings: {
       settingType: PrivacySettingTypeValue;
       enabled: boolean;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }[],
   ): Promise<number> {
     const userSettings = await this.getUserPrivacySettings(userId);

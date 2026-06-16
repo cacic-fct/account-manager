@@ -10,10 +10,12 @@ on:
         type: choice
         options:
           - all
+          - m2m-contracts
           - account-privacy
           - cookie-banner
   push:
     paths:
+      - libs/m2m-contracts/**
       - libs/account-privacy/**
       - libs/cookie-banner/**
 
@@ -42,14 +44,19 @@ jobs:
         id: changes
         shell: bash
         run: |
+          m2m_contracts=false
           account_privacy=false
           cookie_banner=false
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             case "${{ inputs.package }}" in
               all)
+                m2m_contracts=true
                 account_privacy=true
                 cookie_banner=true
+                ;;
+              m2m-contracts)
+                m2m_contracts=true
                 ;;
               account-privacy)
                 account_privacy=true
@@ -67,6 +74,10 @@ jobs:
 
             changed_files="$(git diff --name-only "${base}" "${{ github.sha }}")"
 
+            if grep -q '^libs/m2m-contracts/' <<< "${changed_files}"; then
+              m2m_contracts=true
+            fi
+
             if grep -q '^libs/account-privacy/' <<< "${changed_files}"; then
               account_privacy=true
             fi
@@ -77,25 +88,35 @@ jobs:
           fi
 
           {
+            echo "m2m_contracts=${m2m_contracts}"
             echo "account_privacy=${account_privacy}"
             echo "cookie_banner=${cookie_banner}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
-        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
 
       - name: Install dependencies
-        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
         run: bun install --frozen-lockfile
 
       - name: Configure GitHub Packages
-        if: steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
+        if: steps.changes.outputs.m2m_contracts == 'true' || steps.changes.outputs.account_privacy == 'true' || steps.changes.outputs.cookie_banner == 'true'
         run: |
           echo "@cacic-fct:registry=https://npm.pkg.github.com" > ~/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build M2M contracts
+        if: steps.changes.outputs.m2m_contracts == 'true'
+        run: bunx nx build m2m-contracts
+
+      - name: Publish M2M contracts
+        if: steps.changes.outputs.m2m_contracts == 'true'
+        working-directory: dist/libs/m2m-contracts
+        run: bun publish
 
       - name: Build account privacy
         if: steps.changes.outputs.account_privacy == 'true'

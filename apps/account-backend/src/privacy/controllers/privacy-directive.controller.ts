@@ -6,9 +6,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { M2M_PRIVACY_ROLES } from '@cacic-fct/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../../auth/jwt/m2m.guard';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
-import { PrivacyDirective } from '../constants/privacy-directives';
+import {
+  PrivacyDirective,
+  PrivacyDirectiveDataMap,
+  PrivacyDirectiveUiMap,
+} from '../constants/privacy-directives';
 
 @ApiTags('Privacy Directives')
 @Controller('privacy-directives')
@@ -25,7 +30,7 @@ export class PrivacyDirectiveController {
     description:
       'Returns privacy directives that tell other applications what UI elements to show and how to handle user data. Requires M2M authentication with privacy:read realm role.',
   })
-  @RequireRoles('privacy:read')
+  @RequireRoles(M2M_PRIVACY_ROLES.READ)
   @ApiQuery({
     name: 'userId',
     description: 'The user ID to get directives for',
@@ -129,8 +134,8 @@ export class PrivacyDirectiveController {
   })
   async getUserDirectives(@Query('userId') userId?: string): Promise<{
     directives: PrivacyDirective[];
-    ui: Record<string, string>;
-    data: Record<string, string>;
+    ui: PrivacyDirectiveUiMap;
+    data: PrivacyDirectiveDataMap;
   }> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
@@ -145,7 +150,7 @@ export class PrivacyDirectiveController {
     description:
       'Returns only the UI directives (what elements to show/hide) for easier consumption by frontend applications.',
   })
-  @RequireRoles('privacy:read')
+  @RequireRoles(M2M_PRIVACY_ROLES.READ)
   @ApiQuery({
     name: 'userId',
     description: 'The user ID to get UI directives for',
@@ -168,7 +173,7 @@ export class PrivacyDirectiveController {
   })
   async getUiDirectives(
     @Query('userId') userId?: string,
-  ): Promise<Record<string, string>> {
+  ): Promise<PrivacyDirectiveUiMap> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }
@@ -184,7 +189,7 @@ export class PrivacyDirectiveController {
     description:
       'Returns only the data handling directives (what to block/allow) for easier consumption by backend applications.',
   })
-  @RequireRoles('privacy:read')
+  @RequireRoles(M2M_PRIVACY_ROLES.READ)
   @ApiQuery({
     name: 'userId',
     description: 'The user ID to get data directives for',
@@ -209,7 +214,7 @@ export class PrivacyDirectiveController {
   })
   async getDataDirectives(
     @Query('userId') userId?: string,
-  ): Promise<Record<string, string>> {
+  ): Promise<PrivacyDirectiveDataMap> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }

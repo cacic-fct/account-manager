@@ -2,6 +2,7 @@ import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
 import { AuthSession } from '../../auth/auth.controller';
+import { CACIC_PURR_COOKIE_NAME } from '../constants/privacy-directives';
 
 @Injectable()
 export class PrivacyDirectiveMiddleware implements NestMiddleware {
@@ -66,7 +67,7 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
     const cookies = req.cookies as
       | Record<string, string | undefined>
       | undefined;
-    const cacicPurrCookie = cookies?.['cacic-purr'];
+    const cacicPurrCookie = cookies?.[CACIC_PURR_COOKIE_NAME];
     let hasMissingOrExpiredCookie = true;
 
     if (cacicPurrCookie) {

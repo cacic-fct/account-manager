@@ -1,0 +1,54 @@
+# @cacic-fct/m2m-contracts
+
+Framework-agnostic contracts for CACiC Account Manager machine-to-machine APIs.
+
+The package exports the privacy setting keys, M2M role names, endpoint helpers,
+request/response DTO types, privacy directive constants, and PURR-style header
+and cookie names used by Account Manager.
+
+## Install
+
+Configure GitHub Packages for the CACiC FCT scope:
+
+```ini
+@cacic-fct:registry=https://npm.pkg.github.com
+```
+
+Then install with Bun:
+
+```bash
+bun add @cacic-fct/m2m-contracts
+```
+
+## Use
+
+```ts
+import {
+  M2M_PRIVACY_ROLES,
+  M2M_PRIVACY_ROUTES,
+  PRIVACY_SETTING_TYPES,
+  type M2MBulkPrivacySettingsRequest,
+  type M2MPrivacySettingResponse,
+} from '@cacic-fct/m2m-contracts';
+
+const body: M2MBulkPrivacySettingsRequest = {
+  settings: [
+    {
+      settingType: PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING,
+      enabled: false,
+    },
+  ],
+};
+```
+
+## Building
+
+Run `bunx nx build m2m-contracts` to build the library.
+
+## Publishing
+
+This package has an independent release cycle. Bump this package's own
+`version` before merging changes that should be published.
+
+Run `bun run publish:m2m-contracts` from the repository root when publishing
+manually.

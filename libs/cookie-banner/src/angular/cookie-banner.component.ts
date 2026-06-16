@@ -12,7 +12,7 @@ import { isPlatformBrowser } from '@angular/common';
 import type {
   CookieBannerAcceptContext,
   CookieBannerOptions,
-} from '../lib/cookie-banner';
+} from '../lib/cookie-banner.js';
 
 const DEFAULT_STORAGE_KEY = 'cacic.cookieBanner.accepted';
 

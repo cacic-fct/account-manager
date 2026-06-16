@@ -10,9 +10,9 @@
  * For the vanilla JS implementation, import from '@cacic/cookie-banner'.
  */
 
-export { CookieBannerComponent } from './cookie-banner.component';
+export { CookieBannerComponent } from './cookie-banner.component.js';
 
 export type {
   CookieBannerOptions,
   CookieBannerAcceptContext,
-} from '../lib/cookie-banner';
+} from '../lib/cookie-banner.js';
