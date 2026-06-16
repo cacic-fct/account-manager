@@ -1,59 +1,97 @@
-# CacicAccountManager
+# CACiC Account Manager
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.0.1.
+Monorepo Nx do gerenciador de contas do CACiC. O projeto centraliza autenticação, onboarding, perfil do usuário, preferências de privacidade, solicitações LGPD, verificação de vínculo estudantil, integração com Discord e contratos para comunicação M2M entre serviços CACiC.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- Nx para orquestrar aplicações e bibliotecas.
+- Bun como gerenciador de pacotes e executor de comandos de desenvolvimento.
+- Angular com Angular Material, SSR e Storybook no frontend.
+- NestJS no backend, com Swagger, Prisma, PostgreSQL, Redis, BullMQ e sessões HTTP.
+- Keycloak para autenticação, autorização e clientes M2M.
+- Discord API para OAuth, bot e role connections.
+- S3 compatível com SeaweedFS para arquivos de LGPD e documentos.
+- Docker Compose para dependências locais e deploy com Traefik.
 
-```bash
-ng serve
-```
+## Pré-requisitos
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- Bun instalado.
+- Docker, quando for usar PostgreSQL e Redis locais via Compose.
+- Acesso ao GitHub Packages da organização `@cacic-fct` quando instalar ou publicar pacotes privados.
+- Python 3, apenas para os fluxos do backend que validam PDFs.
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+Instale as dependências com:
 
 ```bash
-ng build
+bun install
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Configuração Local
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+Copie o exemplo de ambiente do backend e ajuste os valores reais:
 
 ```bash
-ng test
+cp apps/account-backend/.env.example apps/account-backend/.env
 ```
 
-## Running end-to-end tests
+Variáveis obrigatórias ou normalmente usadas pelo backend:
 
-For end-to-end (e2e) testing, run:
+- `DATABASE_URL`: conexão PostgreSQL usada pelo Prisma.
+- `SESSION_SECRET`: segredo das sessões HTTP.
+- `BACKEND_URL`: URL pública/local do backend.
+- `FRONTEND_URL`: URL pública/local do frontend.
+- `REDIS_HOST`, `REDIS_PORT` e, se necessário, `REDIS_PASSWORD`.
+- `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID` e credenciais administrativas/M2M.
+- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` e `DISCORD_GUILD_ID`.
+- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET_NAME` e `S3_REGION`.
+- `ALLOWED_REDIRECT_URLS` e `CORS_ORIGINS`, quando houver mais de uma origem autorizada.
+
+Para subir apenas as dependências locais:
 
 ```bash
-ng e2e
+docker compose -f docker/docker-compose.dev.yml up -d
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+O Compose de desenvolvimento expõe PostgreSQL em `localhost:5432` e Redis em `localhost:6379`.
 
-## Additional Resources
+## Prisma
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Depois de instalar dependências ou alterar `apps/account-backend/prisma/schema.prisma`, gere o client:
+
+```bash
+bunx prisma generate --schema apps/account-backend/prisma/schema.prisma
+```
+
+## Desenvolvimento
+
+```bash
+bunx nx serve account-frontend
+bunx nx serve account-backend
+```
+
+## Comandos principais
+
+```bash
+# Ver projetos conhecidos pelo Nx
+bunx nx show projects
+
+# Build das aplicações
+bunx nx build account-frontend
+bunx nx build account-backend
+
+# Testes
+bunx nx test account-frontend
+bunx nx test account-backend
+bunx nx e2e account-backend
+
+# Lint
+bunx nx affected -t eslint:lint --parallel=3
+
+# Storybook do frontend
+bunx nx storybook account-frontend
+bunx nx build-storybook account-frontend
+
+# Bibliotecas publicáveis
+bun run build:packages
+bun run publish:packages
+```

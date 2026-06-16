@@ -116,24 +116,16 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         if: steps.changes.outputs.any_changed == 'true'
-
-      - name: Configure registries
-        if: steps.changes.outputs.any_changed == 'true'
-        shell: bash
-        run: |
-          cat > .npmrc <<'EOF'
-          registry=https://registry.npmjs.org/
-          @cacic-fct:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          always-auth=false
-          EOF
+        with:
+          registries: |
+            https://registry.npmjs.org/
+            @cacic-fct:https://npm.pkg.github.com/|$GITHUB_TOKEN
 
       - name: Install dependencies
         if: steps.changes.outputs.any_changed == 'true'
         run: bun install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build M2M contracts
         if: steps.changes.outputs.m2m_contracts == 'true'
@@ -156,8 +148,7 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build account privacy
         if: steps.changes.outputs.account_privacy == 'true'
@@ -180,8 +171,7 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build cookie banner
         if: steps.changes.outputs.cookie_banner == 'true'
@@ -204,5 +194,4 @@ jobs:
 
           bun publish --registry https://npm.pkg.github.com --tolerate-republish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "license": "AGPL-3.0-only",
   "scripts": {
-    "build:packages": "bunx nx run-many --target=build --projects=account-privacy,cookie-banner",
+    "build:packages": "bunx nx run-many --target=build --projects=m2m-contracts,account-privacy,cookie-banner",
+    "publish:m2m-contracts": "bunx nx build m2m-contracts && cd dist/libs/m2m-contracts && bun publish",
     "publish:account-privacy": "bunx nx build account-privacy && cd dist/libs/account-privacy && bun publish",
     "publish:cookie-banner": "bunx nx build cookie-banner && cd dist/libs/cookie-banner && bun publish",
-    "publish:packages": "bun run publish:account-privacy && bun run publish:cookie-banner"
+    "publish:packages": "bun run publish:m2m-contracts && bun run publish:account-privacy && bun run publish:cookie-banner"
   },
   "private": true,
   "dependencies": {
@@ -56,7 +57,6 @@
     "express": "^4.22.1",
     "express-session": "^1.19.0",
     "ioredis": "^5.10.1",
-    "jsdom": "^22.1.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
     "jwks-rsa": "^3.2.2",
@@ -96,6 +96,7 @@
     "@nx/jest": "22.6.4",
     "@nx/js": "22.6.4",
     "@nx/storybook": "22.6.4",
+    "@oxc-project/runtime": "^0.115.0",
     "@storybook/addon-a11y": "^10.3.6",
     "@storybook/addon-docs": "^10.3.6",
     "@storybook/addon-onboarding": "^10.3.6",
@@ -106,7 +107,6 @@
     "@swc/helpers": "~0.5.18",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
-    "@types/jasmine": "~5.1.15",
     "@types/jest": "^29.5.14",
     "@types/multer": "^2.1.0",
     "@types/node": "^22.19.17",
@@ -117,16 +117,11 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "globals": "^16.5.0",
-    "jasmine-core": "~5.4.0",
     "jest": "^29.7.0",
     "jest-environment-node": "^29.7.0",
     "jest-util": "^29.7.0",
+    "jsdom": "^27.1.0",
     "jsonc-eslint-parser": "^2.1.0",
-    "karma": "~6.4.4",
-    "karma-chrome-launcher": "~3.2.0",
-    "karma-coverage": "~2.2.1",
-    "karma-jasmine": "~5.1.0",
-    "karma-jasmine-html-reporter": "~2.1.0",
     "nx": "^22.7.1",
     "prettier": "^3.8.3",
     "source-map-support": "^0.5.21",
@@ -137,7 +132,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.59.2"
+    "typescript-eslint": "^8.59.2",
+    "vitest": "^4.0.8"
   },
   "nx": {}
 }

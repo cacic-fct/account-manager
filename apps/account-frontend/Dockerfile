@@ -14,7 +14,13 @@ FROM base AS deps
 
 COPY package.json bun.lock ./
 
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    --mount=type=secret,id=npm_token \
+    set -eu; \
+    export npm_token="$(cat /run/secrets/npm_token)"; \
+    printf '[install.scopes]\n"@cacic-fct" = { token = "$npm_token", url = "https://npm.pkg.github.com/" }\n' > /root/.bunfig.toml; \
+    bun install --frozen-lockfile; \
+    rm -f /root/.bunfig.toml
 
 FROM deps AS build
 
