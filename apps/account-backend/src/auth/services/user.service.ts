@@ -729,12 +729,10 @@ export class UserService {
     try {
       this.logger.debug('Deleting user data for user', { userId });
 
-      // Get current user attributes to confirm user exists
-      const attributes = await this.keycloakService.getUserAttributes(userId);
-
-      if (!attributes) {
+      const user = await this.keycloakService.getUserBasicInfo(userId);
+      if (!user) {
         this.logger.warn(
-          'User attributes not found, user may have been already deleted',
+          'User not found in Keycloak, may have been already deleted',
           { userId },
         );
         return;

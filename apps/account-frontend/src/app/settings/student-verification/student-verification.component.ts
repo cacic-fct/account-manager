@@ -12,7 +12,6 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
   StudentVerificationService,
-  UploadResponse,
 } from '../../shared/services/student-verification/student-verification.service';
 import { MatDialog } from '@angular/material/dialog';
 import { UniversityValidationDialogComponent } from '../../university-validation-dialog/university-validation-dialog.component';
@@ -66,8 +65,8 @@ export class StudentVerificationComponent {
     type: BannerType,
     title: string,
     message: string,
-    dismissible: boolean = true,
-    autoHide: boolean = false,
+    dismissible = true,
+    autoHide = false,
   ): void {
     // Clear any existing timeout
     if (this.bannerTimeout) {
@@ -148,12 +147,12 @@ export class StudentVerificationComponent {
         return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      // Validate file size (10MB max)
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         this.showErrorBanner(
           'Arquivo muito grande',
-          'Arquivo muito grande. Tamanho máximo: 5MB.',
+          'Arquivo muito grande. Tamanho máximo: 10MB.',
         );
         return;
       }
@@ -188,7 +187,7 @@ export class StudentVerificationComponent {
     this.studentVerificationService
       .uploadDocument(file, isManualFallback)
       .subscribe({
-        next: (response: UploadResponse) => {
+        next: () => {
           this.uploading.set(false);
           this.selectedFile.set(null);
 

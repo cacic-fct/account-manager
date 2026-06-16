@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PrivacyService } from './privacy.service';
 import { PrivacyController } from './privacy.controller';
 import { PrivacyApiController } from './privacy-api.controller';
@@ -9,7 +10,7 @@ import { JwtModule } from '../auth/jwt/jwt.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [JwtModule, AuthModule],
+  imports: [ConfigModule, JwtModule, AuthModule],
   controllers: [
     PrivacyController,
     PrivacyApiController,
@@ -26,4 +27,8 @@ import { AuthModule } from '../auth/auth.module';
     PrivacyDirectiveMiddleware,
   ],
 })
-export class PrivacyModule {}
+export class PrivacyModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(PrivacyDirectiveMiddleware).forRoutes('*');
+  }
+}

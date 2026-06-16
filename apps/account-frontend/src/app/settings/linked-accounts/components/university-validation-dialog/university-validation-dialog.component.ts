@@ -526,7 +526,7 @@ export class UniversityValidationDialogComponent {
           this.validating.set(false);
 
           // Close dialog and show banner for network/server errors
-          let errorType = 'NETWORK_ERROR';
+          const errorType = 'NETWORK_ERROR';
           let errorMessage = 'Erro interno. Tente novamente.';
 
           if (error.status === 0) {

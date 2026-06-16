@@ -46,12 +46,7 @@ interface AuthSession {
 }
 
 const MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-]);
+const ALLOWED_DOCUMENT_MIME_TYPES = new Set(['application/pdf']);
 
 const studentVerificationUploadOptions = {
   limits: {
@@ -103,7 +98,7 @@ export class StudentVerificationController {
   @ApiOperation({
     summary: 'Upload document for student verification',
     description:
-      'Upload a PDF or image document for verification. Requires authentication and university role verification must not be completed.',
+      'Upload a PDF document for verification. Requires authentication and university role verification must not be completed.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -114,7 +109,7 @@ export class StudentVerificationController {
         document: {
           type: 'string',
           format: 'binary',
-          description: 'Document file (PDF, JPG, PNG)',
+          description: 'Document file (PDF, up to 10MB)',
         },
         isManualFallback: {
           type: 'boolean',
@@ -122,12 +117,32 @@ export class StudentVerificationController {
           default: false,
         },
       },
+      example: {
+        document: '<binary PDF file>',
+        isManualFallback: false,
+      },
     },
   })
   @ApiResponse({
     status: 201,
     description: 'Document uploaded successfully',
-    type: UploadResponseDto,
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        documentId: { type: 'string' },
+        status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+        authenticationCode: { type: 'string' },
+        extractedName: { type: 'string' },
+      },
+      example: {
+        message: 'Document uploaded successfully',
+        documentId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        status: 'pending',
+        authenticationCode: 'ABC123456',
+        extractedName: 'Maria Silva',
+      },
+    },
   })
   @ApiResponse({
     status: 400,

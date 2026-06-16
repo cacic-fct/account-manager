@@ -51,7 +51,7 @@ export class DiscordLinkService {
     }
 
     const existingSoftDeletedLink = await this.prisma.discordLink.findFirst({
-      where: { discordId: discordUser.id, userId, deleted: true },
+      where: { discordId: discordUser.id, deleted: true },
     });
 
     let discordLink: DiscordLink;
@@ -60,12 +60,15 @@ export class DiscordLinkService {
       discordLink = await this.prisma.discordLink.update({
         where: { id: existingSoftDeletedLink.id },
         data: {
+          userId,
           deleted: false,
           deletedAt: null,
           discordUsername: discordUser.username,
           discordGlobalName: discordUser.global_name || discordUser.username,
           discordAvatarHash: discordUser.avatar,
           isVerified: true,
+          serverInviteUsed: null,
+          assignedRole: null,
         },
       });
     } else if (existingActiveLink && existingActiveLink.userId === userId) {

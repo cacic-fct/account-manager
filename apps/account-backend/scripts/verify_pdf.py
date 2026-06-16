@@ -9,18 +9,20 @@ specifically looking for authentication codes and validity dates.
 import sys
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, Any
-import PyPDF2
+from pypdf import PdfReader
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """Extract text content from PDF file."""
     try:
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = PdfReader(file)
             text = ""
             for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
+                page_text = page.extract_text() or ""
+                if page_text:
+                    text += page_text + "\n"
             return text
     except Exception as e:
         raise Exception(f"Erro ao ler PDF: {str(e)}")
@@ -72,18 +74,18 @@ def parse_document_info(text: str) -> Dict[str, Any]:
         emission_time = emission_match.group(1)
         emission_date = emission_match.group(2)
         emission_datetime_str = f"{emission_date} {emission_time}"
-        emission_datetime = datetime.strptime(emission_datetime_str, "%d/%m/%Y %H:%M")
+        emission_datetime = datetime.strptime(emission_datetime_str, "%d/%m/%Y %H:%M").replace(tzinfo=timezone.utc)
         
         expiration_time = expiration_match.group(1)
         expiration_date = expiration_match.group(2)
         expiration_datetime_str = f"{expiration_date} {expiration_time}"
-        expiration_datetime = datetime.strptime(expiration_datetime_str, "%d/%m/%Y %H:%M")
+        expiration_datetime = datetime.strptime(expiration_datetime_str, "%d/%m/%Y %H:%M").replace(tzinfo=timezone.utc)
         
         # Get authentication code
         auth_code = auth_code_match.group(1)
         
         # Check if document is still valid
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         is_valid = current_time <= expiration_datetime
         
         result.update({
@@ -113,8 +115,7 @@ def verify_pdf_document(pdf_path: str) -> Dict[str, Any]:
         
         return {
             "success": True,
-            "data": document_info,
-            "extractedText": text[:500] + "..." if len(text) > 500 else text  # Truncate for logging
+            "data": document_info
         }
         
     except Exception as e:

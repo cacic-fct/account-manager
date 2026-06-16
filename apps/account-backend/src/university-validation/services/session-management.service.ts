@@ -129,7 +129,7 @@ export class SessionManagementService {
         sessionHasCookies: !!session.cookieJar,
       });
 
-      const submitResponse = await session.axiosInstance!.post(
+      const submitResponse = await session.axiosInstance!.post<Buffer>(
         this.documentUrl,
         formData.toString(),
         {
@@ -164,7 +164,7 @@ export class SessionManagementService {
       if (contentType && contentType.includes('text/html')) {
         this.logger.debug('Received HTML response, checking for errors');
 
-        const htmlContent = submitResponse.data as string;
+        const htmlContent = submitResponse.data.toString('utf-8');
         const $ = cheerio.load(htmlContent);
 
         // Enhanced debugging - log more details about the HTML response

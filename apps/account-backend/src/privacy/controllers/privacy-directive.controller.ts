@@ -43,35 +43,32 @@ export class PrivacyDirectiveController {
           items: {
             type: 'object',
             properties: {
-              type: { type: 'string', example: 'ui' },
+              type: { type: 'string', example: 'ui_cookie_banner' },
               value: { type: 'string', example: 'show' },
               metadata: {
                 type: 'object',
                 example: {
-                  settingType: 'cookie_banner_accepted',
-                  lastUpdated: '2025-09-11T10:30:00Z',
-                  source: 'user_preference',
+                  reason: 'banner_not_accepted',
+                  timestamp: '2025-09-11T10:30:00Z',
                 },
               },
             },
           },
           example: [
             {
-              type: 'ui',
+              type: 'ui_cookie_banner',
               value: 'show',
               metadata: {
-                settingType: 'cookie_banner_accepted',
-                directive: 'CACIC_CookieBanner',
-                lastUpdated: '2025-09-11T10:30:00Z',
+                reason: 'banner_not_accepted',
+                timestamp: '2025-09-11T10:30:00Z',
               },
             },
             {
-              type: 'data',
+              type: 'data_analytics_tracking',
               value: 'allow',
               metadata: {
-                settingType: 'analytics_tracking',
-                directive: 'CACIC_AnalyticsTracking',
-                lastUpdated: '2025-09-11T10:30:00Z',
+                reason: 'user_preference',
+                timestamp: '2025-09-11T10:30:00Z',
               },
             },
           ],
@@ -80,53 +77,48 @@ export class PrivacyDirectiveController {
           type: 'object',
           description: 'UI directives (what to show/hide)',
           example: {
-            'cookie-banner': 'show',
+            ui_cookie_banner: 'show',
           },
         },
         data: {
           type: 'object',
           description: 'Data handling directives (what to block/allow)',
           example: {
-            'analytics-tracking': 'allow',
-            'error-debugging': 'block',
-            'performance-monitoring': 'allow',
+            data_analytics_tracking: 'allow',
+            data_error_debugging: 'block',
+            data_performance_monitoring: 'allow',
           },
         },
       },
       example: {
         directives: [
           {
-            type: 'ui',
+            type: 'ui_cookie_banner',
             value: 'show',
             metadata: {
-              settingType: 'cookie_banner_accepted',
-              directive: 'CACIC_CookieBanner',
               reason: 'User has not yet accepted cookies',
-              lastUpdated: '2025-09-11T10:30:00Z',
+              timestamp: '2025-09-11T10:30:00Z',
             },
           },
           {
-            type: 'data',
+            type: 'data_analytics_tracking',
             value: 'allow',
             metadata: {
-              settingType: 'analytics_tracking',
-              directive: 'CACIC_AnalyticsTracking',
               reason: 'User has consented to analytics',
-              lastUpdated: '2025-09-10T15:20:00Z',
+              timestamp: '2025-09-10T15:20:00Z',
             },
           },
         ],
         ui: {
-          'cookie-banner': 'show',
-          'analytics-opt-out': 'hide',
-          'performance-monitoring-notice': 'show',
-          'error-reporting-consent': 'hide',
+          ui_cookie_banner: 'show',
+          ui_analytics_consent: 'hide',
+          ui_performance_consent: 'show',
+          ui_error_reporting_consent: 'hide',
         },
         data: {
-          'analytics-tracking': 'allow',
-          'error-debugging': 'block',
-          'performance-monitoring': 'allow',
-          'discord-integration': 'allow',
+          data_analytics_tracking: 'allow',
+          data_error_debugging: 'block',
+          data_performance_monitoring: 'allow',
         },
       },
     },
@@ -170,7 +162,7 @@ export class PrivacyDirectiveController {
         enum: ['show', 'hide'],
       },
       example: {
-        'cookie-banner': 'show',
+        ui_cookie_banner: 'show',
       },
     },
   })
@@ -209,9 +201,9 @@ export class PrivacyDirectiveController {
         enum: ['allow', 'block'],
       },
       example: {
-        'analytics-tracking': 'allow',
-        'error-debugging': 'block',
-        'performance-monitoring': 'allow',
+        data_analytics_tracking: 'allow',
+        data_error_debugging: 'block',
+        data_performance_monitoring: 'allow',
       },
     },
   })

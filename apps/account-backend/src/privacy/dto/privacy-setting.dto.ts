@@ -40,6 +40,8 @@ export class BulkUpdatePrivacySettingsDto {
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdatePrivacySettingDto)
   analytics_tracking?: UpdatePrivacySettingDto;
 
   @ApiProperty({
@@ -48,6 +50,8 @@ export class BulkUpdatePrivacySettingsDto {
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdatePrivacySettingDto)
   error_debugging?: UpdatePrivacySettingDto;
 
   @ApiProperty({
@@ -56,6 +60,8 @@ export class BulkUpdatePrivacySettingsDto {
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdatePrivacySettingDto)
   cookie_banner_accepted?: UpdatePrivacySettingDto;
 
   @ApiProperty({
@@ -64,6 +70,8 @@ export class BulkUpdatePrivacySettingsDto {
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdatePrivacySettingDto)
   performance_monitoring?: UpdatePrivacySettingDto;
 }
 
@@ -83,10 +91,10 @@ export class PrivacySettingResponseDto {
   @ApiProperty({
     description: 'Privacy settings as JSONB object',
     example: {
-      analytics_tracking: true,
-      error_debugging: true,
+      analytics_tracking: false,
+      error_debugging: false,
       performance_monitoring: false,
-      cookie_banner_accepted: true,
+      cookie_banner_accepted: false,
     },
     type: () => Object,
   })

@@ -65,6 +65,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 RUN apk add --no-cache \
+      curl \
       dumb-init \
       openssl \
       python3 \
@@ -88,6 +89,9 @@ RUN python3 -m pip install --no-cache-dir -r scripts/requirements.txt --break-sy
 USER app
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl --fail --silent --show-error http://127.0.0.1:3000/api/health >/dev/null || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "main.js"]

@@ -11,15 +11,19 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
 
   private readonly logger = new Logger(PrivacyDirectiveMiddleware.name);
 
-  use(req: Request, res: Response, next: NextFunction): void {
-    const session = req.session as unknown as AuthSession;
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const session = req.session as unknown as AuthSession;
 
-    // Only send directives on specific conditions (PURR-style efficiency)
-    if (session?.user?.id) {
-      void this.handlePrivacyDirectives(req, res, session.user.id);
+      // Only send directives on specific conditions (PURR-style efficiency)
+      if (session?.user?.id) {
+        await this.handlePrivacyDirectives(req, res, session.user.id);
+      }
+    } catch (error) {
+      this.logger.error('Failed to handle privacy directives', error);
+    } finally {
+      next();
     }
-
-    next();
   }
 
   /**
@@ -30,14 +34,10 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
     res: Response,
     userId: string,
   ): Promise<void> {
-    try {
-      const shouldSend = await this.shouldSendDirectives(req, userId);
+    const shouldSend = await this.shouldSendDirectives(req, userId);
 
-      if (shouldSend) {
-        await this.privacyDirectiveService.addDirectivesToResponse(res, userId);
-      }
-    } catch (error) {
-      this.logger.error('Failed to handle privacy directives', error);
+    if (shouldSend) {
+      await this.privacyDirectiveService.addDirectivesToResponse(res, userId);
     }
   }
 
@@ -87,22 +87,5 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
       hasPrivacyUpdateHeader ||
       hasMissingOrExpiredCookie
     );
-  }
-
-  private isCookieExpired(cookieValue: string): boolean {
-    try {
-      const decoded = Buffer.from(cookieValue, 'base64').toString('utf-8');
-      const data = JSON.parse(decoded) as { expires?: string };
-
-      if (!data.expires) {
-        return true; // No expiry means expired
-      }
-
-      const expiry = new Date(data.expires);
-      return expiry < new Date();
-    } catch {
-      // If we can't parse the cookie, consider it expired
-      return true;
-    }
   }
 }

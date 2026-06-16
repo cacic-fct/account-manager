@@ -13,16 +13,18 @@ import re
 import io
 from datetime import datetime
 from typing import Dict, Optional, Any
-import PyPDF2
+from pypdf import PdfReader
 
 def extract_text_from_pdf_buffer(pdf_buffer: bytes) -> str:
     """Extract text content from PDF buffer."""
     try:
         pdf_stream = io.BytesIO(pdf_buffer)
-        pdf_reader = PyPDF2.PdfReader(pdf_stream)
+        pdf_reader = PdfReader(pdf_stream)
         text = ""
         for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+            page_text = page.extract_text() or ""
+            if page_text:
+                text += page_text + "\n"
         return text
     except Exception as e:
         raise Exception(f"Erro ao ler PDF: {str(e)}")
@@ -31,10 +33,12 @@ def extract_text_from_pdf_file(pdf_path: str) -> str:
     """Extract text content from PDF file."""
     try:
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = PdfReader(file)
             text = ""
             for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
+                page_text = page.extract_text() or ""
+                if page_text:
+                    text += page_text + "\n"
             return text
     except Exception as e:
         raise Exception(f"Erro ao ler PDF: {str(e)}")
@@ -88,7 +92,7 @@ def parse_document_info(text: str) -> Dict[str, Any]:
             
             # Check if document is still valid
             current_date = datetime.now()
-            result["isValid"] = current_date < expiration_date
+            result["isValid"] = current_date <= expiration_date
             
             if not result["isValid"]:
                 result["error"] = f"Documento expirado em {expiration_date.strftime('%d/%m/%Y às %H:%M')}"

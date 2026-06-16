@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, shareReplay, timer } from 'rxjs';
-import { switchMap, tap, catchError } from 'rxjs/operators';
+import { Observable, of, shareReplay, throwError } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
 
 export interface CacheConfig {
   maxAge: number; // milliseconds
@@ -55,8 +55,12 @@ export class CacheService {
         // Update cache with new data
         this.cache.set(key, {
           data,
-          timestamp: now,
+          timestamp: Date.now(),
         });
+      }),
+      catchError((error: unknown) => {
+        this.cache.delete(key);
+        return throwError(() => error);
       }),
       shareReplay(1),
     );
