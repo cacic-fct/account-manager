@@ -44,6 +44,20 @@ export class LgpdController {
     return session.user!;
   }
 
+  private getContentDisposition(fileName: string): string {
+    const sanitizedFileName = Array.from(fileName)
+      .filter((character) => {
+        const charCode = character.charCodeAt(0);
+        return charCode > 31 && charCode !== 127;
+      })
+      .join('')
+      .replace(/"/g, '')
+      .trim();
+    const safeFileName = sanitizedFileName || 'dados-lgpd.zip';
+
+    return `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(safeFileName)}`;
+  }
+
   @ApiOperation({
     summary: 'Create LGPD data request',
     description:
@@ -79,6 +93,9 @@ export class LgpdController {
       return await this.lgpdService.createRequest(user.keycloakId, user.email);
     } catch (error) {
       if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
@@ -208,7 +225,7 @@ export class LgpdController {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${fileName}"`,
+        this.getContentDisposition(fileName),
       );
 
       // Stream the file from S3

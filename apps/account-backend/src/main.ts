@@ -163,7 +163,18 @@ async function bootstrap() {
   await app.listen(appConfig.port);
   bootstrapLogger.log(`Application is running on: ${appConfig.backendUrl}`);
 }
-void bootstrap();
+const bootstrapFailureLogger = new Logger('Bootstrap');
+
+void bootstrap().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : undefined;
+
+  bootstrapFailureLogger.fatal(
+    `Failed to bootstrap application: ${message}`,
+    stack,
+  );
+  process.exit(1);
+});
 
 function setupSwagger(app: INestApplication<any>): void {
   const swaggerConfig = new DocumentBuilder()

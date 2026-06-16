@@ -64,8 +64,8 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
     type: BannerType,
     title: string,
     message: string,
-    dismissible: boolean = true,
-    autoHide: boolean = false,
+    dismissible = true,
+    autoHide = false,
   ): void {
     // Clear any existing timeout
     if (this.bannerTimeout) {

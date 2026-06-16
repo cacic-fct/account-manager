@@ -42,7 +42,7 @@ export class PdfProcessingService {
           const page = await pdfDocument.getPage(pageNum);
 
           // Get detailed page information
-          const pageInfo = await page.getViewport({ scale: 1.0 });
+          const pageInfo = page.getViewport({ scale: 1.0 });
           this.logger.debug(`Page ${pageNum} info`, {
             width: pageInfo.width,
             height: pageInfo.height,
@@ -614,7 +614,7 @@ export class PdfProcessingService {
       // Pattern 1: "Nome do Aluno Full Name Registro"
       // Pattern 2: "que Full Name,"
       const namePatterns = [
-        /Nome do Aluno\s+([^R]+?)\s+Registro/i,
+        /Nome do Aluno\s+(.+?)\s+Registro/i,
         /que\s+([^,]+),/i,
       ];
 
@@ -839,7 +839,7 @@ export class PdfProcessingService {
       // Pattern 1: "Nome do Aluno Full Name Registro"
       // Pattern 2: "que Full Name,"
       const namePatterns = [
-        /Nome do Aluno\s+([^R]+?)\s+Registro/i,
+        /Nome do Aluno\s+(.+?)\s+Registro/i,
         /que\s+([^,]+),/i,
         /Nome:\s*([^\n\r]+)/i,
         /NOME:\s*([^\n\r]+)/i,
@@ -882,7 +882,7 @@ export class PdfProcessingService {
 
           // Same patterns as above
           const namePatterns = [
-            /Nome do Aluno\s+([^R]+?)\s+Registro/i,
+            /Nome do Aluno\s+(.+?)\s+Registro/i,
             /que\s+([^,]+),/i,
             /Nome:\s*([^\n\r]+)/i,
             /NOME:\s*([^\n\r]+)/i,

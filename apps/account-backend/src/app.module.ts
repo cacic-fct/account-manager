@@ -15,6 +15,19 @@ import { NecordModule } from 'necord';
 import { GatewayIntentBits } from 'discord.js';
 import { PrismaModule } from './prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
+
+const getRequiredEnv = (name: string): string => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} environment variable is required`);
+  }
+
+  return value;
+};
+
+const discordBotToken = getRequiredEnv('DISCORD_BOT_TOKEN');
+const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
 
 @Module({
   imports: [
@@ -28,6 +41,7 @@ import { BullModule } from '@nestjs/bullmq';
         }),
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     CommonModule,
     LgpdModule,
@@ -39,13 +53,13 @@ import { BullModule } from '@nestjs/bullmq';
     ConfigModule.forRoot(),
     PrismaModule,
     NecordModule.forRoot({
-      token: process.env.DISCORD_BOT_TOKEN!,
+      token: discordBotToken,
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
       ],
-      development: [process.env.DISCORD_GUILD_ID!],
+      development: [discordGuildId],
     }),
   ],
   controllers: [AppController],

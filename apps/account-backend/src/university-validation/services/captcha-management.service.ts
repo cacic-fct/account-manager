@@ -232,6 +232,13 @@ export class CaptchaManagementService {
           networkError.originalError = error;
           throw networkError;
         } catch (fallbackError) {
+          if (
+            fallbackError instanceof Error &&
+            fallbackError.message === 'NETWORK_ERROR_MANUAL_FALLBACK'
+          ) {
+            throw fallbackError;
+          }
+
           this.logger.error(
             'Failed to create manual fallback for network error:',
             fallbackError,
@@ -411,13 +418,6 @@ export class CaptchaManagementService {
         txt_codigo_autenticidade: session.authCode, // Use auth code from session
         txt_codigo_captcha: captchaCode, // Use captcha code from user input
       });
-
-      // Add hidden form fields
-      if (session.hiddenInputs) {
-        for (const [name, value] of Object.entries(session.hiddenInputs)) {
-          formData.append(name, value);
-        }
-      }
 
       // Use the correct form action URL from backup
       const baseUrl = 'https://sistemas.unesp.br';

@@ -147,7 +147,7 @@ export class HtmlResponseService {
         await this.studentVerificationService.uploadDocument(
           fallbackDocument,
           userId,
-          false, // isManualFallback flag set to false for unexpected responses
+          true,
         );
 
       return {

@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   PrivacyDirective,
   PRIVACY_DIRECTIVE_TYPES,
@@ -8,16 +10,27 @@ import {
 import { PrivacyService } from '../privacy.service';
 import { Response } from 'express';
 
+interface CacicPurrCookiePayload {
+  directives: Record<string, string>;
+  userId: string;
+  expires: string;
+  lastUpdated: string;
+  version: string;
+}
+
 @Injectable()
 export class PrivacyDirectiveService {
-  constructor(private readonly privacyService: PrivacyService) {}
+  constructor(
+    private readonly privacyService: PrivacyService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Generate privacy directives for a user
    * Similar to NYT's PURR system - tells frontend what to show/hide
    */
   async generateDirectivesForUser(userId: string): Promise<PrivacyDirective[]> {
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
     const directives: PrivacyDirective[] = [];
 
     if (!userSettings) {
@@ -65,8 +78,9 @@ export class PrivacyDirectiveService {
       );
     } else {
       const settings = userSettings.settings;
+      const hasCookieConsent = settings.cookie_banner_accepted;
       // Existing user - check if cookie banner was accepted
-      if (!settings.cookie_banner_accepted) {
+      if (!hasCookieConsent) {
         directives.push({
           type: PRIVACY_DIRECTIVE_TYPES.UI_COOKIE_BANNER,
           value: DIRECTIVE_VALUES.SHOW,
@@ -84,31 +98,34 @@ export class PrivacyDirectiveService {
       directives.push(
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING,
-          value: settings.analytics_tracking
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.analytics_tracking
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING,
-          value: settings.error_debugging
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.error_debugging
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING,
-          value: settings.performance_monitoring
-            ? DIRECTIVE_VALUES.ALLOW
-            : DIRECTIVE_VALUES.BLOCK,
+          value:
+            hasCookieConsent && settings.performance_monitoring
+              ? DIRECTIVE_VALUES.ALLOW
+              : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: 'user_preference',
+            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
             timestamp: userSettings.updatedAt,
           },
         },
@@ -166,7 +183,7 @@ export class PrivacyDirectiveService {
     directives: PrivacyDirective[],
     userId: string,
   ): Promise<void> {
-    const userSettings = await this.privacyService.getUserSettings(userId);
+    const userSettings = await this.privacyService.findUserSettings(userId);
     const lastUpdated = userSettings?.updatedAt || new Date();
 
     // Create compact directive map
@@ -187,14 +204,15 @@ export class PrivacyDirectiveService {
       version: '1.0', // For future compatibility
     };
 
-    // Encode as base64 (like PURR does)
+    // Encode and sign the payload so clients cannot forge expiry or user data.
     const encodedPayload = Buffer.from(JSON.stringify(cookiePayload)).toString(
-      'base64',
+      'base64url',
     );
+    const signedPayload = this.buildSignedCookieValue(encodedPayload);
 
     // Set the cacic-purr cookie
-    response.cookie('cacic-purr', encodedPayload, {
-      httpOnly: false, // Frontend needs to read this
+    response.cookie('cacic-purr', signedPayload, {
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -221,6 +239,42 @@ export class PrivacyDirectiveService {
     );
   }
 
+  private buildSignedCookieValue(encodedPayload: string): string {
+    const signature = this.signCookiePayload(encodedPayload);
+    return `${encodedPayload}.${signature}`;
+  }
+
+  private signCookiePayload(encodedPayload: string): string {
+    return createHmac('sha256', this.getCookieSigningSecret())
+      .update(encodedPayload)
+      .digest('base64url');
+  }
+
+  private getCookieSigningSecret(): string {
+    const secret =
+      this.configService.get<string>('CACIC_PURR_COOKIE_SECRET') ??
+      this.configService.get<string>('SESSION_SECRET');
+
+    if (!secret) {
+      throw new Error('SESSION_SECRET environment variable is required');
+    }
+
+    return secret;
+  }
+
+  private isCookieSignatureValid(
+    encodedPayload: string,
+    signature: string,
+  ): boolean {
+    const expectedSignature = this.signCookiePayload(encodedPayload);
+    const expected = Buffer.from(expectedSignature);
+    const received = Buffer.from(signature);
+
+    return (
+      expected.length === received.length && timingSafeEqual(expected, received)
+    );
+  }
+
   /**
    * Check if cached directives are still valid
    * Prevents unnecessary database queries
@@ -230,12 +284,26 @@ export class PrivacyDirectiveService {
     userId: string,
   ): Promise<boolean> {
     try {
-      const decoded = Buffer.from(cachedDirectives, 'base64').toString('utf-8');
-      const data = JSON.parse(decoded) as {
-        expires?: string;
-        lastUpdated?: string;
-        userId?: string;
-      };
+      const cookieParts = cachedDirectives.split('.');
+
+      if (cookieParts.length !== 2) {
+        return false;
+      }
+
+      const [encodedPayload, signature] = cookieParts;
+
+      if (
+        !encodedPayload ||
+        !signature ||
+        !this.isCookieSignatureValid(encodedPayload, signature)
+      ) {
+        return false;
+      }
+
+      const decoded = Buffer.from(encodedPayload, 'base64url').toString(
+        'utf-8',
+      );
+      const data = JSON.parse(decoded) as Partial<CacicPurrCookiePayload>;
 
       // Check expiry
       if (!data.expires || new Date(data.expires) < new Date()) {
@@ -248,7 +316,7 @@ export class PrivacyDirectiveService {
       }
 
       // Check if user settings have been updated since cache
-      const userSettings = await this.privacyService.getUserSettings(userId);
+      const userSettings = await this.privacyService.findUserSettings(userId);
       if (
         userSettings &&
         data.lastUpdated &&

@@ -185,6 +185,7 @@ model StudentVerificationLog {
 
   document StudentVerificationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  @@index([documentId])
   @@map("student_verification_logs")
 }
 

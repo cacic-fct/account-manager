@@ -64,18 +64,10 @@ export class PrivacyDirectiveService {
           // Check if directives are in response headers (PURR-style)
           const directivesHeader = response.headers.get('X-Privacy-Directives');
           this.logger.debug('Loaded directives from response headers');
-          let directives: PrivacyDirectives;
-
-          if (directivesHeader) {
-            try {
-              directives = JSON.parse(directivesHeader);
-            } catch (e) {
-              // Fallback to response body
-              directives = response.body?.directives!;
-            }
-          } else {
-            directives = response.body?.directives!;
-          }
+          const directives = this.parseDirectiveResponse(
+            directivesHeader,
+            response.body,
+          );
 
           this._directives.set(directives);
           this._lastUpdated.set(new Date());
@@ -93,10 +85,7 @@ export class PrivacyDirectiveService {
         map((response) => {
           const directivesHeader = response.headers.get('X-Privacy-Directives');
           this.logger.debug('Loaded directives from response headers');
-          if (directivesHeader) {
-            return JSON.parse(directivesHeader);
-          }
-          return response.body?.directives!;
+          return this.parseDirectiveResponse(directivesHeader, response.body);
         }),
         catchError((error) => {
           this.logger.error('Error fetching privacy directives', error);
@@ -336,6 +325,25 @@ export class PrivacyDirectiveService {
             : 'disable',
       },
     };
+  }
+
+  private parseDirectiveResponse(
+    directivesHeader: string | null,
+    body: PrivacyDirectiveResponse | null,
+  ): PrivacyDirectives {
+    if (directivesHeader) {
+      try {
+        return JSON.parse(directivesHeader) as PrivacyDirectives;
+      } catch {
+        this.logger.warn('Failed to parse directives from headers');
+      }
+    }
+
+    if (body?.directives) {
+      return body.directives;
+    }
+
+    throw new Error('Privacy directives response missing directives');
   }
 
   /**
