@@ -11,6 +11,7 @@ import type { PrivacyDirectives } from '../interfaces/privacy-directive.interfac
 
 describe('PrivacyDirectiveService', () => {
   const apiUrl = 'http://localhost:3000/api/privacy/directives';
+  const storage = createStorageMock();
   const authoritativeDirectives: PrivacyDirectives = {
     cookieBanner: {
       type: 'ui',
@@ -34,9 +35,14 @@ describe('PrivacyDirectiveService', () => {
     },
   };
 
-  let httpMock: HttpTestingController;
+  let httpMock: HttpTestingController | undefined;
 
   beforeEach(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: storage,
+    });
+
     clearPrivacyCookies();
     localStorage.clear();
 
@@ -61,7 +67,8 @@ describe('PrivacyDirectiveService', () => {
   });
 
   afterEach(() => {
-    httpMock.verify();
+    httpMock?.verify();
+    httpMock = undefined;
     clearPrivacyCookies();
     localStorage.clear();
   });
@@ -86,7 +93,7 @@ describe('PrivacyDirectiveService', () => {
       receivedDirectives = directives;
     });
 
-    const request = httpMock.expectOne(apiUrl);
+    const request = getHttpMock().expectOne(apiUrl);
     expect(request.request.withCredentials).toBe(true);
 
     request.flush({
@@ -99,6 +106,14 @@ describe('PrivacyDirectiveService', () => {
     expect(service.shouldShowCookieBanner()).toBe(true);
     expect(service.isAnalyticsEnabled()).toBe(false);
   });
+
+  function getHttpMock(): HttpTestingController {
+    if (!httpMock) {
+      throw new Error('HttpTestingController was not initialized');
+    }
+
+    return httpMock;
+  }
 });
 
 function plantForgedPrivacyCookies(): void {
@@ -129,4 +144,25 @@ function clearPrivacyCookies(): void {
     'cacic-purr=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   document.cookie =
     'cacic-purr-quick=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+}
+
+function createStorageMock(): Storage {
+  let entries = new Map<string, string>();
+
+  return {
+    get length() {
+      return entries.size;
+    },
+    clear: () => {
+      entries = new Map<string, string>();
+    },
+    getItem: (key: string) => entries.get(key) ?? null,
+    key: (index: number) => Array.from(entries.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      entries.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      entries.set(key, value);
+    },
+  };
 }
