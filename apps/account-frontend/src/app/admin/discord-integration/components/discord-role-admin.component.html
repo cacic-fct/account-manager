@@ -48,7 +48,8 @@
           <kbd>Shift</kbd> e clique para selecionar um intervalo a partir da sua
           última seleção. Cargos marcados com
           <mat-icon inline>block</mat-icon> estão na lista negra e não podem ser
-          selecionados por razões de segurança.</span
+          selecionados por razões de segurança. Cargos com permissões elevadas
+          também ficam bloqueados.</span
         >
       </div>
 
@@ -84,11 +85,11 @@
           <div class="section">
             <h3 class="danger-title">
               <mat-icon>warning</mat-icon>
-              Cargos com Permissões (Use com Cautela)
+              Cargos com Permissões
             </h3>
             <p class="danger-description">
-              Estes cargos têm permissões administrativas ou de moderação. Só os
-              habilite se você confia que os usuários tenham essas permissões.
+              Estes cargos têm permissões administrativas ou de moderação e não
+              podem ser disponibilizados para autoatribuição.
             </p>
 
             <div class="role-list" formArrayName="rolesWithPermissions">
@@ -121,10 +122,14 @@
                           {{ role.name }}
                         </span>
                         <span class="role-meta">
-                          {{ role.isBlacklisted ? "Bloqueado" : "Permissões elevadas" }}
+                          {{
+                            role.isBlacklisted
+                              ? "Bloqueado"
+                              : "Permissões elevadas bloqueadas"
+                          }}
                         </span>
                       </span>
-                      @if (role.isBlacklisted) {
+                      @if (!isRoleSelectable(role)) {
                         <mat-icon class="blacklisted-icon" inline>block</mat-icon>
                       }
                     </div>
@@ -183,7 +188,7 @@
                           {{ role.isBlacklisted ? "Bloqueado" : "Sem permissões sensíveis" }}
                         </span>
                       </span>
-                      @if (role.isBlacklisted) {
+                      @if (!isRoleSelectable(role)) {
                         <mat-icon class="blacklisted-icon" inline>block</mat-icon>
                       }
                     </div>

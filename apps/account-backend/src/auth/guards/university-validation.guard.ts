@@ -9,6 +9,7 @@ import {
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
 import { KeycloakService } from '../services/keycloak.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * Guard that ensures user is authenticated AND has NOT completed university role verification
@@ -18,7 +19,10 @@ import { KeycloakService } from '../services/keycloak.service';
 export class UniversityValidationGuard implements CanActivate {
   private readonly logger = new Logger(UniversityValidationGuard.name);
 
-  constructor(private readonly keycloakService: KeycloakService) {}
+  constructor(
+    private readonly keycloakService: KeycloakService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context
@@ -32,22 +36,23 @@ export class UniversityValidationGuard implements CanActivate {
     }
 
     try {
-      // Get user attributes from Keycloak
-      const attributes = await this.keycloakService.getUserAttributes(
-        session.user.keycloakId,
-      );
-
-      // Check if unespRoleVerified is set to "true"
-      const unespRoleVerified = attributes['unespRoleVerified'];
+      const approvedDocument =
+        await this.prisma.studentVerificationDocument.findFirst({
+          where: {
+            userId: session.user.keycloakId,
+            status: 'approved',
+          },
+          orderBy: {
+            verificationDate: 'desc',
+          },
+        });
 
       this.logger.debug('Checking university validation status', {
         userId: session.user.keycloakId,
-        unespRoleVerified,
-        allAttributes: Object.keys(attributes),
+        databaseStatus: approvedDocument?.status ?? 'not_approved',
       });
 
-      // If the attribute exists and is set to "true", deny access
-      if (unespRoleVerified && unespRoleVerified.includes('true')) {
+      if (approvedDocument) {
         this.logger.warn(
           `Access denied: University role already verified for user ${session.user.keycloakId}`,
         );
@@ -56,7 +61,8 @@ export class UniversityValidationGuard implements CanActivate {
         );
       }
 
-      // If not verified (attribute doesn't exist or is not "true"), allow access
+      await this.logKeycloakDrift(session.user.keycloakId);
+
       this.logger.debug('Access allowed: University role not yet verified', {
         userId: session.user.keycloakId,
       });
@@ -70,6 +76,25 @@ export class UniversityValidationGuard implements CanActivate {
       this.logger.error('Error checking university validation status', error);
       throw new ForbiddenException(
         'Unable to verify university validation status',
+      );
+    }
+  }
+
+  private async logKeycloakDrift(userId: string): Promise<void> {
+    try {
+      const attributes = await this.keycloakService.getUserAttributes(userId);
+      const unespRoleVerified = attributes['unespRoleVerified'];
+
+      if (unespRoleVerified?.includes('true')) {
+        this.logger.warn(
+          `Student verification drift detected for user ${userId}: database=not_approved, keycloak=approved`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not compare Keycloak verification status for user ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }

@@ -15,7 +15,7 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { M2M_PRIVACY_ROLES } from '@cacic-fct/account-manager-m2m-contracts';
+import { M2M_PRIVACY_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import { PrivacyService } from './privacy.service';
 import {

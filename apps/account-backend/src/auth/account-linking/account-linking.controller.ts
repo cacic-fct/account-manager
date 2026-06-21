@@ -191,6 +191,7 @@ export class AccountLinkingController {
   @ApiOperation({ summary: 'Get a pending account merge request' })
   @ApiResponse({ status: 200 })
   @Auth()
+  @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('merge-requests/:id')
   async getMergeRequest(

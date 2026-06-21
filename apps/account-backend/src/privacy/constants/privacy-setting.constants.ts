@@ -5,4 +5,4 @@ export {
   createDefaultPrivacySettings,
   type PrivacySettingTypeValue,
   type PrivacySettings,
-} from '@cacic-fct/account-manager-m2m-contracts';
+} from '@cacic/m2m-contracts';

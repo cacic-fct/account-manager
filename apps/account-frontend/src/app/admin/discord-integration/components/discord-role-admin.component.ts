@@ -168,13 +168,13 @@ export class DiscordRoleAdminComponent implements OnInit {
 
     // Add controls for roles with permissions
     roles.rolesWithPermissions.forEach((role) => {
-      // Blacklisted roles should always be false and disabled
-      const initialValue = role.isBlacklisted
+      const isSelectable = this.isRoleSelectable(role);
+      const initialValue = !isSelectable
         ? false
         : enabledRoleIds.has(role.id);
       const control = new FormControl({
         value: initialValue,
-        disabled: role.isBlacklisted,
+        disabled: !isSelectable,
       });
 
       this.rolesWithPermissionsArray.push(control);
@@ -182,13 +182,13 @@ export class DiscordRoleAdminComponent implements OnInit {
 
     // Add controls for roles without permissions
     roles.rolesWithoutPermissions.forEach((role) => {
-      // Blacklisted roles should always be false and disabled
-      const initialValue = role.isBlacklisted
+      const isSelectable = this.isRoleSelectable(role);
+      const initialValue = !isSelectable
         ? false
         : enabledRoleIds.has(role.id);
       const control = new FormControl({
         value: initialValue,
-        disabled: role.isBlacklisted,
+        disabled: !isSelectable,
       });
 
       this.rolesWithoutPermissionsArray.push(control);
@@ -228,8 +228,7 @@ export class DiscordRoleAdminComponent implements OnInit {
         : this.rolesWithoutPermissions();
     const currentRole = roles[index];
 
-    // Don't handle clicks on blacklisted roles
-    if (currentRole?.isBlacklisted) {
+    if (!currentRole || !this.isRoleSelectable(currentRole)) {
       return;
     }
 
@@ -258,11 +257,10 @@ export class DiscordRoleAdminComponent implements OnInit {
       const anchorControl = formArray.at(anchorIndex);
       const anchorValue = anchorControl?.value || false;
 
-      // Set all non-blacklisted items in the range to match the anchor state
+      // Set all selectable items in the range to match the anchor state
       for (let i = startIndex; i <= endIndex; i++) {
         const roleInRange = roles[i];
-        // Skip blacklisted roles in range selection
-        if (roleInRange?.isBlacklisted) {
+        if (!roleInRange || !this.isRoleSelectable(roleInRange)) {
           continue;
         }
 
@@ -276,7 +274,7 @@ export class DiscordRoleAdminComponent implements OnInit {
       // Keep the same anchor point for further shift+click operations
     } else {
       // Normal click - the checkbox will toggle automatically due to form control binding
-      // Update the anchor point for future shift+click operations (only for non-blacklisted roles)
+      // Update the anchor point for future shift+click operations
       requestAnimationFrame(() => {
         this.lastClickedIndex = { section, index };
       });
@@ -294,14 +292,13 @@ export class DiscordRoleAdminComponent implements OnInit {
       return false;
     }
 
-    // Ensure the anchor point is not a blacklisted role
     const roles =
       section === 'rolesWithPermissions'
         ? this.rolesWithPermissions()
         : this.rolesWithoutPermissions();
     const role = roles[index];
 
-    return !role?.isBlacklisted;
+    return role ? this.isRoleSelectable(role) : false;
   }
 
   saveChanges(): void {
@@ -425,20 +422,20 @@ export class DiscordRoleAdminComponent implements OnInit {
 
     if (!roles) return selectedIds;
 
-    // Check roles with permissions (exclude blacklisted)
+    // Check roles with permissions
     roles.rolesWithPermissions.forEach((role, index) => {
       if (
-        !role.isBlacklisted &&
+        this.isRoleSelectable(role) &&
         this.rolesWithPermissionsArray.at(index)?.value
       ) {
         selectedIds.push(role.id);
       }
     });
 
-    // Check roles without permissions (exclude blacklisted)
+    // Check roles without permissions
     roles.rolesWithoutPermissions.forEach((role, index) => {
       if (
-        !role.isBlacklisted &&
+        this.isRoleSelectable(role) &&
         this.rolesWithoutPermissionsArray.at(index)?.value
       ) {
         selectedIds.push(role.id);
@@ -446,6 +443,10 @@ export class DiscordRoleAdminComponent implements OnInit {
     });
 
     return selectedIds;
+  }
+
+  isRoleSelectable(role: DiscordRole): boolean {
+    return !role.isBlacklisted && !role.hasPermissions;
   }
 
   syncRoles(): void {

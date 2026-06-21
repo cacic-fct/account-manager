@@ -1,6 +1,6 @@
-import { Injectable, inject, signal, effect, computed } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
 import {
@@ -34,10 +34,9 @@ export class PrivacyDirectiveService {
   isAcceptingCookies = signal(false);
 
   constructor() {
-    // Initialize from CACIC-PURR cookies on startup (PURR-style)
-    this.initializeFromCookies();
-
-    // Fallback to localStorage for guest users
+    // Fallback to localStorage for guest users and offline access. Server
+    // directives still refresh on startup because localStorage is not marked
+    // as a fresh authoritative cache.
     if (!this._directives()) {
       this.loadFromLocalStorage();
     }
@@ -47,9 +46,11 @@ export class PrivacyDirectiveService {
    * Fetch privacy directives from backend (PURR-style - only when needed)
    */
   fetchDirectives(forceRefresh = false): Observable<PrivacyDirectives> {
+    const cachedDirectives = this._directives();
+
     // If we already have valid directives and not forcing refresh, return cached
-    if (!forceRefresh && this.hasValidCachedDirectives()) {
-      return of(this._directives()!);
+    if (!forceRefresh && cachedDirectives && this.hasValidCachedDirectives()) {
+      return of(cachedDirectives);
     }
 
     this._isLoading.set(true);
@@ -135,7 +136,7 @@ export class PrivacyDirectiveService {
     this.isAcceptingCookies.set(true);
 
     return this.http
-      .post<any>(
+      .post<unknown>(
         `${this.baseUrl}/privacy/cookie-banner/accept`,
         {},
         {
@@ -153,7 +154,7 @@ export class PrivacyDirectiveService {
               const updatedDirectives = JSON.parse(directivesHeader);
               this._directives.set(updatedDirectives);
               this.saveToLocalStorage(updatedDirectives);
-            } catch (e) {
+            } catch {
               this.logger.warn(
                 'Failed to parse updated directives from headers',
               );
@@ -202,131 +203,6 @@ export class PrivacyDirectiveService {
     localStorage.setItem('cookieBannerHidden', 'true');
   }
 
-  /**
-   * Initialize directives from CACIC-PURR cookies (PURR-like efficiency)
-   */
-  private initializeFromCookies(): void {
-    // Try quick cookie first for immediate decisions
-    const quickCookie = this.getCookie('cacic-purr-quick');
-    if (quickCookie) {
-      try {
-        const quickData = JSON.parse(quickCookie) as {
-          cookieBanner?: string;
-          analyticsAllowed?: boolean;
-        };
-
-        // Set cookie banner visibility immediately
-        this._shouldShowCookieBanner.set(quickData.cookieBanner === 'show');
-
-        // Set basic directives from quick cookie
-        if (quickData.cookieBanner !== undefined) {
-          const basicDirectives: PrivacyDirectives = {
-            cookieBanner: {
-              type: 'ui',
-              name: 'cookie-banner',
-              action: quickData.cookieBanner as 'show' | 'hide',
-            },
-            analyticsTracking: {
-              type: 'data-handling',
-              name: 'analytics-tracking',
-              action: quickData.analyticsAllowed ? 'enable' : 'disable',
-            },
-            errorDebugging: {
-              type: 'data-handling',
-              name: 'error-debugging',
-              action: 'disable', // Default
-            },
-            performanceMonitoring: {
-              type: 'data-handling',
-              name: 'performance-monitoring',
-              action: 'disable', // Default
-            },
-          };
-
-          this._directives.set(basicDirectives);
-          this._lastUpdated.set(new Date());
-        }
-      } catch (e) {
-        this.logger.warn('Failed to parse cacic-purr-quick cookie');
-      }
-    }
-
-    // Try full CACIC-PURR cookie for complete directives
-    const fullCookie = this.getCookie('cacic-purr');
-    if (fullCookie) {
-      try {
-        const decoded = atob(fullCookie);
-        const cookieData = JSON.parse(decoded) as {
-          directives?: Record<string, string>;
-          expires?: string;
-          lastUpdated?: string;
-        };
-
-        // Check if cookie is still valid
-        if (cookieData.expires && new Date(cookieData.expires) > new Date()) {
-          if (cookieData.directives) {
-            // Convert cookie directives to our format
-            const convertedDirectives = this.convertCookieDirectivesToFormat(
-              cookieData.directives,
-            );
-            this._directives.set(convertedDirectives);
-
-            // Update cookie banner visibility based on directives
-            this._shouldShowCookieBanner.set(
-              convertedDirectives.cookieBanner.action === 'show',
-            );
-
-            if (cookieData.lastUpdated) {
-              this._lastUpdated.set(new Date(cookieData.lastUpdated));
-            }
-          }
-        }
-      } catch (e) {
-        this.logger.warn('Failed to parse cacic-purr cookie');
-      }
-    }
-  }
-
-  /**
-   * Convert cookie directive format to our PrivacyDirectives interface
-   */
-  private convertCookieDirectivesToFormat(
-    cookieDirectives: Record<string, string>,
-  ): PrivacyDirectives {
-    return {
-      cookieBanner: {
-        type: 'ui',
-        name: 'cookie-banner',
-        action:
-          (cookieDirectives['ui_cookie_banner'] as 'show' | 'hide') || 'show',
-      },
-      analyticsTracking: {
-        type: 'data-handling',
-        name: 'analytics-tracking',
-        action:
-          cookieDirectives['data_analytics_tracking'] === 'allow'
-            ? 'enable'
-            : 'disable',
-      },
-      errorDebugging: {
-        type: 'data-handling',
-        name: 'error-debugging',
-        action:
-          cookieDirectives['data_error_debugging'] === 'allow'
-            ? 'enable'
-            : 'disable',
-      },
-      performanceMonitoring: {
-        type: 'data-handling',
-        name: 'performance-monitoring',
-        action:
-          cookieDirectives['data_performance_monitoring'] === 'allow'
-            ? 'enable'
-            : 'disable',
-      },
-    };
-  }
-
   private parseDirectiveResponse(
     directivesHeader: string | null,
     body: PrivacyDirectiveResponse | null,
@@ -344,18 +220,6 @@ export class PrivacyDirectiveService {
     }
 
     throw new Error('Privacy directives response missing directives');
-  }
-
-  /**
-   * Get cookie value by name
-   */
-  private getCookie(name: string): string | null {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) {
-      return parts.pop()?.split(';').shift() || null;
-    }
-    return null;
   }
 
   /**
@@ -410,7 +274,7 @@ export class PrivacyDirectiveService {
           timestamp: new Date().toISOString(),
         }),
       );
-    } catch (e) {
+    } catch {
       this.logger.warn('Failed to save directives to localStorage');
     }
   }
@@ -441,7 +305,7 @@ export class PrivacyDirectiveService {
           return parsed.directives;
         }
       }
-    } catch (e) {
+    } catch {
       this.logger.warn('Failed to load directives from localStorage');
     }
 

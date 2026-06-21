@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { M2M_PRIVACY_ROLES } from '@cacic-fct/account-manager-m2m-contracts';
+import { M2M_PRIVACY_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../../auth/jwt/m2m.guard';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
 import {

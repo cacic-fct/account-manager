@@ -16,4 +16,4 @@ export {
   type PrivacyDirectivesResponse,
   type PrivacyUiDirectiveType,
   type PrivacyUiDirectiveValue,
-} from '@cacic-fct/account-manager-m2m-contracts';
+} from '@cacic/m2m-contracts';

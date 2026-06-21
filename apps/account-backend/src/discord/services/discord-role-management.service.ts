@@ -123,7 +123,7 @@ export class DiscordRoleManagementService {
     const selectableRoles = allRoles
       .filter(
         (role) =>
-          role.isEnabledForSelection && !this.isRoleSettingBlacklisted(role),
+          role.isEnabledForSelection && this.isRoleSettingSelectable(role),
       )
       .map(this.mapToRoleDto);
 
@@ -139,6 +139,7 @@ export class DiscordRoleManagementService {
       where: {
         isEnabledForSelection: true,
         isBlacklisted: false,
+        hasPermissions: false,
         roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
       },
       orderBy: { rolePosition: 'desc' },
@@ -154,16 +155,36 @@ export class DiscordRoleManagementService {
 
     const allRoles = await this.prisma.discordRoleSetting.findMany();
     this.logger.log(`Found ${allRoles.length} existing role settings`);
+    const rolesById = new Map(allRoles.map((role) => [role.roleId, role]));
+    const enabledRoleIds = Array.from(new Set(dto.enabledRoleIds));
+
+    const invalidRoleNames = enabledRoleIds.flatMap((roleId) => {
+      const role = rolesById.get(roleId);
+
+      if (!role) {
+        return [roleId];
+      }
+
+      return this.isRoleSettingSelectable(role) ? [] : [role.roleName];
+    });
+
+    if (invalidRoleNames.length > 0) {
+      throw new HttpException(
+        `Some roles are not selectable: ${invalidRoleNames.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     await this.prisma.discordRoleSetting.updateMany({
       data: { isEnabledForSelection: false },
     });
 
-    if (dto.enabledRoleIds.length > 0) {
+    if (enabledRoleIds.length > 0) {
       await this.prisma.discordRoleSetting.updateMany({
         where: {
-          roleId: { in: dto.enabledRoleIds },
+          roleId: { in: enabledRoleIds },
           isBlacklisted: false,
+          hasPermissions: false,
           NOT: {
             roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
           },
@@ -173,7 +194,7 @@ export class DiscordRoleManagementService {
     }
 
     this.logger.log(
-      `Updated role selection: ${dto.enabledRoleIds.length} roles enabled`,
+      `Updated role selection: ${enabledRoleIds.length} roles enabled`,
     );
   }
 
@@ -264,6 +285,7 @@ export class DiscordRoleManagementService {
         roleId: { in: dto.selectedRoleIds },
         isEnabledForSelection: true,
         isBlacklisted: false,
+        hasPermissions: false,
         NOT: {
           roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
         },
@@ -283,6 +305,8 @@ export class DiscordRoleManagementService {
     const allSelectableRoles = await this.prisma.discordRoleSetting.findMany({
       where: {
         isEnabledForSelection: true,
+        isBlacklisted: false,
+        hasPermissions: false,
         roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
       },
     });
@@ -361,6 +385,10 @@ export class DiscordRoleManagementService {
     return (
       role.isBlacklisted || DISCORD_AUTOMATED_ROLE_IDS.includes(role.roleId)
     );
+  }
+
+  private isRoleSettingSelectable(role: DiscordRoleSetting): boolean {
+    return !this.isRoleSettingBlacklisted(role) && !role.hasPermissions;
   }
 
   private async upsertRoleSetting(data: RoleSettingInput): Promise<void> {

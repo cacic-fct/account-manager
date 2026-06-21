@@ -23,7 +23,7 @@ External scoring is optional. If a scoring backend returns an error or does not 
    - Called by Keycloak.
    - Creates an `account_merge_requests` row with status `pending`.
    - Redirects to:
-     `/settings/linked-accounts?accountLink=merge-required&merge_request=<id>`
+     `/settings/linked-accounts/google?accountLink=merge-required&merge_request=<id>`
 
 3. `GET /auth/account-linking/merge-requests/:id`
    - Returns the merge request, email options, selected email, scores when available, and notification summary.

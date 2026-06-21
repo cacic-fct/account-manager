@@ -2,7 +2,7 @@ export interface PrivacyDirective {
   type: 'ui' | 'data-handling';
   name: string;
   action: 'show' | 'hide' | 'enable' | 'disable';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PrivacyDirectives {

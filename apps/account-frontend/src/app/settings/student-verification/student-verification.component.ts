@@ -11,6 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
+  UploadResponse,
   StudentVerificationService,
 } from '../../shared/services/student-verification/student-verification.service';
 import { MatDialog } from '@angular/material/dialog';
@@ -187,13 +188,23 @@ export class StudentVerificationComponent {
     this.studentVerificationService
       .uploadDocument(file, isManualFallback)
       .subscribe({
-        next: () => {
+        next: (response: UploadResponse) => {
           this.uploading.set(false);
           this.selectedFile.set(null);
 
-          const message = isManualFallback
-            ? 'Documento enviado diretamente para aprovação manual!'
-            : 'Documento enviado com sucesso! Aguarde a verificação.';
+          if (response.status === 'rejected') {
+            this.showErrorBanner(
+              'Documento rejeitado',
+              response.message || 'Documento rejeitado automaticamente.',
+            );
+            return;
+          }
+
+          const message =
+            response.message ||
+            (isManualFallback
+              ? 'Documento enviado diretamente para aprovação manual!'
+              : 'Documento enviado com sucesso! Aguarde a verificação.');
 
           this.snackBar.open(message, 'Fechar', {
             duration: 5000,

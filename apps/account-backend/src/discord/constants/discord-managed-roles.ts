@@ -18,7 +18,7 @@ export const DISCORD_REGISTRATION_ROLE = {
 export const DISCORD_MANAGED_ROLES = {
   student: {
     category: 'student',
-    roleId: '1516462632905871450',
+    roleId: '533901504537427968',
     roleName: 'Aluno da Computação',
   },
   unesp: {
@@ -28,7 +28,7 @@ export const DISCORD_MANAGED_ROLES = {
   },
   visitor: {
     category: 'visitor',
-    roleId: '1516462849549930537',
+    roleId: '533902369692581909',
     roleName: 'Visitante externo',
   },
 } as const satisfies Record<

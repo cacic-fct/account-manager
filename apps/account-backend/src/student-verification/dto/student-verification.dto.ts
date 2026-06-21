@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  ValidateIf,
+} from 'class-validator';
 import type {
   StudentVerificationStatusResponse,
   StudentVerificationUpdateRequest,
@@ -29,8 +35,10 @@ export class UpdateVerificationStatusDto implements StudentVerificationUpdateReq
   @IsEnum(['approved', 'rejected'])
   status: 'approved' | 'rejected';
 
-  @IsOptional()
+  @ValidateIf((dto: UpdateVerificationStatusDto) => dto.status === 'rejected')
   @IsString()
+  @IsNotEmpty()
+  @Matches(/\S/)
   rejectionReason?: string;
 }
 

@@ -4,6 +4,7 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "build:packages": "bunx nx run-many --target=build --projects=m2m-contracts,account-privacy,cookie-banner",
+    "puppeteer:install-browser": "bunx puppeteer browsers install chrome",
     "publish:m2m-contracts": "bunx nx build m2m-contracts && cd dist/libs/m2m-contracts && bun publish",
     "publish:account-privacy": "bunx nx build account-privacy && cd dist/libs/account-privacy && bun publish",
     "publish:cookie-banner": "bunx nx build cookie-banner && cd dist/libs/cookie-banner && bun publish",
@@ -134,6 +135,9 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.59.2",
     "vitest": "^4.0.8"
+  },
+  "puppeteer": {
+    "skipDownload": true
   },
   "nx": {}
 }

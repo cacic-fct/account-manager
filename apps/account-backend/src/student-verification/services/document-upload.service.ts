@@ -21,6 +21,7 @@ interface LogMetadata {
 @Injectable()
 export class DocumentUploadService {
   private readonly logger = new Logger(DocumentUploadService.name);
+  private readonly uploadLockScope = 'student-verification-upload';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -53,6 +54,59 @@ export class DocumentUploadService {
     }
   }
 
+  private async lockUserUpload(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${this.uploadLockScope}),
+        hashtext(${userId})
+      )
+    `;
+  }
+
+  private rejectActiveDocument(
+    existingDocument: StudentVerificationDocument | null,
+  ): void {
+    if (existingDocument?.status === 'approved') {
+      throw new BadRequestException('Você já possui um documento verificado.');
+    }
+
+    if (existingDocument?.status === 'pending') {
+      throw new BadRequestException(
+        'Você já possui um documento aguardando verificação.',
+      );
+    }
+  }
+
+  private async cleanupUploadedFileAfterFailure(
+    s3Key: string,
+    originalError: unknown,
+  ): Promise<never> {
+    try {
+      await this.s3Service.deleteFile(s3Key);
+      this.logger.warn(
+        `Deleted student verification upload after failed persistence: ${s3Key}`,
+      );
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to delete orphaned student verification upload ${s3Key}: ${
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : String(cleanupError)
+        }`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined,
+      );
+    }
+
+    if (originalError instanceof Error) {
+      throw originalError;
+    }
+
+    throw new BadRequestException('Erro ao salvar documento de verificação.');
+  }
+
   async uploadDocument(
     file: Express.Multer.File,
     userId: string,
@@ -83,15 +137,7 @@ export class DocumentUploadService {
         },
       });
 
-    if (existingDocument && existingDocument.status === 'approved') {
-      throw new BadRequestException('Você já possui um documento verificado.');
-    }
-
-    if (existingDocument && existingDocument.status === 'pending') {
-      throw new BadRequestException(
-        'Você já possui um documento aguardando verificação.',
-      );
-    }
+    this.rejectActiveDocument(existingDocument);
 
     const fileExtension = file.originalname.split('.').pop() || '';
     const storedFileName = `${uuidv7()}.${fileExtension}`;
@@ -203,11 +249,6 @@ export class DocumentUploadService {
       isDocumentValid: pdfVerificationResult?.data?.isValid ?? null,
     };
 
-    const savedDocument: StudentVerificationDocument =
-      await this.prisma.studentVerificationDocument.create({
-        data: createData,
-      });
-
     const logMetadata: LogMetadata = {
       fileName: file.originalname,
       fileSize: file.size,
@@ -216,16 +257,42 @@ export class DocumentUploadService {
       isManualFallback,
     };
 
-    await this.prisma.studentVerificationLog.create({
-      data: {
-        documentId: savedDocument.id,
-        userId,
-        action: initialStatus === 'rejected' ? 'automated_rejected' : 'upload',
-        performedBy: initialStatus === 'rejected' ? 'automated' : 'system',
-        reason: rejectionReason,
-        metadata: logMetadata as unknown as Prisma.InputJsonValue,
-      },
-    });
+    let savedDocument: StudentVerificationDocument;
+
+    try {
+      savedDocument = await this.prisma.$transaction(async (tx) => {
+        await this.lockUserUpload(tx, userId);
+
+        const activeDocument = await tx.studentVerificationDocument.findFirst({
+          where: {
+            userId,
+            status: { in: ['pending', 'approved'] },
+          },
+        });
+
+        this.rejectActiveDocument(activeDocument);
+
+        const createdDocument = await tx.studentVerificationDocument.create({
+          data: createData,
+        });
+
+        await tx.studentVerificationLog.create({
+          data: {
+            documentId: createdDocument.id,
+            userId,
+            action:
+              initialStatus === 'rejected' ? 'automated_rejected' : 'upload',
+            performedBy: initialStatus === 'rejected' ? 'automated' : 'system',
+            reason: rejectionReason,
+            metadata: logMetadata as unknown as Prisma.InputJsonValue,
+          },
+        });
+
+        return createdDocument;
+      });
+    } catch (error) {
+      return await this.cleanupUploadedFileAfterFailure(s3Key, error);
+    }
 
     if (initialStatus === 'rejected') {
       this.logger.warn(

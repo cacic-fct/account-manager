@@ -291,9 +291,9 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       );
     } else {
       this.showBanner(
-        'warning',
-        'Verificação pendente',
-        'Documento enviado para análise manual.',
+        'error',
+        'Documento rejeitado',
+        response.message || 'Documento rejeitado automaticamente.',
       );
     }
 
