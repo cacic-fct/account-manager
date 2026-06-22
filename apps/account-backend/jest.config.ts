@@ -21,4 +21,5 @@ export default {
     'src/student-verification/services/document-upload.service.ts',
     'src/student-verification/services/status-management.service.ts',
   ],
+  coverageReporters: ['json', 'lcov', 'text', 'clover'],
 };

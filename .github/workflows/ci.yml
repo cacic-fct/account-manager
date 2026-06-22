@@ -64,6 +64,9 @@ jobs:
       - name: Run unit tests
         run: bunx nx run-many --target=test --all --parallel=3
 
+      - name: Run coverage tests
+        run: bunx nx run-many --target=test-cov --projects=account-backend,account-frontend,cookie-banner --parallel=3
+
       - name: Build apps and libraries
         run: bunx nx run-many --target=build --projects=account-frontend,account-backend,m2m-contracts,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
 

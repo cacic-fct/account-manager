@@ -18,6 +18,14 @@
         "command": "bun run ng test --watch=false"
       }
     },
+    "test-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/apps/account-frontend"],
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run ng test --watch=false --configuration coverage"
+      }
+    },
     "watch": {
       "executor": "nx:run-commands",
       "continuous": true,

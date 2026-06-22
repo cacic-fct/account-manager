@@ -101,10 +101,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "runner": "vitest",
+            "runnerConfig": "vitest.config.ts",
             "tsConfig": "tsconfig.spec.json",
             "include": [
               "src/**/*.spec.ts"
             ]
+          },
+          "configurations": {
+            "coverage": {
+              "coverage": true,
+              "coverageInclude": [
+                "src/app/**/*.ts"
+              ],
+              "coverageExclude": [
+                "src/**/*.spec.ts",
+                "src/**/*.stories.ts",
+                "src/**/*.server.ts",
+                "src/main.ts",
+                "src/main.server.ts",
+                "src/server.ts"
+              ],
+              "coverageReporters": [
+                "lcov",
+                "json",
+                "text-summary"
+              ]
+            }
           }
         },
         "storybook": {
