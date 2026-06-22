@@ -76,7 +76,7 @@ jobs:
 
           BASE="$(
             git rev-list \
-              --tags='app-*' \
+              --tags='*' \
               --max-count=1 \
               --first-parent \
               2>/dev/null || true
@@ -168,8 +168,8 @@ jobs:
           git fetch --tags origin
 
           LAST_N="$(
-            git tag -l "app-${DATE}-*" \
-              | sed -E "s/^app-${DATE}-([0-9]+)$/\1/" \
+            git tag -l "${DATE}-*" \
+              | sed -E "s/^${DATE}-([0-9]+)$/\1/" \
               | sort -n \
               | tail -1
           )"
@@ -180,7 +180,7 @@ jobs:
             NEXT_N=$((LAST_N + 1))
           fi
 
-          VERSION="app-${DATE}-${NEXT_N}"
+          VERSION="${DATE}-${NEXT_N}"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
