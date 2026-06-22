@@ -105,6 +105,14 @@
                     Documento aprovado. Você está verificado como estudante.
                   </p>
                 </div>
+              } @else if (verificationStatus()!.status === "not_required") {
+                <div class="success-message">
+                  <mat-icon>verified_user</mat-icon>
+                  <p>
+                    A verificação de estudantes da graduação está
+                    temporariamente desativada.
+                  </p>
+                </div>
               }
             </div>
           </div>
@@ -113,15 +121,17 @@
     }
   </mat-card-content>
 
-  <mat-card-actions class="card-actions">
-    <button
-      mat-raised-button
-      color="primary"
-      routerLink="/settings/linked-accounts/unesp/student-verification"
-      class="details-button"
-    >
-      <mat-icon>info</mat-icon>
-      Ver detalhes / Enviar documento
-    </button>
-  </mat-card-actions>
+  @if (verificationStatus()?.status !== "not_required") {
+    <mat-card-actions class="card-actions">
+      <button
+        mat-raised-button
+        color="primary"
+        routerLink="/settings/linked-accounts/unesp/student-verification"
+        class="details-button"
+      >
+        <mat-icon>info</mat-icon>
+        Ver detalhes / Enviar documento
+      </button>
+    </mat-card-actions>
+  }
 </mat-card>

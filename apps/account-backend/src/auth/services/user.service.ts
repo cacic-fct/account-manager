@@ -17,6 +17,11 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { hasRequiredKeycloakRoles } from '../guards/keycloak-role.guard';
 import { EventManagerProfileSyncService } from './event-manager-profile-sync.service';
+import {
+  ACCOUNT_MANAGER_ADMIN_ROLES,
+  ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
+} from '../constants/admin-permissions';
+import { AccountPermissionService } from './account-permission.service';
 
 @Injectable()
 export class UserService {
@@ -24,6 +29,7 @@ export class UserService {
 
   constructor(
     private readonly keycloakService: KeycloakService,
+    private readonly accountPermissionService: AccountPermissionService,
     @Optional()
     private readonly eventManagerProfileSync?: EventManagerProfileSyncService,
   ) {}
@@ -526,8 +532,6 @@ export class UserService {
 
   async toDto(user: UserProfile): Promise<UserProfileDto> {
     // Check admin status
-    const adminRoles = ['Admin', 'discord-admin'];
-
     let isAdmin = false;
     let adminGroups: string[] = [];
 
@@ -535,8 +539,27 @@ export class UserService {
       const userRoles = await this.keycloakService.getUserRoles(
         user.keycloakId,
       );
-      adminGroups = userRoles.filter((role) => adminRoles.includes(role));
-      isAdmin = hasRequiredKeycloakRoles(userRoles, adminRoles);
+      adminGroups = userRoles.filter((role) =>
+        ACCOUNT_MANAGER_ADMIN_ROLES.includes(
+          role as (typeof ACCOUNT_MANAGER_ADMIN_ROLES)[number],
+        ),
+      );
+      const hasKeycloakAdminRole = hasRequiredKeycloakRoles(
+        userRoles,
+        ACCOUNT_MANAGER_ADMIN_ROLES,
+      );
+      const hasDbSuperAdminGrant =
+        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+          user.keycloakId,
+        );
+
+      if (hasDbSuperAdminGrant) {
+        adminGroups = [
+          ...new Set([...adminGroups, ACCOUNT_MANAGER_SUPER_ADMIN_ROLE]),
+        ];
+      }
+
+      isAdmin = hasKeycloakAdminRole || hasDbSuperAdminGrant;
     } catch (error) {
       this.logger.error('Error checking admin status for user DTO', error);
     }

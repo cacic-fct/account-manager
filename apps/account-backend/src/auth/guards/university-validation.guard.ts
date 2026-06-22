@@ -5,11 +5,14 @@ import {
   UnauthorizedException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
 import { KeycloakService } from '../services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
+import { UnespRole } from '@cacic/shared-types';
 
 /**
  * Guard that ensures user is authenticated AND has NOT completed university role verification
@@ -22,6 +25,8 @@ export class UniversityValidationGuard implements CanActivate {
   constructor(
     private readonly keycloakService: KeycloakService,
     private readonly prisma: PrismaService,
+    @Optional()
+    private readonly featureFlags?: FeatureFlagService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -36,6 +41,14 @@ export class UniversityValidationGuard implements CanActivate {
     }
 
     try {
+      if (
+        await this.isUndergraduateVerificationDisabled(session.user.keycloakId)
+      ) {
+        throw new ForbiddenException(
+          'Undergraduate Unesp role verification is currently disabled.',
+        );
+      }
+
       const approvedDocument =
         await this.prisma.studentVerificationDocument.findFirst({
           where: {
@@ -97,5 +110,18 @@ export class UniversityValidationGuard implements CanActivate {
         }`,
       );
     }
+  }
+
+  private async isUndergraduateVerificationDisabled(
+    userId: string,
+  ): Promise<boolean> {
+    if (
+      !(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())
+    ) {
+      return false;
+    }
+
+    const attributes = await this.keycloakService.getUserAttributes(userId);
+    return attributes.unespRole?.includes(UnespRole.ALUNO_GRADUACAO) ?? false;
   }
 }

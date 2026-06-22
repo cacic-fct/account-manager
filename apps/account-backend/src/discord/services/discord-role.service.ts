@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { DiscordLink } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Client, GuildMember } from 'discord.js';
@@ -6,6 +6,7 @@ import { UserService } from '../../auth/services/user.service';
 import { UserProfile } from '../../auth/interfaces/auth.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DiscordClientService } from './discord-client.service';
+import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
 import {
   checkComputerScienceEnrollmentPattern,
   DISCORD_MANAGED_ROLE_IDS,
@@ -42,6 +43,8 @@ export class DiscordRoleService {
     private userService: UserService,
     private readonly discordClientService: DiscordClientService,
     private readonly configService: ConfigService,
+    @Optional()
+    private readonly featureFlags?: FeatureFlagService,
   ) {}
 
   /**
@@ -51,7 +54,10 @@ export class DiscordRoleService {
     userId: string,
   ): Promise<DiscordManagedRoleCategory> {
     const user = await this.getUserByKeycloakId(userId);
-    return getDiscordManagedRoleCategory(user);
+    return getDiscordManagedRoleCategory(user, {
+      skipUndergraduateUnespRoleVerification:
+        await this.shouldSkipUndergraduateVerification(),
+    });
   }
 
   /**
@@ -92,7 +98,10 @@ export class DiscordRoleService {
     options: AssignManagedRoleOptions = {},
   ): Promise<ManagedRoleAssignmentResult> {
     const user = await this.userService.findByKeycloakId(discordLink.userId);
-    const role = getDiscordManagedRoleForUser(user);
+    const role = getDiscordManagedRoleForUser(user, {
+      skipUndergraduateUnespRoleVerification:
+        await this.shouldSkipUndergraduateVerification(),
+    });
 
     if (!user) {
       this.logger.warn(
@@ -523,6 +532,13 @@ export class DiscordRoleService {
       );
       return false;
     }
+  }
+
+  private async shouldSkipUndergraduateVerification(): Promise<boolean> {
+    return (
+      (await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled()) ??
+      false
+    );
   }
 
   private hasNoAssignableRoles(member: GuildMember): boolean {

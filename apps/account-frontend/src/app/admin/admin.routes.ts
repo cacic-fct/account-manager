@@ -27,4 +27,11 @@ export const adminRoutes: Routes = [
         (m) => m.AdminAccountDeletionComponent,
       ),
   },
+  {
+    path: 'keycloak-permissions',
+    loadComponent: () =>
+      import('./keycloak-permissions/keycloak-permissions.component').then(
+        (m) => m.KeycloakPermissionsComponent,
+      ),
+  },
 ];

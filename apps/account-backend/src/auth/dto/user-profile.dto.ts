@@ -182,7 +182,7 @@ export class UserProfileDto {
 
   @ApiPropertyOptional({
     description: 'List of admin groups the user belongs to',
-    example: ['Admin', 'discord-admin'],
+    example: ['account-manager#super-admin'],
     type: [String],
   })
   adminGroups?: string[];

@@ -1,0 +1,346 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/admin">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Permissões Keycloak</span>
+  <span class="spacer"></span>
+  <button
+    mat-icon-button
+    matTooltip="Sincronizar permissões"
+    [disabled]="syncing()"
+    (click)="syncGrants()"
+  >
+    <mat-icon>sync</mat-icon>
+  </button>
+</mat-toolbar>
+
+<div class="page-container">
+  <section class="entity-strip" aria-label="Entidades estudantis">
+    @for (entity of studentEntities(); track entity.key) {
+      <button
+        type="button"
+        class="entity-card"
+        [class.selected]="selectedEntity() === entity.key"
+        (click)="selectEntity(entity.key)"
+      >
+        <span class="entity-icon">
+          <mat-icon>
+            {{ entity.key === "CACIC" ? "school" : "groups" }}
+          </mat-icon>
+        </span>
+        <span>
+          <strong>{{ entity.label }}</strong>
+          <small>{{ entity.keycloakGroupPath }}</small>
+        </span>
+      </button>
+    }
+  </section>
+
+  <section class="workspace-grid">
+    <mat-card class="tool-card people-card">
+      <mat-card-header>
+        <mat-card-title>Pessoas</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
+          <mat-form-field appearance="outline">
+            <mat-label>Nome, CPF ou e-mail</mat-label>
+            <input matInput formControlName="query" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
+            @if (searching()) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>search</mat-icon>
+            }
+            Buscar
+          </button>
+        </form>
+
+        @if (users().length > 0) {
+          <div class="user-results">
+            @for (user of users(); track user.id) {
+              <button
+                type="button"
+                class="user-result"
+                [class.selected]="selectedUser()?.id === user.id"
+                (click)="selectUser(user)"
+              >
+                <span class="user-main">
+                  <mat-icon>person</mat-icon>
+                  <span>
+                    <strong>{{ user.displayName }}</strong>
+                    <small>{{ user.email }}</small>
+                  </span>
+                </span>
+                @if (user.identityDocument) {
+                  <span class="identity">{{ user.identityDocument }}</span>
+                }
+              </button>
+            }
+          </div>
+        } @else if (!searching() && searchForm.controls.query.touched) {
+          <div class="empty-state compact">
+            <mat-icon>person_search</mat-icon>
+            <p>Nenhum usuário encontrado.</p>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="tool-card member-card">
+      <mat-card-header>
+        <mat-card-title>
+          {{ selectedEntityDefinition()?.label || selectedEntity() }}
+        </mat-card-title>
+        @if (selectedUser(); as user) {
+          <mat-card-subtitle>{{ user.displayName }} · {{ user.email }}</mat-card-subtitle>
+        }
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (!selectedUser()) {
+          <div class="empty-state">
+            <mat-icon>badge</mat-icon>
+            <p>Selecione uma pessoa.</p>
+          </div>
+        } @else {
+          <form class="mandate-form" [formGroup]="membershipForm" (ngSubmit)="saveMembership()">
+            <div class="date-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Início do mandato</mat-label>
+                <input matInput type="datetime-local" formControlName="mandateStart" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Fim do mandato</mat-label>
+                <input matInput type="datetime-local" formControlName="mandateEnd" />
+              </mat-form-field>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Escopos confiados</mat-label>
+              <mat-select formControlName="permissions" multiple>
+                @for (definition of catalog(); track definition.permission) {
+                  <mat-option [value]="definition.permission">
+                    {{ getApplicationLabel(definition.application) }} · {{ definition.label }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <div class="form-actions">
+              @if (selectedEntityMembership(); as membership) {
+                <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+              }
+              <button mat-flat-button color="primary" type="submit" [disabled]="savingMembership()">
+                @if (savingMembership()) {
+                  <mat-spinner diameter="20"></mat-spinner>
+                } @else {
+                  <mat-icon>save</mat-icon>
+                }
+                Salvar mandato
+              </button>
+            </div>
+          </form>
+
+          <mat-divider></mat-divider>
+
+          <div class="grant-list-header">
+            <h3>Mandatos da pessoa</h3>
+            <button
+              mat-icon-button
+              matTooltip="Atualizar"
+              [disabled]="loadingGrants()"
+              (click)="refreshGrants()"
+            >
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+
+          @if (memberships().length === 0) {
+            <div class="empty-state compact">
+              <mat-icon>group_off</mat-icon>
+              <p>Nenhum mandato cadastrado.</p>
+            </div>
+          } @else {
+            <div class="membership-list">
+              @for (membership of memberships(); track membership.id) {
+                <div class="membership-item">
+                  <div class="grant-main">
+                    <strong>{{ getEntityLabel(membership.entity) }}</strong>
+                    <span>{{ formatMandate(membership) }}</span>
+                    <small>
+                      @for (grant of membership.permissionGrants; track grant.id) {
+                        {{ getPermissionLabel(grant.permission) }}
+                      }
+                    </small>
+                  </div>
+
+                  <div class="grant-actions">
+                    <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+                    @if (deletingMembershipId() === membership.id) {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <button
+                        mat-icon-button
+                        color="warn"
+                        matTooltip="Encerrar mandato"
+                        (click)="confirmDeleteMembership(membership)"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
+          <mat-divider></mat-divider>
+
+          <details class="direct-grants">
+            <summary>Permissões diretas</summary>
+            <form class="grant-form" [formGroup]="grantForm" (ngSubmit)="createGrant()">
+              <mat-form-field appearance="outline">
+                <mat-label>Permissão</mat-label>
+                <mat-select formControlName="permission">
+                  @for (definition of availablePermissions(); track definition.permission) {
+                    <mat-option [value]="definition.permission">
+                      {{ getApplicationLabel(definition.application) }} · {{ definition.label }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <div class="date-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Início</mat-label>
+                  <input matInput type="datetime-local" formControlName="validFrom" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Fim</mat-label>
+                  <input
+                    matInput
+                    type="datetime-local"
+                    formControlName="validUntil"
+                    [readonly]="grantForm.controls.indefinite.value"
+                  />
+                </mat-form-field>
+              </div>
+
+              <div class="form-actions">
+                <mat-checkbox formControlName="indefinite">Indefinida</mat-checkbox>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="saving() || availablePermissions().length === 0"
+                >
+                  @if (saving()) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  } @else {
+                    <mat-icon>add</mat-icon>
+                  }
+                  Conceder
+                </button>
+              </div>
+            </form>
+
+            @if (loadingGrants()) {
+              <div class="loading-state">
+                <mat-spinner diameter="42"></mat-spinner>
+              </div>
+            } @else if (grants().length === 0) {
+              <div class="empty-state compact">
+                <mat-icon>key_off</mat-icon>
+                <p>Nenhuma permissão concedida.</p>
+              </div>
+            } @else {
+              <div class="grant-list">
+                @for (grant of grants(); track grant.id) {
+                  <div class="grant-item">
+                    <div class="grant-main">
+                      <strong>{{ getPermissionLabel(grant.permission) }}</strong>
+                      <span>{{ grant.permission }}</span>
+                      <small>{{ formatValidity(grant) }}</small>
+                    </div>
+
+                    <div class="grant-actions">
+                      @if (grant.studentEntityMembershipId) {
+                        <mat-chip>Mandato</mat-chip>
+                      } @else {
+                        <mat-chip>{{ getStatusLabel(grant.status) }}</mat-chip>
+                      }
+                      @if (!grant.studentEntityMembershipId) {
+                        @if (deletingGrantId() === grant.id) {
+                          <mat-spinner diameter="24"></mat-spinner>
+                        } @else {
+                          <button
+                            mat-icon-button
+                            color="warn"
+                            matTooltip="Remover"
+                            (click)="confirmDeleteGrant(grant)"
+                          >
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </details>
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <mat-card class="tool-card roster-card">
+    <mat-card-header>
+      <mat-card-title>
+        Membros {{ selectedEntityDefinition()?.label || selectedEntity() }}
+      </mat-card-title>
+      <mat-card-subtitle>
+        {{ selectedEntityDefinition()?.keycloakGroupPath }}
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (loadingMemberships()) {
+        <div class="loading-state">
+          <mat-spinner diameter="42"></mat-spinner>
+        </div>
+      } @else if (entityMemberships().length === 0) {
+        <div class="empty-state compact">
+          <mat-icon>groups</mat-icon>
+          <p>Nenhum membro cadastrado.</p>
+        </div>
+      } @else {
+        <div class="roster-grid">
+          @for (membership of entityMemberships(); track membership.id) {
+            <button
+              type="button"
+              class="roster-member"
+              (click)="selectUser({
+                id: membership.userId,
+                email: membership.userEmail || '',
+                displayName: membership.userDisplayName || membership.userId
+              })"
+            >
+              <span>
+                <strong>{{ membership.userDisplayName || membership.userEmail || membership.userId }}</strong>
+                <small>{{ formatMandate(membership) }}</small>
+              </span>
+              <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+            </button>
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,4 +1,8 @@
 import {
+  AccountManagerKeycloakRole,
+  isAssignableKeycloakPermission,
+} from '@cacic/shared-types';
+import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
@@ -10,24 +14,25 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
+import { AccountPermissionService } from '../services/account-permission.service';
 import { KeycloakService } from '../services/keycloak.service';
 
 export const KEYCLOAK_ROLES_KEY = 'keycloakRoles';
 
 export interface KeycloakRoleConfig {
-  roles: string[];
+  roles: readonly string[];
   mode?: 'any' | 'all';
 }
 
 export const RequireKeycloakRoles = (
-  roles: string[],
+  roles: readonly string[],
   mode: 'any' | 'all' = 'any',
 ) =>
   SetMetadata(KEYCLOAK_ROLES_KEY, { roles, mode } satisfies KeycloakRoleConfig);
 
 export const hasRequiredKeycloakRoles = (
-  userRoles: string[],
-  requiredRoles: string[],
+  userRoles: readonly string[],
+  requiredRoles: readonly string[],
   mode: 'any' | 'all' = 'any',
 ): boolean =>
   mode === 'all'
@@ -40,6 +45,7 @@ export class KeycloakRoleGuard implements CanActivate {
 
   constructor(
     private readonly keycloakService: KeycloakService,
+    private readonly accountPermissionService: AccountPermissionService,
     private readonly reflector: Reflector,
   ) {}
 
@@ -66,14 +72,51 @@ export class KeycloakRoleGuard implements CanActivate {
 
     try {
       const userRoles = await this.keycloakService.getUserRoles(userId);
+      if (userRoles.includes(AccountManagerKeycloakRole.SuperAdmin)) {
+        return true;
+      }
+
       const hasRequiredRoles = hasRequiredKeycloakRoles(
         userRoles,
         config.roles,
         config.mode,
       );
 
-      if (!hasRequiredRoles) {
-        throw new ForbiddenException('Required Keycloak role missing');
+      if (hasRequiredRoles) {
+        return true;
+      }
+
+      const hasDbSuperAdmin =
+        await this.accountPermissionService.hasAnyActivePermission(userId, [
+          AccountManagerKeycloakRole.SuperAdmin,
+        ]);
+
+      if (hasDbSuperAdmin) {
+        return true;
+      }
+
+      const dbBackedPermissions = [
+        ...new Set(config.roles.filter(isAssignableKeycloakPermission)),
+      ];
+      const hasDbPermission =
+        dbBackedPermissions.length > 0 && config.mode === 'all'
+          ? (
+              await Promise.all(
+                dbBackedPermissions.map((permission) =>
+                  this.accountPermissionService.hasAnyActivePermission(userId, [
+                    permission,
+                  ]),
+                ),
+              )
+            ).every(Boolean)
+          : dbBackedPermissions.length > 0 &&
+            (await this.accountPermissionService.hasAnyActivePermission(
+              userId,
+              dbBackedPermissions,
+            ));
+
+      if (!hasDbPermission) {
+        throw new ForbiddenException('Required permission missing');
       }
 
       return true;

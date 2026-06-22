@@ -11,6 +11,7 @@ type PrismaMock = {
     [(tx: TransactionMock) => Promise<StudentVerificationDocument>, unknown]
   >;
   studentVerificationDocument: {
+    findMany: jest.Mock<Promise<StudentVerificationDocument[]>, [unknown]>;
     findFirst: jest.Mock<
       Promise<StudentVerificationDocument | null>,
       [unknown]
@@ -71,6 +72,14 @@ type VerificationLogCreateArgs = {
 };
 
 type KeycloakMock = {
+  getUserAttributes: jest.Mock<
+    ReturnType<KeycloakService['getUserAttributes']>,
+    Parameters<KeycloakService['getUserAttributes']>
+  >;
+  getUserBasicInfo: jest.Mock<
+    ReturnType<KeycloakService['getUserBasicInfo']>,
+    Parameters<KeycloakService['getUserBasicInfo']>
+  >;
   updateUserAttributes: jest.Mock<
     ReturnType<KeycloakService['updateUserAttributes']>,
     Parameters<KeycloakService['updateUserAttributes']>
@@ -112,6 +121,8 @@ const createDocument = (
 });
 
 const createContext = () => {
+  const findMany = jest.fn<Promise<StudentVerificationDocument[]>, [unknown]>();
+  findMany.mockResolvedValue([]);
   const findFirst = jest.fn<
     Promise<StudentVerificationDocument | null>,
     [unknown]
@@ -161,6 +172,22 @@ const createContext = () => {
     ReturnType<KeycloakService['updateUserAttributes']>,
     Parameters<KeycloakService['updateUserAttributes']>
   >();
+  const getUserAttributes = jest.fn<
+    ReturnType<KeycloakService['getUserAttributes']>,
+    Parameters<KeycloakService['getUserAttributes']>
+  >();
+  const getUserBasicInfo = jest.fn<
+    ReturnType<KeycloakService['getUserBasicInfo']>,
+    Parameters<KeycloakService['getUserBasicInfo']>
+  >();
+  getUserAttributes.mockResolvedValue({
+    email: ['alice@example.com'],
+    fullName: ['Alice Example'],
+  });
+  getUserBasicInfo.mockResolvedValue({
+    id: 'user-1',
+    email: 'alice.basic@example.com',
+  });
   updateUserAttributes.mockResolvedValue(undefined);
   const cleanupApprovedDocument = jest.fn<
     ReturnType<DocumentManagementService['cleanupApprovedDocument']>,
@@ -171,6 +198,7 @@ const createContext = () => {
   const prisma: PrismaMock = {
     $transaction: transaction,
     studentVerificationDocument: {
+      findMany,
       findFirst,
       findUnique,
       update,
@@ -181,6 +209,8 @@ const createContext = () => {
   };
 
   const keycloakService: KeycloakMock = {
+    getUserAttributes,
+    getUserBasicInfo,
     updateUserAttributes,
   };
 
@@ -204,6 +234,70 @@ const createContext = () => {
 };
 
 describe('AdminOperationsService', () => {
+  it('lists pending documents with user information from Keycloak', async () => {
+    const { service, prisma, keycloakService } = createContext();
+    const document = createDocument();
+    prisma.studentVerificationDocument.findMany.mockResolvedValue([document]);
+
+    await expect(service.getAllPendingDocuments()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'document-1',
+        email: 'alice@example.com',
+        fullName: 'Alice Example',
+      }),
+    ]);
+    expect(keycloakService.getUserAttributes).toHaveBeenCalledWith('user-1');
+    expect(keycloakService.getUserBasicInfo).toHaveBeenCalledWith('user-1');
+  });
+
+  it('uses the basic user email when Keycloak attributes have no email', async () => {
+    const { service, prisma, keycloakService } = createContext();
+    const document = createDocument();
+    prisma.studentVerificationDocument.findMany.mockResolvedValue([document]);
+    keycloakService.getUserAttributes.mockResolvedValue({
+      fullName: ['Alice Example'],
+    });
+
+    await expect(service.getAllPendingDocuments()).resolves.toEqual([
+      expect.objectContaining({
+        email: 'alice.basic@example.com',
+        fullName: 'Alice Example',
+      }),
+    ]);
+  });
+
+  it('falls back to placeholder user information when Keycloak enrichment fails', async () => {
+    const { service, prisma, keycloakService } = createContext();
+    prisma.studentVerificationDocument.findMany.mockResolvedValue([
+      createDocument(),
+    ]);
+    keycloakService.getUserAttributes.mockRejectedValue(
+      new Error('Keycloak unavailable'),
+    );
+
+    await expect(service.getAllPendingDocuments()).resolves.toEqual([
+      expect.objectContaining({
+        email: 'temp@example.com',
+        fullName: 'Unknown User',
+      }),
+    ]);
+  });
+
+  it('falls back to placeholder user information after non-Error enrichment failures', async () => {
+    const { service, prisma, keycloakService } = createContext();
+    prisma.studentVerificationDocument.findMany.mockResolvedValue([
+      createDocument(),
+    ]);
+    keycloakService.getUserAttributes.mockRejectedValue('Keycloak unavailable');
+
+    await expect(service.getAllPendingDocuments()).resolves.toEqual([
+      expect.objectContaining({
+        email: 'temp@example.com',
+        fullName: 'Unknown User',
+      }),
+    ]);
+  });
+
   it('approves a pending document through Keycloak, database, audit log, and cleanup', async () => {
     const { service, tx, keycloakService, documentManagementService } =
       createContext();
@@ -274,6 +368,32 @@ describe('AdminOperationsService', () => {
     );
     keycloakService.updateUserAttributes.mockRejectedValue(
       new Error('Keycloak unavailable'),
+    );
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(tx.studentVerificationDocument.update).not.toHaveBeenCalled();
+    expect(tx.studentVerificationLog.create).not.toHaveBeenCalled();
+    expect(
+      documentManagementService.cleanupApprovedDocument,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not update the document when Keycloak approval throws a non-Error value', async () => {
+    const { service, tx, keycloakService, documentManagementService } =
+      createContext();
+
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(
+      createDocument(),
+    );
+    keycloakService.updateUserAttributes.mockRejectedValue(
+      'Keycloak unavailable',
     );
 
     await expect(
@@ -391,6 +511,93 @@ describe('AdminOperationsService', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('rolls back Keycloak after a commit failure when no approved document remains', async () => {
+    const { service, prisma, tx, keycloakService, documentManagementService } =
+      createContext();
+    const commitError = new Error('commit failed');
+    const approvedDocument = createDocument({
+      status: 'approved',
+      verificationDate: new Date('2026-06-17T12:05:00.000Z'),
+    });
+
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(
+      createDocument(),
+    );
+    tx.studentVerificationDocument.update.mockResolvedValue(approvedDocument);
+    tx.studentVerificationDocument.findFirst.mockResolvedValue(null);
+    keycloakService.updateUserAttributes
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce('rollback unavailable');
+    prisma.$transaction
+      .mockImplementationOnce(async (callback) => {
+        await callback(tx);
+        throw commitError;
+      })
+      .mockImplementationOnce(async (callback) => callback(tx));
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toThrow(commitError);
+
+    expect(keycloakService.updateUserAttributes).toHaveBeenNthCalledWith(
+      1,
+      'user-1',
+      {
+        unespRoleVerified: 'true',
+      },
+    );
+    expect(keycloakService.updateUserAttributes).toHaveBeenNthCalledWith(
+      2,
+      'user-1',
+      {
+        unespRoleVerified: 'false',
+      },
+    );
+    expect(
+      documentManagementService.cleanupApprovedDocument,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('continues surfacing commit errors when rollback eligibility throws a non-Error value', async () => {
+    const { service, prisma, tx, keycloakService } = createContext();
+    const commitError = new Error('commit failed');
+
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(
+      createDocument(),
+    );
+    tx.studentVerificationDocument.update.mockResolvedValue(
+      createDocument({ status: 'approved' }),
+    );
+    prisma.$transaction
+      .mockImplementationOnce(async (callback) => {
+        await callback(tx);
+        throw commitError;
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise<StudentVerificationDocument>(
+            (_resolve, reject: (reason: unknown) => void) => {
+              // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+              reject('rollback check failed');
+            },
+          ),
+      );
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toThrow(commitError);
+
+    expect(keycloakService.updateUserAttributes).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a pending document with a reason without touching Keycloak or cleanup', async () => {
     const { service, tx, keycloakService, documentManagementService } =
       createContext();
@@ -463,6 +670,77 @@ describe('AdminOperationsService', () => {
     expect(
       documentManagementService.cleanupApprovedDocument,
     ).not.toHaveBeenCalled();
+  });
+
+  it('blocks verification when the document cannot be found', async () => {
+    const { service, tx, keycloakService } = createContext();
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Documento não encontrado.',
+      },
+    });
+
+    expect(keycloakService.updateUserAttributes).not.toHaveBeenCalled();
+  });
+
+  it('logs rollback failures after database persistence fails', async () => {
+    const { service, tx, keycloakService } = createContext();
+    const persistenceError = new Error('database unavailable');
+
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(
+      createDocument(),
+    );
+    keycloakService.updateUserAttributes
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('rollback unavailable'));
+    tx.studentVerificationDocument.update.mockRejectedValue(persistenceError);
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toThrow(persistenceError);
+
+    expect(keycloakService.updateUserAttributes).toHaveBeenCalledTimes(2);
+  });
+
+  it('continues surfacing commit errors when rollback eligibility cannot be checked', async () => {
+    const { service, prisma, tx, keycloakService } = createContext();
+    const commitError = new Error('commit failed');
+    const rollbackCheckError = new Error('rollback check failed');
+
+    tx.studentVerificationDocument.findUnique.mockResolvedValue(
+      createDocument(),
+    );
+    tx.studentVerificationDocument.update.mockResolvedValue(
+      createDocument({ status: 'approved' }),
+    );
+    prisma.$transaction
+      .mockImplementationOnce(async (callback) => {
+        await callback(tx);
+        throw commitError;
+      })
+      .mockImplementationOnce(() => Promise.reject(rollbackCheckError));
+
+    await expect(
+      service.updateVerificationStatus(
+        'document-1',
+        { status: 'approved' },
+        'admin@example.com',
+      ),
+    ).rejects.toThrow(commitError);
+
+    expect(keycloakService.updateUserAttributes).toHaveBeenCalledTimes(1);
   });
 
   it('requires a rejection reason before opening the transition transaction', async () => {

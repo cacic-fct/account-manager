@@ -10,6 +10,10 @@ export interface DiscordManagedRoleDefinition {
   roleName: string;
 }
 
+export interface DiscordManagedRoleOptions {
+  skipUndergraduateUnespRoleVerification?: boolean;
+}
+
 export const DISCORD_REGISTRATION_ROLE = {
   roleId: '872241575336476712',
   roleName: 'Cadastro',
@@ -47,18 +51,25 @@ export const DISCORD_AUTOMATED_ROLE_IDS = [
 
 export function getDiscordManagedRoleForUser(
   user: UserProfile | null,
+  options: DiscordManagedRoleOptions = {},
 ): DiscordManagedRoleDefinition {
-  return DISCORD_MANAGED_ROLES[getDiscordManagedRoleCategory(user)];
+  return DISCORD_MANAGED_ROLES[getDiscordManagedRoleCategory(user, options)];
 }
 
 export function getDiscordManagedRoleCategory(
   user: UserProfile | null,
+  options: DiscordManagedRoleOptions = {},
 ): DiscordManagedRoleCategory {
   if (!hasUnespEmail(user)) {
     return 'visitor';
   }
 
-  if (user?.unespRoleVerified && isComputerScienceStudent(user)) {
+  if (
+    user &&
+    isComputerScienceStudent(user) &&
+    (user?.unespRoleVerified ||
+      options.skipUndergraduateUnespRoleVerification === true)
+  ) {
     return 'student';
   }
 

@@ -5,7 +5,8 @@ export type StudentVerificationDocumentStatus =
 
 export type StudentVerificationStatus =
   | StudentVerificationDocumentStatus
-  | 'not_submitted';
+  | 'not_submitted'
+  | 'not_required';
 
 export interface StudentVerificationUploadResponse {
   message: string;
@@ -25,6 +26,7 @@ export interface StudentVerificationStatusResponse {
   documentEmissionDate?: Date;
   documentExpirationDate?: Date;
   isDocumentValid?: boolean;
+  undergraduateUnespRoleVerificationDisabled?: boolean;
 }
 
 export interface StudentVerificationDocument {

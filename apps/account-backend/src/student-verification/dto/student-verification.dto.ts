@@ -20,7 +20,12 @@ export class UploadResponseDto implements StudentVerificationUploadResponse {
 }
 
 export class VerificationStatusDto implements StudentVerificationStatusResponse {
-  status: 'pending' | 'approved' | 'rejected' | 'not_submitted';
+  status:
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'not_submitted'
+    | 'not_required';
   submissionDate?: Date;
   verificationDate?: Date;
   rejectionReason?: string;
@@ -29,6 +34,7 @@ export class VerificationStatusDto implements StudentVerificationStatusResponse 
   documentEmissionDate?: Date;
   documentExpirationDate?: Date;
   isDocumentValid?: boolean;
+  undergraduateUnespRoleVerificationDisabled?: boolean;
 }
 
 export class UpdateVerificationStatusDto implements StudentVerificationUpdateRequest {

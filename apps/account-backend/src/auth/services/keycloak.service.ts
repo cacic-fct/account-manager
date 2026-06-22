@@ -11,12 +11,29 @@ interface TokenResponse {
   id_token?: string;
 }
 
-interface KeycloakUserData {
+export interface KeycloakUserData {
   id: string;
   email: string;
   username?: string;
+  firstName?: string;
+  lastName?: string;
   enabled?: boolean;
   attributes?: Record<string, string[]>;
+}
+
+interface KeycloakRealmRole {
+  id?: string;
+  name: string;
+  description?: string;
+  composite?: boolean;
+  clientRole?: boolean;
+  containerId?: string;
+}
+
+interface KeycloakGroup {
+  id: string;
+  name: string;
+  path?: string;
 }
 
 export interface KeycloakFederatedIdentity {
@@ -457,6 +474,73 @@ export class KeycloakService {
     return users.length > 0 ? users[0] : null;
   }
 
+  async searchUsers(
+    query: string,
+    options: { max?: number } = {},
+  ): Promise<KeycloakUserData[]> {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      return [];
+    }
+
+    const adminToken = await this.getAdminToken();
+    const max = Math.min(Math.max(options.max ?? 10, 1), 50);
+    const requestUrls = new Set<string>();
+    const addSearchUrl = (params: Record<string, string>) => {
+      const searchParams = new URLSearchParams({
+        first: '0',
+        max: String(max),
+        briefRepresentation: 'false',
+        ...params,
+      });
+      requestUrls.add(
+        `${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`,
+      );
+    };
+
+    addSearchUrl({ search: normalizedQuery });
+    addSearchUrl({ q: `identity-document:${normalizedQuery}` });
+    addSearchUrl({ q: `identityDocument:${normalizedQuery}` });
+    addSearchUrl({ q: `fullName:${normalizedQuery}` });
+
+    if (normalizedQuery.includes('@')) {
+      addSearchUrl({ email: normalizedQuery });
+      addSearchUrl({ email: normalizedQuery, exact: 'true' });
+    }
+
+    const responses = await Promise.allSettled(
+      [...requestUrls].map(async (url) => {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to search users: ${response.status} ${response.statusText}`,
+          );
+        }
+
+        return (await response.json()) as KeycloakUserData[];
+      }),
+    );
+
+    const usersById = new Map<string, KeycloakUserData>();
+    for (const response of responses) {
+      if (response.status === 'rejected') {
+        this.logger.warn('Keycloak user search branch failed', response.reason);
+        continue;
+      }
+
+      for (const user of response.value) {
+        usersById.set(user.id, user);
+      }
+    }
+
+    return [...usersById.values()].slice(0, max);
+  }
+
   async getUserGroups(userId: string): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const userGroupsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups`;
@@ -570,6 +654,170 @@ export class KeycloakService {
       roles: roles.map((r) => r.name),
     });
     return roles.map((role) => role.name);
+  }
+
+  async addUserRealmRoles(
+    userId: string,
+    roleNames: readonly string[],
+  ): Promise<void> {
+    const roles = await this.getRealmRolesByName(roleNames);
+    if (roles.length === 0) {
+      return;
+    }
+
+    const adminToken = await this.getAdminToken();
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm`;
+    const response = await fetch(roleMappingsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roles),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to assign user realm roles: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  async removeUserRealmRoles(
+    userId: string,
+    roleNames: readonly string[],
+  ): Promise<void> {
+    const roles = await this.getRealmRolesByName(roleNames);
+    if (roles.length === 0) {
+      return;
+    }
+
+    const adminToken = await this.getAdminToken();
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm`;
+    const response = await fetch(roleMappingsUrl, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roles),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to remove user realm roles: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  async addUserToGroupPath(userId: string, groupPath: string): Promise<void> {
+    const group = await this.getGroupByPath(groupPath);
+    const adminToken = await this.getAdminToken();
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${group.id}`;
+    const response = await fetch(groupUrl, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to add user to Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  async removeUserFromGroupPath(
+    userId: string,
+    groupPath: string,
+  ): Promise<void> {
+    const group = await this.getGroupByPath(groupPath);
+    const adminToken = await this.getAdminToken();
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${group.id}`;
+    const response = await fetch(groupUrl, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok && response.status !== 404) {
+      throw new Error(
+        `Failed to remove user from Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  private async getRealmRolesByName(
+    roleNames: readonly string[],
+  ): Promise<KeycloakRealmRole[]> {
+    const normalizedRoleNames = [
+      ...new Set(roleNames.map((role) => role.trim())),
+    ].filter((role) => role.length > 0);
+    if (normalizedRoleNames.length === 0) {
+      return [];
+    }
+
+    const adminToken = await this.getAdminToken();
+
+    const roles = await Promise.all(
+      normalizedRoleNames.map(async (roleName) => {
+        const roleUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/roles/${encodeURIComponent(
+          roleName,
+        )}`;
+        const response = await fetch(roleUrl, {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error(`Keycloak realm role ${roleName} was not found`);
+          }
+
+          throw new Error(
+            `Failed to get realm role ${roleName}: ${response.status} ${response.statusText}`,
+          );
+        }
+
+        return (await response.json()) as KeycloakRealmRole;
+      }),
+    );
+
+    return roles;
+  }
+
+  private async getGroupByPath(groupPath: string): Promise<KeycloakGroup> {
+    const normalizedPath = groupPath.trim().replace(/^\/+/, '');
+    if (!normalizedPath) {
+      throw new Error('Keycloak group path is required');
+    }
+
+    const adminToken = await this.getAdminToken();
+    const encodedPath = normalizedPath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/group-by-path/${encodedPath}`;
+    const response = await fetch(groupUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Keycloak group ${groupPath} was not found`);
+      }
+
+      throw new Error(
+        `Failed to get Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as KeycloakGroup;
   }
 
   async getUserBasicInfo(userId: string): Promise<KeycloakUserData | null> {

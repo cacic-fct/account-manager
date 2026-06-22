@@ -71,6 +71,8 @@ export class StudentVerificationStatusComponent implements OnInit {
         return 'Aguardando verificação';
       case 'not_submitted':
         return 'Não enviado';
+      case 'not_required':
+        return 'Não necessária';
       default:
         return status;
     }
@@ -86,6 +88,8 @@ export class StudentVerificationStatusComponent implements OnInit {
         return 'schedule';
       case 'not_submitted':
         return 'upload_file';
+      case 'not_required':
+        return 'verified_user';
       default:
         return 'help';
     }

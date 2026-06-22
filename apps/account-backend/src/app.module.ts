@@ -10,6 +10,8 @@ import { RedisModule } from './redis/redis.module';
 import { StudentVerificationModule } from './student-verification/student-verification.module';
 import { UniversityValidationModule } from './university-validation/university-validation.module';
 import { CsrfModule } from './auth/csrf/csrf.module';
+import { KeycloakPermissionsModule } from './keycloak-permissions/keycloak-permissions.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { ConfigModule } from '@nestjs/config';
 import { NecordModule } from 'necord';
 import { GatewayIntentBits } from 'discord.js';
@@ -43,6 +45,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     }),
     ScheduleModule.forRoot(),
     AuthModule,
+    KeycloakPermissionsModule,
     CommonModule,
     LgpdModule,
     PrivacyModule,
@@ -51,6 +54,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     StudentVerificationModule,
     UniversityValidationModule,
     ConfigModule.forRoot(),
+    FeatureFlagsModule,
     PrismaModule,
     NecordModule.forRoot({
       token: discordBotToken,

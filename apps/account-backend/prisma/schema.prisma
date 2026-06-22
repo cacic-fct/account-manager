@@ -147,6 +147,60 @@ model AccountMergeExternalNotification {
   @@map("account_merge_external_notifications")
 }
 
+model KeycloakPermissionGrant {
+  id                        String                   @id @default(uuid(7)) @db.Uuid
+  userId                    String                   @map("user_id")
+  userEmail                 String?                  @map("user_email")
+  userDisplayName           String?                  @map("user_display_name")
+  studentEntityMembership   StudentEntityMembership? @relation(fields: [studentEntityMembershipId], references: [id], onDelete: SetNull)
+  studentEntityMembershipId String?                  @map("student_entity_membership_id") @db.Uuid
+  permission                String
+  validFrom                 DateTime?                @map("valid_from")
+  validUntil                DateTime?                @map("valid_until")
+  createdAt                 DateTime                 @default(now()) @map("created_at")
+  createdById               String?                  @map("created_by_id")
+  updatedAt                 DateTime                 @updatedAt @map("updated_at")
+  updatedById               String?                  @map("updated_by_id")
+  deletedAt                 DateTime?                @map("deleted_at")
+  lastSyncedAt              DateTime?                @map("last_synced_at")
+  lastSyncError             String?                  @map("last_sync_error")
+
+  @@index([userId])
+  @@index([studentEntityMembershipId])
+  @@index([permission])
+  @@index([validFrom])
+  @@index([validUntil])
+  @@index([deletedAt])
+  @@map("keycloak_permission_grants")
+}
+
+model StudentEntityMembership {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  entity            String
+  keycloakGroupPath String    @map("keycloak_group_path")
+  userId            String    @map("user_id")
+  userEmail         String?   @map("user_email")
+  userDisplayName   String?   @map("user_display_name")
+  mandateStart      DateTime  @map("mandate_start")
+  mandateEnd        DateTime  @map("mandate_end")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  createdById       String?   @map("created_by_id")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  updatedById       String?   @map("updated_by_id")
+  deletedAt         DateTime? @map("deleted_at")
+  lastSyncedAt      DateTime? @map("last_synced_at")
+  lastSyncError     String?   @map("last_sync_error")
+
+  permissionGrants KeycloakPermissionGrant[]
+
+  @@index([entity])
+  @@index([userId])
+  @@index([mandateStart])
+  @@index([mandateEnd])
+  @@index([deletedAt])
+  @@map("student_entity_memberships")
+}
+
 model StudentVerificationDocument {
   id                     String             @id @default(uuid(7)) @db.Uuid
   userId                 String

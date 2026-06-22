@@ -1,0 +1,271 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.entity-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.entity-card,
+.roster-member,
+.user-result {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.entity-card {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+}
+
+.entity-card.selected,
+.user-result.selected {
+  border-color: var(--mat-sys-primary);
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.entity-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.entity-card strong,
+.entity-card small,
+.user-main strong,
+.user-main small,
+.grant-main strong,
+.grant-main span,
+.grant-main small,
+.roster-member strong,
+.roster-member small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.entity-card small,
+.user-main small,
+.grant-main span,
+.grant-main small,
+.identity,
+.roster-member small {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.86rem;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.tool-card {
+  min-width: 0;
+}
+
+.search-form,
+.mandate-form,
+.grant-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-form button,
+.form-actions button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+}
+
+.user-results,
+.grant-list,
+.membership-list,
+.roster-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-results {
+  margin-top: 16px;
+}
+
+.user-result {
+  display: flex;
+  width: 100%;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+}
+
+.user-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-main span,
+.grant-main {
+  min-width: 0;
+}
+
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.form-actions,
+.grant-list-header,
+.grant-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-actions,
+.grant-list-header {
+  justify-content: space-between;
+}
+
+.grant-list-header {
+  margin-top: 18px;
+}
+
+.grant-list-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.grant-item,
+.membership-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+.grant-main {
+  flex: 1 1 auto;
+}
+
+.grant-actions {
+  flex: 0 0 auto;
+}
+
+.direct-grants {
+  margin-top: 18px;
+}
+
+.direct-grants summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+}
+
+.roster-member {
+  display: flex;
+  min-height: 80px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+}
+
+.loading-state,
+.empty-state {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}
+
+.empty-state.compact {
+  min-height: 96px;
+}
+
+.empty-state mat-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+}
+
+mat-divider {
+  margin: 20px 0;
+}
+
+@media (max-width: 980px) {
+  .workspace-grid,
+  .entity-strip,
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .page-container {
+    padding: 16px;
+  }
+
+  .date-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .entity-card,
+  .user-result,
+  .grant-item,
+  .membership-item,
+  .roster-member,
+  .grant-actions,
+  .form-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

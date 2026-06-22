@@ -6,3 +6,4 @@ export * from './interfaces/linked-accounts.interface';
 export * from './interfaces/privacy.interface';
 export * from './interfaces/lgpd.interface';
 export * from './interfaces/student-verification.interface';
+export * from './interfaces/keycloak-permission.interface';

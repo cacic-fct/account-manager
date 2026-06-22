@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import {
   UploadResponse,
   StudentVerificationService,
+  VerificationStatus,
 } from '../../shared/services/student-verification/student-verification.service';
 import { MatDialog } from '@angular/material/dialog';
 import { UniversityValidationDialogComponent } from '../../university-validation-dialog/university-validation-dialog.component';
@@ -45,13 +46,17 @@ interface BannerConfig {
     CommonModule,
   ],
 })
-export class StudentVerificationComponent {
+export class StudentVerificationComponent implements OnInit {
   private studentVerificationService = inject(StudentVerificationService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
 
   selectedFile = signal<File | null>(null);
   uploading = signal(false);
+  verificationStatus = signal<VerificationStatus | null>(null);
+  verificationNotRequired = computed(
+    () => this.verificationStatus()?.status === 'not_required',
+  );
 
   // Development mode properties
   isDevelopment = !environment.production;
@@ -130,6 +135,20 @@ export class StudentVerificationComponent {
     this.showBanner('info', title, message);
   }
 
+  ngOnInit(): void {
+    this.studentVerificationService.getVerificationStatus().subscribe({
+      next: (status) => {
+        this.verificationStatus.set(status);
+        if (status.status === 'not_required') {
+          this.showInfoBanner(
+            'Verificação dispensada',
+            'A verificação de estudantes da graduação está temporariamente desativada.',
+          );
+        }
+      },
+    });
+  }
+
   onFileSelected(event: Event): void {
     const target = event.target as HTMLInputElement;
     if (target.files && target.files.length > 0) {
@@ -163,6 +182,14 @@ export class StudentVerificationComponent {
   }
 
   uploadDocument(): void {
+    if (this.verificationNotRequired()) {
+      this.showInfoBanner(
+        'Verificação dispensada',
+        'A verificação de estudantes da graduação está temporariamente desativada.',
+      );
+      return;
+    }
+
     const file = this.selectedFile();
     if (!file) {
       this.snackBar.open('Selecione um arquivo primeiro.', 'Fechar', {
@@ -237,6 +264,14 @@ export class StudentVerificationComponent {
   }
 
   openUniversityValidation(): void {
+    if (this.verificationNotRequired()) {
+      this.showInfoBanner(
+        'Verificação dispensada',
+        'A verificação de estudantes da graduação está temporariamente desativada.',
+      );
+      return;
+    }
+
     const file = this.selectedFile();
 
     if (!file) {

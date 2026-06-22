@@ -11,8 +11,10 @@ import { UserService } from './services/user.service';
 import { EventManagerProfileSyncService } from './services/event-manager-profile-sync.service';
 import { FileValidationService } from './services/file-validation.service';
 import { RateLimitService } from './services/rate-limit.service';
+import { AccountPermissionService } from './services/account-permission.service';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
+import { DiscordAdminGuard } from './guards/discord-admin.guard';
 import { KeycloakRoleGuard } from './guards/keycloak-role.guard';
 import { UniversityValidationGuard } from './guards/university-validation.guard';
 import { CsrfModule } from './csrf/csrf.module';
@@ -34,8 +36,10 @@ import { JwtModule } from './jwt/jwt.module';
     AccountLinkingProcessor,
     FileValidationService,
     RateLimitService,
+    AccountPermissionService,
     AuthGuard,
     CurrentUserGuard,
+    DiscordAdminGuard,
     KeycloakRoleGuard,
     UniversityValidationGuard,
   ],
@@ -46,8 +50,10 @@ import { JwtModule } from './jwt/jwt.module';
     AccountLinkingService,
     FileValidationService,
     RateLimitService,
+    AccountPermissionService,
     AuthGuard,
     CurrentUserGuard,
+    DiscordAdminGuard,
     KeycloakRoleGuard,
     UniversityValidationGuard,
     CsrfModule,

@@ -54,7 +54,7 @@ export class DiscordRoleController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @Get('admin')
@@ -90,7 +90,7 @@ export class DiscordRoleController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @UseGuards(CsrfGuard)
@@ -125,7 +125,7 @@ export class DiscordRoleController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @UseGuards(CsrfGuard)

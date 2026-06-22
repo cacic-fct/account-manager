@@ -1,8 +1,15 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { VerificationStatusDto } from '../dto/student-verification.dto';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { StudentVerificationDocument } from '@prisma/client';
+import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
+import { UnespRole } from '@cacic/shared-types';
 
 @Injectable()
 export class StatusManagementService {
@@ -11,6 +18,8 @@ export class StatusManagementService {
   constructor(
     private readonly prisma: PrismaService,
     private keycloakService: KeycloakService,
+    @Optional()
+    private readonly featureFlags?: FeatureFlagService,
   ) {}
 
   private async logKeycloakDrift(
@@ -40,6 +49,14 @@ export class StatusManagementService {
 
   async getVerificationStatus(userId: string): Promise<VerificationStatusDto> {
     try {
+      if (await this.isUndergraduateVerificationNotRequired(userId)) {
+        return {
+          status: 'not_required',
+          undergraduateUnespRoleVerificationDisabled: true,
+          isDocumentValid: true,
+        };
+      }
+
       const approvedDocument =
         await this.prisma.studentVerificationDocument.findFirst({
           where: { userId, status: 'approved' },
@@ -97,5 +114,18 @@ export class StatusManagementService {
       );
       throw new BadRequestException('Erro ao verificar status de verificação');
     }
+  }
+
+  private async isUndergraduateVerificationNotRequired(
+    userId: string,
+  ): Promise<boolean> {
+    if (
+      !(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())
+    ) {
+      return false;
+    }
+
+    const attributes = await this.keycloakService.getUserAttributes(userId);
+    return attributes.unespRole?.includes(UnespRole.ALUNO_GRADUACAO) ?? false;
   }
 }

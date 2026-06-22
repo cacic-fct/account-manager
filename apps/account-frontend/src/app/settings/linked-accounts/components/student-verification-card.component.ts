@@ -177,7 +177,12 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
 
     if (!hasImportantBanner) {
       const status = this.verificationStatus();
-      if (status?.status === 'not_submitted') {
+      if (status?.status === 'not_required') {
+        this.showInfoBanner(
+          'Verificação dispensada',
+          'A verificação de estudantes da graduação está temporariamente desativada.',
+        );
+      } else if (status?.status === 'not_submitted') {
         this.showInfoBanner(
           'Verificação pendente',
           'Envie um documento válido para verificar seu status de estudante.',
@@ -398,6 +403,8 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
         return 'Aguardando verificação';
       case 'not_submitted':
         return 'Não enviado';
+      case 'not_required':
+        return 'Não necessária';
       default:
         return status;
     }
@@ -413,6 +420,8 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
         return 'schedule';
       case 'not_submitted':
         return 'upload_file';
+      case 'not_required':
+        return 'verified_user';
       default:
         return 'help';
     }

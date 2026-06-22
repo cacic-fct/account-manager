@@ -13,6 +13,10 @@ describe('AppController', () => {
           provide: AppService,
           useValue: {
             getHello: jest.fn().mockReturnValue('Hello World!'),
+            getHealth: jest.fn().mockResolvedValue({
+              status: 'ok',
+              services: { redis: 'connected' },
+            }),
           },
         },
       ],
@@ -24,6 +28,13 @@ describe('AppController', () => {
   describe('root', () => {
     it('should return "Hello World!"', () => {
       expect(appController.getHello()).toBe('Hello World!');
+    });
+
+    it('should return health details', async () => {
+      await expect(appController.getHealth()).resolves.toEqual({
+        status: 'ok',
+        services: { redis: 'connected' },
+      });
     });
   });
 });

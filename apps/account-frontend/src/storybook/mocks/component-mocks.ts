@@ -1,4 +1,16 @@
-import type { Application, User } from '@cacic/shared-types';
+import { fakerPT_BR as faker } from '@faker-js/faker';
+import {
+  AssignableKeycloakPermission,
+  KEYCLOAK_PERMISSION_CATALOG,
+  STUDENT_ENTITY_CATALOG,
+  StudentEntityKey,
+  UnespRole,
+  type Application,
+  type KeycloakPermissionGrant,
+  type KeycloakPermissionUser,
+  type StudentEntityMembership,
+  type User,
+} from '@cacic/shared-types';
 import type {
   DiscordLinkStatus,
   DiscordRole,
@@ -7,7 +19,157 @@ import type {
   ServerSetting,
 } from '../../app/shared/services/api.service';
 import type { VerificationStatus } from '../../app/shared/services/student-verification/student-verification.service';
-import { UnespRole } from '@cacic/shared-types';
+
+faker.seed(20260621);
+
+const mockNow = new Date('2026-06-21T12:00:00.000Z');
+
+const addDays = (date: Date, days: number): Date => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const createPermissionUser = (index: number): KeycloakPermissionUser => {
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
+  const fullName = `${firstName} ${lastName}`;
+  const username = faker.internet
+    .username({ firstName, lastName })
+    .toLowerCase();
+
+  return {
+    id: `keycloak-user-${index + 1}`,
+    email: faker.internet.email({ firstName, lastName }).toLowerCase(),
+    username,
+    fullName,
+    displayName: fullName,
+    identityDocument: faker.string.numeric(11),
+    enabled: true,
+  };
+};
+
+export const mockKeycloakPermissionCatalog = KEYCLOAK_PERMISSION_CATALOG;
+
+export const mockStudentEntityCatalog = STUDENT_ENTITY_CATALOG;
+
+export const mockKeycloakPermissionUsers = Array.from({ length: 8 }, (_, index) =>
+  createPermissionUser(index),
+);
+
+export const createMockKeycloakPermissionGrant = (
+  user: KeycloakPermissionUser,
+  permission: AssignableKeycloakPermission,
+  index: number,
+  options: {
+    membershipId?: string;
+    validFrom?: Date | null;
+    validUntil?: Date | null;
+  } = {},
+): KeycloakPermissionGrant => ({
+  id: `grant-${user.id}-${index + 1}`,
+  userId: user.id,
+  userEmail: user.email,
+  userDisplayName: user.displayName,
+  studentEntityMembershipId: options.membershipId,
+  permission,
+  validFrom: options.validFrom?.toISOString() ?? null,
+  validUntil: options.validUntil?.toISOString() ?? null,
+  status:
+    options.validFrom && options.validFrom > mockNow ? 'scheduled' : 'active',
+  createdAt: addDays(mockNow, -21).toISOString(),
+  createdById: 'storybook-admin',
+  updatedAt: addDays(mockNow, -2).toISOString(),
+  updatedById: 'storybook-admin',
+  lastSyncedAt: addDays(mockNow, -1).toISOString(),
+});
+
+export const createMockStudentEntityMembership = (
+  user: KeycloakPermissionUser,
+  entity: StudentEntityKey,
+  index: number,
+  permissions: AssignableKeycloakPermission[],
+): StudentEntityMembership => {
+  const definition =
+    mockStudentEntityCatalog.find((candidate) => candidate.key === entity) ??
+    mockStudentEntityCatalog[0];
+  const membershipId = `membership-${entity.toLowerCase()}-${index + 1}`;
+  const mandateStart = addDays(mockNow, -45 - index * 7);
+  const mandateEnd = addDays(mockNow, 285 - index * 11);
+
+  return {
+    id: membershipId,
+    entity,
+    keycloakGroupPath: definition.keycloakGroupPath,
+    userId: user.id,
+    userEmail: user.email,
+    userDisplayName: user.displayName,
+    mandateStart: mandateStart.toISOString(),
+    mandateEnd: mandateEnd.toISOString(),
+    status: 'active',
+    permissionGrants: permissions.map((permission, permissionIndex) =>
+      createMockKeycloakPermissionGrant(user, permission, permissionIndex, {
+        membershipId,
+        validFrom: mandateStart,
+        validUntil: mandateEnd,
+      }),
+    ),
+    createdAt: addDays(mockNow, -50).toISOString(),
+    createdById: 'storybook-admin',
+    updatedAt: addDays(mockNow, -3).toISOString(),
+    updatedById: 'storybook-admin',
+    lastSyncedAt: addDays(mockNow, -1).toISOString(),
+  };
+};
+
+export const mockStudentEntityMemberships: StudentEntityMembership[] = [
+  createMockStudentEntityMembership(
+    mockKeycloakPermissionUsers[0],
+    StudentEntityKey.Cacic,
+    0,
+    [
+      AssignableKeycloakPermission.EventManagerAccess,
+      AssignableKeycloakPermission.AccountManagerAccess,
+    ],
+  ),
+  createMockStudentEntityMembership(
+    mockKeycloakPermissionUsers[1],
+    StudentEntityKey.Cacic,
+    1,
+    [AssignableKeycloakPermission.EventManagerAccess],
+  ),
+  createMockStudentEntityMembership(
+    mockKeycloakPermissionUsers[2],
+    StudentEntityKey.Cacic,
+    2,
+    [
+      AssignableKeycloakPermission.EventManagerSuperAdmin,
+      AssignableKeycloakPermission.DiscordAdmin,
+    ],
+  ),
+  createMockStudentEntityMembership(
+    mockKeycloakPermissionUsers[3],
+    StudentEntityKey.Ejcomp,
+    3,
+    [AssignableKeycloakPermission.EventManagerAccess],
+  ),
+  createMockStudentEntityMembership(
+    mockKeycloakPermissionUsers[4],
+    StudentEntityKey.Ejcomp,
+    4,
+    [
+      AssignableKeycloakPermission.EventManagerAccess,
+      AssignableKeycloakPermission.AccountManagerAccess,
+    ],
+  ),
+];
+
+export const mockDirectKeycloakPermissionGrant =
+  createMockKeycloakPermissionGrant(
+    mockKeycloakPermissionUsers[0],
+    AssignableKeycloakPermission.DiscordAdmin,
+    8,
+  );
 
 export const mockUser: User = {
   id: 'usr_1',

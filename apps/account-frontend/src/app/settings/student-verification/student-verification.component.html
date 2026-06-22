@@ -38,108 +38,120 @@
         </div>
       }
 
-      <div class="info-section">
-        <h3>Documentos aceitos:</h3>
-        <ul>
-          <li>Atestado de matrícula</li>
-          <li>Histórico escolar</li>
-        </ul>
-
-        <h3>Requisitos:</h3>
-        <ul>
-          <li>Formato PDF</li>
-          <li>Dentro da validade</li>
-        </ul>
-        <p>A análise é automática e o arquivo será descartado após o uso.</p>
-      </div>
-
-      <div class="upload-section">
-        @if (!selectedFile()) {
-          <div class="file-drop-area" (click)="fileInput.click()">
-            <mat-icon class="upload-icon">cloud_upload</mat-icon>
-            <p>Clique para selecionar um arquivo</p>
-            <p class="file-hint">ou arraste e solte aqui</p>
-          </div>
-
-          <input
-            #fileInput
-            type="file"
-            accept=".pdf, application/pdf"
-            (change)="onFileSelected($event)"
-            style="display: none"
-          />
-        } @else {
-          <div class="selected-file">
-            <div class="file-info">
-              <mat-icon>description</mat-icon>
-              <div class="file-details">
-                <span class="file-name">{{ selectedFile()!.name }}</span>
-                <span class="file-size">{{
-                  formatFileSize(selectedFile()!.size)
-                }}</span>
-              </div>
-              <button
-                mat-icon-button
-                (click)="removeSelectedFile()"
-                color="warn"
-                [disabled]="uploading()"
-              >
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-        }
-      </div>
-
-      <!-- Development mode toggle for manual fallback -->
-      @if (isDevelopment) {
-        <div class="dev-toggle-section">
-          <mat-checkbox
-            [checked]="useManualFallback()"
-            (change)="useManualFallback.set($event.checked)"
-            [disabled]="uploading()"
-            class="dev-checkbox"
-          >
-            <span class="dev-label">
-              <mat-icon class="dev-icon">bug_report</mat-icon>
-              Modo de desenvolvimento: Pular validação automática
-            </span>
-          </mat-checkbox>
-          <p class="dev-description">
-            Quando marcado, o documento será enviado diretamente para aprovação
-            manual, pulando a validação automática com o servidor da
-            universidade.
+      @if (verificationNotRequired()) {
+        <div class="info-section">
+          <h3>Verificação dispensada</h3>
+          <p>
+            A verificação de estudantes da graduação está temporariamente
+            desativada. Nenhum documento é necessário no momento.
           </p>
         </div>
-      }
+      } @else {
+        <div class="info-section">
+          <h3>Documentos aceitos:</h3>
+          <ul>
+            <li>Atestado de matrícula</li>
+            <li>Histórico escolar</li>
+          </ul>
 
-      @if (uploading()) {
-        <mat-progress-bar
-          mode="indeterminate"
-          class="upload-progress"
-        ></mat-progress-bar>
+          <h3>Requisitos:</h3>
+          <ul>
+            <li>Formato PDF</li>
+            <li>Dentro da validade</li>
+          </ul>
+          <p>A análise é automática e o arquivo será descartado após o uso.</p>
+        </div>
+
+        <div class="upload-section">
+          @if (!selectedFile()) {
+            <div class="file-drop-area" (click)="fileInput.click()">
+              <mat-icon class="upload-icon">cloud_upload</mat-icon>
+              <p>Clique para selecionar um arquivo</p>
+              <p class="file-hint">ou arraste e solte aqui</p>
+            </div>
+
+            <input
+              #fileInput
+              type="file"
+              accept=".pdf, application/pdf"
+              (change)="onFileSelected($event)"
+              style="display: none"
+            />
+          } @else {
+            <div class="selected-file">
+              <div class="file-info">
+                <mat-icon>description</mat-icon>
+                <div class="file-details">
+                  <span class="file-name">{{ selectedFile()!.name }}</span>
+                  <span class="file-size">{{
+                    formatFileSize(selectedFile()!.size)
+                  }}</span>
+                </div>
+                <button
+                  mat-icon-button
+                  (click)="removeSelectedFile()"
+                  color="warn"
+                  [disabled]="uploading()"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Development mode toggle for manual fallback -->
+        @if (isDevelopment) {
+          <div class="dev-toggle-section">
+            <mat-checkbox
+              [checked]="useManualFallback()"
+              (change)="useManualFallback.set($event.checked)"
+              [disabled]="uploading()"
+              class="dev-checkbox"
+            >
+              <span class="dev-label">
+                <mat-icon class="dev-icon">bug_report</mat-icon>
+                Modo de desenvolvimento: Pular validação automática
+              </span>
+            </mat-checkbox>
+            <p class="dev-description">
+              Quando marcado, o documento será enviado diretamente para
+              aprovação manual, pulando a validação automática com o servidor da
+              universidade.
+            </p>
+          </div>
+        }
+
+        @if (uploading()) {
+          <mat-progress-bar
+            mode="indeterminate"
+            class="upload-progress"
+          ></mat-progress-bar>
+        }
       }
     </mat-card-content>
 
     <mat-card-actions align="end">
       <button mat-button routerLink="/settings" [disabled]="uploading()">
-        Cancelar
+        {{ verificationNotRequired() ? "Voltar" : "Cancelar" }}
       </button>
-      <button
-        mat-stroked-button
-        color="primary"
-        (click)="openUniversityValidation()"
-        [disabled]="uploading()"
-      >
-        <mat-icon>{{
-          isDevelopment && useManualFallback() ? "upload" : "verified"
-        }}</mat-icon>
-        {{
-          isDevelopment && useManualFallback()
-            ? "Enviar para Aprovação Manual"
-            : "Validar"
-        }}
-      </button>
+      @if (!verificationNotRequired()) {
+        <button
+          mat-stroked-button
+          color="primary"
+          (click)="openUniversityValidation()"
+          [disabled]="uploading()"
+        >
+          <mat-icon>{{
+            isDevelopment && useManualFallback() ? "upload" : "verified"
+          }}</mat-icon>
+          {{
+            isDevelopment && useManualFallback()
+              ? "Enviar para Aprovação Manual"
+              : "Validar"
+          }}
+        </button>
+      }
     </mat-card-actions>
   </mat-card>
 </div>

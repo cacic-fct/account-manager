@@ -46,6 +46,16 @@
             </div>
           }
 
+          @if (status.status === "not_required") {
+            <div class="success-message">
+              <mat-icon>verified_user</mat-icon>
+              <p>
+                A verificação de estudantes da graduação está temporariamente
+                desativada.
+              </p>
+            </div>
+          }
+
           @if (status.status === "pending") {
             <div class="info-message">
               <mat-icon>schedule</mat-icon>
@@ -92,7 +102,7 @@
 
       <mat-card-actions align="end">
         @if (
-          status.status === "not_submitted" || status.status === "rejected"
+          (status.status === "not_submitted" || status.status === "rejected")
         ) {
           <button
             mat-raised-button

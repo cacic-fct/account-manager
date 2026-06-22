@@ -17,9 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { DiscordSettingsService } from '../services/discord-settings.service';
 import { DiscordLinkService } from '../services/discord-link.service';
-import { KeycloakService } from '../../auth/services/keycloak.service';
 import { Auth, DiscordAdmin } from '../../auth/guards/auth.decorator';
-import { hasRequiredKeycloakRoles } from '../../auth/guards/keycloak-role.guard';
+import { AccountPermissionService } from '../../auth/services/account-permission.service';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
 import {
   ServerSettingDto,
@@ -46,12 +45,13 @@ export class DiscordAdminController {
   constructor(
     private readonly discordSettingsService: DiscordSettingsService,
     private readonly discordLinkService: DiscordLinkService,
-    private readonly keycloakService: KeycloakService,
+    private readonly accountPermissionService: AccountPermissionService,
   ) {}
 
   @ApiOperation({
     summary: 'Check admin status',
-    description: 'Check if the current user has discord-admin role',
+    description:
+      'Check if the current user has an active Discord admin permission grant.',
   })
   @ApiResponse({
     status: 200,
@@ -76,13 +76,22 @@ export class DiscordAdminController {
     @Session() session: AuthSession,
   ): Promise<{ isAdmin: boolean }> {
     try {
-      const userRoles = await this.keycloakService.getUserRoles(
-        session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
-      );
-      const isAdmin = hasRequiredKeycloakRoles(userRoles, ['discord-admin']);
-      return { isAdmin };
+      const userId = session.user?.keycloakId;
+      if (!userId) {
+        return {
+          isAdmin: false,
+        };
+      }
+
+      const isAdmin =
+        await this.accountPermissionService.hasDiscordAdminAccess(userId);
+      return {
+        isAdmin,
+      };
     } catch {
-      return { isAdmin: false };
+      return {
+        isAdmin: false,
+      };
     }
   }
 
@@ -101,7 +110,7 @@ export class DiscordAdminController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @Get('settings')
@@ -133,7 +142,7 @@ export class DiscordAdminController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @UseGuards(CsrfGuard)
@@ -161,7 +170,7 @@ export class DiscordAdminController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @Get('user/:userId/links')
@@ -196,7 +205,7 @@ export class DiscordAdminController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Discord admin role required',
+    description: 'Forbidden - Discord admin permission required',
   })
   @DiscordAdmin()
   @UseGuards(CsrfGuard)

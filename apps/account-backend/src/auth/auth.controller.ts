@@ -39,6 +39,11 @@ import { createAppConfig, AppConfig } from '../config/app.config';
 import { CsrfGuard, SkipCsrf } from './csrf/csrf.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
 import { hasRequiredKeycloakRoles } from './guards/keycloak-role.guard';
+import {
+  ACCOUNT_MANAGER_ADMIN_ROLES,
+  ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
+} from './constants/admin-permissions';
+import { AccountPermissionService } from './services/account-permission.service';
 
 export interface AuthSession {
   user?: SessionUser;
@@ -63,6 +68,7 @@ export class AuthController {
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly configService: ConfigService,
+    private readonly accountPermissionService: AccountPermissionService,
   ) {
     this.appConfig = createAppConfig(this.configService);
   }
@@ -964,7 +970,7 @@ export class AuthController {
         adminGroups: {
           type: 'array',
           items: { type: 'string' },
-          example: ['Admin', 'discord-admin'],
+          example: ['account-manager#super-admin'],
           description: 'List of admin roles the user has',
         },
       },
@@ -979,28 +985,45 @@ export class AuthController {
   @Get('admin-status')
   async getAdminStatus(@Session() session: AuthSession) {
     try {
-      const adminRoles = ['Admin', 'discord-admin'];
+      const userId = session.user?.keycloakId;
+      if (!userId) {
+        return {
+          isAdmin: false,
+          adminGroups: [],
+        };
+      }
 
-      const userRoles = await this.keycloakService.getUserRoles(
-        session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
-      );
+      const userRoles = await this.keycloakService.getUserRoles(userId);
 
       const userAdminRoles = userRoles.filter((role) =>
-        adminRoles.includes(role),
+        ACCOUNT_MANAGER_ADMIN_ROLES.includes(
+          role as (typeof ACCOUNT_MANAGER_ADMIN_ROLES)[number],
+        ),
       );
 
-      const isAdmin = hasRequiredKeycloakRoles(userRoles, adminRoles);
+      const hasKeycloakAdminRole = hasRequiredKeycloakRoles(
+        userRoles,
+        ACCOUNT_MANAGER_ADMIN_ROLES,
+      );
+      const hasDbSuperAdminGrant =
+        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+          userId,
+        );
+      const adminGroups = hasDbSuperAdminGrant
+        ? [...new Set([...userAdminRoles, ACCOUNT_MANAGER_SUPER_ADMIN_ROLE])]
+        : userAdminRoles;
+      const isAdmin = hasKeycloakAdminRole || hasDbSuperAdminGrant;
 
       this.logger.debug('Admin status check for user', {
-        userId: session.user!.keycloakId,
+        userId,
         userRoles,
-        adminGroups: userAdminRoles,
+        adminGroups,
         isAdmin,
       });
 
       return {
         isAdmin,
-        adminGroups: userAdminRoles,
+        adminGroups,
       };
     } catch (error) {
       this.logger.error('Error checking admin status', error);

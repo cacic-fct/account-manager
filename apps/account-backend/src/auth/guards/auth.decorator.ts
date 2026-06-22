@@ -1,6 +1,8 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth } from '@nestjs/swagger';
+import { ACCOUNT_MANAGER_ADMIN_ROLES } from '../constants/admin-permissions';
 import { AuthGuard } from './auth.guard';
+import { DiscordAdminGuard } from './discord-admin.guard';
 import { KeycloakRoleGuard, RequireKeycloakRoles } from './keycloak-role.guard';
 import { UniversityValidationGuard } from './university-validation.guard';
 
@@ -40,7 +42,7 @@ export const Auth = () =>
  */
 export const Admin = () =>
   applyDecorators(
-    RequireKeycloakRoles(['Admin', 'discord-admin']),
+    RequireKeycloakRoles(ACCOUNT_MANAGER_ADMIN_ROLES),
     UseGuards(KeycloakRoleGuard),
     ApiCookieAuth(),
   );
@@ -60,7 +62,7 @@ export const Admin = () =>
  */
 export const StudentVerificationAdmin = () =>
   applyDecorators(
-    RequireKeycloakRoles(['Admin', 'discord-admin']),
+    RequireKeycloakRoles(ACCOUNT_MANAGER_ADMIN_ROLES),
     UseGuards(KeycloakRoleGuard),
     ApiCookieAuth(),
   );
@@ -79,11 +81,7 @@ export const StudentVerificationAdmin = () =>
  * ```
  */
 export const DiscordAdmin = () =>
-  applyDecorators(
-    RequireKeycloakRoles(['discord-admin']),
-    UseGuards(KeycloakRoleGuard),
-    ApiCookieAuth(),
-  );
+  applyDecorators(UseGuards(DiscordAdminGuard), ApiCookieAuth());
 
 /**
  * Decorator for university validation endpoints.
