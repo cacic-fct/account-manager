@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'dist/**', 'captcha-training-data/**'],
+    ignores: ['eslint.config.mjs', 'webpack.config.js', 'dist/**', 'captcha-training-data/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
