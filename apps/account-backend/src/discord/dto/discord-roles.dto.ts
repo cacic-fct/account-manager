@@ -6,49 +6,49 @@ export class DiscordRoleDto {
     description: 'Discord role ID',
     example: '123456789012345678',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Role name',
     example: 'Developer',
   })
-  name: string;
+  name!: string;
 
   @ApiProperty({
     description: 'Role color (hex)',
     example: '#ff0000',
   })
-  color: string;
+  color!: string;
 
   @ApiProperty({
     description: 'Role position/hierarchy',
     example: 5,
   })
-  position: number;
+  position!: number;
 
   @ApiProperty({
     description: 'Whether the role has dangerous permissions',
     example: false,
   })
-  hasPermissions: boolean;
+  hasPermissions!: boolean;
 
   @ApiProperty({
     description: 'Whether the role is blacklisted',
     example: false,
   })
-  isBlacklisted: boolean;
+  isBlacklisted!: boolean;
 
   @ApiProperty({
     description: 'Whether the role is enabled for user selection',
     example: true,
   })
-  isEnabled: boolean;
+  isEnabled!: boolean;
 
   @ApiProperty({
     description: 'Whether the role is managed by the bot or Discord',
     example: false,
   })
-  isManaged: boolean;
+  isManaged!: boolean;
 }
 
 export class SelectableRolesDto {
@@ -56,19 +56,19 @@ export class SelectableRolesDto {
     description: 'Roles with permissions (admin view only)',
     type: [DiscordRoleDto],
   })
-  rolesWithPermissions: DiscordRoleDto[];
+  rolesWithPermissions!: DiscordRoleDto[];
 
   @ApiProperty({
     description: 'Roles without permissions',
     type: [DiscordRoleDto],
   })
-  rolesWithoutPermissions: DiscordRoleDto[];
+  rolesWithoutPermissions!: DiscordRoleDto[];
 
   @ApiProperty({
     description: 'All user-selectable roles (user view)',
     type: [DiscordRoleDto],
   })
-  selectableRoles: DiscordRoleDto[];
+  selectableRoles!: DiscordRoleDto[];
 }
 
 export class UpdateRoleSelectionDto {
@@ -79,7 +79,7 @@ export class UpdateRoleSelectionDto {
   })
   @IsArray()
   @IsString({ each: true })
-  enabledRoleIds: string[];
+  enabledRoleIds!: string[];
 }
 
 export class UserRoleSelectionDto {
@@ -90,7 +90,7 @@ export class UserRoleSelectionDto {
   })
   @IsArray()
   @IsString({ each: true })
-  selectedRoleIds: string[];
+  selectedRoleIds!: string[];
 }
 
 export class UserRolesDto {
@@ -98,13 +98,13 @@ export class UserRolesDto {
     description: "User's current Discord roles",
     type: [DiscordRoleDto],
   })
-  currentRoles: DiscordRoleDto[];
+  currentRoles!: DiscordRoleDto[];
 
   @ApiProperty({
     description: 'Available roles for selection',
     type: [DiscordRoleDto],
   })
-  availableRoles: DiscordRoleDto[];
+  availableRoles!: DiscordRoleDto[];
 }
 
 export class RoleSelectionResponseDto {
@@ -112,11 +112,11 @@ export class RoleSelectionResponseDto {
     description: 'Success message',
     example: 'Roles updated successfully',
   })
-  message: string;
+  message!: string;
 
   @ApiProperty({
     description: 'Updated user roles',
     type: [DiscordRoleDto],
   })
-  updatedRoles: DiscordRoleDto[];
+  updatedRoles!: DiscordRoleDto[];
 }

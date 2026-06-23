@@ -25,7 +25,7 @@ interface SessionUser {
 @ApiTags('Discord OAuth')
 @Controller('discord/oauth')
 export class DiscordOAuthController {
-  private readonly appConfig: AppConfig;
+  private readonly appConfig!: AppConfig;
   private readonly logger = new Logger(DiscordOAuthController.name);
 
   constructor(

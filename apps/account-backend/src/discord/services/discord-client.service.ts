@@ -4,7 +4,7 @@ import { Client } from 'discord.js';
 @Injectable()
 export class DiscordClientService {
   private readonly logger = new Logger(DiscordClientService.name);
-  private client: Client;
+  private client!: Client;
 
   setClient(client: Client): void {
     this.client = client;

@@ -1,7 +1,4 @@
-import {
-  AccountManagerKeycloakRole,
-  AssignableKeycloakPermission,
-} from '@cacic/shared-types';
+import { AccountManagerKeycloakRole } from '@cacic/shared-types';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -41,7 +38,6 @@ export class AccountPermissionService {
   async hasDiscordAdminAccess(userId: string): Promise<boolean> {
     return this.hasAnyActivePermission(userId, [
       AccountManagerKeycloakRole.SuperAdmin,
-      AssignableKeycloakPermission.DiscordAdmin,
     ]);
   }
 }

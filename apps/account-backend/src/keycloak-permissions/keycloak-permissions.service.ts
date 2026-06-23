@@ -440,7 +440,7 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
       );
     }
 
-    await this.keycloakService.removeUserRealmRoles(grant.userId, [
+    await this.keycloakService.removeUserClientRoles(grant.userId, [
       grant.permission,
     ]);
     await this.prisma.keycloakPermissionGrant.update({
@@ -553,7 +553,7 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
       }
 
       if (options.removeIfPreviouslyActive) {
-        await this.keycloakService.removeUserRealmRoles(grant.userId, [
+        await this.keycloakService.removeUserClientRoles(grant.userId, [
           grant.permission,
         ]);
         await this.markSynced(grant.id, now);
@@ -597,14 +597,14 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
   }
 
   private async activateGrant(grant: GrantRecord, now: Date): Promise<void> {
-    await this.keycloakService.addUserRealmRoles(grant.userId, [
+    await this.keycloakService.addUserClientRoles(grant.userId, [
       grant.permission,
     ]);
     await this.markSynced(grant.id, now);
   }
 
   private async expireGrant(grant: GrantRecord, now: Date): Promise<void> {
-    await this.keycloakService.removeUserRealmRoles(grant.userId, [
+    await this.keycloakService.removeUserClientRoles(grant.userId, [
       grant.permission,
     ]);
     await this.prisma.keycloakPermissionGrant.update({

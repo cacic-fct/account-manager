@@ -18,7 +18,7 @@ type EventManagerProfileUpdatePayload = {
 @Injectable()
 export class EventManagerProfileSyncService {
   private readonly logger = new Logger(EventManagerProfileSyncService.name);
-  private readonly profileUpdateUrl: string;
+  private readonly profileUpdateUrl!: string;
   private readonly audience?: string;
 
   constructor(

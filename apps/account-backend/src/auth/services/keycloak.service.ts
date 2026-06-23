@@ -21,13 +21,18 @@ export interface KeycloakUserData {
   attributes?: Record<string, string[]>;
 }
 
-interface KeycloakRealmRole {
+interface KeycloakRole {
   id?: string;
   name: string;
   description?: string;
   composite?: boolean;
   clientRole?: boolean;
   containerId?: string;
+}
+
+interface KeycloakClient {
+  id: string;
+  clientId: string;
 }
 
 interface KeycloakGroup {
@@ -60,6 +65,7 @@ export class KeycloakService {
   private readonly clientId =
     process.env.KEYCLOAK_CLIENT_ID || 'cacic-account-manager';
   private readonly logger = new Logger(KeycloakService.name);
+  private readonly clientUuidCache = new Map<string, string>();
 
   /**
    * Determine if an error is due to connectivity issues with Keycloak
@@ -578,51 +584,28 @@ export class KeycloakService {
   }
 
   async getUserRoles(userId: string): Promise<string[]> {
-    const adminToken = await this.getAdminToken();
-    // Use composite endpoint to get ALL roles (direct + inherited from groups)
-    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm/composite`;
-
-    this.logger.debug('Getting user roles (including inherited)', { userId });
-
-    const response = await fetch(userRolesUrl, {
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        this.logger.warn('User not found when getting roles', { userId });
-        return [];
-      }
-
-      this.logger.error('Failed to get user roles', {
-        status: response.status,
-        statusText: response.statusText,
-        userId,
-      });
-      throw new Error(
-        `Failed to get user roles: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const roles = (await response.json()) as Array<{ name: string }>;
-    this.logger.debug('User roles retrieved (including inherited)', {
-      userId,
-      roles: roles.map((r) => r.name),
-    });
-    return roles.map((role) => role.name);
+    return this.getUserClientRoles(userId);
   }
 
   /**
    * Get only direct role assignments for a user (not inherited from groups)
    */
   async getUserDirectRoles(userId: string): Promise<string[]> {
-    const adminToken = await this.getAdminToken();
-    // Get only direct role assignments (not inherited from groups)
-    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm`;
+    return this.getUserDirectClientRoles(userId);
+  }
 
-    this.logger.debug('Getting direct user roles', { userId });
+  async getUserClientRoles(
+    userId: string,
+    clientId = this.clientId,
+  ): Promise<string[]> {
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}/composite`;
+
+    this.logger.debug('Getting user client roles (including inherited)', {
+      userId,
+      clientId,
+    });
 
     const response = await fetch(userRolesUrl, {
       headers: {
@@ -632,41 +615,94 @@ export class KeycloakService {
 
     if (!response.ok) {
       if (response.status === 404) {
-        this.logger.warn('User not found when getting direct roles', {
+        this.logger.warn('User not found when getting client roles', {
           userId,
+          clientId,
         });
         return [];
       }
 
-      this.logger.error('Failed to get direct user roles', {
+      this.logger.error('Failed to get user client roles', {
         status: response.status,
         statusText: response.statusText,
         userId,
+        clientId,
       });
       throw new Error(
-        `Failed to get direct user roles: ${response.status} ${response.statusText}`,
+        `Failed to get user client roles: ${response.status} ${response.statusText}`,
       );
     }
 
     const roles = (await response.json()) as Array<{ name: string }>;
-    this.logger.debug('Direct user roles retrieved', {
+    this.logger.debug('User client roles retrieved (including inherited)', {
       userId,
+      clientId,
       roles: roles.map((r) => r.name),
     });
     return roles.map((role) => role.name);
   }
 
-  async addUserRealmRoles(
+  async getUserDirectClientRoles(
+    userId: string,
+    clientId = this.clientId,
+  ): Promise<string[]> {
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
+
+    this.logger.debug('Getting direct user client roles', {
+      userId,
+      clientId,
+    });
+
+    const response = await fetch(userRolesUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        this.logger.warn('User not found when getting direct client roles', {
+          userId,
+          clientId,
+        });
+        return [];
+      }
+
+      this.logger.error('Failed to get direct user client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        userId,
+        clientId,
+      });
+      throw new Error(
+        `Failed to get direct user client roles: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const roles = (await response.json()) as Array<{ name: string }>;
+    this.logger.debug('Direct user client roles retrieved', {
+      userId,
+      clientId,
+      roles: roles.map((r) => r.name),
+    });
+    return roles.map((role) => role.name);
+  }
+
+  async addUserClientRoles(
     userId: string,
     roleNames: readonly string[],
+    clientId = this.clientId,
   ): Promise<void> {
-    const roles = await this.getRealmRolesByName(roleNames);
+    const roles = await this.getClientRolesByName(clientId, roleNames);
     if (roles.length === 0) {
       return;
     }
 
     const adminToken = await this.getAdminToken();
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm`;
+    const clientUuid = await this.getClientUuid(clientId);
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
     const response = await fetch(roleMappingsUrl, {
       method: 'POST',
       headers: {
@@ -678,22 +714,24 @@ export class KeycloakService {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to assign user realm roles: ${response.status} ${response.statusText}`,
+        `Failed to assign user client roles: ${response.status} ${response.statusText}`,
       );
     }
   }
 
-  async removeUserRealmRoles(
+  async removeUserClientRoles(
     userId: string,
     roleNames: readonly string[],
+    clientId = this.clientId,
   ): Promise<void> {
-    const roles = await this.getRealmRolesByName(roleNames);
+    const roles = await this.getClientRolesByName(clientId, roleNames);
     if (roles.length === 0) {
       return;
     }
 
     const adminToken = await this.getAdminToken();
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/realm`;
+    const clientUuid = await this.getClientUuid(clientId);
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
     const response = await fetch(roleMappingsUrl, {
       method: 'DELETE',
       headers: {
@@ -705,7 +743,7 @@ export class KeycloakService {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to remove user realm roles: ${response.status} ${response.statusText}`,
+        `Failed to remove user client roles: ${response.status} ${response.statusText}`,
       );
     }
   }
@@ -749,9 +787,10 @@ export class KeycloakService {
     }
   }
 
-  private async getRealmRolesByName(
+  private async getClientRolesByName(
+    clientId: string,
     roleNames: readonly string[],
-  ): Promise<KeycloakRealmRole[]> {
+  ): Promise<KeycloakRole[]> {
     const normalizedRoleNames = [
       ...new Set(roleNames.map((role) => role.trim())),
     ].filter((role) => role.length > 0);
@@ -760,10 +799,11 @@ export class KeycloakService {
     }
 
     const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
 
     const roles = await Promise.all(
       normalizedRoleNames.map(async (roleName) => {
-        const roleUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/roles/${encodeURIComponent(
+        const roleUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles/${encodeURIComponent(
           roleName,
         )}`;
         const response = await fetch(roleUrl, {
@@ -774,19 +814,63 @@ export class KeycloakService {
 
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error(`Keycloak realm role ${roleName} was not found`);
+            throw new Error(
+              `Keycloak client role ${clientId}:${roleName} was not found`,
+            );
           }
 
           throw new Error(
-            `Failed to get realm role ${roleName}: ${response.status} ${response.statusText}`,
+            `Failed to get client role ${clientId}:${roleName}: ${response.status} ${response.statusText}`,
           );
         }
 
-        return (await response.json()) as KeycloakRealmRole;
+        return (await response.json()) as KeycloakRole;
       }),
     );
 
     return roles;
+  }
+
+  private async getClientUuid(
+    clientId: string,
+    adminToken?: string,
+  ): Promise<string> {
+    const normalizedClientId = clientId.trim();
+    if (!normalizedClientId) {
+      throw new Error('Keycloak client id is required');
+    }
+
+    const cachedUuid = this.clientUuidCache.get(normalizedClientId);
+    if (cachedUuid) {
+      return cachedUuid;
+    }
+
+    const token = adminToken ?? (await this.getAdminToken());
+    const clientsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients?clientId=${encodeURIComponent(
+      normalizedClientId,
+    )}`;
+    const response = await fetch(clientsUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to find Keycloak client ${normalizedClientId}: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const clients = (await response.json()) as KeycloakClient[];
+    const client = clients.find(
+      (candidate) => candidate.clientId === normalizedClientId,
+    );
+    if (!client) {
+      throw new Error(`Keycloak client ${normalizedClientId} was not found`);
+    }
+
+    this.clientUuidCache.set(normalizedClientId, client.id);
+    return client.id;
   }
 
   private async getGroupByPath(groupPath: string): Promise<KeycloakGroup> {

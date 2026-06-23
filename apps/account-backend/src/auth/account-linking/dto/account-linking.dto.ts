@@ -12,7 +12,7 @@ export class ConfirmAccountMergeDto implements ConfirmAccountMergeRequest {
     example: 'user@unesp.br',
   })
   @IsEmail()
-  primaryEmail: string;
+  primaryEmail!: string;
 }
 
 export class AccountLinkingStartUrlDto {
@@ -20,7 +20,7 @@ export class AccountLinkingStartUrlDto {
     description: 'OAuth URL used to authenticate the other Google account',
   })
   @IsString()
-  url: string;
+  url!: string;
 }
 
 export type AccountMergeRequestDto = AccountMergeRequest;

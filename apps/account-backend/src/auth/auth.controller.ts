@@ -61,7 +61,7 @@ export interface AuthSession {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  private readonly appConfig: AppConfig;
+  private readonly appConfig!: AppConfig;
   private readonly logger = new Logger(AuthController.name);
 
   constructor(
@@ -970,7 +970,7 @@ export class AuthController {
         adminGroups: {
           type: 'array',
           items: { type: 'string' },
-          example: ['account-manager#super-admin'],
+          example: ['super-admin'],
           description: 'List of admin roles the user has',
         },
       },

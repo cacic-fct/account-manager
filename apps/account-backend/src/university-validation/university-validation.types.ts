@@ -51,7 +51,7 @@ export class GetCaptchaDto {
 export class ValidateDocumentDto {
   @IsString()
   @IsNotEmpty()
-  captchaCode: string;
+  captchaCode!: string;
 }
 
 export class AtomicValidationDto {
@@ -61,5 +61,5 @@ export class AtomicValidationDto {
 
   @IsString()
   @IsNotEmpty()
-  sessionId: string; // Required to retrieve auth code from server-side session
+  sessionId!: string; // Required to retrieve auth code from server-side session
 }

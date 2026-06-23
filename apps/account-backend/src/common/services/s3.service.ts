@@ -22,8 +22,8 @@ export interface S3Config {
 @Injectable()
 export class S3Service {
   private readonly logger = new Logger(S3Service.name);
-  private readonly s3Client: S3Client;
-  private readonly bucketName: string;
+  private readonly s3Client!: S3Client;
+  private readonly bucketName!: string;
 
   constructor(private readonly configService: ConfigService) {
     const endpoint = this.configService.get<string>('S3_ENDPOINT');

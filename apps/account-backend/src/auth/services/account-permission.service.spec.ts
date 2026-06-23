@@ -58,7 +58,7 @@ describe('AccountPermissionService', () => {
 
     await expect(
       service.hasAnyActivePermission('user-1', [
-        AssignableKeycloakPermission.DiscordAdmin,
+        AssignableKeycloakPermission.AccountManagerAccess,
       ]),
     ).resolves.toBe(true);
 
@@ -68,11 +68,11 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.userId).toBe('user-1');
     expect(findFirstArgs.where.deletedAt).toBeNull();
     expect(findFirstArgs.where.permission.in).toEqual([
-      AssignableKeycloakPermission.DiscordAdmin,
+      AssignableKeycloakPermission.AccountManagerAccess,
     ]);
   });
 
-  it('treats Discord admin and Account Manager super-admin as Discord admin access', async () => {
+  it('treats Account Manager super-admin as Discord admin access', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
 
@@ -83,7 +83,6 @@ describe('AccountPermissionService', () => {
     );
     expect(findFirstArgs.where.permission.in).toEqual([
       AccountManagerKeycloakRole.SuperAdmin,
-      AssignableKeycloakPermission.DiscordAdmin,
     ]);
   });
 

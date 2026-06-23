@@ -20,8 +20,8 @@ interface CachedBooleanFlag {
 export class FeatureFlagService {
   private readonly logger = new Logger(FeatureFlagService.name);
   private readonly cache = new Map<string, CachedBooleanFlag>();
-  private readonly cacheTtlMs: number;
-  private readonly timeoutMs: number;
+  private readonly cacheTtlMs!: number;
+  private readonly timeoutMs!: number;
 
   constructor(private readonly configService: ConfigService) {
     this.cacheTtlMs = this.parsePositiveInteger(

@@ -52,8 +52,9 @@ export class DiscordEventsService {
     try {
       await this.discordBotService.assignNickname(member, member.nickname);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to assign nickname for ${member.user.username}: ${error}`,
+        `Failed to assign nickname for ${member.user.username}: ${message}`,
       );
     }
   }
@@ -72,8 +73,9 @@ export class DiscordEventsService {
       try {
         await this.discordBotService.assignNickname(member, newNickname);
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         this.logger.error(
-          `Failed to assign nickname for ${member.user.username}: ${error}`,
+          `Failed to assign nickname for ${member.user.username}: ${message}`,
         );
       }
     }

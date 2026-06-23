@@ -30,13 +30,13 @@ interface ClientCredentialsTokenResponse {
 @Injectable()
 export class JwtService {
   private readonly logger = new Logger(JwtService.name);
-  private jwksClient: jwksClient.JwksClient;
-  private readonly keycloakBaseUrl: string;
-  private readonly realm: string;
-  private readonly expectedAudience: string;
-  private readonly clockSkewToleranceSeconds: number;
-  private readonly requireServiceAccountToken: boolean;
-  private readonly allowedM2MClients: string[];
+  private jwksClient!: jwksClient.JwksClient;
+  private readonly keycloakBaseUrl!: string;
+  private readonly realm!: string;
+  private readonly expectedAudience!: string;
+  private readonly clockSkewToleranceSeconds!: number;
+  private readonly requireServiceAccountToken!: boolean;
+  private readonly allowedM2MClients!: string[];
   private readonly tokenCache = new Map<
     string,
     { accessToken: string; expiresAt: number }

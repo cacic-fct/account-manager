@@ -6,31 +6,31 @@ export class DiscordLinkDto {
     description: 'Discord link ID',
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'User ID (Keycloak)',
     example: 'f5fc286c-2025-4567-8901-234567890abc',
   })
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: 'Discord user ID',
     example: '123456789012345678',
   })
-  discordId: string;
+  discordId!: string;
 
   @ApiProperty({
     description: 'Discord username',
     example: 'user#1234',
   })
-  discordUsername: string;
+  discordUsername!: string;
 
   @ApiProperty({
     description: 'Discord global display name',
     example: 'John Doe',
   })
-  discordGlobalName: string;
+  discordGlobalName!: string;
 
   @ApiProperty({
     description: 'Discord avatar hash',
@@ -43,7 +43,7 @@ export class DiscordLinkDto {
     description: 'Whether the Discord link is verified',
     example: true,
   })
-  isVerified: boolean;
+  isVerified!: boolean;
 
   @ApiProperty({
     description: 'Role assigned in Discord server',
@@ -56,7 +56,7 @@ export class DiscordLinkDto {
     description: 'Creation date',
     example: '2025-06-30T16:59:49.628Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 }
 
 export class LinkDiscordRequestDto {
@@ -65,14 +65,14 @@ export class LinkDiscordRequestDto {
     example: 'abc123def456',
   })
   @IsString()
-  code: string;
+  code!: string;
 
   @ApiProperty({
     description: 'State parameter for OAuth security',
     example: 'random-state-string',
   })
   @IsString()
-  state: string;
+  state!: string;
 }
 
 export class DiscordLinkStatusDto {
@@ -80,7 +80,7 @@ export class DiscordLinkStatusDto {
     description: 'Whether user has linked Discord accounts',
     example: true,
   })
-  isLinked: boolean;
+  isLinked!: boolean;
 
   @ApiProperty({
     description: 'List of Discord link information',
@@ -101,7 +101,7 @@ export class DiscordLinkStatusDto {
     description: 'Which role user is eligible for',
     example: 'student',
   })
-  eligibleForRole: 'student' | 'unesp' | 'visitor';
+  eligibleForRole!: 'student' | 'unesp' | 'visitor';
 }
 
 export class UnlinkDiscordResponseDto {
@@ -109,7 +109,7 @@ export class UnlinkDiscordResponseDto {
     description: 'Success message',
     example: 'Discord account unlinked successfully',
   })
-  message: string;
+  message!: string;
 }
 
 export class UnlinkDiscordRequestDto {
@@ -118,5 +118,5 @@ export class UnlinkDiscordRequestDto {
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   })
   @IsString()
-  linkId: string;
+  linkId!: string;
 }

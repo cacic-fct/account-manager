@@ -7,14 +7,14 @@ export class CreateLgpdRequestDto {
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
   @IsString()
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: 'User email address',
     example: 'joao.silva@unesp.br',
   })
   @IsString()
-  email: string;
+  email!: string;
 }
 
 export class LgpdRequestDto {
@@ -22,26 +22,26 @@ export class LgpdRequestDto {
     description: 'Unique request identifier',
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'User ID who made the request',
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: 'Email address of the requesting user',
     example: 'joao.silva@unesp.br',
   })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'Current status of the LGPD request',
     enum: ['pending', 'processing', 'completed', 'failed'],
     example: 'completed',
   })
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status!: 'pending' | 'processing' | 'completed' | 'failed';
 
   @ApiPropertyOptional({
     description: 'Name of the generated data file',
@@ -65,13 +65,13 @@ export class LgpdRequestDto {
     description: 'Timestamp when the request was created',
     example: '2025-06-30T16:59:49.628Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'Timestamp when the request was last updated',
     example: '2025-06-30T17:05:30.128Z',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ApiPropertyOptional({
     description: 'Timestamp when the file was downloaded',
@@ -91,20 +91,20 @@ export class LgpdRequestListDto {
     description: 'Unique request identifier',
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Current status of the LGPD request',
     enum: ['pending', 'processing', 'completed', 'failed'],
     example: 'completed',
   })
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status!: 'pending' | 'processing' | 'completed' | 'failed';
 
   @ApiProperty({
     description: 'Timestamp when the request was created',
     example: '2025-06-30T16:59:49.628Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiPropertyOptional({
     description: 'Timestamp when the file was downloaded',

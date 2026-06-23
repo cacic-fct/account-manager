@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "commonjs",
     "outDir": "../../dist/out-tsc/apps/account-backend",
-    "types": ["jest", "node"]
+    "types": ["jest", "node", "multer"]
   },
-  "include": ["jest.config.ts", "src/**/*.ts", "test/**/*.ts"]
+  "include": ["jest.config.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["dist"]
 }

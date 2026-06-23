@@ -1,4 +1,4 @@
-import { Component, Inject, computed } from '@angular/core';
+import { Component, Inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import {
   MAT_DIALOG_DATA,
   MatDialogModule,
@@ -213,6 +213,7 @@ export interface RoleChangeData {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     MatDialogModule,
     MatButtonModule,

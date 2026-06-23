@@ -80,7 +80,7 @@ const getMembershipsForRoster = (entity: StudentEntityKey) => {
         user,
         entity,
         index + memberships.length + 1,
-        [AssignableKeycloakPermission.EventManagerAccess],
+        [AssignableKeycloakPermission.AccountManagerAccess],
       ),
     );
 

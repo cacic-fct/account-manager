@@ -18,7 +18,7 @@ export class CreateUserProfileDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
-  fullname: string;
+  fullname!: string;
 
   @ApiProperty({
     description: 'Phone number in international format',
@@ -26,7 +26,7 @@ export class CreateUserProfileDto {
   })
   @IsString()
   @IsNotEmpty()
-  phone: string;
+  phone!: string;
 
   @ApiPropertyOptional({
     description: 'Student enrollment number (only for Unesp students)',
@@ -43,7 +43,7 @@ export class CreateUserProfileDto {
   })
   @IsString()
   @IsNotEmpty()
-  identityDocument: string;
+  identityDocument!: string;
 
   @ApiProperty({
     description:
@@ -51,7 +51,7 @@ export class CreateUserProfileDto {
     example: false,
   })
   @IsBoolean()
-  isForeigner: boolean;
+  isForeigner!: boolean;
 
   @ApiPropertyOptional({
     description: 'Unesp role for university users',
@@ -68,19 +68,19 @@ export class UserProfileDto {
     description: 'Unique user identifier (Keycloak ID)',
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Username (email address)',
     example: 'joao.silva@unesp.br',
   })
-  username: string;
+  username!: string;
 
   @ApiProperty({
     description: 'User email address',
     example: 'joao.silva@unesp.br',
   })
-  email: string;
+  email!: string;
 
   @ApiPropertyOptional({
     description: 'Secondary email addresses linked to the same user',
@@ -93,13 +93,13 @@ export class UserProfileDto {
     description: 'Full name of the user',
     example: 'João Silva Santos',
   })
-  fullname: string;
+  fullname!: string;
 
   @ApiProperty({
     description: 'Display name from OAuth provider',
     example: 'João Silva',
   })
-  displayName: string;
+  displayName!: string;
 
   @ApiPropertyOptional({
     description: 'Profile picture URL from OAuth provider',
@@ -111,7 +111,7 @@ export class UserProfileDto {
     description: 'Phone number in international format',
     example: '+5511999887766',
   })
-  phone: string;
+  phone!: string;
 
   @ApiPropertyOptional({
     description: 'Student enrollment number (only for Unesp students)',
@@ -124,7 +124,7 @@ export class UserProfileDto {
       'Identity document (CPF for Brazilians, Passport for foreigners)',
     example: '12345678901',
   })
-  identityDocument: string;
+  identityDocument!: string;
 
   @ApiProperty({
     description:
@@ -138,13 +138,13 @@ export class UserProfileDto {
       'Whether the user is a foreigner (uses passport instead of CPF)',
     example: false,
   })
-  isForeigner: boolean;
+  isForeigner!: boolean;
 
   @ApiProperty({
     description: 'Whether the user has completed the onboarding process',
     example: true,
   })
-  isOnboarded: boolean;
+  isOnboarded!: boolean;
 
   @ApiPropertyOptional({
     description: 'Unesp role for university users',
@@ -178,11 +178,11 @@ export class UserProfileDto {
     description: 'Whether the user has admin privileges',
     example: false,
   })
-  isAdmin: boolean;
+  isAdmin!: boolean;
 
   @ApiPropertyOptional({
     description: 'List of admin groups the user belongs to',
-    example: ['account-manager#super-admin'],
+    example: ['super-admin'],
     type: [String],
   })
   adminGroups?: string[];
@@ -191,13 +191,13 @@ export class UserProfileDto {
     description: 'Account creation timestamp',
     example: '2023-01-15T10:30:00.000Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'Last update timestamp',
     example: '2023-06-30T14:45:00.000Z',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class AuthStatusDto {
@@ -205,13 +205,13 @@ export class AuthStatusDto {
     description: 'Whether the user is authenticated',
     example: true,
   })
-  isAuthenticated: boolean;
+  isAuthenticated!: boolean;
 
   @ApiProperty({
     description: 'Whether the user has completed onboarding',
     example: true,
   })
-  isOnboarded: boolean;
+  isOnboarded!: boolean;
 }
 
 export class OnboardingStatusDto {
@@ -219,14 +219,14 @@ export class OnboardingStatusDto {
     description: 'Whether the user needs to complete onboarding',
     example: false,
   })
-  needsOnboarding: boolean;
+  needsOnboarding!: boolean;
 
   @ApiProperty({
     description: 'List of missing required fields',
     example: ['phone', 'identityDocument'],
     type: [String],
   })
-  missingFields: string[];
+  missingFields!: string[];
 }
 
 export class UnespRoleRequiredDto {
@@ -234,7 +234,7 @@ export class UnespRoleRequiredDto {
     description: 'Whether the user should see Unesp role selection',
     example: true,
   })
-  shouldShowUnespRoleSelection: boolean;
+  shouldShowUnespRoleSelection!: boolean;
 }
 
 export class UserApplicationDto {
@@ -242,13 +242,13 @@ export class UserApplicationDto {
     description: 'Application unique identifier',
     example: 'app-123',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'Application name',
     example: 'Portal do Aluno',
   })
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({
     description: 'Application description',
@@ -278,7 +278,7 @@ export class UserApplicationDto {
     description: 'Whether the application is enabled for the user',
     example: true,
   })
-  enabled: boolean;
+  enabled!: boolean;
 }
 
 export class LogoutResponseDto {
@@ -286,5 +286,5 @@ export class LogoutResponseDto {
     description: 'Whether the logout was successful',
     example: true,
   })
-  success: boolean;
+  success!: boolean;
 }

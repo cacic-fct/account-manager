@@ -12,15 +12,15 @@ import type {
 } from '@cacic/shared-types';
 
 export class UploadResponseDto implements StudentVerificationUploadResponse {
-  message: string;
-  documentId: string;
-  status: 'pending' | 'approved' | 'rejected';
+  message!: string;
+  documentId!: string;
+  status!: 'pending' | 'approved' | 'rejected';
   authenticationCode?: string;
   extractedName?: string;
 }
 
 export class VerificationStatusDto implements StudentVerificationStatusResponse {
-  status:
+  status!:
     | 'pending'
     | 'approved'
     | 'rejected'
@@ -39,7 +39,7 @@ export class VerificationStatusDto implements StudentVerificationStatusResponse 
 
 export class UpdateVerificationStatusDto implements StudentVerificationUpdateRequest {
   @IsEnum(['approved', 'rejected'])
-  status: 'approved' | 'rejected';
+  status!: 'approved' | 'rejected';
 
   @ValidateIf((dto: UpdateVerificationStatusDto) => dto.status === 'rejected')
   @IsString()

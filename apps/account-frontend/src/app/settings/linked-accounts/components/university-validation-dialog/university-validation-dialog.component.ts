@@ -1,4 +1,4 @@
-import { Component, inject, signal, Inject } from '@angular/core';
+import { Component, inject, signal, Inject, ChangeDetectionStrategy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -207,6 +207,7 @@ export interface UniversityValidationDialogData {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     FormsModule,
     MatDialogModule,

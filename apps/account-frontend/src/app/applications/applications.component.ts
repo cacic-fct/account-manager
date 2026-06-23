@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal, OnInit } from '@angular/core';
+import { Component, inject, computed, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatToolbar } from '@angular/material/toolbar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIcon } from '@angular/material/icon';
@@ -35,6 +35,7 @@ import { LoggerService } from '../shared/services/logger.service';
   ],
   templateUrl: './applications.component.html',
   styleUrl: './applications.component.scss',
+  changeDetection: ChangeDetectionStrategy.Eager,
   providers: [AppCardComponent],
 })
 export class ApplicationsComponent implements OnInit {

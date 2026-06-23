@@ -28,7 +28,7 @@ export class UpdatePrivacySettingDto implements PrivacySettingUpdate {
     example: true,
   })
   @IsBoolean()
-  enabled: boolean;
+  enabled!: boolean;
 
   @ApiProperty({
     description: 'Additional metadata for the setting',
@@ -87,13 +87,13 @@ export class PrivacySettingResponseDto implements PrivacySettingRecord {
     description: 'Setting ID',
     example: 'f5fc286c-2025-4567-8901-234567890abc',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'User ID',
     example: 'user-123',
   })
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: 'Privacy settings as JSONB object',
@@ -105,7 +105,7 @@ export class PrivacySettingResponseDto implements PrivacySettingRecord {
     },
     type: () => Object,
   })
-  settings: PrivacySettings;
+  settings!: PrivacySettings;
 
   @ApiProperty({
     description: 'Additional metadata for the settings',
@@ -119,13 +119,13 @@ export class PrivacySettingResponseDto implements PrivacySettingRecord {
     description: 'When the settings were created',
     example: '2024-01-01T00:00:00Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'When the settings were last updated',
     example: '2024-01-01T00:00:00Z',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 // For API endpoints that need setting type and value
@@ -136,14 +136,14 @@ export class UpdatePrivacySettingWithTypeDto implements M2MPrivacySettingUpdate 
     example: 'analytics_tracking',
   })
   @IsIn(PRIVACY_SETTING_TYPE_VALUES)
-  settingType: PrivacySettingTypeValue;
+  settingType!: PrivacySettingTypeValue;
 
   @ApiProperty({
     description: 'Whether the setting is enabled',
     example: true,
   })
   @IsBoolean()
-  enabled: boolean;
+  enabled!: boolean;
 
   @ApiProperty({
     description: 'Additional metadata for the setting',
@@ -164,7 +164,7 @@ export class BulkPrivacySettingsDto implements M2MBulkPrivacySettingsRequest {
   @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => UpdatePrivacySettingWithTypeDto)
-  settings: UpdatePrivacySettingWithTypeDto[];
+  settings!: UpdatePrivacySettingWithTypeDto[];
 }
 
 // Response DTO for API endpoints
@@ -174,17 +174,17 @@ export class ApiPrivacySettingResponseDto implements M2MPrivacySettingResponse {
     enum: PRIVACY_SETTING_TYPE_VALUES,
     example: 'analytics_tracking',
   })
-  settingType: PrivacySettingTypeValue;
+  settingType!: PrivacySettingTypeValue;
 
   @ApiProperty({
     description: 'Whether the setting is enabled',
     example: true,
   })
-  enabled: boolean;
+  enabled!: boolean;
 
   @ApiProperty({
     description: 'When the setting was last updated',
     example: '2024-01-01T00:00:00Z',
   })
-  lastUpdated: Date;
+  lastUpdated!: Date;
 }

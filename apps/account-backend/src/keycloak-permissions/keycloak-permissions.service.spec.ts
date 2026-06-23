@@ -67,13 +67,13 @@ type KeycloakMock = {
     ReturnType<KeycloakService['getUserBasicInfo']>,
     Parameters<KeycloakService['getUserBasicInfo']>
   >;
-  addUserRealmRoles: jest.Mock<
-    ReturnType<KeycloakService['addUserRealmRoles']>,
-    Parameters<KeycloakService['addUserRealmRoles']>
+  addUserClientRoles: jest.Mock<
+    ReturnType<KeycloakService['addUserClientRoles']>,
+    Parameters<KeycloakService['addUserClientRoles']>
   >;
-  removeUserRealmRoles: jest.Mock<
-    ReturnType<KeycloakService['removeUserRealmRoles']>,
-    Parameters<KeycloakService['removeUserRealmRoles']>
+  removeUserClientRoles: jest.Mock<
+    ReturnType<KeycloakService['removeUserClientRoles']>,
+    Parameters<KeycloakService['removeUserClientRoles']>
   >;
   addUserToGroupPath: jest.Mock<
     ReturnType<KeycloakService['addUserToGroupPath']>,
@@ -116,7 +116,7 @@ const createGrant = (overrides: Partial<GrantRecord> = {}): GrantRecord => ({
   userEmail: 'alice@example.com',
   userDisplayName: 'Alice Example',
   studentEntityMembershipId: null,
-  permission: AssignableKeycloakPermission.EventManagerAccess,
+  permission: AssignableKeycloakPermission.AccountManagerAccess,
   validFrom: null,
   validUntil: null,
   createdAt,
@@ -193,13 +193,13 @@ const createContext = () => {
       ReturnType<KeycloakService['getUserBasicInfo']>,
       Parameters<KeycloakService['getUserBasicInfo']>
     >(),
-    addUserRealmRoles: jest.fn<
-      ReturnType<KeycloakService['addUserRealmRoles']>,
-      Parameters<KeycloakService['addUserRealmRoles']>
+    addUserClientRoles: jest.fn<
+      ReturnType<KeycloakService['addUserClientRoles']>,
+      Parameters<KeycloakService['addUserClientRoles']>
     >(),
-    removeUserRealmRoles: jest.fn<
-      ReturnType<KeycloakService['removeUserRealmRoles']>,
-      Parameters<KeycloakService['removeUserRealmRoles']>
+    removeUserClientRoles: jest.fn<
+      ReturnType<KeycloakService['removeUserClientRoles']>,
+      Parameters<KeycloakService['removeUserClientRoles']>
     >(),
     addUserToGroupPath: jest.fn<
       ReturnType<KeycloakService['addUserToGroupPath']>,
@@ -215,8 +215,8 @@ const createContext = () => {
     >(),
   };
   keycloakService.getUserBasicInfo.mockResolvedValue(createUser());
-  keycloakService.addUserRealmRoles.mockResolvedValue(undefined);
-  keycloakService.removeUserRealmRoles.mockResolvedValue(undefined);
+  keycloakService.addUserClientRoles.mockResolvedValue(undefined);
+  keycloakService.removeUserClientRoles.mockResolvedValue(undefined);
   keycloakService.addUserToGroupPath.mockResolvedValue(undefined);
   keycloakService.removeUserFromGroupPath.mockResolvedValue(undefined);
   keycloakService.searchUsers.mockResolvedValue([]);
@@ -243,7 +243,7 @@ const createContext = () => {
 };
 
 describe('KeycloakPermissionsService', () => {
-  it('creates an immediate grant and assigns the direct Keycloak role', async () => {
+  it('creates an immediate grant and assigns the direct Keycloak client role', async () => {
     const { service, prisma, keycloakService } = createContext();
     const grant = createGrant();
     const syncedGrant = createGrant({
@@ -256,13 +256,13 @@ describe('KeycloakPermissionsService', () => {
     const result = await service.createGrant(
       {
         userId: 'user-1',
-        permission: AssignableKeycloakPermission.EventManagerAccess,
+        permission: AssignableKeycloakPermission.AccountManagerAccess,
       },
       'admin-1',
     );
 
-    expect(keycloakService.addUserRealmRoles).toHaveBeenCalledWith('user-1', [
-      AssignableKeycloakPermission.EventManagerAccess,
+    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith('user-1', [
+      AssignableKeycloakPermission.AccountManagerAccess,
     ]);
     const createArgs = getMockArg<{
       data: {
@@ -276,7 +276,7 @@ describe('KeycloakPermissionsService', () => {
     }>(prisma.keycloakPermissionGrant.create);
     expect(createArgs.data).toMatchObject({
       userId: 'user-1',
-      permission: AssignableKeycloakPermission.EventManagerAccess,
+      permission: AssignableKeycloakPermission.AccountManagerAccess,
       userEmail: 'alice@example.com',
       userDisplayName: 'Alice Example',
       createdById: 'admin-1',
@@ -294,14 +294,14 @@ describe('KeycloakPermissionsService', () => {
     prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
     prisma.keycloakPermissionGrant.update.mockResolvedValue(failedGrant);
     prisma.keycloakPermissionGrant.findUnique.mockResolvedValue(failedGrant);
-    keycloakService.addUserRealmRoles.mockRejectedValue(
+    keycloakService.addUserClientRoles.mockRejectedValue(
       new Error('Keycloak unavailable'),
     );
 
     const result = await service.createGrant(
       {
         userId: 'user-1',
-        permission: AssignableKeycloakPermission.EventManagerAccess,
+        permission: AssignableKeycloakPermission.AccountManagerAccess,
       },
       'admin-1',
     );
@@ -328,7 +328,7 @@ describe('KeycloakPermissionsService', () => {
       validFrom: validFrom.toISOString(),
     });
 
-    expect(keycloakService.addUserRealmRoles).not.toHaveBeenCalled();
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
     expect(result.status).toBe('scheduled');
   });
 
@@ -344,9 +344,9 @@ describe('KeycloakPermissionsService', () => {
 
     const result = await service.synchronizePermissionGrants();
 
-    expect(keycloakService.removeUserRealmRoles).toHaveBeenCalledWith(
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
       'user-1',
-      [AssignableKeycloakPermission.EventManagerAccess],
+      [AssignableKeycloakPermission.AccountManagerAccess],
     );
     const updateArgs = getMockArg<{
       where: { id: string };
@@ -391,7 +391,7 @@ describe('KeycloakPermissionsService', () => {
         userId: 'user-1',
         mandateStart: mandateStart.toISOString(),
         mandateEnd: mandateEnd.toISOString(),
-        permissions: [AssignableKeycloakPermission.EventManagerAccess],
+        permissions: [AssignableKeycloakPermission.AccountManagerAccess],
       },
       'admin-1',
     );
@@ -400,8 +400,8 @@ describe('KeycloakPermissionsService', () => {
       'user-1',
       '/student-entities/cacic',
     );
-    expect(keycloakService.addUserRealmRoles).toHaveBeenCalledWith('user-1', [
-      AssignableKeycloakPermission.EventManagerAccess,
+    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith('user-1', [
+      AssignableKeycloakPermission.AccountManagerAccess,
     ]);
     const createArgs = getMockArg<{
       data: {

@@ -210,7 +210,7 @@
 
           <mat-card-actions class="invite-actions">
             <a
-              [href]="discordStatus()?.inviteLink"
+              [href]="$safeNavigationMigration(discordStatus()?.inviteLink)"
               target="_blank"
               mat-raised-button
               color="primary"

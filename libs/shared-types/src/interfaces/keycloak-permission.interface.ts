@@ -1,41 +1,20 @@
 export const AccountManagerKeycloakRole = {
-  Access: 'account-manager#access',
-  SuperAdmin: 'account-manager#super-admin',
+  Access: 'access',
+  SuperAdmin: 'super-admin',
 } as const;
 
 export type AccountManagerKeycloakRole =
   (typeof AccountManagerKeycloakRole)[keyof typeof AccountManagerKeycloakRole];
 
-export const EventManagerKeycloakRole = {
-  Access: 'event-manager#access',
-  SuperAdmin: 'event-manager#super-admin',
-} as const;
-
-export type EventManagerKeycloakRole =
-  (typeof EventManagerKeycloakRole)[keyof typeof EventManagerKeycloakRole];
-
-export const DiscordKeycloakRole = {
-  Admin: 'discord#admin',
-} as const;
-
-export type DiscordKeycloakRole =
-  (typeof DiscordKeycloakRole)[keyof typeof DiscordKeycloakRole];
-
 export const AssignableKeycloakPermission = {
   AccountManagerAccess: AccountManagerKeycloakRole.Access,
   AccountManagerSuperAdmin: AccountManagerKeycloakRole.SuperAdmin,
-  EventManagerAccess: EventManagerKeycloakRole.Access,
-  EventManagerSuperAdmin: EventManagerKeycloakRole.SuperAdmin,
-  DiscordAdmin: DiscordKeycloakRole.Admin,
 } as const;
 
 export type AssignableKeycloakPermission =
   (typeof AssignableKeycloakPermission)[keyof typeof AssignableKeycloakPermission];
 
-export type KeycloakPermissionApplication =
-  | 'account-manager'
-  | 'event-manager'
-  | 'discord';
+export type KeycloakPermissionApplication = 'account-manager';
 
 export interface KeycloakPermissionDefinition {
   permission: AssignableKeycloakPermission;
@@ -57,26 +36,6 @@ export const KEYCLOAK_PERMISSION_CATALOG = [
     label: 'Account Manager super admin',
     description:
       'Allows the user to manage Account Manager administration and permission grants.',
-  },
-  {
-    permission: AssignableKeycloakPermission.EventManagerAccess,
-    application: 'event-manager',
-    label: 'Event Manager access',
-    description: 'Allows the user to access CACiC Event Manager.',
-  },
-  {
-    permission: AssignableKeycloakPermission.EventManagerSuperAdmin,
-    application: 'event-manager',
-    label: 'Event Manager super admin',
-    description:
-      'Allows the user to bypass Event Manager app-owned authorization checks.',
-  },
-  {
-    permission: AssignableKeycloakPermission.DiscordAdmin,
-    application: 'discord',
-    label: 'Discord admin',
-    description:
-      'Allows the user to manage Discord integration settings and role selection.',
   },
 ] as const satisfies readonly KeycloakPermissionDefinition[];
 

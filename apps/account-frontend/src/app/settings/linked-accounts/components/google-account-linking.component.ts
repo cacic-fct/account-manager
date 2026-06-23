@@ -5,6 +5,7 @@ import {
   computed,
   inject,
   signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -39,6 +40,7 @@ import { AuthService } from '../../../shared/services/auth/auth.service';
     MatSelectModule,
   ],
   templateUrl: './google-account-linking.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './google-account-linking.component.scss',
 })
 export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {

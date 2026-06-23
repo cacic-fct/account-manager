@@ -7,7 +7,7 @@ export class DeleteAccountRequestDto {
     example: 'DELETE',
   })
   @IsString()
-  confirmation: string;
+  confirmation!: string;
 
   @ApiPropertyOptional({
     description: 'Optional reason for account deletion',
@@ -23,13 +23,13 @@ export class DeleteAccountResponseDto {
     description: 'Message confirming the deletion request',
     example: 'Account deletion request initiated successfully',
   })
-  message: string;
+  message!: string;
 
   @ApiProperty({
     description: 'Timestamp when the deletion was requested',
     example: '2025-06-30T17:00:00.000Z',
   })
-  requestedAt: Date;
+  requestedAt!: Date;
 
   @ApiProperty({
     description: 'Services that will be notified for data deletion',
@@ -37,27 +37,27 @@ export class DeleteAccountResponseDto {
     isArray: true,
     type: String,
   })
-  servicesNotified: string[];
+  servicesNotified!: string[];
 
   @ApiProperty({
     description: 'Timestamp when retained data is scheduled for hard deletion',
     example: '2026-06-30T17:00:00.000Z',
   })
-  scheduledHardDeleteAt: Date;
+  scheduledHardDeleteAt!: Date;
 }
 
 export class AdminDeleteAccountRequestDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  userId: string;
+  userId!: string;
 
   @ApiProperty()
-  email: string;
+  email!: string;
 
   @ApiProperty()
-  status: string;
+  status!: string;
 
   @ApiPropertyOptional()
   reason?: string;
@@ -75,5 +75,5 @@ export class AdminDeleteAccountRequestDto {
   errorMessage?: string;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 }

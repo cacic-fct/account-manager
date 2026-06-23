@@ -36,8 +36,8 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
 
   @ApiProperty({
     enum: assignablePermissions,
-    description: 'Allowed Keycloak permission scope to grant.',
-    example: AssignableKeycloakPermission.EventManagerAccess,
+    description: 'Allowed Account Manager Keycloak client role to grant.',
+    example: AssignableKeycloakPermission.AccountManagerAccess,
   })
   @IsIn(assignablePermissions)
   permission!: AssignableKeycloakPermission;
@@ -119,11 +119,9 @@ export class StudentEntityMembershipCreateDto implements StudentEntityMembership
   @ApiProperty({
     enum: assignablePermissions,
     isArray: true,
-    description: 'Specific Keycloak scopes granted to this member.',
-    example: [
-      AssignableKeycloakPermission.AccountManagerAccess,
-      AssignableKeycloakPermission.EventManagerAccess,
-    ],
+    description:
+      'Specific Account Manager client roles granted to this member.',
+    example: [AssignableKeycloakPermission.AccountManagerAccess],
   })
   @IsArray()
   @ArrayUnique()
@@ -149,11 +147,9 @@ export class StudentEntityMembershipUpdateDto implements StudentEntityMembership
   @ApiProperty({
     enum: assignablePermissions,
     isArray: true,
-    description: 'Specific Keycloak scopes granted to this member.',
-    example: [
-      AssignableKeycloakPermission.AccountManagerAccess,
-      AssignableKeycloakPermission.EventManagerAccess,
-    ],
+    description:
+      'Specific Account Manager client roles granted to this member.',
+    example: [AssignableKeycloakPermission.AccountManagerAccess],
   })
   @IsArray()
   @ArrayUnique()

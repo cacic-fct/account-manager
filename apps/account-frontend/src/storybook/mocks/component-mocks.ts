@@ -128,7 +128,6 @@ export const mockStudentEntityMemberships: StudentEntityMembership[] = [
     StudentEntityKey.Cacic,
     0,
     [
-      AssignableKeycloakPermission.EventManagerAccess,
       AssignableKeycloakPermission.AccountManagerAccess,
     ],
   ),
@@ -136,29 +135,27 @@ export const mockStudentEntityMemberships: StudentEntityMembership[] = [
     mockKeycloakPermissionUsers[1],
     StudentEntityKey.Cacic,
     1,
-    [AssignableKeycloakPermission.EventManagerAccess],
+    [AssignableKeycloakPermission.AccountManagerAccess],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[2],
     StudentEntityKey.Cacic,
     2,
     [
-      AssignableKeycloakPermission.EventManagerSuperAdmin,
-      AssignableKeycloakPermission.DiscordAdmin,
+      AssignableKeycloakPermission.AccountManagerSuperAdmin,
     ],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[3],
     StudentEntityKey.Ejcomp,
     3,
-    [AssignableKeycloakPermission.EventManagerAccess],
+    [AssignableKeycloakPermission.AccountManagerAccess],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[4],
     StudentEntityKey.Ejcomp,
     4,
     [
-      AssignableKeycloakPermission.EventManagerAccess,
       AssignableKeycloakPermission.AccountManagerAccess,
     ],
   ),
@@ -167,7 +164,7 @@ export const mockStudentEntityMemberships: StudentEntityMembership[] = [
 export const mockDirectKeycloakPermissionGrant =
   createMockKeycloakPermissionGrant(
     mockKeycloakPermissionUsers[0],
-    AssignableKeycloakPermission.DiscordAdmin,
+    AssignableKeycloakPermission.AccountManagerSuperAdmin,
     8,
   );
 

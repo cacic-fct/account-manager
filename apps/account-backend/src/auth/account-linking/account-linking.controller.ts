@@ -36,7 +36,7 @@ import {
 @Controller('auth/account-linking')
 export class AccountLinkingController {
   private readonly logger = new Logger(AccountLinkingController.name);
-  private readonly appConfig: AppConfig;
+  private readonly appConfig!: AppConfig;
 
   constructor(
     private readonly keycloakService: KeycloakService,

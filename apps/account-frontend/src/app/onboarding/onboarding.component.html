@@ -12,7 +12,7 @@
     >
       @if (currentUser()?.picture) {
         <img
-          [ngSrc]="currentUser()?.picture!"
+          [ngSrc]="$safeNavigationMigration(currentUser()?.picture)!"
           class="avatar"
           fill="true"
           alt="Avatar do usuário"

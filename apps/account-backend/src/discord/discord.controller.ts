@@ -48,7 +48,7 @@ interface SessionUser {
 @ApiTags('Discord Integration')
 @Controller('discord')
 export class DiscordController {
-  private readonly appConfig: AppConfig;
+  private readonly appConfig!: AppConfig;
   private readonly logger = new Logger(DiscordController.name);
 
   constructor(

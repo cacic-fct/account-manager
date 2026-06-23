@@ -1,11 +1,11 @@
 {
   "installation": {
-    "version": "22.6.4",
+    "version": "23.0.0",
     "plugins": {
-      "@nx/eslint": "22.6.4",
-      "@nx/jest": "22.6.4",
-      "@nx/storybook": "22.6.4",
-      "@nx/docker": "22.6.4"
+      "@nx/eslint": "23.0.0",
+      "@nx/jest": "23.0.0",
+      "@nx/storybook": "23.0.0",
+      "@nx/docker": "23.0.0"
     }
   },
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
@@ -41,5 +41,6 @@
       "dependsOn": ["^build"],
       "inputs": ["default", "^default"]
     }
-  }
+  },
+  "neverConnectToCloud": true
 }

@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -50,6 +50,7 @@ interface BannerConfig {
     MatToolbarModule
 ],
   templateUrl: './verification-details.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './verification-details.component.scss',
 })
 export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {

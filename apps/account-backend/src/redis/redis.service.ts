@@ -10,7 +10,7 @@ import { createAppConfig } from '../config/app.config';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: RedisClientType;
+  private client!: RedisClientType;
   private readonly logger = new Logger(RedisService.name);
 
   constructor(private readonly configService: ConfigService) {}

@@ -142,15 +142,15 @@ export class PdfVerificationService {
             const result = JSON.parse(stdout) as PdfVerificationResult;
             resolve(result);
           } catch (parseError) {
+            const message =
+              parseError instanceof Error
+                ? parseError.message
+                : String(parseError);
             this.logger.error(
-              `Failed to parse Python script output: ${
-                parseError instanceof Error
-                  ? parseError.message
-                  : String(parseError)
-              }`,
+              `Failed to parse Python script output: ${message}`,
             );
             reject(
-              new Error(`Failed to parse Python script output: ${parseError}`),
+              new Error(`Failed to parse Python script output: ${message}`),
             );
           }
         });

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -30,6 +30,7 @@ import { ConfirmationDialogComponent } from '../../shared/components/confirmatio
     MatTooltipModule,
   ],
   templateUrl: './admin-account-deletion.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './admin-account-deletion.component.scss',
 })
 export class AdminAccountDeletionComponent implements OnInit {
