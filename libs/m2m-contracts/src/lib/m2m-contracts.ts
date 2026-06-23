@@ -166,6 +166,9 @@ export const PRIVACY_COOKIE_NAME = 'cacic-privacy-directives' as const;
 export const PRIVACY_HEADER_NAME = 'X-CACIC-Privacy-Directives' as const;
 export const CACIC_PURR_COOKIE_NAME = 'cacic-purr' as const;
 export const CACIC_PURR_QUICK_COOKIE_NAME = 'cacic-purr-quick' as const;
+export const CACIC_ANALYTICS_ID_COOKIE_NAME = 'cacic-analytics-id' as const;
+export const CACIC_ANALYTICS_CONSENT_COOKIE_NAME =
+  'cacic-analytics-consent' as const;
 
 export interface CacicPurrCookiePayload {
   directives: Partial<Record<PrivacyDirectiveType, DirectiveValue>>;
@@ -180,6 +183,21 @@ export interface CacicPurrQuickCookiePayload {
   analyticsAllowed: boolean;
 }
 
+export interface CacicAnalyticsConsentCookiePayload {
+  analyticsAllowed: boolean;
+  cookieBannerAccepted: boolean;
+  identityAvailable: boolean;
+  updatedAt: CacicDateTime;
+  version: string;
+}
+
+export interface CacicTrackingSessionResponse {
+  analyticsAllowed: boolean;
+  cookieBannerAccepted: boolean;
+  userId?: string;
+  expiresAt?: CacicDateTime;
+}
+
 export const M2M_PRIVACY_ROUTE_TEMPLATES = {
   USER_SETTINGS: `${M2M_API_PREFIX}/v1/privacy/user/:userId/settings`,
   USER_SETTING: `${M2M_API_PREFIX}/v1/privacy/user/:userId/setting/:settingType`,
@@ -188,6 +206,11 @@ export const M2M_PRIVACY_ROUTE_TEMPLATES = {
   DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives?userId=:userId`,
   UI_DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives/ui?userId=:userId`,
   DATA_DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives/data?userId=:userId`,
+} as const;
+
+export const CACIC_TRACKING_ROUTES = {
+  session: `${M2M_API_PREFIX}/tracking/session`,
+  clear: `${M2M_API_PREFIX}/tracking/clear`,
 } as const;
 
 export const M2M_PRIVACY_ROUTES = {

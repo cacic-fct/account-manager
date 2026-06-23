@@ -9,6 +9,10 @@ import os
 import venv
 from pathlib import Path
 
+def log_status(message):
+    """Log setup progress without polluting stdout JSON consumed by Nest."""
+    print(message, file=sys.stderr)
+
 def check_and_install_packages():
     """Check if required packages are available and install them if needed."""
     
@@ -19,10 +23,10 @@ def check_and_install_packages():
     
     # Create virtual environment if it doesn't exist
     if not venv_dir.exists():
-        print("Virtual environment not found. Creating...")
+        log_status("Virtual environment not found. Creating...")
         try:
             venv.create(str(venv_dir), with_pip=True)
-            print("Virtual environment created successfully.")
+            log_status("Virtual environment created successfully.")
         except Exception as e:
             return {
                 "success": False,
@@ -46,7 +50,7 @@ def check_and_install_packages():
     # Install requirements if requirements.txt exists
     if requirements_file.exists():
         try:
-            print("Installing Python requirements...")
+            log_status("Installing Python requirements...")
             install_result = subprocess.run([
                 str(pip_path), "install", "-r", str(requirements_file)
             ], capture_output=True, text=True, timeout=120)
@@ -56,7 +60,7 @@ def check_and_install_packages():
                     "success": False,
                     "error": f"Failed to install requirements: {install_result.stderr}"
                 }
-            print("Requirements installed successfully.")
+            log_status("Requirements installed successfully.")
         except subprocess.TimeoutExpired:
             return {
                 "success": False,

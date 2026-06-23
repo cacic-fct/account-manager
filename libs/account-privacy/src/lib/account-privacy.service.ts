@@ -18,6 +18,7 @@ import {
 import type {
   CacicAccountPrivacySetting,
   CacicPrivacyPreferences,
+  CacicTrackingSession,
 } from './account-privacy.types.js';
 
 @Injectable({ providedIn: 'root' })
@@ -115,6 +116,34 @@ export class CacicAccountPrivacyService {
 
   refresh(): Observable<CacicAccountPrivacySetting | null> {
     return this.loadSettings(true);
+  }
+
+  refreshTrackingCookies(): Observable<CacicTrackingSession | null> {
+    if (!this.isBrowser) {
+      return of(null);
+    }
+
+    return this.http
+      .get<CacicTrackingSession>(`${this.config.apiBaseUrl}/tracking/session`, {
+        withCredentials: true,
+      })
+      .pipe(catchError(() => of(null)));
+  }
+
+  clearTrackingCookies(): Observable<{ cleared: true } | null> {
+    if (!this.isBrowser) {
+      return of(null);
+    }
+
+    return this.http
+      .post<{ cleared: true }>(
+        `${this.config.apiBaseUrl}/tracking/clear`,
+        {},
+        {
+          withCredentials: true,
+        },
+      )
+      .pipe(catchError(() => of(null)));
   }
 
   isAnalyticsEnabled(): boolean {

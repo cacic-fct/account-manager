@@ -22,13 +22,16 @@ import { authAppInitializerFactory } from './shared/services/auth/auth-initializ
 import { AuthService } from './shared/services/auth/auth.service';
 import { credentialsInterceptor } from './shared/interceptors/credentials.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
-import { MatIconRegistry } from '@angular/material/icon';
+import { startCacicAccountUmamiTracking } from './analytics/account-umami-tracking';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideAppInitializer(() => {
       const initializerFn = authAppInitializerFactory(inject(AuthService));
       return initializerFn();
+    }),
+    provideAppInitializer(() => {
+      startCacicAccountUmamiTracking();
     }),
     provideZonelessChangeDetection(),
     provideRouter(routes),

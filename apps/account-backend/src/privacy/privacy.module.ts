@@ -6,6 +6,7 @@ import { PrivacyApiController } from './privacy-api.controller';
 import { PrivacyDirectiveService } from './services/privacy-directive.service';
 import { PrivacyDirectiveController } from './controllers/privacy-directive.controller';
 import { PrivacyDirectiveMiddleware } from './middleware/privacy-directive.middleware';
+import { TrackingController } from './tracking.controller';
 import { JwtModule } from '../auth/jwt/jwt.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
     PrivacyController,
     PrivacyApiController,
     PrivacyDirectiveController,
+    TrackingController,
   ],
   providers: [
     PrivacyService,

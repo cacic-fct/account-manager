@@ -17,7 +17,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig } from './config/app.config';
 import * as express from 'express';
-import type { Express } from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 
 type RedisStoreConstructor = new (options: {
   client: unknown;
@@ -47,6 +47,7 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const appConfig = createAppConfig(configService);
+  setupTrackingCors(app, configService, appConfig.corsOrigins);
 
   const trustProxyEnv = configService.get<string>('TRUST_PROXY');
   const shouldTrustProxy =
@@ -195,4 +196,58 @@ function setupSwagger(app: INestApplication<any>): void {
     },
   };
   SwaggerModule.setup('swagger', app, documentFactory, swaggerCustomOptions);
+}
+
+function setupTrackingCors(
+  app: INestApplication,
+  configService: ConfigService,
+  corsOrigins: string[],
+): void {
+  const allowedOrigins = new Set([
+    'https://account.cacic.dev.br',
+    'https://cacic.dev.br',
+    'https://eventos.cacic.dev.br',
+    'https://manual.cacic.dev.br',
+    'https://secompp.cacic.dev.br',
+    'https://voto.cacic.dev.br',
+    ...corsOrigins,
+    ...readOriginList(configService.get<string>('CACIC_TRACKING_CORS_ORIGINS')),
+  ]);
+
+  app.use(
+    '/api/tracking',
+    (request: Request, response: Response, next: NextFunction) => {
+      const origin = request.headers.origin;
+
+      if (origin && allowedOrigins.has(origin)) {
+        response.setHeader('Access-Control-Allow-Origin', origin);
+        response.setHeader('Access-Control-Allow-Credentials', 'true');
+        response.setHeader(
+          'Access-Control-Allow-Headers',
+          'Accept, Content-Type',
+        );
+        response.setHeader(
+          'Access-Control-Allow-Methods',
+          'GET, POST, OPTIONS',
+        );
+        response.setHeader('Vary', 'Origin');
+      }
+
+      if (request.method === 'OPTIONS') {
+        response.sendStatus(204);
+        return;
+      }
+
+      next();
+    },
+  );
+}
+
+function readOriginList(value: string | undefined): string[] {
+  return (
+    value
+      ?.split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0) ?? []
+  );
 }

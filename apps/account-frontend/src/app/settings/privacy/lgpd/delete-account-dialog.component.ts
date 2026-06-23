@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject } from '@angular/core';
 
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -91,7 +91,6 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
       </button>
     </mat-dialog-actions>
     `,
-  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       .warning-title {

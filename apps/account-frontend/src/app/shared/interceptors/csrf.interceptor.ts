@@ -3,7 +3,6 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CsrfService } from '../services/csrf.service';
 import { switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
 /**
  * HTTP Interceptor that automatically adds CSRF tokens to state-changing requests
@@ -79,7 +78,12 @@ function shouldSkipCsrf(req: HttpRequest<unknown>): boolean {
 
   // Skip for specific endpoints if needed
   // Example: OAuth callbacks, public endpoints, etc.
-  const skipPatterns = ['/auth/callback', '/auth/login', '/csrf/token'];
+  const skipPatterns = [
+    '/auth/callback',
+    '/auth/login',
+    '/auth/logout',
+    '/csrf/token',
+  ];
 
   return skipPatterns.some((pattern) => req.url.includes(pattern));
 }

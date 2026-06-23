@@ -4,8 +4,7 @@ import {
   inject,
   signal,
   computed,
-  DestroyRef,
-  ChangeDetectionStrategy
+  DestroyRef
 } from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
@@ -43,7 +42,6 @@ interface PrivacyToggle {
     FormsModule,
   ],
   templateUrl: './analytics.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './analytics.component.scss',
 })
 export class AnalyticsComponent implements OnInit {

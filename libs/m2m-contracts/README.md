@@ -3,8 +3,9 @@
 Framework-agnostic contracts for CACiC Account Manager machine-to-machine APIs.
 
 The package exports the privacy setting keys, M2M role names, endpoint helpers,
-request/response DTO types, privacy directive constants, and PURR-style header
-and cookie names used by Account Manager.
+request/response DTO types, privacy directive constants, PURR-style header
+and cookie names, and shared CACiC analytics tracking cookie names used by
+Account Manager.
 
 ## Install
 
@@ -26,6 +27,7 @@ bun add @cacic-fct/account-manager-m2m-contracts
 import {
   M2M_PRIVACY_ROLES,
   M2M_PRIVACY_ROUTES,
+  CACIC_TRACKING_ROUTES,
   PRIVACY_SETTING_TYPES,
   type M2MBulkPrivacySettingsRequest,
   type M2MPrivacySettingResponse,
@@ -39,6 +41,8 @@ const body: M2MBulkPrivacySettingsRequest = {
     },
   ],
 };
+
+const trackingRefreshUrl = CACIC_TRACKING_ROUTES.session;
 ```
 
 ## Building

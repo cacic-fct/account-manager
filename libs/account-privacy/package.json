@@ -1,6 +1,6 @@
 {
   "name": "@cacic-fct/account-manager-privacy",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Angular client for CACiC account privacy preferences.",
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -8,6 +8,10 @@
     ".": {
       "types": "./index.d.ts",
       "default": "./index.js"
+    },
+    "./umami-tracking": {
+      "types": "./lib/umami-tracking.d.ts",
+      "default": "./lib/umami-tracking.js"
     }
   },
   "repository": {
@@ -20,13 +24,24 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@cacic-fct/account-manager-m2m-contracts": "0.0.1",
+    "@cacic-fct/account-manager-m2m-contracts": "0.0.2",
     "tslib": "^2.8.0"
   },
   "peerDependencies": {
     "@angular/common": ">=19",
     "@angular/core": ">=19",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/common": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    }
   },
   "sideEffects": false
 }

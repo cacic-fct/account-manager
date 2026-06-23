@@ -168,6 +168,7 @@ export class PrivacyDirectiveService {
           this.logger.info('Cookie banner accepted');
 
           // Notify other components
+          this.refreshTrackingCookies();
           this.notifyAcceptance();
         }),
         map(() => true),
@@ -346,11 +347,33 @@ export class PrivacyDirectiveService {
     localStorage.removeItem('privacyDirectives');
     localStorage.removeItem('cookieBannerHidden');
 
-    // Clear PURR cookies
-    document.cookie =
-      'cacic-purr=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie =
-      'cacic-purr-quick=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    // Clear shared privacy and tracking cookies.
+    for (const cookieName of [
+      'cacic-analytics-id',
+      'cacic-analytics-consent',
+      'cacic-purr',
+      'cacic-purr-quick',
+    ]) {
+      this.expireCookie(cookieName);
+      this.expireCookie(cookieName, '.cacic.dev.br');
+    }
+  }
+
+  private refreshTrackingCookies(): void {
+    this.http
+      .get(`${this.baseUrl}/tracking/session`, {
+        withCredentials: true,
+      })
+      .subscribe({
+        next: () =>
+          window.dispatchEvent(new CustomEvent('cacicTrackingConsentChanged')),
+        error: () => undefined,
+      });
+  }
+
+  private expireCookie(name: string, domain?: string): void {
+    const domainPart = domain ? `; domain=${domain}` : '';
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/${domainPart}; SameSite=Lax`;
   }
 
   /**

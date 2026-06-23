@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { ApiService } from './api.service';
-import type { PrivacySetting } from '@cacic/shared-types';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
+import { Observable, of } from 'rxjs';
 import { tap, catchError, shareReplay } from 'rxjs/operators';
 import { AuthService } from './auth/auth.service';
 import { LoggerService } from './logger.service';
@@ -186,6 +186,7 @@ export class PrivacyService {
         // Update local cache with the complete updated settings object
         this._settings.set(updatedSettings);
         this._lastUpdated.set(new Date());
+        this.refreshTrackingCookies();
       }),
     );
   }
@@ -204,15 +205,17 @@ export class PrivacyService {
       );
     }
 
-    const bulkData = updates.reduce((acc, update) => {
-      acc[update.key] = { enabled: update.enabled };
+    const bulkData = updates.reduce<BulkUpdatePrivacySettings>((acc, update) => {
+      const key = update.key as keyof BulkUpdatePrivacySettings;
+      acc[key] = { enabled: update.enabled };
       return acc;
-    }, {} as any);
+    }, {});
 
     return this.apiService.bulkUpdatePrivacySettings(bulkData).pipe(
       tap((settings) => {
         this._settings.set(settings);
         this._lastUpdated.set(new Date());
+        this.refreshTrackingCookies();
       }),
     );
   }
@@ -232,5 +235,21 @@ export class PrivacyService {
   updateSettingsCache(settings: PrivacySetting): void {
     this._settings.set(settings);
     this._lastUpdated.set(new Date());
+    this.refreshTrackingCookies();
+  }
+
+  private refreshTrackingCookies(): void {
+    this.apiService.refreshTrackingCookies().subscribe({
+      next: () => this.notifyTrackingConsentChanged(),
+      error: () => undefined,
+    });
+  }
+
+  private notifyTrackingConsentChanged(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('cacicTrackingConsentChanged'));
   }
 }

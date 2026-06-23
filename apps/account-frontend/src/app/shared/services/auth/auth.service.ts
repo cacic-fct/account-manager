@@ -5,16 +5,12 @@ import {
   computed,
   PLATFORM_ID,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { Router } from '@angular/router';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
-  Observable,
   BehaviorSubject,
   catchError,
   of,
   tap,
-  take,
-  filter,
 } from 'rxjs';
 import { ApiService } from '../api.service';
 import { User, AuthStatus } from '../../interfaces/user.interface';
@@ -24,7 +20,7 @@ import { CsrfService } from '../csrf.service';
 export class AuthService {
   private readonly silentLoginAttemptKey = 'cacic.silentLoginAttempted';
   private apiService = inject(ApiService);
-  private router = inject(Router);
+  private document = inject(DOCUMENT);
   private csrfService = inject(CsrfService);
   private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -113,6 +109,7 @@ export class AuthService {
             isAuthenticated: true,
             isOnboarded: user.isOnboarded ?? false,
           });
+          this.refreshTrackingCookies();
         }),
         catchError((error) => {
           console.error('Error loading current user:', error);
@@ -142,6 +139,7 @@ export class AuthService {
   }
 
   public login(targetUrl?: string): void {
+    this.clearSilentLoginAttempt();
     window.location.href = this.apiService.getLoginUrl(targetUrl);
   }
 
@@ -153,7 +151,6 @@ export class AuthService {
     const currentUrl = new URL(window.location.href);
     if (
       currentUrl.searchParams.get('sso') === 'none' ||
-      currentUrl.pathname.includes('/logout') ||
       sessionStorage.getItem(this.silentLoginAttemptKey) === 'true'
     ) {
       return false;
@@ -172,40 +169,69 @@ export class AuthService {
     }
   }
 
+  private markSilentLoginAttempt(): void {
+    if (this.isBrowser) {
+      sessionStorage.setItem(this.silentLoginAttemptKey, 'true');
+    }
+  }
+
   public logout(): void {
     this.isLoadingSignal.set(true);
+    const postLogoutRedirectUri = this.isBrowser
+      ? this.getApplicationRootUrl()
+      : undefined;
     this.apiService
-      .logout()
+      .logout(postLogoutRedirectUri)
       .pipe(
-        tap(() => {
-          // Clear CSRF token on logout
-          this.csrfService.clearToken();
-          this.authStatusSignal.set({
-            isAuthenticated: false,
-            isOnboarded: false,
-          });
-          this.currentUserSignal.set(null);
-          this.isAuthenticatedSubject$.next(false);
-          this.isLoadingSignal.set(false);
-          // Cache is cleared in ApiService logout method
-          this.router.navigateByUrl('/login');
+        tap((result) => {
+          this.clearLocalSession();
+          this.clearTrackingCookies();
+          this.markSilentLoginAttempt();
+          if (this.isBrowser && result.logoutUrl) {
+            window.location.assign(result.logoutUrl);
+            return;
+          }
+
+          if (this.isBrowser && postLogoutRedirectUri) {
+            window.location.assign(postLogoutRedirectUri);
+          }
         }),
         catchError(() => {
-          // Even if logout fails, clear local state and cache
-          this.csrfService.clearToken();
-          this.apiService.clearAuthCache();
-          this.authStatusSignal.set({
-            isAuthenticated: false,
-            isOnboarded: false,
-          });
-          this.currentUserSignal.set(null);
-          this.isAuthenticatedSubject$.next(false);
-          this.isLoadingSignal.set(false);
-          this.router.navigateByUrl('/login');
+          this.clearLocalSession();
+          this.clearTrackingCookies();
+          this.markSilentLoginAttempt();
+          if (this.isBrowser && postLogoutRedirectUri) {
+            window.location.assign(postLogoutRedirectUri);
+          }
           return of(null);
         }),
       )
       .subscribe();
+  }
+
+  private getApplicationRootUrl(): string {
+    const baseHref =
+      this.document.querySelector('base')?.getAttribute('href') ?? '/';
+    const basePath = new URL(baseHref, window.location.origin).pathname;
+    const normalizedBasePath = basePath.endsWith('/')
+      ? basePath
+      : `${basePath}/`;
+
+    return new URL(normalizedBasePath, window.location.origin).toString();
+  }
+
+  public clearLocalSession(): void {
+    this.csrfService.clearToken();
+    this.apiService.clearAuthCache();
+    this.clearSilentLoginAttempt();
+    this.authStatusSignal.set({
+      isAuthenticated: false,
+      isOnboarded: false,
+    });
+    this.currentUserSignal.set(null);
+    this.isAuthenticatedSubject$.next(false);
+    this.isDoneLoadingSubject$.next(true);
+    this.isLoadingSignal.set(false);
   }
 
   public refresh(): void {
@@ -226,6 +252,7 @@ export class AuthService {
     });
     // Update cache with new user data
     this.apiService.clearUserCache();
+    this.refreshTrackingCookies();
   }
 
   // Method to refresh auth status from backend
@@ -268,5 +295,49 @@ export class AuthService {
           resolve();
         });
     });
+  }
+
+  private refreshTrackingCookies(): void {
+    this.apiService.refreshTrackingCookies().subscribe({
+      next: () => this.notifyTrackingConsentChanged(),
+      error: () => undefined,
+    });
+  }
+
+  private clearTrackingCookies(): void {
+    this.clearClientTrackingCookies();
+    this.apiService.clearTrackingCookies().subscribe({
+      next: () => this.notifyTrackingConsentChanged(),
+      error: () => this.notifyTrackingConsentChanged(),
+    });
+  }
+
+  private clearClientTrackingCookies(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    for (const cookieName of [
+      'cacic-analytics-id',
+      'cacic-analytics-consent',
+      'cacic-purr',
+      'cacic-purr-quick',
+    ]) {
+      this.expireCookie(cookieName);
+      this.expireCookie(cookieName, '.cacic.dev.br');
+    }
+  }
+
+  private expireCookie(name: string, domain?: string): void {
+    const domainPart = domain ? `; domain=${domain}` : '';
+    document.cookie = `${name}=; Max-Age=0; path=/${domainPart}; SameSite=Lax`;
+  }
+
+  private notifyTrackingConsentChanged(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('cacicTrackingConsentChanged'));
   }
 }

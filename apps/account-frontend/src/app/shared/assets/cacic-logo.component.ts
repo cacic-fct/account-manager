@@ -1,10 +1,9 @@
-import { Component, input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input } from '@angular/core';
 
 @Component({
   standalone: true,
   selector: 'app-cacic-logo',
   templateUrl: './cacic-logo.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./cacic-logo.component.scss'],
 })
 export class CacicLogoComponent {

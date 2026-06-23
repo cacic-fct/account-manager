@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,7 +11,6 @@ import { ProfileFormComponent } from '../../../shared/components/profile-form/pr
   selector: 'app-edit',
   imports: [MatCardModule, MatButtonModule, ProfileFormComponent],
   templateUrl: './edit.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './edit.component.scss',
 })
 export class EditProfileComponent {

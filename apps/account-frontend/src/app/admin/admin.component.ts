@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
@@ -15,7 +15,6 @@ import { RouterLink } from '@angular/router';
     RouterLink,
   ],
   templateUrl: './admin.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './admin.component.scss',
 })
 export class AdminComponent {}

@@ -9,6 +9,8 @@ interface TokenResponse {
   access_token: string;
   refresh_token?: string;
   id_token?: string;
+  expires_in?: number;
+  refresh_expires_in?: number;
 }
 
 export interface KeycloakUserData {
@@ -137,6 +139,8 @@ export class KeycloakService {
     access_token: string;
     refresh_token: string;
     id_token: string;
+    expires_in?: number;
+    refresh_expires_in?: number;
   }> {
     const tokenUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/token`;
 
@@ -163,6 +167,8 @@ export class KeycloakService {
       access_token: string;
       refresh_token: string;
       id_token: string;
+      expires_in?: number;
+      refresh_expires_in?: number;
     }>;
   }
 

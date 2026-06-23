@@ -91,8 +91,6 @@ COPY --from=production-deps --chown=app:app /workspace/apps/account-backend/pris
 
 COPY --from=builder --chown=app:app /workspace/apps/account-backend/dist ./
 COPY --from=builder --chown=app:app /workspace/apps/account-backend/scripts ./scripts
-COPY --from=builder --chown=app:app /workspace/dist/libs ./libs
-COPY --from=builder --chown=app:app /workspace/dist/libs /dist/libs
 
 # Install Python dependencies
 RUN python3 -m pip install --no-cache-dir -r scripts/requirements.txt --break-system-packages

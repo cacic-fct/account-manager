@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -42,7 +42,6 @@ interface BannerConfig {
     MatTooltipModule
 ],
   templateUrl: './discord-integration.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './discord-integration.component.scss',
 })
 export class DiscordIntegrationComponent implements OnInit, OnDestroy {

@@ -25,9 +25,9 @@ interface AssignManagedRoleOptions {
 }
 
 interface ManagedRoleAssignmentResult {
-  eligibleRole: DiscordManagedRoleCategory;
-  roleId: string;
-  roleName: string;
+  eligibleRole: DiscordManagedRoleCategory | null;
+  roleId: string | null;
+  roleName: string | null;
   memberFound: boolean;
   roleApplied: boolean;
   registrationRoleApplied: boolean;
@@ -98,16 +98,53 @@ export class DiscordRoleService {
     options: AssignManagedRoleOptions = {},
   ): Promise<ManagedRoleAssignmentResult> {
     const user = await this.userService.findByKeycloakId(discordLink.userId);
+
+    if (!user) {
+      this.logger.warn(
+        `No user found for Discord link ${discordLink.id}; removing managed roles`,
+      );
+
+      await this.prisma.discordLink.update({
+        where: { id: discordLink.id },
+        data: { assignedRole: null },
+      });
+
+      const member = await this.resolveGuildMember(discordLink, options);
+      if (!member) {
+        return {
+          eligibleRole: null,
+          roleId: null,
+          roleName: null,
+          memberFound: false,
+          roleApplied: false,
+          registrationRoleApplied: false,
+          staleRolesRemoved: 0,
+        };
+      }
+
+      const staleRolesRemoved = await this.removeStaleManagedRoles(
+        member,
+        null,
+        options.reason,
+      );
+      const registrationRoleApplied =
+        await this.ensureRegistrationRoleForMember(member, options.reason);
+
+      return {
+        eligibleRole: null,
+        roleId: null,
+        roleName: null,
+        memberFound: true,
+        roleApplied: false,
+        registrationRoleApplied,
+        staleRolesRemoved,
+      };
+    }
+
     const role = getDiscordManagedRoleForUser(user, {
       skipUndergraduateUnespRoleVerification:
         await this.shouldSkipUndergraduateVerification(),
     });
-
-    if (!user) {
-      this.logger.warn(
-        `No user found for Discord link ${discordLink.id}; applying visitor role policy`,
-      );
-    }
 
     await this.prisma.discordLink.update({
       where: { id: discordLink.id },
@@ -287,10 +324,12 @@ export class DiscordRoleService {
   }
 
   async syncAllGuildMemberRoleState(
-    reason = 'weekly-discord-member-role-state-sync',
+    reason = 'discord-managed-role-hard-enforcement',
   ): Promise<{
     checked: number;
     linkedSynced: number;
+    invalidLinkedCleaned: number;
+    staleManagedRolesRemoved: number;
     registrationEnsured: number;
     failed: number;
   }> {
@@ -304,6 +343,8 @@ export class DiscordRoleService {
       return {
         checked: 0,
         linkedSynced: 0,
+        invalidLinkedCleaned: 0,
+        staleManagedRolesRemoved: 0,
         registrationEnsured: 0,
         failed: 0,
       };
@@ -319,34 +360,59 @@ export class DiscordRoleService {
     const linksByDiscordId = new Map(
       discordLinks.map((discordLink) => [discordLink.discordId, discordLink]),
     );
-
-    let checked = 0;
-    let linkedSynced = 0;
-    let registrationEnsured = 0;
-    let failed = 0;
+    const membersToReconcile = new Map<string, GuildMember>();
 
     for (const [, member] of members) {
       if (member.user.bot) {
         continue;
       }
 
+      if (
+        linksByDiscordId.has(member.id) ||
+        this.hasManagedRoleAssigned(member)
+      ) {
+        membersToReconcile.set(member.id, member);
+      }
+    }
+
+    let checked = 0;
+    let linkedSynced = 0;
+    let invalidLinkedCleaned = 0;
+    let staleManagedRolesRemoved = 0;
+    let registrationEnsured = 0;
+    let failed = 0;
+
+    for (const [, member] of membersToReconcile) {
       checked += 1;
 
       try {
         const discordLink = linksByDiscordId.get(member.id);
 
         if (discordLink) {
-          await this.assignUserRole(discordLink, {
+          const result = await this.assignUserRole(discordLink, {
             client,
             guildId,
             member,
             reason,
           });
-          linkedSynced += 1;
+          staleManagedRolesRemoved += result.staleRolesRemoved;
+          if (result.registrationRoleApplied) {
+            registrationEnsured += 1;
+          }
+
+          if (result.eligibleRole) {
+            linkedSynced += 1;
+          } else {
+            invalidLinkedCleaned += 1;
+          }
           continue;
         }
 
-        await this.removeStaleManagedRoles(member, null, reason);
+        staleManagedRolesRemoved += await this.removeStaleManagedRoles(
+          member,
+          null,
+          reason,
+        );
         const roleApplied = await this.ensureRegistrationRoleForMember(
           member,
           reason,
@@ -365,10 +431,17 @@ export class DiscordRoleService {
     }
 
     this.logger.log(
-      `Discord guild member role state sync completed: ${checked} checked, ${linkedSynced} linked synced, ${registrationEnsured} registration ensured, ${failed} failed`,
+      `Discord managed role hard enforcement completed: ${checked} checked, ${linkedSynced} linked synced, ${invalidLinkedCleaned} invalid linked cleaned, ${staleManagedRolesRemoved} stale roles removed, ${registrationEnsured} registration ensured, ${failed} failed`,
     );
 
-    return { checked, linkedSynced, registrationEnsured, failed };
+    return {
+      checked,
+      linkedSynced,
+      invalidLinkedCleaned,
+      staleManagedRolesRemoved,
+      registrationEnsured,
+      failed,
+    };
   }
 
   private async resolveGuildMember(
@@ -538,6 +611,12 @@ export class DiscordRoleService {
     return (
       (await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled()) ??
       false
+    );
+  }
+
+  private hasManagedRoleAssigned(member: Pick<GuildMember, 'roles'>): boolean {
+    return DISCORD_MANAGED_ROLE_IDS.some((roleId) =>
+      member.roles.cache.has(roleId),
     );
   }
 

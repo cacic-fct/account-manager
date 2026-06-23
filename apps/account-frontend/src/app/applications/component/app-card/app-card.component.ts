@@ -1,4 +1,4 @@
-import { Component, input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input } from '@angular/core';
 import {
   MatCard,
   MatCardContent,
@@ -12,7 +12,6 @@ import type { Application } from '@cacic/shared-types';
   selector: 'app-card',
   templateUrl: './app-card.component.html',
   styleUrls: ['./app-card.component.scss'],
-  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [MatCard, MatCardContent, MatCardActions, MatButton, MatIcon],
 })
 export class AppCardComponent {

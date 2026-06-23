@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -27,7 +27,6 @@ import {
     MatToolbarModule
 ],
   templateUrl: './server-access.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './server-access.component.scss',
 })
 export class DiscordServerAccessComponent implements OnInit {

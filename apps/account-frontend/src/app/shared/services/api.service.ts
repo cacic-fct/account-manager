@@ -186,11 +186,15 @@ export class ApiService {
     );
   }
 
-  logout(): Observable<{ success: boolean }> {
+  logout(
+    postLogoutRedirectUri?: string,
+  ): Observable<{ success: boolean; logoutUrl?: string }> {
     return this.http
-      .post<{ success: boolean }>(
+      .post<{ success: boolean; logoutUrl?: string }>(
         `${this.baseUrl}/auth/logout`,
-        {},
+        {
+          ...(postLogoutRedirectUri ? { postLogoutRedirectUri } : {}),
+        },
         {
           withCredentials: true,
         },
@@ -201,6 +205,22 @@ export class ApiService {
           this.clearAuthCache();
         }),
       );
+  }
+
+  refreshTrackingCookies(): Observable<unknown> {
+    return this.http.get(`${this.baseUrl}/tracking/session`, {
+      withCredentials: true,
+    });
+  }
+
+  clearTrackingCookies(): Observable<{ cleared: true }> {
+    return this.http.post<{ cleared: true }>(
+      `${this.baseUrl}/tracking/clear`,
+      {},
+      {
+        withCredentials: true,
+      },
+    );
   }
 
   getLoginUrl(returnUrl?: string): string {

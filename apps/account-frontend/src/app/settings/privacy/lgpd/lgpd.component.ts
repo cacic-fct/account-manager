@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,7 +32,6 @@ import { MatToolbar } from '@angular/material/toolbar';
     RouterLink
 ],
   templateUrl: './lgpd.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './lgpd.component.scss',
 })
 export class LgpdComponent implements OnInit {

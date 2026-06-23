@@ -108,10 +108,10 @@ export class DiscordEventsService {
     );
   }
 
-  @Cron('0 0 * * 0')
-  public async syncGuildMemberRoleState(): Promise<void> {
+  @Cron('15 4 * * *')
+  public async enforceManagedRolePolicy(): Promise<void> {
     await this.discordRoleService.syncAllGuildMemberRoleState(
-      'weekly-discord-guild-member-role-state-sync',
+      'scheduled-discord-managed-role-hard-enforcement',
     );
   }
 

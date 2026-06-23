@@ -37,6 +37,35 @@ providers: [
 
 Inject `CacicAccountPrivacyService` to read signals such as `analyticsEnabled`, `errorDebuggingEnabled`, `performanceMonitoringEnabled`, and `cookieBannerAccepted`.
 
+Use `refreshTrackingCookies()` after login/session refresh to ask Account Manager to refresh the shared CACiC analytics cookies. Use `clearTrackingCookies()` during logout flows in sibling applications before redirecting away.
+
+## Umami tracking helper
+
+Static sites can use the browser helper to respect Account Manager privacy settings before loading Umami:
+
+```ts
+import { initCacicUmamiTracking } from '@cacic-fct/account-manager-privacy/umami-tracking';
+
+await initCacicUmamiTracking({
+  websiteId: 'your-umami-website-id',
+  domains: ['cacic.dev.br'],
+});
+```
+
+The helper refreshes `/api/tracking/session`, reads the shared CACiC cookies, loads Umami only when Account Manager has `cookie_banner_accepted` and `analytics_tracking` enabled, and calls `umami.identify()` with the user's Keycloak subject. It does not send email, name, or profile fields unless the caller explicitly passes `identifyData`.
+
+Sites that configure analytics through a production-only script tag can use the current-script bootstrap:
+
+```ts
+import { startCacicUmamiTrackingFromCurrentScript } from '@cacic-fct/account-manager-privacy/umami-tracking';
+
+startCacicUmamiTrackingFromCurrentScript({
+  identifyData: {
+    source: window.location.hostname,
+  },
+});
+```
+
 ## Publishing
 
 This package has an independent release cycle. Updates under `libs/account-privacy` trigger the package publishing workflow, so bump this package's own `version` before merging changes that should be published.

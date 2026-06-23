@@ -10,9 +10,9 @@
       class="avatar-btn"
       aria-label="Abrir menu do usuário"
     >
-      @if (currentUser()?.picture) {
+      @if (currentUser()?.picture; as userPicture) {
         <img
-          [ngSrc]="$safeNavigationMigration(currentUser()?.picture)!"
+          [ngSrc]="userPicture"
           class="avatar"
           fill="true"
           alt="Avatar do usuário"

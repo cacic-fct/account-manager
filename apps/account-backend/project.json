@@ -5,11 +5,25 @@
   "sourceRoot": "apps/account-backend/src",
   "targets": {
     "build": {
-      "executor": "nx:run-commands",
-      "dependsOn": ["^build"],
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{workspaceRoot}/apps/account-backend/dist"],
       "options": {
-        "cwd": "apps/account-backend",
-        "command": "bun run nest build"
+        "target": "node",
+        "compiler": "tsc",
+        "main": "apps/account-backend/src/main.ts",
+        "tsConfig": "apps/account-backend/tsconfig.build.json",
+        "webpackConfig": "apps/account-backend/webpack.config.js",
+        "outputPath": "apps/account-backend/dist",
+        "outputFileName": "main.js",
+        "buildLibsFromSource": true,
+        "externalDependencies": "all",
+        "generatePackageJson": false,
+        "optimization": false,
+        "outputHashing": "none",
+        "sourceMap": true,
+        "typeCheckOptions": {
+          "async": false
+        }
       }
     },
     "test": {

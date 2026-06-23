@@ -32,6 +32,7 @@ import {
   OnboardingStatusDto,
   UnespRoleRequiredDto,
   UserApplicationDto,
+  LogoutRequestDto,
   LogoutResponseDto,
 } from './dto/user-profile.dto';
 import { SessionUser } from './interfaces/auth.interface';
@@ -44,12 +45,16 @@ import {
   ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
 } from './constants/admin-permissions';
 import { AccountPermissionService } from './services/account-permission.service';
+import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 
 export interface AuthSession {
   user?: SessionUser;
   accessToken?: string;
   refreshToken?: string;
   idToken?: string;
+  cookie?: {
+    maxAge: number | null;
+  };
   oauthState?: string;
   redirectTo?: string;
   silentLogin?: boolean;
@@ -135,6 +140,88 @@ export class AuthController {
         .filter((origin): origin is string => origin !== null);
 
       return allowedOrigins.includes(parsed.origin) ? parsed.toString() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveSafePostLogoutRedirectUri(
+    postLogoutRedirectUri?: string,
+  ): string {
+    const resolvedUrl =
+      this.resolveSafeReturnUrl(postLogoutRedirectUri) ??
+      new URL(this.appConfig.frontendUrl).toString();
+
+    const normalizedUrl = new URL(resolvedUrl);
+    normalizedUrl.username = '';
+    normalizedUrl.password = '';
+    normalizedUrl.hash = '';
+    return normalizedUrl.toString();
+  }
+
+  private applyKeycloakSessionLifetime(
+    session: AuthSession,
+    tokens: Awaited<ReturnType<KeycloakService['exchangeCodeForTokens']>>,
+  ): void {
+    if (!session.cookie) {
+      return;
+    }
+
+    const sessionExpiresAt = this.resolveKeycloakSessionExpiresAt(tokens);
+    if (!sessionExpiresAt) {
+      return;
+    }
+
+    session.cookie.maxAge = Math.max(sessionExpiresAt - Date.now(), 0);
+  }
+
+  private resolveKeycloakSessionExpiresAt(
+    tokens: Awaited<ReturnType<KeycloakService['exchangeCodeForTokens']>>,
+  ): number | null {
+    if (
+      typeof tokens.refresh_expires_in === 'number' &&
+      Number.isFinite(tokens.refresh_expires_in) &&
+      tokens.refresh_expires_in > 0
+    ) {
+      return Date.now() + tokens.refresh_expires_in * 1000;
+    }
+
+    const refreshTokenExpiresAt = this.resolveJwtExpiresAt(
+      tokens.refresh_token,
+    );
+    if (refreshTokenExpiresAt) {
+      return refreshTokenExpiresAt;
+    }
+
+    if (
+      typeof tokens.expires_in === 'number' &&
+      Number.isFinite(tokens.expires_in) &&
+      tokens.expires_in > 0
+    ) {
+      return Date.now() + tokens.expires_in * 1000;
+    }
+
+    return this.resolveJwtExpiresAt(tokens.access_token);
+  }
+
+  private resolveJwtExpiresAt(token?: string): number | null {
+    if (!token) {
+      return null;
+    }
+
+    const [, payload] = token.split('.');
+    if (!payload) {
+      return null;
+    }
+
+    try {
+      const claims = JSON.parse(
+        Buffer.from(payload, 'base64url').toString('utf8'),
+      ) as { exp?: unknown };
+
+      return typeof claims.exp === 'number' && Number.isFinite(claims.exp)
+        ? claims.exp * 1000
+        : null;
     } catch {
       return null;
     }
@@ -416,6 +503,7 @@ export class AuthController {
         session.accessToken = tokens.access_token;
         session.refreshToken = tokens.refresh_token;
         session.idToken = tokens.id_token;
+        this.applyKeycloakSessionLifetime(session, tokens);
 
         // Redirect to frontend based on actual onboarding status
         const needsOnboarding = !session.user.isOnboarded;
@@ -461,6 +549,7 @@ export class AuthController {
           session.accessToken = tokens.access_token;
           session.refreshToken = tokens.refresh_token;
           session.idToken = tokens.id_token;
+          this.applyKeycloakSessionLifetime(session, tokens);
 
           // Redirect to onboarding to be safe - the onboarding page will show an error
           res.redirect(`${this.appConfig.frontendUrl}onboarding`);
@@ -482,6 +571,7 @@ export class AuthController {
         session.accessToken = tokens.access_token;
         session.refreshToken = tokens.refresh_token;
         session.idToken = tokens.id_token;
+        this.applyKeycloakSessionLifetime(session, tokens);
 
         const needsOnboarding = !session.user.isOnboarded;
         const returnUrl = session.redirectTo;
@@ -735,27 +825,30 @@ export class AuthController {
     description: 'Successfully logged out',
     type: LogoutResponseDto,
   })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Invalid CSRF token',
+  @ApiBody({
+    type: LogoutRequestDto,
+    required: false,
+    description:
+      'Optional logout redirect target. Must be a relative path or allowed origin.',
   })
-  @Auth()
-  @UseGuards(CsrfGuard)
   @Post('logout')
-  async logout(@Session() session: AuthSession, @Res() res: Response) {
-    try {
-      if (session.refreshToken) {
-        await this.keycloakService.logout(session.refreshToken);
-      }
-    } catch (error) {
-      this.logger.error('Keycloak logout error', error);
-    }
+  logout(
+    @Session() session: AuthSession,
+    @Body() body: LogoutRequestDto | undefined,
+    @Res() res: Response,
+  ) {
+    const logoutUrl = this.keycloakService.getEndSessionUrl(
+      this.resolveSafePostLogoutRedirectUri(body?.postLogoutRedirectUri),
+      session.idToken,
+    );
+
+    clearCacicTrackingCookies(res, this.configService);
 
     session.destroy((err: unknown) => {
       if (err) {
         this.logger.error('Session destruction error', err);
       }
-      res.json({ success: true });
+      res.json({ success: true, logoutUrl });
     });
   }
 

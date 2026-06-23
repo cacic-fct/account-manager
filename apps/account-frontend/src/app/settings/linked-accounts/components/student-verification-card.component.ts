@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, signal, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -47,7 +47,6 @@ interface BannerConfig {
     RouterLink
 ],
   templateUrl: './student-verification-card.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './student-verification-card.component.scss',
 })
 export class StudentVerificationCardComponent implements OnInit, OnDestroy {

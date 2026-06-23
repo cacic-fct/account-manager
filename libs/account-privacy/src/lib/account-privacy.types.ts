@@ -1,4 +1,5 @@
 import type {
+  CacicTrackingSessionResponse,
   CacicDateTime,
   PrivacyMetadata,
   PrivacySettings,
@@ -8,6 +9,7 @@ import type {
 export type CacicPrivacySettingKey = PrivacySettingTypeValue;
 export type CacicPrivacyPreferences = PrivacySettings;
 export type CacicPrivacyMetadata = PrivacyMetadata;
+export type CacicTrackingSession = CacicTrackingSessionResponse;
 
 export interface CacicAccountPrivacySetting {
   id: string;

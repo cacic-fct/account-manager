@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, signal, OnInit } from '@angular/core';
 import { NgIf, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -34,7 +34,6 @@ import { MatDivider } from '@angular/material/divider';
     MatDivider,
   ],
   templateUrl: './onboarding.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './onboarding.component.scss',
 })
 export class OnboardingComponent implements OnInit {

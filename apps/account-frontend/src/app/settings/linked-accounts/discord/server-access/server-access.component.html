@@ -172,10 +172,11 @@
 
       <!-- Server Invitation Card -->
       @if (
+        !hasVisitorRole() &&
         (discordStatus()?.eligibleForRole === "student" ||
           discordStatus()?.eligibleForRole === "unesp") &&
-        discordStatus()?.inviteLink &&
-        !hasVisitorRole()
+        discordStatus()?.inviteLink;
+        as inviteLink
       ) {
         <mat-card class="invitation-card success">
           <mat-card-header class="card-header">
@@ -210,7 +211,7 @@
 
           <mat-card-actions class="invite-actions">
             <a
-              [href]="$safeNavigationMigration(discordStatus()?.inviteLink)"
+              [href]="inviteLink"
               target="_blank"
               mat-raised-button
               color="primary"

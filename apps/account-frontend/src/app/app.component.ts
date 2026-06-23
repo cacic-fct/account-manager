@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import {
   CookieBannerComponent,
@@ -12,7 +12,6 @@ import { AuthService } from './shared/services/auth/auth.service';
   selector: 'app-root',
   imports: [RouterOutlet, CookieBannerComponent],
   templateUrl: './app.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.scss',
 })
 export class AppComponent {

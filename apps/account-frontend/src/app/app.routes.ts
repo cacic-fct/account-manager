@@ -41,11 +41,6 @@ export const routes: Routes = [
       import('./settings/settings.routes').then((m) => m.settingsRoutes),
   },
   {
-    path: 'logout',
-    loadComponent: () =>
-      import('./logout/logout.component').then((m) => m.LogoutComponent),
-  },
-  {
     path: 'admin',
     canActivate: [AdminGuard],
     loadChildren: () =>
