@@ -17,7 +17,6 @@ Monorepo Nx do gerenciador de contas do CACiC. O projeto centraliza autenticaç�
 
 - Bun instalado.
 - Docker, quando for usar PostgreSQL e Redis locais via Compose.
-- Acesso ao GitHub Packages da organização `@cacic-fct` quando instalar ou publicar pacotes privados.
 - Python 3, apenas para os fluxos do backend que validam PDFs.
 
 Instale as dependências com:
@@ -91,7 +90,7 @@ bunx nx affected -t eslint:lint --parallel=3
 bunx nx storybook account-frontend
 bunx nx build-storybook account-frontend
 
-# Bibliotecas publicáveis
+# Bibliotecas publicáveis no npm
 bun run build:packages
 bun run publish:packages
 ```

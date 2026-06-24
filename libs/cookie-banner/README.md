@@ -4,13 +4,7 @@ CACiC cookie consent banner with vanilla JavaScript and Angular entry points.
 
 ## Install
 
-Configure GitHub Packages for the CACiC FCT scope:
-
-```ini
-@cacic-fct:registry=https://npm.pkg.github.com
-```
-
-Then install with Bun:
+Install from the public npm registry with Bun:
 
 ```bash
 bun add @cacic-fct/account-manager-cookie-banner
@@ -58,4 +52,6 @@ Run `bunx nx build cookie-banner` to build the library.
 
 This package has an independent release cycle. Updates under `libs/cookie-banner` trigger the package publishing workflow, so bump this package's own `version` before merging changes that should be published.
 
-Run `bun run publish:cookie-banner` from the repository root when publishing manually.
+Run `bun run publish:cookie-banner` from the repository root when publishing
+manually. The CI workflow publishes this package to npm through Trusted
+Publishing.

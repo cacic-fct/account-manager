@@ -18,12 +18,7 @@ FROM base AS deps
 COPY package.json bun.lock ./
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    --mount=type=secret,id=npm_token \
-    set -eu; \
-    export npm_token="$(cat /run/secrets/npm_token)"; \
-    printf '[install.scopes]\n"@cacic-fct" = { token = "$npm_token", url = "https://npm.pkg.github.com/" }\n' > /root/.bunfig.toml; \
-    bun install --frozen-lockfile; \
-    rm -f /root/.bunfig.toml
+    bun install --frozen-lockfile
 
 FROM deps AS prisma-deps
 
@@ -55,12 +50,7 @@ ENV NODE_ENV=production
 COPY package.json bun.lock ./
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    --mount=type=secret,id=npm_token \
-    set -eu; \
-    export npm_token="$(cat /run/secrets/npm_token)"; \
-    printf '[install.scopes]\n"@cacic-fct" = { token = "$npm_token", url = "https://npm.pkg.github.com/" }\n' > /root/.bunfig.toml; \
-    bun install --frozen-lockfile --production; \
-    rm -f /root/.bunfig.toml
+    bun install --frozen-lockfile --production
 
 COPY --from=prisma-deps /workspace/node_modules/.prisma ./node_modules/.prisma
 COPY --from=prisma-deps /workspace/node_modules/@prisma ./node_modules/@prisma

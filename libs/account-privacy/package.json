@@ -20,8 +20,8 @@
     "directory": "libs/account-privacy"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "dependencies": {
     "@cacic-fct/account-manager-m2m-contracts": "^0.1.0",

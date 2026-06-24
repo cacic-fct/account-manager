@@ -24,7 +24,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  id-token: write
 
 concurrency:
   group: publish-packages
@@ -53,6 +53,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 26
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Detect changed packages
         id: changes
@@ -116,16 +118,11 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         if: steps.changes.outputs.any_changed == 'true'
-        with:
-          registries: |
-            https://registry.npmjs.org/
-            @cacic-fct:https://npm.pkg.github.com/|$NPM_CONFIG_TOKEN
 
       - name: Install dependencies
         if: steps.changes.outputs.any_changed == 'true'
         run: bun install --frozen-lockfile
         env:
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUPPETEER_SKIP_DOWNLOAD: 'true'
 
       - name: Build M2M contracts
@@ -143,13 +140,19 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
           if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
-            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+            throw new Error(`Package name must be scoped for npm. Found: ${pkg.name}`);
+          }
+
+          if (pkg.publishConfig?.registry !== 'https://registry.npmjs.org') {
+            throw new Error(`Package must publish to npm. Found: ${pkg.publishConfig?.registry}`);
+          }
+
+          if (pkg.publishConfig?.access !== 'public') {
+            throw new Error(`Package must publish publicly. Found: ${pkg.publishConfig?.access}`);
           }
           NODE
 
-          bun publish --registry https://npm.pkg.github.com --tolerate-republish
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm publish --access public
 
       - name: Build account privacy
         if: steps.changes.outputs.account_privacy == 'true'
@@ -166,13 +169,19 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
           if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
-            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+            throw new Error(`Package name must be scoped for npm. Found: ${pkg.name}`);
+          }
+
+          if (pkg.publishConfig?.registry !== 'https://registry.npmjs.org') {
+            throw new Error(`Package must publish to npm. Found: ${pkg.publishConfig?.registry}`);
+          }
+
+          if (pkg.publishConfig?.access !== 'public') {
+            throw new Error(`Package must publish publicly. Found: ${pkg.publishConfig?.access}`);
           }
           NODE
 
-          bun publish --registry https://npm.pkg.github.com --tolerate-republish
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm publish --access public
 
       - name: Build cookie banner
         if: steps.changes.outputs.cookie_banner == 'true'
@@ -189,10 +198,16 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
           if (!pkg.name || !pkg.name.startsWith('@cacic-fct/')) {
-            throw new Error(`Package name must be scoped for GitHub Packages. Found: ${pkg.name}`);
+            throw new Error(`Package name must be scoped for npm. Found: ${pkg.name}`);
+          }
+
+          if (pkg.publishConfig?.registry !== 'https://registry.npmjs.org') {
+            throw new Error(`Package must publish to npm. Found: ${pkg.publishConfig?.registry}`);
+          }
+
+          if (pkg.publishConfig?.access !== 'public') {
+            throw new Error(`Package must publish publicly. Found: ${pkg.publishConfig?.access}`);
           }
           NODE
 
-          bun publish --registry https://npm.pkg.github.com --tolerate-republish
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm publish --access public

@@ -4,13 +4,7 @@ Angular client for reading CACiC account privacy preferences from the account AP
 
 ## Install
 
-Configure GitHub Packages for the CACiC FCT scope:
-
-```ini
-@cacic-fct:registry=https://npm.pkg.github.com
-```
-
-Then install with Bun:
+Install from the public npm registry with Bun:
 
 ```bash
 bun add @cacic-fct/account-manager-privacy
@@ -69,3 +63,4 @@ startCacicUmamiTrackingFromCurrentScript({
 ## Publishing
 
 This package has an independent release cycle. Updates under `libs/account-privacy` trigger the package publishing workflow, so bump this package's own `version` before merging changes that should be published.
+The CI workflow publishes this package to npm through Trusted Publishing.
