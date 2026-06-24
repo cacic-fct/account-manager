@@ -69,7 +69,7 @@ export class M2MGuard implements CanActivate {
         );
       }
 
-      // Check required realm roles - ALL roles must be present
+      // Check required M2M roles against the configured receiver audience.
       const requiredRoles = this.reflector.getAllAndOverride<string[]>(
         REQUIRED_ROLES_KEY,
         [context.getHandler(), context.getClass()],

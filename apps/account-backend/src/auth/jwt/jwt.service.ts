@@ -45,18 +45,15 @@ export class JwtService {
   constructor(private configService: ConfigService) {
     this.keycloakBaseUrl = this.configService.get<string>('KEYCLOAK_URL') ?? '';
     this.realm = this.configService.get<string>('KEYCLOAK_REALM') ?? '';
-    this.expectedAudience =
-      this.configService.get<string>('KEYCLOAK_M2M_AUDIENCE') ?? 'account';
+    this.expectedAudience = this.readRequiredConfig('KEYCLOAK_M2M_AUDIENCE');
     this.clockSkewToleranceSeconds =
       this.configService.get<number>('JWT_CLOCK_SKEW_TOLERANCE') ?? 30;
     this.requireServiceAccountToken =
       this.configService.get<string>('KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT') !==
       'false';
-    this.allowedM2MClients = this.configService
-      .get<string>('KEYCLOAK_M2M_ALLOWED_CLIENTS', '')
-      .split(',')
-      .map((client) => client.trim())
-      .filter(Boolean);
+    this.allowedM2MClients = this.readRequiredListConfig(
+      'KEYCLOAK_M2M_ALLOWED_CLIENTS',
+    );
 
     if (!this.keycloakBaseUrl || !this.realm) {
       throw new Error('KEYCLOAK_URL and KEYCLOAK_REALM must be configured');
@@ -195,17 +192,11 @@ export class JwtService {
     return parts[1];
   }
 
-  hasRequiredRealmRole(payload: JwtPayload, requiredRole: string): boolean {
-    return payload.realm_access?.roles?.includes(requiredRole) ?? false;
-  }
-
   hasRequiredRole(payload: JwtPayload, requiredRole: string): boolean {
-    if (this.hasRequiredRealmRole(payload, requiredRole)) {
-      return true;
-    }
-
-    return Object.values(payload.resource_access ?? {}).some((clientAccess) =>
-      clientAccess.roles?.includes(requiredRole),
+    return this.hasRequiredClientRole(
+      payload,
+      this.expectedAudience,
+      requiredRole,
     );
   }
 
@@ -243,10 +234,6 @@ export class JwtService {
   }
 
   isAllowedM2MClient(payload: JwtPayload): boolean {
-    if (this.allowedM2MClients.length === 0) {
-      return true;
-    }
-
     const clientId = this.getClientId(payload);
     return !!clientId && this.allowedM2MClients.includes(clientId);
   }
@@ -335,5 +322,28 @@ export class JwtService {
     });
 
     return tokenResponse.access_token;
+  }
+
+  private readRequiredConfig(name: string): string {
+    const value = this.configService.get<string>(name)?.trim();
+    if (!value) {
+      throw new Error(`${name} must be configured for M2M authentication`);
+    }
+
+    return value;
+  }
+
+  private readRequiredListConfig(name: string): string[] {
+    const value = this.readRequiredConfig(name);
+    const entries = value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    if (entries.length === 0) {
+      throw new Error(`${name} must include at least one M2M client`);
+    }
+
+    return entries;
   }
 }

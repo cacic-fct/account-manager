@@ -47,7 +47,6 @@ export class TrackingController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<CacicTrackingSessionResponse> {
     const privacyState = await this.resolvePrivacyState(
-      session.user!.id,
       session.user!.keycloakId,
     );
 
@@ -83,19 +82,14 @@ export class TrackingController {
     return { cleared: true };
   }
 
-  private async resolvePrivacyState(
-    internalUserId: string,
-    keycloakId: string,
-  ): Promise<{
+  private async resolvePrivacyState(userId: string): Promise<{
     analyticsAllowed: boolean;
     cookieBannerAccepted: boolean;
     updatedAt: Date;
   }> {
-    const settings =
-      (await this.privacyService.findUserSettings(internalUserId)) ??
-      (internalUserId === keycloakId
-        ? null
-        : await this.privacyService.findUserSettings(keycloakId));
+    const settings = await this.privacyService.findUserSettingsForIdentity({
+      userId,
+    });
 
     if (!settings) {
       return {

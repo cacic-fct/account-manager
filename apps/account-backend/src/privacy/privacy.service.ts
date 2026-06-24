@@ -18,6 +18,10 @@ type PrivacySettingRecord = Omit<PrivacySetting, 'settings' | 'metadata'> & {
   metadata?: Record<string, unknown>;
 };
 
+export interface PrivacyUserIdentity {
+  userId: string;
+}
+
 @Injectable()
 export class PrivacyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -95,6 +99,13 @@ export class PrivacyService {
     return this.toRecord(userSettings);
   }
 
+  async getUserPrivacySettingsForIdentity(
+    identity: PrivacyUserIdentity,
+  ): Promise<PrivacySettingRecord> {
+    const normalized = this.normalizeIdentity(identity);
+    return this.getUserPrivacySettings(normalized.userId);
+  }
+
   async findUserPrivacySettings(
     userId: string,
   ): Promise<PrivacySettingRecord | null> {
@@ -103,6 +114,13 @@ export class PrivacyService {
     });
 
     return userSettings ? this.toRecord(userSettings) : null;
+  }
+
+  async findUserPrivacySettingsForIdentity(
+    identity: PrivacyUserIdentity,
+  ): Promise<PrivacySettingRecord | null> {
+    const normalized = this.normalizeIdentity(identity);
+    return this.findUserPrivacySettings(normalized.userId);
   }
 
   /**
@@ -136,6 +154,20 @@ export class PrivacyService {
       },
     });
     return this.toRecord(updated);
+  }
+
+  async updatePrivacySettingForIdentity(
+    identity: PrivacyUserIdentity,
+    settingType: PrivacySettingTypeValue,
+    updateData: UpdatePrivacySettingDto,
+  ): Promise<PrivacySettingRecord> {
+    const userSettings = await this.getUserPrivacySettingsForIdentity(identity);
+
+    return this.updatePrivacySetting(
+      userSettings.userId,
+      settingType,
+      updateData,
+    );
   }
 
   /**
@@ -177,6 +209,14 @@ export class PrivacyService {
       },
     });
     return this.toRecord(updated);
+  }
+
+  async bulkUpdatePrivacySettingsForIdentity(
+    identity: PrivacyUserIdentity,
+    updateData: BulkUpdatePrivacySettingsDto,
+  ): Promise<PrivacySettingRecord> {
+    const userSettings = await this.getUserPrivacySettingsForIdentity(identity);
+    return this.bulkUpdatePrivacySettings(userSettings.userId, updateData);
   }
 
   /**
@@ -258,8 +298,20 @@ export class PrivacyService {
     return this.getUserPrivacySettings(userId);
   }
 
+  async getUserSettingsForIdentity(
+    identity: PrivacyUserIdentity,
+  ): Promise<PrivacySettingRecord> {
+    return this.getUserPrivacySettingsForIdentity(identity);
+  }
+
   async findUserSettings(userId: string): Promise<PrivacySettingRecord | null> {
     return this.findUserPrivacySettings(userId);
+  }
+
+  async findUserSettingsForIdentity(
+    identity: PrivacyUserIdentity,
+  ): Promise<PrivacySettingRecord | null> {
+    return this.findUserPrivacySettingsForIdentity(identity);
   }
 
   async getUserSetting(
@@ -324,5 +376,19 @@ export class PrivacyService {
     });
 
     return updatedCount;
+  }
+
+  private normalizeIdentity(
+    identity: PrivacyUserIdentity,
+  ): PrivacyUserIdentity {
+    const userId = identity.userId.trim();
+
+    if (!userId) {
+      throw new Error('Privacy user identity requires a userId');
+    }
+
+    return {
+      userId,
+    };
   }
 }

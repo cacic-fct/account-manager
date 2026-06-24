@@ -17,6 +17,7 @@ import {
   PrivacyUiDirectiveValue,
 } from '../constants/privacy-directives';
 import { PrivacyService } from '../privacy.service';
+import type { PrivacyUserIdentity } from '../privacy.service';
 import { Response } from 'express';
 
 type UiPrivacyDirective = PrivacyDirective & {
@@ -40,8 +41,10 @@ export class PrivacyDirectiveService {
    * Generate privacy directives for a user
    * Similar to NYT's PURR system - tells frontend what to show/hide
    */
-  async generateDirectivesForUser(userId: string): Promise<PrivacyDirective[]> {
-    const userSettings = await this.privacyService.findUserSettings(userId);
+  async generateDirectivesForUser(
+    identity: string | PrivacyUserIdentity,
+  ): Promise<PrivacyDirective[]> {
+    const userSettings = await this.findUserSettings(identity);
     const directives: PrivacyDirective[] = [];
 
     if (!userSettings) {
@@ -173,16 +176,16 @@ export class PrivacyDirectiveService {
    */
   async addDirectivesToResponse(
     response: Response,
-    userId: string,
+    identity: string | PrivacyUserIdentity,
   ): Promise<void> {
-    const directives = await this.generateDirectivesForUser(userId);
+    const directives = await this.generateDirectivesForUser(identity);
 
     // Method 1: Response header (JSON) - always include for API clients
     const directivesJson = JSON.stringify(directives);
     response.setHeader(PRIVACY_HEADER_NAME, directivesJson);
 
     // Method 2: CACIC-PURR Cookie (base64 encoded with expiry)
-    await this.setCacicPurrCookie(response, directives, userId);
+    await this.setCacicPurrCookie(response, directives, identity);
   }
 
   /**
@@ -192,9 +195,10 @@ export class PrivacyDirectiveService {
   private async setCacicPurrCookie(
     response: Response,
     directives: PrivacyDirective[],
-    userId: string,
+    identity: string | PrivacyUserIdentity,
   ): Promise<void> {
-    const userSettings = await this.privacyService.findUserSettings(userId);
+    const userId = this.resolveUserId(identity);
+    const userSettings = await this.findUserSettings(identity);
     const lastUpdated = userSettings?.updatedAt || new Date();
 
     // Create compact directive map
@@ -292,9 +296,10 @@ export class PrivacyDirectiveService {
    */
   async areCachedDirectivesValid(
     cachedDirectives: string,
-    userId: string,
+    identity: string | PrivacyUserIdentity,
   ): Promise<boolean> {
     try {
+      const userId = this.resolveUserId(identity);
       const cookieParts = cachedDirectives.split('.');
 
       if (cookieParts.length !== 2) {
@@ -327,7 +332,7 @@ export class PrivacyDirectiveService {
       }
 
       // Check if user settings have been updated since cache
-      const userSettings = await this.privacyService.findUserSettings(userId);
+      const userSettings = await this.findUserSettings(identity);
       if (
         userSettings &&
         data.lastUpdated &&
@@ -365,6 +370,16 @@ export class PrivacyDirectiveService {
     });
 
     return { directives, ui, data };
+  }
+
+  private resolveUserId(identity: string | PrivacyUserIdentity): string {
+    return typeof identity === 'string' ? identity : identity.userId;
+  }
+
+  private findUserSettings(identity: string | PrivacyUserIdentity) {
+    return typeof identity === 'string'
+      ? this.privacyService.findUserSettings(identity)
+      : this.privacyService.findUserSettingsForIdentity(identity);
   }
 
   private isUiDirective(

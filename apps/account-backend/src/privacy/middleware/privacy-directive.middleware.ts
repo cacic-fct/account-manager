@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
 import { AuthSession } from '../../auth/auth.controller';
 import { CACIC_PURR_COOKIE_NAME } from '../constants/privacy-directives';
+import type { PrivacyUserIdentity } from '../privacy.service';
 
 @Injectable()
 export class PrivacyDirectiveMiddleware implements NestMiddleware {
@@ -17,8 +18,10 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
       const session = req.session as unknown as AuthSession;
 
       // Only send directives on specific conditions (PURR-style efficiency)
-      if (session?.user?.id) {
-        await this.handlePrivacyDirectives(req, res, session.user.id);
+      if (session?.user?.keycloakId) {
+        await this.handlePrivacyDirectives(req, res, {
+          userId: session.user.keycloakId,
+        });
       }
     } catch (error) {
       this.logger.error('Failed to handle privacy directives', error);
@@ -33,18 +36,18 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
   private async handlePrivacyDirectives(
     req: Request,
     res: Response,
-    userId: string,
+    identity: PrivacyUserIdentity,
   ): Promise<void> {
-    const shouldSend = await this.shouldSendDirectives(req, userId);
+    const shouldSend = await this.shouldSendDirectives(req, identity);
 
     if (shouldSend) {
-      await this.privacyDirectiveService.addDirectivesToResponse(res, userId);
+      await this.privacyDirectiveService.addDirectivesToResponse(res, identity);
     }
   }
 
   private async shouldSendDirectives(
     req: Request,
-    userId: string,
+    identity: PrivacyUserIdentity,
   ): Promise<boolean> {
     // Send directives only when needed (like PURR):
 
@@ -75,7 +78,7 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
       const isValid =
         await this.privacyDirectiveService.areCachedDirectivesValid(
           cacicPurrCookie,
-          userId,
+          identity,
         );
       hasMissingOrExpiredCookie = !isValid;
     }

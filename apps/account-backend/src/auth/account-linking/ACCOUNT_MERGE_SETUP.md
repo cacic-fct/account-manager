@@ -31,7 +31,7 @@ External scoring is optional. If a scoring backend returns an error or does not 
 4. `POST /auth/account-linking/merge-requests/:id/confirm`
    - Body:
      ```json
-     { "primaryEmail": "user@cacic.dev.br" }
+     { "primaryEmail": "user@example.org" }
      ```
    - Stores the primary email before scoring starts.
    - Moves status to `pending_score`.
@@ -136,11 +136,11 @@ Docker Compose includes Redis health checks. In production, the backend service 
 ACCOUNT_MERGE_EXTERNAL_BACKENDS=[
   {
     "name": "external-app-a",
-    "scoreUrl": "https://external-a.cacic.dev.br/account-merge/score",
-    "mergeUrl": "https://external-a.cacic.dev.br/account-merge/merge",
-    "audience": "external-app-a"
+    "scoreUrl": "https://external-a.example.org/account-merge/score",
+    "mergeUrl": "https://external-a.example.org/account-merge/merge",
+    "audience": "external-app-a-audience"
   }
 ]
 ```
 
-All calls use Keycloak client-credentials Bearer tokens. Static API tokens are not supported.
+The `audience` value must match the receiving backend's `KEYCLOAK_M2M_AUDIENCE`. All calls use Keycloak client-credentials Bearer tokens. Static API tokens are not supported.

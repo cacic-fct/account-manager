@@ -30,6 +30,7 @@ import { Auth } from '../auth/guards/auth.decorator';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { AuthSession } from '../auth/auth.controller';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
+import type { PrivacyUserIdentity } from './privacy.service';
 
 @ApiTags('Privacy')
 @Controller('privacy')
@@ -53,7 +54,9 @@ export class PrivacyController {
   @SkipCsrf()
   @Get('settings')
   async getUserPrivacySettings(@Session() session: AuthSession) {
-    return this.privacyService.getUserPrivacySettings(session.user!.id);
+    return this.privacyService.getUserPrivacySettingsForIdentity(
+      this.getPrivacyUserIdentity(session),
+    );
   }
 
   @ApiOperation({
@@ -103,8 +106,8 @@ export class PrivacyController {
     @Body() updateData: UpdatePrivacySettingDto,
     @Session() session: AuthSession,
   ) {
-    return this.privacyService.updatePrivacySetting(
-      session.user!.id,
+    return this.privacyService.updatePrivacySettingForIdentity(
+      this.getPrivacyUserIdentity(session),
       settingType,
       updateData,
     );
@@ -142,8 +145,8 @@ export class PrivacyController {
     @Body() updateData: BulkUpdatePrivacySettingsDto,
     @Session() session: AuthSession,
   ) {
-    return this.privacyService.bulkUpdatePrivacySettings(
-      session.user!.id,
+    return this.privacyService.bulkUpdatePrivacySettingsForIdentity(
+      this.getPrivacyUserIdentity(session),
       updateData,
     );
   }
@@ -165,11 +168,12 @@ export class PrivacyController {
   @Auth()
   @Get('cookie-banner/status')
   async getCookieBannerStatus(@Session() session: AuthSession) {
-    const shouldShow = await this.privacyService.shouldShowCookieBanner(
-      session.user!.id,
-    );
+    const settings =
+      await this.privacyService.getUserPrivacySettingsForIdentity(
+        this.getPrivacyUserIdentity(session),
+      );
     return {
-      shouldShow,
+      shouldShow: !settings.settings.cookie_banner_accepted,
     };
   }
 
@@ -233,9 +237,10 @@ export class PrivacyController {
   @Auth()
   @Get('directives')
   async getPrivacyDirectives(@Session() session: AuthSession) {
-    const settings = await this.privacyService.getUserPrivacySettings(
-      session.user!.id,
-    );
+    const settings =
+      await this.privacyService.getUserPrivacySettingsForIdentity(
+        this.getPrivacyUserIdentity(session),
+      );
     const settingValues = settings.settings;
 
     // Convert settings to frontend-friendly directive format
@@ -273,7 +278,7 @@ export class PrivacyController {
               : 'disable',
         },
       },
-      userId: session.user!.id,
+      userId: session.user!.keycloakId,
       timestamp: new Date().toISOString(),
     };
   }
@@ -299,7 +304,17 @@ export class PrivacyController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('cookie-banner/accept')
   async acceptCookieBanner(@Session() session: AuthSession) {
-    return this.privacyService.acceptCookieBanner(session.user!.id);
+    return this.privacyService.updatePrivacySettingForIdentity(
+      this.getPrivacyUserIdentity(session),
+      PRIVACY_SETTING_TYPES.COOKIE_BANNER_ACCEPTED,
+      {
+        enabled: true,
+        metadata: {
+          acceptedAt: new Date(),
+          source: 'cookie_banner',
+        },
+      },
+    );
   }
 
   @ApiOperation({
@@ -323,6 +338,14 @@ export class PrivacyController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('initialize')
   async initializePrivacySettings(@Session() session: AuthSession) {
-    return this.privacyService.initializeUserPrivacySettings(session.user!.id);
+    return this.privacyService.getUserPrivacySettingsForIdentity(
+      this.getPrivacyUserIdentity(session),
+    );
+  }
+
+  private getPrivacyUserIdentity(session: AuthSession): PrivacyUserIdentity {
+    return {
+      userId: session.user!.keycloakId,
+    };
   }
 }

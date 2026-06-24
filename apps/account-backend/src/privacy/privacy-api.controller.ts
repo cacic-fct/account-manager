@@ -6,7 +6,6 @@ import {
   Param,
   UseGuards,
   BadRequestException,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,6 +19,7 @@ import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import { PrivacyService } from './privacy.service';
 import {
   PRIVACY_SETTING_TYPES,
+  createDefaultPrivacySettings,
   PrivacySettingTypeValue,
 } from './constants/privacy-setting.constants';
 import {
@@ -47,10 +47,6 @@ export class PrivacyApiController {
     description: 'User privacy settings retrieved successfully',
     type: [ApiPrivacySettingResponseDto],
   })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found',
-  })
   async getUserPrivacySettings(
     @Param('userId') userId: string,
   ): Promise<ApiPrivacySettingResponseDto[]> {
@@ -59,17 +55,12 @@ export class PrivacyApiController {
     }
 
     const userSettings = await this.privacyService.findUserSettings(userId);
-
-    if (!userSettings) {
-      throw new NotFoundException('User not found or has no privacy settings');
-    }
-
-    // Convert JSONB settings to API format
-    const settings = userSettings.settings;
+    const settings = userSettings?.settings ?? createDefaultPrivacySettings();
+    const lastUpdated = userSettings?.updatedAt ?? new Date();
     return Object.entries(settings).map(([settingType, enabled]) => ({
       settingType: settingType as PrivacySettingTypeValue,
       enabled: Boolean(enabled),
-      lastUpdated: userSettings.updatedAt,
+      lastUpdated,
     }));
   }
 
@@ -97,10 +88,6 @@ export class PrivacyApiController {
     description: 'Privacy setting retrieved successfully',
     type: ApiPrivacySettingResponseDto,
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Setting not found',
-  })
   async getSpecificPrivacySetting(
     @Param('userId') userId: string,
     @Param('settingType') settingType: string,
@@ -118,18 +105,13 @@ export class PrivacyApiController {
     }
 
     const userSettings = await this.privacyService.findUserSettings(userId);
-
-    if (!userSettings) {
-      throw new NotFoundException('User privacy settings not found');
-    }
-
-    const settings = userSettings.settings;
+    const settings = userSettings?.settings ?? createDefaultPrivacySettings();
     const enabled = Boolean(settings[settingType as PrivacySettingTypeValue]);
 
     return {
       settingType: settingType as PrivacySettingTypeValue,
       enabled,
-      lastUpdated: userSettings.updatedAt,
+      lastUpdated: userSettings?.updatedAt ?? new Date(),
     };
   }
 
@@ -159,13 +141,9 @@ export class PrivacyApiController {
 
     const userSettings = await this.privacyService.findUserSettings(userId);
 
-    if (!userSettings) {
-      throw new NotFoundException('User privacy settings not found');
-    }
-
     return {
-      hasConsent: userSettings.settings.cookie_banner_accepted,
-      consentDate: userSettings.settings.cookie_banner_accepted
+      hasConsent: userSettings?.settings.cookie_banner_accepted ?? false,
+      consentDate: userSettings?.settings.cookie_banner_accepted
         ? userSettings.updatedAt
         : null,
     };
