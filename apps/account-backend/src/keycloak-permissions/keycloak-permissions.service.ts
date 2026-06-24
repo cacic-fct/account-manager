@@ -42,6 +42,9 @@ import {
 } from './keycloak-permissions.queue';
 
 const SYNC_ACTOR_ID = 'system:keycloak-permissions-sync';
+const ASSIGNABLE_KEYCLOAK_PERMISSIONS = KEYCLOAK_PERMISSION_CATALOG.map(
+  (definition) => definition.permission,
+);
 
 const GRANT_SELECT = {
   id: true,
@@ -84,6 +87,9 @@ const MEMBERSHIP_SELECT = {
   permissionGrants: {
     where: {
       deletedAt: null,
+      permission: {
+        in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+      },
     },
     select: GRANT_SELECT,
     orderBy: [{ permission: 'asc' }, { createdAt: 'asc' }],
@@ -313,6 +319,9 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
       where: {
         userId,
         deletedAt: null,
+        permission: {
+          in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+        },
       },
       select: GRANT_SELECT,
       orderBy: [{ permission: 'asc' }, { createdAt: 'asc' }],
@@ -380,6 +389,9 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
       where: {
         id,
         deletedAt: null,
+        permission: {
+          in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+        },
       },
       select: GRANT_SELECT,
     });
@@ -427,6 +439,9 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
       where: {
         id,
         deletedAt: null,
+        permission: {
+          in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+        },
       },
       select: GRANT_SELECT,
     });
@@ -470,6 +485,9 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     const grants = await this.prisma.keycloakPermissionGrant.findMany({
       where: {
         deletedAt: null,
+        permission: {
+          in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+        },
       },
       select: GRANT_SELECT,
       orderBy: [{ validUntil: 'asc' }, { validFrom: 'asc' }],
@@ -481,6 +499,10 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     };
 
     for (const grant of grants) {
+      if (!this.isManagedPermission(grant.permission)) {
+        continue;
+      }
+
       try {
         if (this.isGrantExpired(grant, now)) {
           await this.expireGrant(grant, now);
@@ -546,6 +568,10 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
   ): Promise<void> {
     const now = new Date();
 
+    if (!this.isManagedPermission(grant.permission)) {
+      return;
+    }
+
     try {
       if (this.isGrantActive(grant, now)) {
         await this.activateGrant(grant, now);
@@ -597,6 +623,10 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
   }
 
   private async activateGrant(grant: GrantRecord, now: Date): Promise<void> {
+    if (!this.isManagedPermission(grant.permission)) {
+      return;
+    }
+
     await this.keycloakService.addUserClientRoles(grant.userId, [
       grant.permission,
     ]);
@@ -604,9 +634,12 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
   }
 
   private async expireGrant(grant: GrantRecord, now: Date): Promise<void> {
-    await this.keycloakService.removeUserClientRoles(grant.userId, [
-      grant.permission,
-    ]);
+    if (this.isManagedPermission(grant.permission)) {
+      await this.keycloakService.removeUserClientRoles(grant.userId, [
+        grant.permission,
+      ]);
+    }
+
     await this.prisma.keycloakPermissionGrant.update({
       where: { id: grant.id },
       data: {
@@ -759,15 +792,11 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     permission: string,
   ): AssignableKeycloakPermission {
     const normalizedPermission = permission.trim();
-    if (
-      !KEYCLOAK_PERMISSION_SET.has(
-        normalizedPermission as AssignableKeycloakPermission,
-      )
-    ) {
+    if (!this.isManagedPermission(normalizedPermission)) {
       throw new BadRequestException(`Permissão inválida: ${permission}.`);
     }
 
-    return normalizedPermission as AssignableKeycloakPermission;
+    return normalizedPermission;
   }
 
   private normalizePermissionList(
@@ -901,6 +930,14 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
 
   private sameDate(left: Date | null, right: Date | null): boolean {
     return (left?.getTime() ?? null) === (right?.getTime() ?? null);
+  }
+
+  private isManagedPermission(
+    permission: string,
+  ): permission is AssignableKeycloakPermission {
+    return KEYCLOAK_PERMISSION_SET.has(
+      permission as AssignableKeycloakPermission,
+    );
   }
 
   private isGrantActive(grant: GrantRecord, now: Date): boolean {

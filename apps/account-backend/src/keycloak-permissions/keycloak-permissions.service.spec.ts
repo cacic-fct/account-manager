@@ -359,6 +359,22 @@ describe('KeycloakPermissionsService', () => {
     expect(result).toEqual({ activated: 0, expired: 1, failed: 0 });
   });
 
+  it('ignores legacy realm-role grants during synchronization', async () => {
+    const { service, prisma, keycloakService } = createContext();
+    const legacyGrant = createGrant({
+      permission: 'account-manager#super-admin',
+      validUntil: new Date(Date.now() - 60 * 1000),
+    });
+    prisma.keycloakPermissionGrant.findMany.mockResolvedValue([legacyGrant]);
+
+    const result = await service.synchronizePermissionGrants();
+
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
+    expect(keycloakService.removeUserClientRoles).not.toHaveBeenCalled();
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ activated: 0, expired: 0, failed: 0 });
+  });
+
   it('creates a student entity membership, syncs its Keycloak group, and links scoped grants', async () => {
     const { service, prisma, keycloakService } = createContext();
     const mandateStart = new Date(Date.now() - 60 * 1000);
