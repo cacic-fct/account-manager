@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc/libs/cookie-banner",
+    "rootDir": ".",
     "module": "commonjs",
     "types": ["jest", "node"]
   },

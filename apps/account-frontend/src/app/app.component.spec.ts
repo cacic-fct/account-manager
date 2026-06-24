@@ -1,4 +1,8 @@
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import {
+  provideZonelessChangeDetection,
+  signal,
+  type WritableSignal,
+} from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter } from '@angular/router';
@@ -6,9 +10,41 @@ import { of } from 'rxjs';
 import { AppComponent } from './app.component';
 import { AuthService } from './shared/services/auth/auth.service';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
+import type { PrivacyDirectives } from './shared/interfaces/privacy-directive.interface';
 
 describe('AppComponent', () => {
+  let isAuthenticated: WritableSignal<boolean>;
+  let directives: PrivacyDirectives;
+  let acceptCookieBannerCallCount: number;
+
   beforeEach(async () => {
+    isAuthenticated = signal(false);
+    directives = {
+      cookieBanner: {
+        type: 'ui',
+        name: 'cookie-banner',
+        action: 'hide',
+      },
+      analyticsTracking: {
+        type: 'data-handling',
+        name: 'analytics-tracking',
+        action: 'disable',
+      },
+      errorDebugging: {
+        type: 'data-handling',
+        name: 'error-debugging',
+        action: 'disable',
+      },
+      performanceMonitoring: {
+        type: 'data-handling',
+        name: 'performance-monitoring',
+        action: 'disable',
+      },
+    };
+    acceptCookieBannerCallCount = 0;
+    document.cookie =
+      'cacic_cookie_banner_accepted=; Max-Age=0; path=/; SameSite=Lax';
+
     await TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
@@ -23,7 +59,7 @@ describe('AppComponent', () => {
         {
           provide: AuthService,
           useValue: {
-            isAuthenticated: signal(false),
+            isAuthenticated,
           },
         },
         {
@@ -31,30 +67,11 @@ describe('AppComponent', () => {
           useValue: {
             directives: signal(null),
             shouldShowCookieBanner: signal(false),
-            fetchDirectives: () =>
-              of({
-                cookieBanner: {
-                  type: 'ui',
-                  name: 'cookie-banner',
-                  action: 'hide',
-                },
-                analyticsTracking: {
-                  type: 'data-handling',
-                  name: 'analytics-tracking',
-                  action: 'disable',
-                },
-                errorDebugging: {
-                  type: 'data-handling',
-                  name: 'error-debugging',
-                  action: 'disable',
-                },
-                performanceMonitoring: {
-                  type: 'data-handling',
-                  name: 'performance-monitoring',
-                  action: 'disable',
-                },
-              }),
-            acceptCookieBanner: () => of(true),
+            fetchDirectives: () => of(directives),
+            acceptCookieBanner: () => {
+              acceptCookieBannerCallCount++;
+              return of(true);
+            },
           },
         },
       ],
@@ -78,5 +95,33 @@ describe('AppComponent', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('router-outlet')).toBeTruthy();
+  });
+
+  it('syncs a logged-out banner acceptance after login', () => {
+    isAuthenticated.set(true);
+    directives = {
+      ...directives,
+      cookieBanner: {
+        type: 'ui',
+        name: 'cookie-banner',
+        action: 'show',
+      },
+    };
+    document.cookie =
+      'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
+
+    TestBed.createComponent(AppComponent);
+
+    expect(acceptCookieBannerCallCount).toBe(1);
+  });
+
+  it('does not sync banner acceptance when the account already accepted it', () => {
+    isAuthenticated.set(true);
+    document.cookie =
+      'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
+
+    TestBed.createComponent(AppComponent);
+
+    expect(acceptCookieBannerCallCount).toBe(0);
   });
 });

@@ -6,6 +6,9 @@ export interface CookieBannerOptions {
   mount?: HTMLElement | string;
   privacyPolicyUrl?: string;
   storageKey?: string;
+  cookieName?: string;
+  cookieMaxAgeSeconds?: number;
+  sharedCookieDomain?: string;
   isAuthenticated?: () => boolean | Promise<boolean>;
   shouldShow?: () => boolean | Promise<boolean>;
   onAccept?: (
@@ -19,6 +22,16 @@ export interface CookieBannerOptions {
 }
 
 const DEFAULT_STORAGE_KEY = 'cacic.cookieBanner.accepted';
+const DEFAULT_COOKIE_NAME = 'cacic_cookie_banner_accepted';
+const DEFAULT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const SHARED_COOKIE_DOMAIN = '.cacic.dev.br';
+
+export interface CookieBannerAcceptanceStorageOptions {
+  storageKey?: string;
+  cookieName?: string;
+  cookieMaxAgeSeconds?: number;
+  sharedCookieDomain?: string;
+}
 
 export class CookieBanner {
   private readonly options: Required<
@@ -26,6 +39,8 @@ export class CookieBanner {
       CookieBannerOptions,
       | 'privacyPolicyUrl'
       | 'storageKey'
+      | 'cookieName'
+      | 'cookieMaxAgeSeconds'
       | 'text'
       | 'buttonText'
       | 'ariaLabel'
@@ -43,6 +58,8 @@ export class CookieBanner {
     this.options = {
       privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',
       storageKey: DEFAULT_STORAGE_KEY,
+      cookieName: DEFAULT_COOKIE_NAME,
+      cookieMaxAgeSeconds: DEFAULT_COOKIE_MAX_AGE_SECONDS,
       text: 'Usamos cookies e outras tecnologias para melhorar a sua experiência, analisar o uso do site e personalizar conteúdo. Ao utilizar nossos serviços, você está ciente dessa funcionalidade. Confira a nossa ',
       buttonText: 'Prosseguir',
       ariaLabel: 'Aviso sobre cookies',
@@ -213,21 +230,11 @@ export class CookieBanner {
   }
 
   private hasAcceptedLocally(): boolean {
-    try {
-      return (
-        globalThis.localStorage?.getItem(this.options.storageKey) === 'true'
-      );
-    } catch {
-      return false;
-    }
+    return hasAcceptedCookieBanner(this.options);
   }
 
   private saveAcceptedLocally(): void {
-    try {
-      globalThis.localStorage?.setItem(this.options.storageKey, 'true');
-    } catch {
-      // Ignore storage failures.
-    }
+    saveAcceptedCookieBanner(this.options);
   }
 
   private escapeHtml(value: string): string {
@@ -245,4 +252,103 @@ export function createCookieBanner(
   options?: CookieBannerOptions,
 ): CookieBanner {
   return new CookieBanner(options);
+}
+
+export function hasAcceptedCookieBanner(
+  options: CookieBannerAcceptanceStorageOptions = {},
+): boolean {
+  if (!isBrowser()) {
+    return false;
+  }
+
+  const cookieName = options.cookieName ?? DEFAULT_COOKIE_NAME;
+  if (readCookie(cookieName) === 'true') {
+    return true;
+  }
+
+  try {
+    return (
+      globalThis.localStorage?.getItem(
+        options.storageKey ?? DEFAULT_STORAGE_KEY,
+      ) === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function saveAcceptedCookieBanner(
+  options: CookieBannerAcceptanceStorageOptions = {},
+): void {
+  if (!isBrowser()) {
+    return;
+  }
+
+  const cookieName = options.cookieName ?? DEFAULT_COOKIE_NAME;
+  const maxAgeSeconds =
+    options.cookieMaxAgeSeconds ?? DEFAULT_COOKIE_MAX_AGE_SECONDS;
+  const sharedCookieDomain =
+    options.sharedCookieDomain ?? resolveCurrentSharedCookieDomain();
+
+  writeCookie(cookieName, 'true', maxAgeSeconds);
+
+  if (sharedCookieDomain) {
+    writeCookie(cookieName, 'true', maxAgeSeconds, sharedCookieDomain);
+  }
+
+  try {
+    globalThis.localStorage?.setItem(
+      options.storageKey ?? DEFAULT_STORAGE_KEY,
+      'true',
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`;
+  const cookie = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+
+  if (!cookie) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(cookie.slice(prefix.length));
+  } catch {
+    return cookie.slice(prefix.length);
+  }
+}
+
+function writeCookie(
+  name: string,
+  value: string,
+  maxAgeSeconds: number,
+  domain?: string,
+): void {
+  const domainPart = domain ? `; domain=${domain}` : '';
+  document.cookie = `${name}=${encodeURIComponent(
+    value,
+  )}; Max-Age=${maxAgeSeconds}; path=/${domainPart}; SameSite=Lax`;
+}
+
+function resolveCurrentSharedCookieDomain(): string | undefined {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const hostname = window.location.hostname;
+  if (hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br')) {
+    return SHARED_COOKIE_DOMAIN;
+  }
+
+  return undefined;
+}
+
+function isBrowser(): boolean {
+  return typeof document !== 'undefined';
 }

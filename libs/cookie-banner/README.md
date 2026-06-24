@@ -29,14 +29,25 @@ import {
 <lib-cookie-banner [config]="cookieBannerConfig" />
 ```
 
+When a user accepts the banner on `cacic.dev.br` or any `*.cacic.dev.br`
+subdomain, the package stores a shared `cacic_cookie_banner_accepted=true`
+cookie for `.cacic.dev.br`. Other CACiC sites on the same domain will hide the
+banner even for logged-out users. The package also keeps the existing
+`localStorage` marker as a fallback for localhost and non-shared domains.
+
 ## Vanilla
 
 ```ts
-import { createCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
+import {
+  createCookieBanner,
+  hasAcceptedCookieBanner,
+} from '@cacic-fct/account-manager-cookie-banner';
 
 createCookieBanner({
   privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',
 });
+
+console.log(hasAcceptedCookieBanner());
 ```
 
 ## Building

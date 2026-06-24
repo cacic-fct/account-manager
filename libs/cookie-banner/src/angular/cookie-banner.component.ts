@@ -13,8 +13,10 @@ import type {
   CookieBannerAcceptContext,
   CookieBannerOptions,
 } from '../lib/cookie-banner.js';
-
-const DEFAULT_STORAGE_KEY = 'cacic.cookieBanner.accepted';
+import {
+  hasAcceptedCookieBanner,
+  saveAcceptedCookieBanner,
+} from '../lib/cookie-banner.js';
 
 @Component({
   selector: 'lib-cookie-banner',
@@ -92,9 +94,6 @@ export class CookieBannerComponent implements OnInit {
       this.config().privacyPolicyUrl ??
       'https://cacic.dev.br/legal/privacy-policy',
   );
-  protected readonly storageKey = computed(
-    () => this.config().storageKey ?? DEFAULT_STORAGE_KEY,
-  );
   protected readonly text = computed(
     () =>
       this.config().text ??
@@ -150,18 +149,10 @@ export class CookieBannerComponent implements OnInit {
   }
 
   private hasAcceptedLocally(): boolean {
-    try {
-      return globalThis.localStorage?.getItem(this.storageKey()) === 'true';
-    } catch {
-      return false;
-    }
+    return hasAcceptedCookieBanner(this.config());
   }
 
   private saveAcceptedLocally(): void {
-    try {
-      globalThis.localStorage?.setItem(this.storageKey(), 'true');
-    } catch {
-      return;
-    }
+    saveAcceptedCookieBanner(this.config());
   }
 }

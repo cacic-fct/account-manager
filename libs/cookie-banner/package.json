@@ -1,6 +1,6 @@
 {
   "name": "@cacic-fct/account-manager-cookie-banner",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "CACiC cookie consent banner with vanilla and Angular entry points.",
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -23,18 +23,6 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"
-  },
-  "peerDependencies": {
-    "@angular/common": ">=19",
-    "@angular/core": ">=19"
-  },
-  "peerDependenciesMeta": {
-    "@angular/common": {
-      "optional": true
-    },
-    "@angular/core": {
-      "optional": true
-    }
   },
   "sideEffects": [
     "**/*.css"

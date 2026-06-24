@@ -4,9 +4,11 @@ import {
   CookieBannerComponent,
   CookieBannerOptions,
 } from '@cacic-fct/account-manager-cookie-banner/angular';
+import { hasAcceptedCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
 import { MatIconRegistry } from '@angular/material/icon';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
 import { AuthService } from './shared/services/auth/auth.service';
+import type { PrivacyDirectives } from './shared/interfaces/privacy-directive.interface';
 
 @Component({
   selector: 'app-root',
@@ -28,6 +30,9 @@ export class AppComponent {
 
     // Fetch privacy directives
     this.privacyDirectiveService.fetchDirectives().subscribe({
+      next: (directives) => {
+        this.syncAuthenticatedCookieBannerAcceptance(directives);
+      },
       error: (error) => {
         console.warn('Failed to fetch privacy directives:', error);
       },
@@ -66,5 +71,23 @@ export class AppComponent {
         }
       },
     };
+  }
+
+  private syncAuthenticatedCookieBannerAcceptance(
+    directives: PrivacyDirectives,
+  ): void {
+    if (
+      !this.authService.isAuthenticated() ||
+      !hasAcceptedCookieBanner() ||
+      directives.cookieBanner.action !== 'show'
+    ) {
+      return;
+    }
+
+    this.privacyDirectiveService.acceptCookieBanner().subscribe({
+      error: (error) => {
+        console.warn('Failed to sync cookie banner acceptance:', error);
+      },
+    });
   }
 }

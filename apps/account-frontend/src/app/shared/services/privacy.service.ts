@@ -1,10 +1,17 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { ApiService } from './api.service';
 import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
-import { Observable, of } from 'rxjs';
-import { tap, catchError, shareReplay } from 'rxjs/operators';
+import { Observable, from, of } from 'rxjs';
+import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { AuthService } from './auth/auth.service';
 import { LoggerService } from './logger.service';
+import { trackCacicAccountPrivacySettingDisabled } from '../../analytics/account-umami-tracking';
+
+const ANALYTICS_SETTING_KEYS = new Set([
+  'analytics_tracking',
+  'error_debugging',
+  'performance_monitoring',
+]);
 
 export interface PrivacyPreferences {
   analyticsTracking: boolean;
@@ -182,6 +189,11 @@ export class PrivacyService {
     const updateData = { enabled };
 
     return this.apiService.updatePrivacySetting(key, updateData).pipe(
+      switchMap((updatedSettings) =>
+        this.trackDisabledAnalyticsSettings([{ key, enabled }]).pipe(
+          map(() => updatedSettings),
+        ),
+      ),
       tap((updatedSettings) => {
         // Update local cache with the complete updated settings object
         this._settings.set(updatedSettings);
@@ -212,6 +224,9 @@ export class PrivacyService {
     }, {});
 
     return this.apiService.bulkUpdatePrivacySettings(bulkData).pipe(
+      switchMap((settings) =>
+        this.trackDisabledAnalyticsSettings(updates).pipe(map(() => settings)),
+      ),
       tap((settings) => {
         this._settings.set(settings);
         this._lastUpdated.set(new Date());
@@ -243,6 +258,35 @@ export class PrivacyService {
       next: () => this.notifyTrackingConsentChanged(),
       error: () => undefined,
     });
+  }
+
+  private trackDisabledAnalyticsSettings(
+    updates: Array<{ key: string; enabled: boolean }>,
+  ): Observable<void> {
+    const disabledAnalyticsSettings = updates
+      .filter(
+        (update) =>
+          !update.enabled && ANALYTICS_SETTING_KEYS.has(update.key),
+      )
+      .map((update) => update.key);
+
+    if (!disabledAnalyticsSettings.length) {
+      return of(undefined);
+    }
+
+    return from(
+      Promise.all(
+        disabledAnalyticsSettings.map((settingKey) =>
+          trackCacicAccountPrivacySettingDisabled(settingKey),
+        ),
+      ),
+    ).pipe(
+      map(() => undefined),
+      catchError((error) => {
+        this.logger.warn('Failed to track analytics opt-out event', error);
+        return of(undefined);
+      }),
+    );
   }
 
   private notifyTrackingConsentChanged(): void {
