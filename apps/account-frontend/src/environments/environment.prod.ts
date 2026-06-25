@@ -5,5 +5,5 @@ export interface Environment {
 
 export const environment: Environment = {
   production: true,
-  apiUrl: 'https://account.cacic.dev.br/api',
+  apiUrl: '/api',
 };

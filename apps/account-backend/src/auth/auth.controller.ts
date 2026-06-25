@@ -60,6 +60,7 @@ export interface AuthSession {
   silentLogin?: boolean;
   accountLinkingState?: string;
   accountLinkingUserId?: string;
+  save?: (callback: (err?: Error) => void) => void;
   destroy: (callback: (err?: Error) => void) => void;
 }
 
@@ -227,6 +228,33 @@ export class AuthController {
     }
   }
 
+  private saveSession(session: AuthSession): Promise<void> {
+    const saveSessionCallback = session.save;
+    if (!saveSessionCallback) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      saveSessionCallback.call(session, (error?: Error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+
+  private async redirectAfterSessionSave(
+    session: AuthSession,
+    response: Response,
+    redirectUrl: string,
+  ): Promise<void> {
+    await this.saveSession(session);
+    response.redirect(redirectUrl);
+  }
+
   @ApiOperation({
     summary: 'Initiate OAuth login',
     description: 'Redirects to Keycloak login page to start OAuth flow',
@@ -244,12 +272,76 @@ export class AuthController {
   })
   @SkipCsrf()
   @Get('login')
-  login(
+  async login(
     @Query('ru') shortReturnUrl: string,
     @Query('return_url') legacyReturnUrl: string,
     @Session() session: AuthSession,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
+    await this.startLoginFlow({
+      shortReturnUrl,
+      legacyReturnUrl,
+      session,
+      response: res,
+      routeName: 'login',
+    });
+  }
+
+  @ApiOperation({
+    summary: 'Redirect to OAuth login',
+    description:
+      'Compatibility route aligned with sibling CACiC apps. Redirects to Keycloak login and stores the post-login return path in the Account Manager session.',
+  })
+  @ApiQuery({
+    name: 'returnTo',
+    description:
+      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    required: false,
+    example: '/app/applications',
+  })
+  @ApiQuery({
+    name: 'prompt',
+    description: 'OIDC prompt value. Use prompt=none for silent SSO checks.',
+    required: false,
+    example: 'none',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Keycloak login page',
+  })
+  @SkipCsrf()
+  @Get('login/redirect')
+  async redirectToLogin(
+    @Query('returnTo') returnTo: string,
+    @Query('prompt') prompt: string,
+    @Session() session: AuthSession,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.startLoginFlow({
+      shortReturnUrl: returnTo,
+      legacyReturnUrl: undefined,
+      session,
+      response: res,
+      routeName: 'login redirect',
+      prompt: prompt === 'none' ? 'none' : undefined,
+    });
+  }
+
+  private async startLoginFlow({
+    shortReturnUrl,
+    legacyReturnUrl,
+    session,
+    response,
+    routeName,
+    prompt,
+  }: {
+    shortReturnUrl?: string;
+    legacyReturnUrl?: string;
+    session: AuthSession;
+    response: Response;
+    routeName: string;
+    prompt?: 'none';
+  }): Promise<void> {
     const redirectUri = `${this.appConfig.backendUrl}/auth/callback`;
 
     // Generate cryptographically secure random state token for CSRF protection
@@ -257,6 +349,7 @@ export class AuthController {
 
     // Store state in session for validation in callback
     session.oauthState = state;
+    session.silentLogin = prompt === 'none';
 
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
     const safeReturnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
@@ -266,7 +359,7 @@ export class AuthController {
     } else {
       delete session.redirectTo;
       if (requestedReturnUrl) {
-        this.logger.warn('Blocked unsafe return URL during login', {
+        this.logger.warn(`Blocked unsafe return URL during ${routeName}`, {
           requestedUrl: requestedReturnUrl,
           reason: 'URL origin not in ALLOWED_REDIRECT_URLS config',
           allowedOrigins: this.appConfig.allowedRedirectUrls,
@@ -274,8 +367,10 @@ export class AuthController {
       }
     }
 
-    const authUrl = this.keycloakService.getAuthUrl(redirectUri, state);
-    res.redirect(authUrl);
+    const authUrl = this.keycloakService.getAuthUrl(redirectUri, state, {
+      ...(prompt ? { prompt } : {}),
+    });
+    await this.redirectAfterSessionSave(session, response, authUrl);
   }
 
   @ApiOperation({
@@ -297,12 +392,12 @@ export class AuthController {
   })
   @SkipCsrf()
   @Get('silent-login')
-  silentLogin(
+  async silentLogin(
     @Query('ru') shortReturnUrl: string,
     @Query('return_url') legacyReturnUrl: string,
     @Session() session: AuthSession,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     const redirectUri = `${this.appConfig.backendUrl}/auth/callback`;
     const state = randomBytes(32).toString('hex');
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
@@ -327,7 +422,7 @@ export class AuthController {
     const authUrl = this.keycloakService.getAuthUrl(redirectUri, state, {
       prompt: 'none',
     });
-    res.redirect(authUrl);
+    await this.redirectAfterSessionSave(session, res, authUrl);
   }
 
   @ApiOperation({
@@ -399,14 +494,22 @@ export class AuthController {
         if (wasSilentLogin) {
           const fallbackUrl = new URL(returnUrl || this.appConfig.frontendUrl);
           fallbackUrl.searchParams.set('sso', 'none');
-          res.redirect(fallbackUrl.toString());
+          await this.redirectAfterSessionSave(
+            session,
+            res,
+            fallbackUrl.toString(),
+          );
           return;
         }
 
         this.logger.warn('OAuth callback returned an error', {
           error: oauthError,
         });
-        res.redirect(`${this.appConfig.frontendUrl}login?error=auth_failed`);
+        await this.redirectAfterSessionSave(
+          session,
+          res,
+          `${this.appConfig.frontendUrl}login?error=auth_failed`,
+        );
         return;
       }
 
@@ -514,7 +617,7 @@ export class AuthController {
             returnUrl,
           });
           delete session.redirectTo;
-          res.redirect(returnUrl);
+          await this.redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -529,7 +632,7 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        res.redirect(frontendUrl);
+        await this.redirectAfterSessionSave(session, res, frontendUrl);
         return;
       } catch (error) {
         // For connection errors, assume the user needs onboarding to be safe
@@ -552,7 +655,11 @@ export class AuthController {
           this.applyKeycloakSessionLifetime(session, tokens);
 
           // Redirect to onboarding to be safe - the onboarding page will show an error
-          res.redirect(`${this.appConfig.frontendUrl}onboarding`);
+          await this.redirectAfterSessionSave(
+            session,
+            res,
+            `${this.appConfig.frontendUrl}onboarding`,
+          );
           return;
         }
 
@@ -584,7 +691,7 @@ export class AuthController {
             },
           );
           delete session.redirectTo;
-          res.redirect(returnUrl);
+          await this.redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -599,14 +706,18 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        res.redirect(frontendUrl);
+        await this.redirectAfterSessionSave(session, res, frontendUrl);
         return;
       }
     } catch (error) {
       delete session.redirectTo;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
-      res.redirect(`${this.appConfig.frontendUrl}login?error=auth_failed`);
+      await this.redirectAfterSessionSave(
+        session,
+        res,
+        `${this.appConfig.frontendUrl}login?error=auth_failed`,
+      );
     }
   }
 

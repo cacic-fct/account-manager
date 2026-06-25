@@ -225,20 +225,20 @@ export class ApiService {
 
   getLoginUrl(returnUrl?: string): string {
     if (!returnUrl) {
-      return `${this.baseUrl}/auth/login`;
+      return `${this.baseUrl}/auth/login/redirect`;
     }
 
-    const query = new URLSearchParams({ ru: returnUrl });
-    return `${this.baseUrl}/auth/login?${query.toString()}`;
+    const query = new URLSearchParams({ returnTo: returnUrl });
+    return `${this.baseUrl}/auth/login/redirect?${query.toString()}`;
   }
 
   getSilentLoginUrl(returnUrl?: string): string {
-    if (!returnUrl) {
-      return `${this.baseUrl}/auth/silent-login`;
+    const query = new URLSearchParams({ prompt: 'none' });
+    if (returnUrl) {
+      query.set('returnTo', returnUrl);
     }
 
-    const query = new URLSearchParams({ ru: returnUrl });
-    return `${this.baseUrl}/auth/silent-login?${query.toString()}`;
+    return `${this.baseUrl}/auth/login/redirect?${query.toString()}`;
   }
 
   consumePostOnboardingRedirect(): Observable<{ redirectUrl: string | null }> {
