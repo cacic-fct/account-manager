@@ -106,4 +106,17 @@ describe('JwtService M2M authorization', () => {
       ),
     ).toBe(false);
   });
+
+  it('does not reuse browser login credentials for outbound M2M tokens', async () => {
+    const service = new JwtService(
+      createConfigService({
+        KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
+        KEYCLOAK_CLIENT_SECRET: 'login-secret',
+      }),
+    );
+
+    await expect(service.getClientCredentialsToken()).rejects.toThrow(
+      'KEYCLOAK_M2M_CLIENT_ID and KEYCLOAK_M2M_CLIENT_SECRET must be configured',
+    );
+  });
 });

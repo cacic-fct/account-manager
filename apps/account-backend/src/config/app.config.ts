@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 export interface AppConfig {
   port: number;
   backendUrl: string;
+  apiBaseUrl: string;
   frontendUrl: string;
   sessionSecret: string;
   corsOrigins: string[];
@@ -13,6 +14,8 @@ export interface AppConfig {
     password?: string;
   };
 }
+
+export const API_GLOBAL_PREFIX = 'api';
 
 export const createAppConfig = (configService: ConfigService): AppConfig => {
   const parsePort = (value: string | number | undefined, fallback: number) => {
@@ -48,6 +51,9 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
     throw new Error('SESSION_SECRET environment variable is required');
   }
 
+  const normalizedBackendUrl = normalizePublicUrl('BACKEND_URL', backendUrl);
+  const apiBaseUrl = createApiBaseUrl(normalizedBackendUrl);
+
   // Parse CORS origins from environment or use default
   const corsOriginsEnv = configService.get<string>('CORS_ORIGINS');
   const parsedCorsOrigins =
@@ -70,7 +76,8 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
 
   return {
     port,
-    backendUrl,
+    backendUrl: normalizedBackendUrl,
+    apiBaseUrl,
     frontendUrl,
     sessionSecret,
     corsOrigins,
@@ -82,3 +89,44 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
     },
   };
 };
+
+export function createApiBaseUrl(backendUrl: string): string {
+  const normalizedBackendUrl = normalizePublicUrl('BACKEND_URL', backendUrl);
+  const url = new URL(normalizedBackendUrl);
+  const apiPrefix = API_GLOBAL_PREFIX.replace(/^\/+|\/+$/g, '');
+  const segments = url.pathname.split('/').filter(Boolean);
+
+  if (segments[segments.length - 1] !== apiPrefix) {
+    segments.push(apiPrefix);
+  }
+
+  url.pathname = `/${segments.join('/')}`;
+  return trimTrailingSlash(url.toString());
+}
+
+function normalizePublicUrl(name: string, value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(
+      `${name} environment variable must be a valid absolute URL`,
+    );
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`${name} environment variable must use http or https`);
+  }
+
+  if (url.search || url.hash) {
+    throw new Error(
+      `${name} environment variable must not include query or hash`,
+    );
+  }
+
+  return trimTrailingSlash(url.toString());
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+}

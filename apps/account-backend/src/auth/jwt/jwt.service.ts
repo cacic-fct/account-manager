@@ -247,12 +247,10 @@ export class JwtService {
   ): Promise<string> {
     const clientId =
       options.clientId ||
-      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_ID') ||
-      this.configService.get<string>('KEYCLOAK_CLIENT_ID');
+      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_ID');
     const clientSecret =
       options.clientSecret ||
-      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_SECRET') ||
-      this.configService.get<string>('KEYCLOAK_CLIENT_SECRET');
+      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_SECRET');
 
     if (!clientId || !clientSecret) {
       throw new Error(

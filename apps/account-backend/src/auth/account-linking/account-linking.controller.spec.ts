@@ -232,7 +232,7 @@ describe('AccountLinkingController', () => {
     controller.resumeGoogleLinking('state-1', session, res);
 
     expect(keycloakService.getAuthUrl).toHaveBeenCalledWith(
-      'http://localhost:3000/auth/account-linking/google/callback',
+      'http://localhost:3000/api/auth/account-linking/google/callback',
       'state-1',
       { prompt: 'login', maxAge: 0 },
     );

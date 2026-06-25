@@ -168,6 +168,10 @@ export class AuthController {
     return new URL(path, frontendUrl.origin).toString();
   }
 
+  private authCallbackUrl(): string {
+    return `${this.appConfig.apiBaseUrl}/auth/callback`;
+  }
+
   private resolveSafePostLogoutRedirectUri(
     postLogoutRedirectUri?: string,
   ): string {
@@ -364,7 +368,7 @@ export class AuthController {
     routeName: string;
     prompt?: 'none';
   }): Promise<void> {
-    const redirectUri = `${this.appConfig.backendUrl}/auth/callback`;
+    const redirectUri = this.authCallbackUrl();
 
     // Generate cryptographically secure random state token for CSRF protection
     const state = randomBytes(32).toString('hex');
@@ -420,7 +424,7 @@ export class AuthController {
     @Session() session: AuthSession,
     @Res() res: Response,
   ): Promise<void> {
-    const redirectUri = `${this.appConfig.backendUrl}/auth/callback`;
+    const redirectUri = this.authCallbackUrl();
     const state = randomBytes(32).toString('hex');
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
     const safeReturnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
@@ -570,7 +574,7 @@ export class AuthController {
       delete session.oauthState;
       delete session.silentLogin;
 
-      const redirectUri = `${this.appConfig.backendUrl}/auth/callback`;
+      const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(
         code,
         redirectUri,

@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { randomBytes, timingSafeEqual } from 'crypto';
+import { createApiBaseUrl } from '../../config/app.config';
 
 interface DiscordTokenResponse {
   access_token: string;
@@ -43,7 +44,7 @@ export class DiscordOAuthService {
       );
     }
 
-    const redirectUri = `${backendUrl}/discord/oauth/callback`;
+    const redirectUri = this.discordCallbackUrl(backendUrl);
     const state = this.generateOAuthState();
 
     const params = new URLSearchParams();
@@ -97,7 +98,7 @@ export class DiscordOAuthService {
       );
     }
 
-    const redirectUri = `${backendUrl}/discord/oauth/callback`;
+    const redirectUri = this.discordCallbackUrl(backendUrl);
 
     const params = new URLSearchParams();
     params.append('client_id', clientId);
@@ -136,5 +137,9 @@ export class DiscordOAuthService {
     }
 
     return (await response.json()) as DiscordUser;
+  }
+
+  private discordCallbackUrl(backendUrl: string): string {
+    return `${createApiBaseUrl(backendUrl)}/discord/oauth/callback`;
   }
 }

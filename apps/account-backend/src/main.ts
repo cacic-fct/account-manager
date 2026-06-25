@@ -15,7 +15,7 @@ import {
   SwaggerCustomOptions,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { createAppConfig } from './config/app.config';
+import { API_GLOBAL_PREFIX, createAppConfig } from './config/app.config';
 import * as express from 'express';
 import type { Express, NextFunction, Request, Response } from 'express';
 
@@ -39,7 +39,7 @@ async function bootstrap() {
 
   Logger.overrideLogger(logLevels);
   app.useLogger(logLevels);
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix(API_GLOBAL_PREFIX);
 
   // Configure body parser limits for file uploads
   app.use(express.json({ limit: '15mb' }));

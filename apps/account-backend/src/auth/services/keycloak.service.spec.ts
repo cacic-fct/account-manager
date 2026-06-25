@@ -18,9 +18,12 @@ describe('KeycloakService client roles', () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
+      NODE_ENV: 'test',
       KEYCLOAK_URL: 'https://sso.example.test',
       KEYCLOAK_REALM: 'cacic',
       KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
+      KEYCLOAK_CLIENT_SECRET: undefined,
+      KEYCLOAK_CLIENT_AUTH_METHOD: undefined,
       KEYCLOAK_ADMIN_CLIENT_ID: 'admin-cli',
       KEYCLOAK_ADMIN_CLIENT_SECRET: 'secret',
     };
@@ -158,5 +161,49 @@ describe('KeycloakService client roles', () => {
       'https://account.example.test/api/auth/callback',
     );
     expect(requestParams.get('client_secret')).toBe('account-client-secret');
+  });
+
+  it('requires the login client secret in production by default', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.KEYCLOAK_CLIENT_SECRET;
+    delete process.env.KEYCLOAK_CLIENT_AUTH_METHOD;
+
+    expect(() => new KeycloakService()).toThrow(
+      'KEYCLOAK_CLIENT_SECRET must be configured in production',
+    );
+  });
+
+  it('allows an explicitly public login client without sending a secret', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.KEYCLOAK_CLIENT_AUTH_METHOD = 'none';
+    delete process.env.KEYCLOAK_CLIENT_SECRET;
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        id_token: 'id-token',
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+
+    await service.exchangeCodeForTokens(
+      'authorization-code',
+      'https://account.example.test/api/auth/callback',
+    );
+
+    const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected token request body to be a string.');
+    }
+
+    const requestParams = new URLSearchParams(requestBody);
+    expect(requestParams.get('client_id')).toBe('cacic-account-manager');
+    expect(requestParams.has('client_secret')).toBe(false);
   });
 });

@@ -59,16 +59,55 @@ interface KeycloakErrorResponse {
   errors?: KeycloakValidationError[];
 }
 
+type KeycloakClientAuthMethod = 'client_secret_post' | 'none';
+
+interface KeycloakTokenError {
+  error?: string;
+  errorDescription?: string;
+  rawBody?: string;
+}
+
 @Injectable()
 export class KeycloakService {
-  private readonly keycloakUrl =
-    process.env.KEYCLOAK_URL || 'https://sso.cacic.dev.br';
-  private readonly realm = process.env.KEYCLOAK_REALM || 'cacic-sso';
-  private readonly clientId =
-    process.env.KEYCLOAK_CLIENT_ID || 'cacic-account-manager';
-  private readonly clientSecret = process.env.KEYCLOAK_CLIENT_SECRET;
   private readonly logger = new Logger(KeycloakService.name);
+  private readonly keycloakUrl: string;
+  private readonly realm: string;
+  private readonly clientId: string;
+  private readonly clientAuthMethod: KeycloakClientAuthMethod;
+  private readonly clientSecret?: string;
+  private readonly adminClientId: string;
+  private readonly adminClientSecret?: string;
   private readonly clientUuidCache = new Map<string, string>();
+
+  constructor() {
+    this.keycloakUrl = this.readEnvWithDevelopmentFallback(
+      'KEYCLOAK_URL',
+      'https://sso.cacic.dev.br',
+    );
+    this.realm = this.readEnvWithDevelopmentFallback(
+      'KEYCLOAK_REALM',
+      'cacic-sso',
+    );
+    this.clientId = this.readEnvWithDevelopmentFallback(
+      'KEYCLOAK_CLIENT_ID',
+      'cacic-account-manager',
+    );
+    this.clientAuthMethod = this.resolveClientAuthMethod();
+    this.clientSecret = this.resolveClientSecret();
+    this.adminClientId = this.readEnvWithDevelopmentFallback(
+      'KEYCLOAK_ADMIN_CLIENT_ID',
+      'admin-cli',
+    );
+    this.adminClientSecret = this.readOptionalEnv(
+      'KEYCLOAK_ADMIN_CLIENT_SECRET',
+    );
+
+    if (this.isProduction() && !this.adminClientSecret) {
+      throw new Error(
+        'KEYCLOAK_ADMIN_CLIENT_SECRET must be configured in production',
+      );
+    }
+  }
 
   /**
    * Determine if an error is due to connectivity issues with Keycloak
@@ -99,6 +138,139 @@ export class KeycloakService {
     }
 
     return false;
+  }
+
+  private readEnvWithDevelopmentFallback(
+    name: string,
+    developmentFallback: string,
+  ): string {
+    const value = this.readOptionalEnv(name);
+    if (value) {
+      return value;
+    }
+
+    if (this.isProduction()) {
+      throw new Error(`${name} must be configured in production`);
+    }
+
+    this.logger.warn(`${name} is not configured; using development fallback`, {
+      developmentFallback,
+    });
+    return developmentFallback;
+  }
+
+  private readOptionalEnv(name: string): string | undefined {
+    const value = process.env[name]?.trim();
+    return value ? value : undefined;
+  }
+
+  private isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+  }
+
+  private resolveClientAuthMethod(): KeycloakClientAuthMethod {
+    const configuredMethod = this.readOptionalEnv(
+      'KEYCLOAK_CLIENT_AUTH_METHOD',
+    );
+    if (!configuredMethod) {
+      const hasClientSecret = !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET');
+      return hasClientSecret || this.isProduction()
+        ? 'client_secret_post'
+        : 'none';
+    }
+
+    if (
+      configuredMethod === 'client_secret_post' ||
+      configuredMethod === 'none'
+    ) {
+      return configuredMethod;
+    }
+
+    throw new Error(
+      'KEYCLOAK_CLIENT_AUTH_METHOD must be either client_secret_post or none',
+    );
+  }
+
+  private resolveClientSecret(): string | undefined {
+    const secret = this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET');
+
+    if (this.clientAuthMethod === 'none') {
+      if (secret) {
+        this.logger.warn(
+          [
+            'KEYCLOAK_CLIENT_SECRET is configured but',
+            'KEYCLOAK_CLIENT_AUTH_METHOD=none; login token requests will not',
+            'send it',
+          ].join(' '),
+        );
+      }
+
+      return undefined;
+    }
+
+    if (secret) {
+      return secret;
+    }
+
+    if (this.isProduction()) {
+      throw new Error(
+        [
+          'KEYCLOAK_CLIENT_SECRET must be configured in production for the',
+          'Keycloak login client. Set KEYCLOAK_CLIENT_AUTH_METHOD=none only',
+          'when KEYCLOAK_CLIENT_ID is a public client.',
+        ].join(' '),
+      );
+    }
+
+    this.logger.warn(
+      [
+        'KEYCLOAK_CLIENT_SECRET is not configured; authorization-code login',
+        'will only work if KEYCLOAK_CLIENT_ID is a public Keycloak client',
+      ].join(' '),
+    );
+    return undefined;
+  }
+
+  private getAdminClientSecret(): string {
+    if (!this.adminClientSecret) {
+      throw new Error(
+        [
+          'KEYCLOAK_ADMIN_CLIENT_SECRET must be configured for Keycloak admin',
+          'API calls',
+        ].join(' '),
+      );
+    }
+
+    return this.adminClientSecret;
+  }
+
+  private async readTokenError(
+    response: Response,
+  ): Promise<KeycloakTokenError> {
+    try {
+      const contentType = response.headers.get('content-type') ?? '';
+      if (contentType.includes('application/json')) {
+        const body = (await response.json()) as unknown;
+        if (body && typeof body === 'object') {
+          const record = body as Record<string, unknown>;
+          return {
+            error: this.readString(record['error']),
+            errorDescription:
+              this.readString(record['error_description']) ??
+              this.readString(record['errorDescription']),
+          };
+        }
+      }
+
+      const rawBody = await response.text();
+      return rawBody ? { rawBody: rawBody.slice(0, 500) } : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private readString(value: unknown): string | undefined {
+    return typeof value === 'string' && value ? value : undefined;
   }
 
   getAuthUrl(
@@ -161,9 +333,16 @@ export class KeycloakService {
     });
 
     if (!response.ok) {
+      const details = await this.readTokenError(response);
       this.logger.warn('Failed to exchange code for tokens', {
         status: response.status,
         statusText: response.statusText,
+        clientId: this.clientId,
+        clientAuthMethod: this.clientAuthMethod,
+        redirectUri,
+        error: details.error,
+        errorDescription: details.errorDescription,
+        rawBody: details.rawBody,
       });
       throw new Error('Failed to exchange code for tokens');
     }
@@ -256,7 +435,16 @@ export class KeycloakService {
   }
 
   private appendClientSecret(body: URLSearchParams): void {
-    if (this.clientSecret) {
+    if (this.clientAuthMethod === 'client_secret_post') {
+      if (!this.clientSecret) {
+        throw new Error(
+          [
+            'KEYCLOAK_CLIENT_SECRET must be configured for client_secret_post',
+            'authentication',
+          ].join(' '),
+        );
+      }
+
       body.set('client_secret', this.clientSecret);
     }
   }
@@ -266,8 +454,8 @@ export class KeycloakService {
 
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'admin-cli',
-      client_secret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
+      client_id: this.adminClientId,
+      client_secret: this.getAdminClientSecret(),
     });
 
     try {
@@ -280,6 +468,15 @@ export class KeycloakService {
       });
 
       if (!response.ok) {
+        const details = await this.readTokenError(response);
+        this.logger.warn('Failed to get Keycloak admin token', {
+          status: response.status,
+          statusText: response.statusText,
+          clientId: this.adminClientId,
+          error: details.error,
+          errorDescription: details.errorDescription,
+          rawBody: details.rawBody,
+        });
         throw new Error('Failed to get admin token');
       }
 

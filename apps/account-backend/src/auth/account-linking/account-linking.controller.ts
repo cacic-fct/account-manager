@@ -63,7 +63,7 @@ export class AccountLinkingController {
     session.accountLinkingState = state;
     session.accountLinkingUserId = session.user!.keycloakId;
 
-    const resumeUrl = `${this.appConfig.backendUrl}/auth/account-linking/google/resume?state=${encodeURIComponent(state)}`;
+    const resumeUrl = `${this.appConfig.apiBaseUrl}/auth/account-linking/google/resume?state=${encodeURIComponent(state)}`;
     const url = this.keycloakService.getEndSessionUrl(
       resumeUrl,
       session.idToken,
@@ -94,7 +94,7 @@ export class AccountLinkingController {
         );
       }
 
-      const redirectUri = `${this.appConfig.backendUrl}/auth/account-linking/google/callback`;
+      const redirectUri = this.googleCallbackUrl();
       const url = this.keycloakService.getAuthUrl(redirectUri, state, {
         prompt: 'login',
         maxAge: 0,
@@ -146,7 +146,7 @@ export class AccountLinkingController {
         return;
       }
 
-      const redirectUri = `${this.appConfig.backendUrl}/auth/account-linking/google/callback`;
+      const redirectUri = this.googleCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(
         code,
         redirectUri,
@@ -278,6 +278,10 @@ export class AccountLinkingController {
     }
 
     return url.toString();
+  }
+
+  private googleCallbackUrl(): string {
+    return `${this.appConfig.apiBaseUrl}/auth/account-linking/google/callback`;
   }
 
   private async switchSessionToUser(
