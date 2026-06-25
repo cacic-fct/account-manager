@@ -18,10 +18,10 @@
         <p>Carregando cargos do Discord...</p>
       </div>
     } @else {
-      <div class="sync-section">
+      <div class="toolbar-row">
         <div>
-          <h3>Sincronização</h3>
-          <p class="sync-description">Buscar os cargos atuais do servidor.</p>
+          <h3>Cargos disponíveis</h3>
+          <p>Sincronize quando o servidor mudar.</p>
         </div>
         <button
           mat-raised-button
@@ -39,58 +39,31 @@
         </button>
       </div>
 
-      <mat-divider></mat-divider>
-
       <div class="instructions">
         <mat-icon>info</mat-icon>
-        <span
-          >Clique para selecionar/desselecionar cargos. Segure
-          <kbd>Shift</kbd> e clique para selecionar um intervalo a partir da sua
-          última seleção. Cargos marcados com
-          <mat-icon inline>block</mat-icon> estão na lista negra e não podem ser
-          selecionados por razões de segurança. Cargos com permissões elevadas
-          também ficam bloqueados.</span
-        >
+        <div>
+          <p>
+            Selecione os cargos que usuários podem escolher. Cargos bloqueados
+            ou com permissões sensíveis ficam desativados.
+          </p>
+          <p class="shortcut-hint">
+            <span>Seleção em lote</span>
+            <kbd>Shift</kbd>
+            <span>+</span>
+            <kbd>clique</kbd>
+            <span>marca um intervalo a partir da última seleção.</span>
+          </p>
+        </div>
       </div>
 
       <mat-divider></mat-divider>
-
-      <!-- Currently Enabled Roles -->
-      @if (currentlyEnabledRoles().length > 0) {
-        <div class="section">
-          <mat-chip-set class="role-chips">
-            @for (role of currentlyEnabledRoles(); track role.id) {
-              <mat-chip
-                class="role-chip"
-                [style.background-color]="getRoleColor(role)"
-                [style.color]="getRoleTextColor(role)"
-                [style.--mdc-chip-elevated-container-color]="getRoleColor(role)"
-                [style.--mdc-chip-label-text-color]="getRoleTextColor(role)"
-                [style.--mdc-chip-with-icon-icon-color]="getRoleTextColor(role)"
-              >
-                {{ role.name }}
-                @if (role.hasPermissions) {
-                  <mat-icon matChipTrailingIcon>warning</mat-icon>
-                }
-              </mat-chip>
-            }
-          </mat-chip-set>
-        </div>
-
-        <mat-divider></mat-divider>
-      }
 
       <form [formGroup]="roleForm">
         @if (rolesWithPermissions().length > 0) {
           <div class="section">
             <h3 class="danger-title">
-              <mat-icon>warning</mat-icon>
-              Cargos com Permissões
+              Bloqueados
             </h3>
-            <p class="danger-description">
-              Estes cargos têm permissões administrativas ou de moderação e não
-              podem ser disponibilizados para autoatribuição.
-            </p>
 
             <div class="role-list" formArrayName="rolesWithPermissions">
               @for (
@@ -125,7 +98,7 @@
                           {{
                             role.isBlacklisted
                               ? "Bloqueado"
-                              : "Permissões elevadas bloqueadas"
+                              : "Permissões sensíveis"
                           }}
                         </span>
                       </span>
@@ -145,13 +118,8 @@
         @if (rolesWithoutPermissions().length > 0) {
           <div class="section">
             <h3 class="safe-title">
-              <mat-icon>check_circle</mat-icon>
-              Cargos Seguros (Sem Permissões)
+              Selecionáveis
             </h3>
-            <p class="safe-description">
-              Estes cargos não têm permissões perigosas e são seguros para os
-              usuários selecionarem.
-            </p>
 
             <div class="role-list" formArrayName="rolesWithoutPermissions">
               @for (
@@ -185,7 +153,11 @@
                           {{ role.name }}
                         </span>
                         <span class="role-meta">
-                          {{ role.isBlacklisted ? "Bloqueado" : "Sem permissões sensíveis" }}
+                          {{
+                            role.isBlacklisted
+                              ? "Bloqueado"
+                              : "Sem permissões sensíveis"
+                          }}
                         </span>
                       </span>
                       @if (!isRoleSelectable(role)) {
@@ -211,7 +183,7 @@
             } @else {
               <mat-icon>save</mat-icon>
             }
-            Salvar Alterações
+            Salvar
           </button>
 
           <button
@@ -220,7 +192,7 @@
             (click)="resetChanges()"
           >
             <mat-icon>undo</mat-icon>
-            Redefinir Alterações
+            Desfazer
           </button>
         </div>
       </form>

@@ -8,40 +8,31 @@
 <main class="discord-admin-page">
   <section class="page-header">
     <div class="page-title">
-      <h1>Integração com o Discord</h1>
-      <p>
-        Configure o convite do servidor e controle quais cargos podem ser
-        escolhidos pelos usuários conectados.
-      </p>
+      <h1>Discord</h1>
+      <p>Convite do servidor e cargos disponíveis para autoatribuição.</p>
     </div>
   </section>
 
   @if (isCheckingAdmin()) {
-    <mat-card class="state-card">
-      <mat-card-content>
-        <mat-spinner diameter="40"></mat-spinner>
-        <div>
-          <h2>Carregando painel</h2>
-          <p>Verificando suas permissões de administração do Discord.</p>
-        </div>
-      </mat-card-content>
-    </mat-card>
+    <section class="state-panel" aria-live="polite">
+      <mat-spinner diameter="36"></mat-spinner>
+      <div>
+        <h2>Carregando painel</h2>
+        <p>Verificando permissões.</p>
+      </div>
+    </section>
   } @else if (isDiscordAdmin()) {
     <section class="admin-section" aria-label="Controles do Discord">
       <app-discord-admin></app-discord-admin>
       <app-discord-role-admin></app-discord-role-admin>
     </section>
   } @else {
-    <mat-card class="state-card denied-card">
-      <mat-card-content>
-        <mat-icon>lock</mat-icon>
-        <div>
-          <h2>Acesso administrativo necessário</h2>
-          <p>
-            Sua conta não tem permissão para alterar a integração com o Discord.
-          </p>
-        </div>
-      </mat-card-content>
-    </mat-card>
+    <section class="state-panel denied-panel">
+      <mat-icon>lock</mat-icon>
+      <div>
+        <h2>Acesso administrativo necessário</h2>
+        <p>Sua conta não pode alterar a integração com o Discord.</p>
+      </div>
+    </section>
   }
 </main>

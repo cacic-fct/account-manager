@@ -21,7 +21,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -43,7 +42,6 @@ import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
     MatSnackBarModule,
     MatCheckboxModule,
     MatDividerModule,
-    MatChipsModule,
     MatDialogModule,
     ReactiveFormsModule,
   ],
@@ -85,10 +83,6 @@ export class DiscordRoleAdminComponent implements OnInit {
 
   rolesWithoutPermissions = computed(
     () => this.selectableRoles()?.rolesWithoutPermissions || [],
-  );
-
-  currentlyEnabledRoles = computed(
-    () => this.selectableRoles()?.selectableRoles || [],
   );
 
   hasChanges = computed(() => {
@@ -146,7 +140,7 @@ export class DiscordRoleAdminComponent implements OnInit {
       error: (error) => {
         console.error('Error loading Discord roles:', error);
         this.isLoading.set(false);
-        this.snackBar.open('Error loading Discord roles', 'Close', {
+        this.snackBar.open('Não foi possível carregar os cargos.', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
         });
@@ -307,7 +301,7 @@ export class DiscordRoleAdminComponent implements OnInit {
     const changes = this.getChanges();
 
     if (changes.length === 0) {
-      this.snackBar.open('No changes to save', 'Close', {
+      this.snackBar.open('Nenhuma alteração para salvar.', 'Fechar', {
         duration: 3000,
       });
       return;
@@ -395,7 +389,7 @@ export class DiscordRoleAdminComponent implements OnInit {
       .updateDiscordRoleSelection({ enabledRoleIds: selectedIds })
       .subscribe({
         next: () => {
-          this.snackBar.open('Role selection updated successfully!', 'Close', {
+          this.snackBar.open('Cargos atualizados.', 'Fechar', {
             duration: 3000,
           });
 
@@ -407,8 +401,8 @@ export class DiscordRoleAdminComponent implements OnInit {
         error: (error: HttpErrorResponse) => {
           console.error('Error updating role selection:', error);
           this.snackBar.open(
-            'Failed to update role selection. Please try again.',
-            'Close',
+            'Não foi possível salvar os cargos.',
+            'Fechar',
             { duration: 5000 },
           );
           this.isSaving.set(false);
@@ -454,7 +448,7 @@ export class DiscordRoleAdminComponent implements OnInit {
 
     this.apiService.syncDiscordRoles().subscribe({
       next: () => {
-        this.snackBar.open('Discord roles synced successfully!', 'Close', {
+        this.snackBar.open('Cargos sincronizados.', 'Fechar', {
           duration: 3000,
         });
         this.loadRoles(); // Reload to get updated roles
@@ -463,8 +457,8 @@ export class DiscordRoleAdminComponent implements OnInit {
       error: (error: HttpErrorResponse) => {
         console.error('Error syncing Discord roles:', error);
         this.snackBar.open(
-          'Failed to sync Discord roles. Please try again.',
-          'Close',
+          'Não foi possível sincronizar os cargos.',
+          'Fechar',
           { duration: 5000 },
         );
         this.isSyncing.set(false);

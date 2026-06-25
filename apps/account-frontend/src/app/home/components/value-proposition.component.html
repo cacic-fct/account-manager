@@ -1,55 +1,27 @@
-<!-- Main Value Proposition Section -->
 <section class="value-proposition">
   <div class="container">
     <div class="value-content">
       <div class="value-text">
         <h2 class="section-title">
-          Uma conta para todos os serviços estudantis
+          Uma conta confiável para circular pelos serviços CACiC
         </h2>
         <p class="section-subtitle">
-          Conecte-se com segurança aos sistemas criados por estudantes. Elimine
-          cadastros repetitivos e proteja seus dados com autenticação moderna.
+          Login, vínculo estudantil, comunidade e privacidade ficam ligados ao
+          mesmo perfil. Menos cadastro repetido, mais controle sobre o que cada
+          serviço pode usar.
         </p>
-
-        <div class="benefits-list">
-          <div class="benefit-item">
-            <mat-icon class="benefit-icon">verified_user</mat-icon>
-            <div class="benefit-text">
-              <h4>Segurança garantida</h4>
-              <p>
-                Autenticação via Google com padrões de segurança corporativos,
-                sem necessidade de senhas
-              </p>
-            </div>
-          </div>
-
-          <div class="benefit-item">
-            <mat-icon class="benefit-icon">gavel</mat-icon>
-            <div class="benefit-text">
-              <h4>Conformidade LGPD</h4>
-              <p>
-                Seus dados pessoais protegidos conforme a legislação brasileira
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div class="value-visual">
-        <div class="feature-showcase">
-          <div class="showcase-item primary">
-            <mat-icon>login</mat-icon>
-            <span>Login único</span>
+      <div class="features-list" aria-label="Recursos da Conta CACiC">
+        @for (feature of features; track feature.title) {
+          <div class="feature-item">
+            <mat-icon aria-hidden="true">{{ feature.icon }}</mat-icon>
+            <div class="feature-text">
+              <h3>{{ feature.title }}</h3>
+              <p>{{ feature.description }}</p>
+            </div>
           </div>
-          <div class="showcase-item secondary">
-            <mat-icon>security</mat-icon>
-            <span>Autenticação segura</span>
-          </div>
-          <div class="showcase-item accent">
-            <mat-icon>group</mat-icon>
-            <span>Comunidade integrada</span>
-          </div>
-        </div>
+        }
       </div>
     </div>
   </div>

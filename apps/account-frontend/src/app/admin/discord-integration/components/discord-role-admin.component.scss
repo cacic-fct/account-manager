@@ -35,15 +35,12 @@ mat-card-subtitle {
   color: var(--mat-sys-on-surface-variant);
 }
 
-.sync-section {
+.toolbar-row {
   display: flex;
   gap: 16px;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
-  background: var(--mat-sys-surface-container-low);
+  margin-bottom: 16px;
 
   h3 {
     margin: 0 0 4px;
@@ -51,7 +48,7 @@ mat-card-subtitle {
     font: var(--mat-sys-title-medium);
   }
 
-  .sync-description {
+  p {
     margin: 0;
     color: var(--mat-sys-on-surface-variant);
   }
@@ -70,12 +67,12 @@ mat-card-subtitle {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 14px 16px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
-  color: var(--mat-sys-on-primary-container);
-  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-body-medium);
+
+  p {
+    margin: 0;
+  }
 
   mat-icon {
     flex: 0 0 auto;
@@ -84,12 +81,26 @@ mat-card-subtitle {
     color: var(--mat-sys-primary);
     font-size: 20px;
   }
+}
+
+.shortcut-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-label-medium);
 
   kbd {
-    padding: 2px 6px;
-    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-    border-radius: 4px;
-    background: color-mix(in srgb, currentColor 10%, transparent);
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    padding: 0 8px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 6px;
+    background: var(--mat-sys-surface-container);
+    color: var(--mat-sys-on-surface);
     font: var(--mat-sys-label-medium);
   }
 }
@@ -98,10 +109,7 @@ mat-card-subtitle {
   margin: 20px 0;
 
   h3 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 8px;
+    margin: 0 0 12px;
     color: var(--mat-sys-on-surface);
     font: var(--mat-sys-title-medium);
 
@@ -112,26 +120,6 @@ mat-card-subtitle {
     &.safe-title {
       color: var(--mat-sys-primary);
     }
-  }
-
-  .danger-description,
-  .safe-description {
-    margin: 0 0 14px;
-    color: var(--mat-sys-on-surface-variant);
-  }
-}
-
-.role-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.role-chip {
-  font-weight: 600;
-
-  mat-icon {
-    color: inherit;
   }
 }
 
@@ -234,13 +222,13 @@ mat-divider {
 }
 
 @media (max-width: 680px) {
-  .sync-section,
+  .toolbar-row,
   .actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .sync-section .sync-button,
+  .toolbar-row .sync-button,
   .actions button {
     width: 100%;
   }

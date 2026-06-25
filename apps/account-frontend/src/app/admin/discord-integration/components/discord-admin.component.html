@@ -1,103 +1,64 @@
 <mat-card class="settings-card">
   <mat-card-header>
-    <div mat-card-avatar class="card-avatar">
-      <mat-icon>link</mat-icon>
-    </div>
-    <mat-card-title>
-      Configurações do servidor
-    </mat-card-title>
+    <mat-card-title>Convite do servidor</mat-card-title>
     <mat-card-subtitle>
-      Link de convite usado na experiência de vínculo com o Discord
+      Link usado quando estudantes conectam o Discord.
     </mat-card-subtitle>
   </mat-card-header>
 
   <mat-card-content>
     @if (isLoading()) {
       <div class="loading-container">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>Carregando configurações do servidor...</p>
+        <mat-spinner diameter="32"></mat-spinner>
+        <p>Carregando convite...</p>
       </div>
     } @else {
-      <div class="settings-list">
-        @for (setting of allSettings(); track setting.id) {
-          <article class="setting-item" [class.is-new]="setting.id.startsWith('new-')">
-            <div class="setting-info">
-              <div class="setting-heading">
-                <h3>{{ getSettingDisplayName(setting.key) }}</h3>
-                @if (setting.id.startsWith("new-")) {
-                  <span class="setting-pill">Nova</span>
-                }
-              </div>
-              <p class="setting-description">{{ setting.description }}</p>
-              <p class="setting-key">{{ setting.key }}</p>
-            </div>
+      <div class="invite-editor">
+        <mat-form-field appearance="outline">
+          <mat-label>Link de convite</mat-label>
+          <input
+            matInput
+            [formControl]="inviteLinkControl"
+            placeholder="https://discord.gg/..."
+            type="url"
+          />
+          <mat-icon matSuffix>link</mat-icon>
+        </mat-form-field>
 
-            <div class="setting-form" [attr.data-setting-key]="setting.key">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>{{ getSettingDisplayName(setting.key) }}</mat-label>
-                <input
-                  matInput
-                  [value]="pendingChanges()[setting.key] || setting.value"
-                  (input)="updateSettingValue(setting.key, $event)"
-                  placeholder="Digite o link de convite"
-                  type="url"
-                />
-                <mat-icon matSuffix>link</mat-icon>
-              </mat-form-field>
-
-              <div class="setting-actions">
-                <button
-                  mat-raised-button
-                  color="primary"
-                  (click)="saveSetting(setting.key)"
-                  [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
-                  [attr.aria-label]="'Salvar ' + getSettingDisplayName(setting.key)"
-                >
-                  @if (isSaving(setting.key)) {
-                    <mat-spinner diameter="20"></mat-spinner>
-                  } @else {
-                    <mat-icon>save</mat-icon>
-                  }
-                  Salvar
-                </button>
-
-                <button
-                  mat-stroked-button
-                  (click)="resetSetting(setting.key)"
-                  [disabled]="isSaving(setting.key) || !hasChanges(setting.key)"
-                  [attr.aria-label]="'Redefinir ' + getSettingDisplayName(setting.key)"
-                >
-                  <mat-icon>undo</mat-icon>
-                  Redefinir
-                </button>
-              </div>
-
-              @if (!setting.id.startsWith("new-")) {
-                <p class="last-updated">
-                  Atualizado em {{ setting.updatedAt | date: "dd/MM/yyyy HH:mm" }}
-                </p>
-              }
-            </div>
-          </article>
-        }
-
-        @if (settings().length === 0) {
-          <div class="no-settings">
-            <mat-icon>settings</mat-icon>
-            <p>
-              Nenhuma configuração de servidor encontrada. As configurações
-              serão criadas automaticamente quando você salvá-las.
-            </p>
-          </div>
+        @if (inviteSetting()?.updatedAt) {
+          <p class="last-updated">
+            Atualizado em {{ inviteSetting()?.updatedAt | date: "dd/MM/yyyy HH:mm" }}
+          </p>
+        } @else {
+          <p class="last-updated">O convite será criado ao salvar.</p>
         }
       </div>
 
-      <mat-divider></mat-divider>
-
       <div class="actions">
-        <button mat-stroked-button (click)="refreshSettings()">
+        <button mat-button (click)="refreshSettings()" [disabled]="isSaving()">
           <mat-icon>refresh</mat-icon>
           Atualizar
+        </button>
+        <button
+          mat-button
+          (click)="resetInviteLink()"
+          [disabled]="isSaving() || !hasChanges()"
+        >
+          <mat-icon>undo</mat-icon>
+          Desfazer
+        </button>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="saveInviteLink()"
+          [disabled]="isSaving() || !hasChanges()"
+        >
+          @if (isSaving()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <mat-icon>save</mat-icon>
+          }
+          Salvar
         </button>
       </div>
     }

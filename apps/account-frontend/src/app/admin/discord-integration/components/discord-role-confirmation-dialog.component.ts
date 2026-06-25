@@ -1,4 +1,9 @@
-import { Component, Inject, computed } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import {
   MAT_DIALOG_DATA,
   MatDialogModule,
@@ -25,26 +30,26 @@ export interface RoleChangeData {
   template: `
     <div mat-dialog-title class="dialog-title">
       <mat-icon>manage_accounts</mat-icon>
-      <span>Confirm Role Changes</span>
+      <span>Confirmar cargos</span>
     </div>
 
     <mat-dialog-content class="dialog-content">
       @if (hasChanges()) {
         <p class="description">
-          Review the changes below before applying them to the Discord role
-          configuration:
+          Revise as alterações antes de atualizar os cargos disponíveis para
+          usuários.
         </p>
 
         @if (addedRoles().length > 0) {
-          <div class="change-section added-section">
+          <div class="change-section">
             <h3 class="section-title">
               <mat-icon class="section-icon added">add_circle</mat-icon>
-              Roles to be made selectable ({{ addedRoles().length }})
+              Tornar selecionáveis ({{ addedRoles().length }})
             </h3>
             <div class="roles-grid">
               @for (role of addedRoles(); track role.roleId) {
                 <mat-chip
-                  class="role-chip added-chip"
+                  class="role-chip"
                   [style.background-color]="formatColor(role.color)"
                   [style.color]="getTextColor(role.color)"
                   [style.--mdc-chip-elevated-container-color]="formatColor(role.color)"
@@ -58,15 +63,15 @@ export interface RoleChangeData {
         }
 
         @if (removedRoles().length > 0) {
-          <div class="change-section removed-section">
+          <div class="change-section">
             <h3 class="section-title">
               <mat-icon class="section-icon removed">remove_circle</mat-icon>
-              Roles to be removed from selection ({{ removedRoles().length }})
+              Remover da seleção ({{ removedRoles().length }})
             </h3>
             <div class="roles-grid">
               @for (role of removedRoles(); track role.roleId) {
                 <mat-chip
-                  class="role-chip removed-chip"
+                  class="role-chip"
                   [style.background-color]="formatColor(role.color)"
                   [style.color]="getTextColor(role.color)"
                   [style.--mdc-chip-elevated-container-color]="formatColor(role.color)"
@@ -82,27 +87,26 @@ export interface RoleChangeData {
         <div class="warning-section">
           <mat-icon class="warning-icon">warning</mat-icon>
           <p class="warning-text">
-            These changes will immediately affect which roles users can select.
-            Make sure these changes are intentional.
+            A alteração afeta imediatamente quais cargos usuários podem escolher.
           </p>
         </div>
       } @else {
         <div class="no-changes">
           <mat-icon class="info-icon">info</mat-icon>
-          <p>No changes detected in the role configuration.</p>
+          <p>Nenhuma alteração encontrada.</p>
         </div>
       }
     </mat-dialog-content>
 
     <mat-dialog-actions class="dialog-actions">
-      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-button (click)="onCancel()">Cancelar</button>
       <button
         mat-raised-button
         color="primary"
         [disabled]="!hasChanges()"
         (click)="onConfirm()"
       >
-        Apply Changes
+        Aplicar
       </button>
     </mat-dialog-actions>
   `,
@@ -112,9 +116,8 @@ export interface RoleChangeData {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 1.25rem;
-        font-weight: 500;
         margin-bottom: 16px;
+        font: var(--mat-sys-title-large);
       }
 
       .dialog-content {
@@ -125,7 +128,7 @@ export interface RoleChangeData {
       }
 
       .description {
-        margin: 0 0 24px 0;
+        margin: 0 0 20px;
         color: var(--mat-sys-on-surface-variant);
       }
 
@@ -137,9 +140,8 @@ export interface RoleChangeData {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin: 0 0 12px 0;
-        font-size: 1rem;
-        font-weight: 500;
+        margin: 0 0 12px;
+        font: var(--mat-sys-title-medium);
       }
 
       .section-icon.added {
@@ -159,37 +161,27 @@ export interface RoleChangeData {
       .role-chip {
         position: relative;
         font-weight: 500;
-        border-radius: 16px;
-      }
-
-      .added-chip {
-        border: 2px solid var(--mat-sys-primary);
-      }
-
-      .removed-chip {
-        border: 2px solid var(--mat-sys-error);
-        opacity: 0.7;
       }
 
       .warning-section {
         display: flex;
         align-items: flex-start;
         gap: 8px;
-        padding: 16px;
-        background-color: var(--mat-sys-warning-container);
-        border-radius: 8px;
         margin-top: 16px;
+        padding: 16px;
+        border-radius: 8px;
+        background-color: var(--mat-sys-error-container);
       }
 
       .warning-icon {
-        color: var(--mat-sys-warning);
+        color: var(--mat-sys-error);
         margin-top: 2px;
       }
 
       .warning-text {
         margin: 0;
-        color: var(--mat-sys-on-warning-container);
-        font-size: 0.875rem;
+        color: var(--mat-sys-on-error-container);
+        font: var(--mat-sys-body-small);
       }
 
       .no-changes {
@@ -219,12 +211,13 @@ export interface RoleChangeData {
     MatIconModule,
     MatChipsModule,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiscordRoleConfirmationDialogComponent {
-  constructor(
-    private dialogRef: MatDialogRef<DiscordRoleConfirmationDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: RoleChangeData,
-  ) {}
+  private dialogRef = inject(
+    MatDialogRef<DiscordRoleConfirmationDialogComponent>,
+  );
+  readonly data = inject<RoleChangeData>(MAT_DIALOG_DATA);
 
   readonly addedRoles = computed(() =>
     this.data.changes.filter((change) => change.type === 'added'),

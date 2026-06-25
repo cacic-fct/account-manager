@@ -38,19 +38,15 @@
   align-items: start;
 }
 
-.state-card {
+.state-panel {
+  display: flex;
+  gap: 18px;
+  align-items: center;
   max-width: 720px;
   margin: 48px auto 0;
-  border: 1px solid var(--mat-sys-outline-variant);
+  padding: 24px;
+  border-radius: 8px;
   background: var(--mat-sys-surface-container-low);
-  box-shadow: none;
-
-  mat-card-content {
-    display: flex;
-    gap: 18px;
-    align-items: center;
-    padding: 24px;
-  }
 
   mat-icon {
     flex: 0 0 auto;
@@ -72,8 +68,13 @@
   }
 }
 
-.denied-card {
-  border-color: var(--mat-sys-error);
+.denied-panel {
+  background: var(--mat-sys-error-container);
+
+  h2,
+  p {
+    color: var(--mat-sys-on-error-container);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -94,7 +95,7 @@
     font: var(--mat-sys-headline-medium);
   }
 
-  .state-card mat-card-content {
+  .state-panel {
     align-items: flex-start;
     padding: 16px;
   }

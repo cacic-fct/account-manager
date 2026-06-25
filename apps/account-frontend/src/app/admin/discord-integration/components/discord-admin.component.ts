@@ -1,12 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
-  signal,
   OnInit,
+  signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { DatePipe } from '@angular/common';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,25 +16,24 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDividerModule } from '@angular/material/divider';
 import {
   ApiService,
   ServerSetting,
 } from '../../../shared/services/api.service';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-admin',
   imports: [
-    CommonModule,
-    FormsModule,
+    DatePipe,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,
-    MatDividerModule,
   ],
   templateUrl: './discord-admin.component.html',
   styleUrl: './discord-admin.component.scss',
@@ -44,22 +44,29 @@ export class DiscordAdminComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private logger = inject(LoggerService);
 
+  private readonly inviteSettingKey = 'student_invite_link';
+
   isLoading = signal(false);
   settings = signal<ServerSetting[]>([]);
-  pendingChanges = signal<Record<string, string>>({});
-  savingStates = signal<Record<string, boolean>>({});
+  isSaving = signal(false);
+  inviteLinkControl = new FormControl('', { nonNullable: true });
 
-  // Known setting keys with display names and descriptions
-  private readonly settingDisplayNames: Record<string, string> = {
-    student_invite_link: 'Convite do servidor de Discord para estudantes',
-  };
+  private readonly inviteLinkValue = toSignal(
+    this.inviteLinkControl.valueChanges,
+    {
+      initialValue: this.inviteLinkControl.value,
+    },
+  );
 
-  private readonly settingDescriptions: Record<string, string> = {
-    student_invite_link: 'Convite do servidor de Discord para estudantes',
-  };
+  inviteSetting = computed(() =>
+    this.settings().find((setting) => setting.key === this.inviteSettingKey),
+  );
 
-  // Get all settings including predefined ones that may not exist in DB yet
-  allSettings = signal<ServerSetting[]>([]);
+  hasChanges = computed(() => {
+    const value = this.inviteLinkValue().trim();
+    const currentValue = this.inviteSetting()?.value ?? '';
+    return value.length > 0 && value !== currentValue;
+  });
 
   ngOnInit(): void {
     this.loadSettings();
@@ -69,15 +76,14 @@ export class DiscordAdminComponent implements OnInit {
     this.isLoading.set(true);
     this.apiService.getServerSettings().subscribe({
       next: (settings: ServerSetting[]) => {
-        this.settings.set(settings);
-        this.updateAllSettings(settings);
+        this.setSettings(settings);
         this.isLoading.set(false);
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error loading server settings', error);
         this.snackBar.open(
-          'Failed to load server settings. Please try again.',
-          'Close',
+          'Não foi possível carregar o convite do Discord.',
+          'Fechar',
           { duration: 5000 },
         );
         this.isLoading.set(false);
@@ -85,172 +91,70 @@ export class DiscordAdminComponent implements OnInit {
     });
   }
 
-  private updateAllSettings(existingSettings: ServerSetting[]): void {
-    const predefinedKeys = Object.keys(this.settingDisplayNames);
-    const combined: ServerSetting[] = [];
-
-    // Add existing settings
-    existingSettings.forEach((setting) => {
-      combined.push(setting);
-    });
-
-    // Add predefined settings that don't exist yet
-    predefinedKeys.forEach((key) => {
-      if (!existingSettings.find((s) => s.key === key)) {
-        combined.push({
-          id: `new-${key}`,
-          key: key,
-          value: '',
-          description: this.settingDescriptions[key] || '',
-          updatedAt: new Date(),
-        });
-      }
-    });
-
-    this.allSettings.set(combined);
-  }
-
   refreshSettings(): void {
     this.apiService.getServerSettingsFresh().subscribe({
       next: (settings: ServerSetting[]) => {
-        this.settings.set(settings);
-        this.updateAllSettings(settings);
-        this.pendingChanges.set({});
-        this.snackBar.open('Settings refreshed', 'Close', { duration: 3000 });
+        this.setSettings(settings);
+        this.snackBar.open('Convite atualizado.', 'Fechar', { duration: 3000 });
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error refreshing settings', error);
         this.snackBar.open(
-          'Failed to refresh settings. Please try again.',
-          'Close',
+          'Não foi possível atualizar o convite.',
+          'Fechar',
           { duration: 5000 },
         );
       },
     });
   }
 
-  updateSettingValue(key: string, event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const newValue = target.value;
-
-    this.pendingChanges.update((changes) => ({
-      ...changes,
-      [key]: newValue,
-    }));
-  }
-
-  hasChanges(key: string): boolean {
-    const pending = this.pendingChanges()[key];
-    // For new settings, any non-empty value is a change
-    const setting = this.allSettings().find((s) => s.key === key);
-    if (setting?.id.startsWith('new-')) {
-      return pending !== undefined && pending.trim() !== '';
-    }
-    // For existing settings, compare with current value
-    const current = setting?.value || '';
-    return pending !== undefined && pending !== current;
-  }
-
-  isSaving(key: string): boolean {
-    return this.savingStates()[key] || false;
-  }
-
-  saveSetting(key: string): void {
-    const newValue = this.pendingChanges()[key];
-    if (!newValue || !this.hasChanges(key)) {
+  saveInviteLink(): void {
+    const newValue = this.inviteLinkControl.value.trim();
+    if (!this.hasChanges() || this.isSaving()) {
       return;
     }
 
-    this.savingStates.update((states) => ({
-      ...states,
-      [key]: true,
-    }));
+    this.isSaving.set(true);
 
-    this.apiService.updateServerSetting(key, { value: newValue }).subscribe({
+    this.apiService
+      .updateServerSetting(this.inviteSettingKey, { value: newValue })
+      .subscribe({
       next: (updatedSetting: ServerSetting) => {
-        // Update the settings array
         this.settings.update((settings) => {
-          const existingIndex = settings.findIndex((s) => s.key === key);
+          const existingIndex = settings.findIndex(
+            (setting) => setting.key === this.inviteSettingKey,
+          );
           if (existingIndex >= 0) {
-            // Update existing setting
-            return settings.map((s) => (s.key === key ? updatedSetting : s));
-          } else {
-            // Add new setting
-            return [...settings, updatedSetting];
+            return settings.map((setting) =>
+              setting.key === this.inviteSettingKey ? updatedSetting : setting,
+            );
           }
+          return [...settings, updatedSetting];
         });
 
-        // Refresh allSettings to update UI
-        this.updateAllSettings(this.settings());
-
-        // Clear pending changes for this key
-        this.pendingChanges.update((changes) => {
-          const newChanges = { ...changes };
-          delete newChanges[key];
-          return newChanges;
-        });
-
-        this.savingStates.update((states) => ({
-          ...states,
-          [key]: false,
-        }));
-
-        const isNewSetting = this.allSettings()
-          .find((s) => s.key === key)
-          ?.id.startsWith('new-');
-        const action = isNewSetting ? 'created' : 'updated';
-
-        this.snackBar.open(
-          `${this.getSettingDisplayName(key)} ${action} successfully`,
-          'Close',
-          { duration: 3000 },
-        );
+        this.inviteLinkControl.setValue(updatedSetting.value ?? '');
+        this.isSaving.set(false);
+        this.snackBar.open('Convite salvo.', 'Fechar', { duration: 3000 });
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error saving setting', error);
-        this.snackBar.open(
-          `Failed to update ${this.getSettingDisplayName(key)}. Please try again.`,
-          'Close',
-          { duration: 5000 },
-        );
-
-        this.savingStates.update((states) => ({
-          ...states,
-          [key]: false,
-        }));
+        this.snackBar.open('Não foi possível salvar o convite.', 'Fechar', {
+          duration: 5000,
+        });
+        this.isSaving.set(false);
       },
     });
   }
 
-  resetSetting(key: string): void {
-    this.pendingChanges.update((changes) => {
-      const newChanges = { ...changes };
-      delete newChanges[key];
-      return newChanges;
-    });
-
-    // Reset the input value to current setting value
-    const currentValue =
-      this.allSettings().find((s) => s.key === key)?.value || '';
-
-    // Find and update the input field by looking for the specific input in the setting
-    setTimeout(() => {
-      const settingElement = document.querySelector(
-        `[data-setting-key="${key}"]`,
-      );
-      if (settingElement) {
-        const input = settingElement.querySelector('input') as HTMLInputElement;
-        if (input) {
-          input.value = currentValue;
-        }
-      }
-    });
+  resetInviteLink(): void {
+    this.inviteLinkControl.setValue(this.inviteSetting()?.value ?? '');
   }
 
-  getSettingDisplayName(key: string): string {
-    return (
-      this.settingDisplayNames[key] ||
-      key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+  private setSettings(settings: ServerSetting[]): void {
+    this.settings.set(settings);
+    this.inviteLinkControl.setValue(
+      settings.find((setting) => setting.key === this.inviteSettingKey)
+        ?.value ?? '',
     );
   }
 }
