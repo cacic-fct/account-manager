@@ -140,7 +140,9 @@ export class AuthService {
 
   public login(targetUrl?: string): void {
     this.clearSilentLoginAttempt();
-    window.location.href = this.apiService.getLoginUrl(targetUrl);
+    window.location.href = this.apiService.getLoginUrl(
+      this.resolveApplicationReturnPath(targetUrl),
+    );
   }
 
   private trySilentLogin(): boolean {
@@ -158,7 +160,9 @@ export class AuthService {
 
     sessionStorage.setItem(this.silentLoginAttemptKey, 'true');
     window.location.href = this.apiService.getSilentLoginUrl(
-      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      this.resolveApplicationReturnPath(
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      ),
     );
     return true;
   }
@@ -210,14 +214,48 @@ export class AuthService {
   }
 
   private getApplicationRootUrl(): string {
+    return new URL(this.getApplicationBasePath(), window.location.origin)
+      .toString();
+  }
+
+  private getApplicationBasePath(): string {
     const baseHref =
       this.document.querySelector('base')?.getAttribute('href') ?? '/';
     const basePath = new URL(baseHref, window.location.origin).pathname;
-    const normalizedBasePath = basePath.endsWith('/')
-      ? basePath
-      : `${basePath}/`;
 
-    return new URL(normalizedBasePath, window.location.origin).toString();
+    return basePath.endsWith('/') ? basePath : `${basePath}/`;
+  }
+
+  private resolveApplicationReturnPath(targetUrl?: string): string | undefined {
+    if (!this.isBrowser || !targetUrl) {
+      return targetUrl;
+    }
+
+    const candidate = targetUrl.trim();
+    if (!candidate) {
+      return undefined;
+    }
+
+    if (candidate.startsWith('//') || /^[a-z][a-z\d+.-]*:/i.test(candidate)) {
+      return candidate;
+    }
+
+    if (!candidate.startsWith('/')) {
+      return candidate;
+    }
+
+    const basePath = this.getApplicationBasePath();
+    const baseRoot = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+
+    if (
+      basePath === '/' ||
+      candidate === baseRoot ||
+      candidate.startsWith(basePath)
+    ) {
+      return candidate;
+    }
+
+    return `${basePath}${candidate.replace(/^\/+/, '')}`;
   }
 
   public clearLocalSession(): void {

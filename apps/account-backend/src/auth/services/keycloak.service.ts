@@ -66,6 +66,7 @@ export class KeycloakService {
   private readonly realm = process.env.KEYCLOAK_REALM || 'cacic-sso';
   private readonly clientId =
     process.env.KEYCLOAK_CLIENT_ID || 'cacic-account-manager';
+  private readonly clientSecret = process.env.KEYCLOAK_CLIENT_SECRET;
   private readonly logger = new Logger(KeycloakService.name);
   private readonly clientUuidCache = new Map<string, string>();
 
@@ -144,12 +145,12 @@ export class KeycloakService {
   }> {
     const tokenUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/token`;
 
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: this.clientId,
-      code,
-      redirect_uri: redirectUri,
-    });
+    const body = new URLSearchParams();
+    body.set('grant_type', 'authorization_code');
+    body.set('client_id', this.clientId);
+    body.set('code', code);
+    body.set('redirect_uri', redirectUri);
+    this.appendClientSecret(body);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -160,6 +161,10 @@ export class KeycloakService {
     });
 
     if (!response.ok) {
+      this.logger.warn('Failed to exchange code for tokens', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       throw new Error('Failed to exchange code for tokens');
     }
 
@@ -205,11 +210,11 @@ export class KeycloakService {
   }> {
     const tokenUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/token`;
 
-    const body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: this.clientId,
-      refresh_token: refreshToken,
-    });
+    const body = new URLSearchParams();
+    body.set('grant_type', 'refresh_token');
+    body.set('client_id', this.clientId);
+    body.set('refresh_token', refreshToken);
+    this.appendClientSecret(body);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -232,10 +237,10 @@ export class KeycloakService {
   async logout(refreshToken: string): Promise<void> {
     const logoutUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/logout`;
 
-    const body = new URLSearchParams({
-      client_id: this.clientId,
-      refresh_token: refreshToken,
-    });
+    const body = new URLSearchParams();
+    body.set('client_id', this.clientId);
+    body.set('refresh_token', refreshToken);
+    this.appendClientSecret(body);
 
     const response = await fetch(logoutUrl, {
       method: 'POST',
@@ -247,6 +252,12 @@ export class KeycloakService {
 
     if (!response.ok) {
       throw new Error('Failed to logout from Keycloak');
+    }
+  }
+
+  private appendClientSecret(body: URLSearchParams): void {
+    if (this.clientSecret) {
+      body.set('client_secret', this.clientSecret);
     }
   }
 

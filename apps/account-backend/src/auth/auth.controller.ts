@@ -118,7 +118,7 @@ export class AuthController {
       }
 
       try {
-        return new URL(candidate, this.appConfig.frontendUrl).toString();
+        return this.resolveFrontendPath(candidate);
       } catch {
         return null;
       }
@@ -144,6 +144,28 @@ export class AuthController {
     } catch {
       return null;
     }
+  }
+
+  private resolveFrontendPath(path: string): string {
+    const frontendUrl = new URL(this.appConfig.frontendUrl);
+    const basePath = frontendUrl.pathname.endsWith('/')
+      ? frontendUrl.pathname
+      : `${frontendUrl.pathname}/`;
+    const baseRoot = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+
+    if (basePath !== '/' && path !== baseRoot && !path.startsWith(basePath)) {
+      const pathWithoutLeadingSlash = path.replace(/^\/+/, '');
+      return new URL(
+        `${basePath}${pathWithoutLeadingSlash}`,
+        frontendUrl.origin,
+      ).toString();
+    }
+
+    if (basePath !== '/' && path === baseRoot) {
+      return new URL(basePath, frontendUrl.origin).toString();
+    }
+
+    return new URL(path, frontendUrl.origin).toString();
   }
 
   private resolveSafePostLogoutRedirectUri(

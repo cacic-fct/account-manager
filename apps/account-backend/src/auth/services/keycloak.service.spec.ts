@@ -114,4 +114,49 @@ describe('KeycloakService client roles', () => {
       ]),
     });
   });
+
+  it('includes the client secret when exchanging an authorization code for tokens', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        id_token: 'id-token',
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+
+    await service.exchangeCodeForTokens(
+      'authorization-code',
+      'https://account.example.test/api/auth/callback',
+    );
+
+    const tokenRequest = fetchMock.mock.calls[0];
+    expect(tokenRequest?.[0]).toBe(
+      'https://sso.example.test/realms/cacic/protocol/openid-connect/token',
+    );
+
+    const requestInit = tokenRequest?.[1];
+    expect(requestInit?.method).toBe('POST');
+
+    const requestBody = requestInit?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected token request body to be a string.');
+    }
+
+    const requestParams = new URLSearchParams(requestBody);
+    expect(requestParams.get('grant_type')).toBe('authorization_code');
+    expect(requestParams.get('client_id')).toBe('cacic-account-manager');
+    expect(requestParams.get('code')).toBe('authorization-code');
+    expect(requestParams.get('redirect_uri')).toBe(
+      'https://account.example.test/api/auth/callback',
+    );
+    expect(requestParams.get('client_secret')).toBe('account-client-secret');
+  });
 });
