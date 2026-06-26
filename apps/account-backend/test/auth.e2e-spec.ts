@@ -20,9 +20,18 @@ import {
 describe('Authentication (fast e2e)', () => {
   let app: INestApplication<App>;
   let keycloakService: {
-    getAuthUrl: jest.Mock;
-    exchangePasswordForTokens: jest.Mock;
-    getUserInfo: jest.Mock;
+    getAuthUrl: jest.Mock<
+      ReturnType<KeycloakService['getAuthUrl']>,
+      Parameters<KeycloakService['getAuthUrl']>
+    >;
+    exchangePasswordForTokens: jest.Mock<
+      ReturnType<KeycloakService['exchangePasswordForTokens']>,
+      Parameters<KeycloakService['exchangePasswordForTokens']>
+    >;
+    getUserInfo: jest.Mock<
+      ReturnType<KeycloakService['getUserInfo']>,
+      Parameters<KeycloakService['getUserInfo']>
+    >;
   };
 
   beforeAll(async () => {
@@ -39,33 +48,43 @@ describe('Authentication (fast e2e)', () => {
         }
         return url.toString();
       }),
-      exchangePasswordForTokens: jest.fn(async (email: string) => {
+      exchangePasswordForTokens: jest.fn<
+        ReturnType<KeycloakService['exchangePasswordForTokens']>,
+        Parameters<KeycloakService['exchangePasswordForTokens']>
+      >((email) => {
         if (email === 'bad@unesp.br') {
-          throw new Error('invalid_grant');
+          return Promise.reject(new Error('invalid_grant'));
         }
 
-        return {
+        return Promise.resolve({
           access_token: `access-token:${email}`,
           refresh_token: `refresh-token:${email}`,
           id_token: `id-token:${email}`,
           refresh_expires_in: 3600,
-        };
+        });
       }),
-      getUserInfo: jest.fn(async (token: string) => {
+      getUserInfo: jest.fn<
+        ReturnType<KeycloakService['getUserInfo']>,
+        Parameters<KeycloakService['getUserInfo']>
+      >((token) => {
         const email = token.replace('access-token:', '');
         if (email === 'externo@gmail.com') {
-          return createKeycloakUser({
-            sub: '44444444-4444-4444-4444-444444444444',
-            email,
-            name: 'Usuario Externo',
-          });
+          return Promise.resolve(
+            createKeycloakUser({
+              sub: '44444444-4444-4444-4444-444444444444',
+              email,
+              name: 'Usuario Externo',
+            }),
+          );
         }
 
-        return createKeycloakUser({
-          sub: '22222222-2222-2222-2222-222222222222',
-          email: 'aluno@unesp.br',
-          name: 'Aluno Unesp',
-        });
+        return Promise.resolve(
+          createKeycloakUser({
+            sub: '22222222-2222-2222-2222-222222222222',
+            email: 'aluno@unesp.br',
+            name: 'Aluno Unesp',
+          }),
+        );
       }),
     };
 

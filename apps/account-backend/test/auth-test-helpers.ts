@@ -75,8 +75,10 @@ export function createUserServiceFake(): Pick<
   ]);
 
   return {
-    findByKeycloakId: jest.fn(async (id: string) => profiles.get(id) ?? null),
-    createFromKeycloak: jest.fn(async (user: KeycloakUser) => {
+    findByKeycloakId: jest.fn((id: string) =>
+      Promise.resolve(profiles.get(id) ?? null),
+    ),
+    createFromKeycloak: jest.fn((user: KeycloakUser) => {
       const profile = createProfile({
         id: user.sub,
         email: user.email,
@@ -84,9 +86,9 @@ export function createUserServiceFake(): Pick<
         isOnboarded: false,
       });
       profiles.set(user.sub, profile);
-      return profile;
+      return Promise.resolve(profile);
     }),
-    updateFromKeycloakOAuth: jest.fn(async (user: KeycloakUser) => {
+    updateFromKeycloakOAuth: jest.fn((user: KeycloakUser) => {
       const profile =
         profiles.get(user.sub) ??
         createProfile({
@@ -96,17 +98,19 @@ export function createUserServiceFake(): Pick<
           isOnboarded: false,
         });
       profiles.set(user.sub, profile);
-      return profile;
+      return Promise.resolve(profile);
     }),
-    checkOnboardingStatus: jest.fn(async (id: string) => {
+    checkOnboardingStatus: jest.fn((id: string) => {
       const profile = profiles.get(id);
 
-      return profile?.isOnboarded
-        ? { needsOnboarding: false, missingFields: [] }
-        : {
-            needsOnboarding: true,
-            missingFields: ['phone', 'identity-document'],
-          };
+      return Promise.resolve(
+        profile?.isOnboarded
+          ? { needsOnboarding: false, missingFields: [] }
+          : {
+              needsOnboarding: true,
+              missingFields: ['phone', 'identity-document'],
+            },
+      );
     }),
   };
 }
