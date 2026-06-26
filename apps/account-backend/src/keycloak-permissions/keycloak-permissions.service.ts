@@ -40,75 +40,16 @@ import {
   KEYCLOAK_PERMISSIONS_QUEUE,
   SyncPermissionGrantsJob,
 } from './keycloak-permissions.queue';
-
-const SYNC_ACTOR_ID = 'system:keycloak-permissions-sync';
-const ASSIGNABLE_KEYCLOAK_PERMISSIONS = KEYCLOAK_PERMISSION_CATALOG.map(
-  (definition) => definition.permission,
-);
-
-const GRANT_SELECT = {
-  id: true,
-  userId: true,
-  userEmail: true,
-  userDisplayName: true,
-  studentEntityMembershipId: true,
-  permission: true,
-  validFrom: true,
-  validUntil: true,
-  createdAt: true,
-  createdById: true,
-  updatedAt: true,
-  updatedById: true,
-  deletedAt: true,
-  lastSyncedAt: true,
-  lastSyncError: true,
-} satisfies Prisma.KeycloakPermissionGrantSelect;
-
-type GrantRecord = Prisma.KeycloakPermissionGrantGetPayload<{
-  select: typeof GRANT_SELECT;
-}>;
-
-const MEMBERSHIP_SELECT = {
-  id: true,
-  entity: true,
-  keycloakGroupPath: true,
-  userId: true,
-  userEmail: true,
-  userDisplayName: true,
-  mandateStart: true,
-  mandateEnd: true,
-  createdAt: true,
-  createdById: true,
-  updatedAt: true,
-  updatedById: true,
-  deletedAt: true,
-  lastSyncedAt: true,
-  lastSyncError: true,
-  permissionGrants: {
-    where: {
-      deletedAt: null,
-      permission: {
-        in: ASSIGNABLE_KEYCLOAK_PERMISSIONS,
-      },
-    },
-    select: GRANT_SELECT,
-    orderBy: [{ permission: 'asc' }, { createdAt: 'asc' }],
-  },
-} satisfies Prisma.StudentEntityMembershipSelect;
-
-type MembershipRecord = Prisma.StudentEntityMembershipGetPayload<{
-  select: typeof MEMBERSHIP_SELECT;
-}>;
-
-type NormalizedValidityWindow = {
-  validFrom: Date | null;
-  validUntil: Date | null;
-};
-
-type NormalizedMandateWindow = {
-  mandateStart: Date;
-  mandateEnd: Date;
-};
+import {
+  ASSIGNABLE_KEYCLOAK_PERMISSIONS,
+  GRANT_SELECT,
+  MEMBERSHIP_SELECT,
+  SYNC_ACTOR_ID,
+  type GrantRecord,
+  type MembershipRecord,
+  type NormalizedMandateWindow,
+  type NormalizedValidityWindow,
+} from './keycloak-permissions.records';
 
 @Injectable()
 export class KeycloakPermissionsService implements OnApplicationBootstrap {

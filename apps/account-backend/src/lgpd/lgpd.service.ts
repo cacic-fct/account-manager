@@ -46,18 +46,11 @@ import { S3Service } from '../common/services/s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import archiver from 'archiver';
 import { PassThrough, Readable } from 'stream';
-
-type AccountDeletionFailure = {
-  service: string;
-  operation: string;
-  message: string;
-};
-
-const LGPD_ACTIVE_REQUEST_EXPIRATION_DAYS = 7;
-const LGPD_ACTIVE_REQUEST_EXPIRATION_MS =
-  LGPD_ACTIVE_REQUEST_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
-const LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE =
-  'Solicitação expirada automaticamente após 7 dias sem conclusão. Faça uma nova solicitação para gerar seus dados.';
+import {
+  LGPD_ACTIVE_REQUEST_EXPIRATION_MS,
+  LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE,
+  type AccountDeletionFailure,
+} from './lgpd.constants';
 
 @Injectable()
 export class LgpdService {
