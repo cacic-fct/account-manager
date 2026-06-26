@@ -113,7 +113,7 @@ export class LgpdService {
       await this.lgpdQueue.add(
         LGPD_JOBS.PROCESS_DATA_REQUEST,
         { requestId: saved.id },
-        { jobId: `lgpd-data:${saved.id}` },
+        { jobId: `lgpd-data-${saved.id}` },
       );
     } catch (error) {
       this.logger.error(
@@ -627,7 +627,7 @@ export class LgpdService {
       const softDeleteJob = await this.lgpdQueue.add(
         LGPD_JOBS.SOFT_DELETE_ACCOUNT,
         { requestId: saved.id },
-        { jobId: `lgpd-soft-delete:${saved.id}` },
+        { jobId: `lgpd-soft-delete-${saved.id}` },
       );
 
       try {
@@ -636,7 +636,7 @@ export class LgpdService {
           { requestId: saved.id },
           {
             delay: scheduledHardDeleteAt.getTime() - Date.now(),
-            jobId: `lgpd-hard-delete:${saved.id}`,
+            jobId: `lgpd-hard-delete-${saved.id}`,
           },
         );
       } catch (error) {
@@ -1118,7 +1118,7 @@ export class LgpdService {
       await this.lgpdQueue.add(
         LGPD_JOBS.HARD_DELETE_ACCOUNT,
         { requestId },
-        { jobId: `lgpd-hard-delete-now:${requestId}:${Date.now()}` },
+        { jobId: `lgpd-hard-delete-now-${requestId}-${Date.now()}` },
       );
     } catch (error) {
       this.logger.error(

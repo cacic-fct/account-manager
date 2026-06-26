@@ -188,7 +188,7 @@ export class AccountLinkingService {
     await this.accountMergeQueue.add(
       ACCOUNT_MERGE_JOBS.SCORE_AND_MERGE,
       { mergeRequestId: requestId },
-      { jobId: `score:${requestId}`, removeOnComplete: true },
+      { jobId: `score-${requestId}`, removeOnComplete: true },
     );
 
     return {
@@ -316,7 +316,7 @@ export class AccountLinkingService {
                 ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
                 { notificationId: notification.id },
                 {
-                  jobId: `notify:${notification.id}:0`,
+                  jobId: `notify-${notification.id}-0`,
                   removeOnComplete: true,
                 },
               );
@@ -468,7 +468,7 @@ export class AccountLinkingService {
         { notificationId: notification.id },
         {
           delay,
-          jobId: `notify:${notification.id}:${attemptCount}`,
+          jobId: `notify-${notification.id}-${attemptCount}`,
           removeOnComplete: true,
         },
       );
