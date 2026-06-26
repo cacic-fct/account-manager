@@ -59,7 +59,10 @@ interface KeycloakErrorResponse {
   errors?: KeycloakValidationError[];
 }
 
-type KeycloakClientAuthMethod = 'client_secret_post' | 'none';
+type KeycloakClientAuthMethod =
+  | 'client_secret_basic'
+  | 'client_secret_post'
+  | 'none';
 
 interface KeycloakTokenError {
   error?: string;
@@ -169,17 +172,18 @@ export class KeycloakService {
   }
 
   private resolveClientAuthMethod(): KeycloakClientAuthMethod {
-    const configuredMethod = this.readOptionalEnv(
-      'KEYCLOAK_CLIENT_AUTH_METHOD',
-    );
+    const configuredMethod =
+      this.readOptionalEnv('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD') ??
+      this.readOptionalEnv('KEYCLOAK_CLIENT_AUTH_METHOD');
     if (!configuredMethod) {
       const hasClientSecret = !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET');
       return hasClientSecret || this.isProduction()
-        ? 'client_secret_post'
+        ? 'client_secret_basic'
         : 'none';
     }
 
     if (
+      configuredMethod === 'client_secret_basic' ||
       configuredMethod === 'client_secret_post' ||
       configuredMethod === 'none'
     ) {
@@ -187,7 +191,10 @@ export class KeycloakService {
     }
 
     throw new Error(
-      'KEYCLOAK_CLIENT_AUTH_METHOD must be either client_secret_post or none',
+      [
+        'KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD must be client_secret_basic,',
+        'client_secret_post, or none',
+      ].join(' '),
     );
   }
 
@@ -199,8 +206,8 @@ export class KeycloakService {
         this.logger.warn(
           [
             'KEYCLOAK_CLIENT_SECRET is configured but',
-            'KEYCLOAK_CLIENT_AUTH_METHOD=none; login token requests will not',
-            'send it',
+            'token endpoint auth method is none; login token requests will',
+            'not send it',
           ].join(' '),
         );
       }
@@ -216,8 +223,8 @@ export class KeycloakService {
       throw new Error(
         [
           'KEYCLOAK_CLIENT_SECRET must be configured in production for the',
-          'Keycloak login client. Set KEYCLOAK_CLIENT_AUTH_METHOD=none only',
-          'when KEYCLOAK_CLIENT_ID is a public client.',
+          'Keycloak login client. Set KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD=none',
+          'only when KEYCLOAK_CLIENT_ID is a public client.',
         ].join(' '),
       );
     }
@@ -276,7 +283,12 @@ export class KeycloakService {
   getAuthUrl(
     redirectUri: string,
     state?: string,
-    options?: { prompt?: 'none' | 'login'; maxAge?: number },
+    options?: {
+      prompt?: 'none' | 'login';
+      maxAge?: number;
+      codeChallenge?: string;
+      codeChallengeMethod?: 'S256';
+    },
   ): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -287,6 +299,10 @@ export class KeycloakService {
       ...(state && { state }),
       ...(options?.prompt && { prompt: options.prompt }),
       ...(options?.maxAge !== undefined && { max_age: String(options.maxAge) }),
+      ...(options?.codeChallenge && {
+        code_challenge: options.codeChallenge,
+        code_challenge_method: options.codeChallengeMethod ?? 'S256',
+      }),
     });
 
     return `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/auth?${params.toString()}`;
@@ -308,6 +324,7 @@ export class KeycloakService {
   async exchangeCodeForTokens(
     code: string,
     redirectUri: string,
+    codeVerifier?: string,
   ): Promise<{
     access_token: string;
     refresh_token: string;
@@ -322,13 +339,15 @@ export class KeycloakService {
     body.set('client_id', this.clientId);
     body.set('code', code);
     body.set('redirect_uri', redirectUri);
-    this.appendClientSecret(body);
+    if (codeVerifier) {
+      body.set('code_verifier', codeVerifier);
+    }
+    const headers = this.createFormHeaders();
+    this.appendClientAuthentication(body, headers);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers,
       body: body.toString(),
     });
 
@@ -340,6 +359,7 @@ export class KeycloakService {
         clientId: this.clientId,
         clientAuthMethod: this.clientAuthMethod,
         redirectUri,
+        pkce: !!codeVerifier,
         error: details.error,
         errorDescription: details.errorDescription,
         rawBody: details.rawBody,
@@ -393,13 +413,12 @@ export class KeycloakService {
     body.set('grant_type', 'refresh_token');
     body.set('client_id', this.clientId);
     body.set('refresh_token', refreshToken);
-    this.appendClientSecret(body);
+    const headers = this.createFormHeaders();
+    this.appendClientAuthentication(body, headers);
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers,
       body: body.toString(),
     });
 
@@ -419,13 +438,12 @@ export class KeycloakService {
     const body = new URLSearchParams();
     body.set('client_id', this.clientId);
     body.set('refresh_token', refreshToken);
-    this.appendClientSecret(body);
+    const headers = this.createFormHeaders();
+    this.appendClientAuthentication(body, headers);
 
     const response = await fetch(logoutUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers,
       body: body.toString(),
     });
 
@@ -434,19 +452,56 @@ export class KeycloakService {
     }
   }
 
-  private appendClientSecret(body: URLSearchParams): void {
-    if (this.clientAuthMethod === 'client_secret_post') {
-      if (!this.clientSecret) {
-        throw new Error(
-          [
-            'KEYCLOAK_CLIENT_SECRET must be configured for client_secret_post',
-            'authentication',
-          ].join(' '),
-        );
-      }
-
-      body.set('client_secret', this.clientSecret);
+  private appendClientAuthentication(
+    body: URLSearchParams,
+    headers: Record<string, string>,
+  ): void {
+    if (this.clientAuthMethod === 'none') {
+      return;
     }
+
+    const clientSecret = this.getLoginClientSecret();
+    if (this.clientAuthMethod === 'client_secret_post') {
+      body.set('client_secret', clientSecret);
+      return;
+    }
+
+    body.delete('client_id');
+    headers.Authorization = `Basic ${this.getClientSecretBasicCredentials(
+      clientSecret,
+    )}`;
+  }
+
+  private getLoginClientSecret(): string {
+    if (!this.clientSecret) {
+      throw new Error(
+        [
+          'KEYCLOAK_CLIENT_SECRET must be configured for',
+          `${this.clientAuthMethod} authentication`,
+        ].join(' '),
+      );
+    }
+
+    return this.clientSecret;
+  }
+
+  private getClientSecretBasicCredentials(clientSecret: string): string {
+    return Buffer.from(
+      `${this.formEncode(this.clientId)}:${this.formEncode(clientSecret)}`,
+      'utf8',
+    ).toString('base64');
+  }
+
+  private formEncode(value: string): string {
+    const params = new URLSearchParams();
+    params.set('value', value);
+    return params.toString().slice('value='.length);
+  }
+
+  private createFormHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
   }
 
   async getAdminToken(): Promise<string> {

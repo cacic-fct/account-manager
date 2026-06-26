@@ -46,6 +46,7 @@ import {
 } from './constants/admin-permissions';
 import { AccountPermissionService } from './services/account-permission.service';
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
+import { createPkceChallenge } from './pkce.utils';
 
 export interface AuthSession {
   user?: SessionUser;
@@ -56,10 +57,12 @@ export interface AuthSession {
     maxAge: number | null;
   };
   oauthState?: string;
+  oauthCodeVerifier?: string;
   redirectTo?: string;
   silentLogin?: boolean;
   accountLinkingState?: string;
   accountLinkingUserId?: string;
+  accountLinkingCodeVerifier?: string;
   save?: (callback: (err?: Error) => void) => void;
   destroy: (callback: (err?: Error) => void) => void;
 }
@@ -372,9 +375,11 @@ export class AuthController {
 
     // Generate cryptographically secure random state token for CSRF protection
     const state = randomBytes(32).toString('hex');
+    const pkce = createPkceChallenge();
 
     // Store state in session for validation in callback
     session.oauthState = state;
+    session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = prompt === 'none';
 
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
@@ -395,6 +400,7 @@ export class AuthController {
 
     const authUrl = this.keycloakService.getAuthUrl(redirectUri, state, {
       ...(prompt ? { prompt } : {}),
+      codeChallenge: pkce.challenge,
     });
     await this.redirectAfterSessionSave(session, response, authUrl);
   }
@@ -426,10 +432,12 @@ export class AuthController {
   ): Promise<void> {
     const redirectUri = this.authCallbackUrl();
     const state = randomBytes(32).toString('hex');
+    const pkce = createPkceChallenge();
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
     const safeReturnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
 
     session.oauthState = state;
+    session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = true;
 
     if (safeReturnUrl) {
@@ -447,6 +455,7 @@ export class AuthController {
 
     const authUrl = this.keycloakService.getAuthUrl(redirectUri, state, {
       prompt: 'none',
+      codeChallenge: pkce.challenge,
     });
     await this.redirectAfterSessionSave(session, res, authUrl);
   }
@@ -514,6 +523,7 @@ export class AuthController {
         const wasSilentLogin = !!session.silentLogin;
         const returnUrl = this.resolveSafeReturnUrl(session.redirectTo);
         delete session.oauthState;
+        delete session.oauthCodeVerifier;
         delete session.silentLogin;
         delete session.redirectTo;
 
@@ -571,13 +581,16 @@ export class AuthController {
       }
 
       // Clear the state from session after successful validation
+      const codeVerifier = session.oauthCodeVerifier;
       delete session.oauthState;
+      delete session.oauthCodeVerifier;
       delete session.silentLogin;
 
       const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(
         code,
         redirectUri,
+        codeVerifier,
       );
       const keycloakUser = await this.keycloakService.getUserInfo(
         tokens.access_token,
@@ -737,6 +750,7 @@ export class AuthController {
       }
     } catch (error) {
       delete session.redirectTo;
+      delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
       await this.redirectAfterSessionSave(

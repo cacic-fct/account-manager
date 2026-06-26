@@ -21,6 +21,7 @@ import { ConfigService } from '@nestjs/config';
 import { Auth } from '../guards/auth.decorator';
 import { CsrfGuard, SkipCsrf } from '../csrf/csrf.guard';
 import { AuthSession } from '../auth.controller';
+import { createPkceChallenge } from '../pkce.utils';
 import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
@@ -77,11 +78,11 @@ export class AccountLinkingController {
   })
   @SkipCsrf()
   @Get('google/resume')
-  resumeGoogleLinking(
+  async resumeGoogleLinking(
     @Query('state') state: string,
     @Session() session: AuthSession,
     @Res() res: Response,
-  ) {
+  ): Promise<void> {
     try {
       if (
         !state ||
@@ -95,16 +96,20 @@ export class AccountLinkingController {
       }
 
       const redirectUri = this.googleCallbackUrl();
+      const pkce = createPkceChallenge();
+      session.accountLinkingCodeVerifier = pkce.verifier;
       const url = this.keycloakService.getAuthUrl(redirectUri, state, {
         prompt: 'login',
         maxAge: 0,
+        codeChallenge: pkce.challenge,
       });
 
-      res.redirect(url);
+      await this.redirectAfterSessionSave(session, res, url);
     } catch (error) {
       this.logger.error('Google account-linking resume failed', error);
       delete session.accountLinkingState;
       delete session.accountLinkingUserId;
+      delete session.accountLinkingCodeVerifier;
       res.redirect(this.googleIntegrationUrl({ accountLink: 'failed' }));
     }
   }
@@ -134,8 +139,10 @@ export class AccountLinkingController {
       }
 
       const requesterUserId = session.accountLinkingUserId;
+      const codeVerifier = session.accountLinkingCodeVerifier;
       delete session.accountLinkingState;
       delete session.accountLinkingUserId;
+      delete session.accountLinkingCodeVerifier;
 
       if (!requesterUserId || !session.user) {
         throw new HttpException('Session expired', HttpStatus.UNAUTHORIZED);
@@ -150,6 +157,7 @@ export class AccountLinkingController {
       const tokens = await this.keycloakService.exchangeCodeForTokens(
         code,
         redirectUri,
+        codeVerifier,
       );
       const keycloakUser = await this.keycloakService.getUserInfo(
         tokens.access_token,
@@ -184,6 +192,7 @@ export class AccountLinkingController {
       this.logger.error('Google account-linking callback failed', error);
       delete session.accountLinkingState;
       delete session.accountLinkingUserId;
+      delete session.accountLinkingCodeVerifier;
       res.redirect(this.googleIntegrationUrl({ accountLink: 'failed' }));
     }
   }
@@ -282,6 +291,33 @@ export class AccountLinkingController {
 
   private googleCallbackUrl(): string {
     return `${this.appConfig.apiBaseUrl}/auth/account-linking/google/callback`;
+  }
+
+  private saveSession(session: AuthSession): Promise<void> {
+    const saveSessionCallback = session.save;
+    if (!saveSessionCallback) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      saveSessionCallback.call(session, (error?: Error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+
+  private async redirectAfterSessionSave(
+    session: AuthSession,
+    response: Response,
+    redirectUrl: string,
+  ): Promise<void> {
+    await this.saveSession(session);
+    response.redirect(redirectUrl);
   }
 
   private async switchSessionToUser(

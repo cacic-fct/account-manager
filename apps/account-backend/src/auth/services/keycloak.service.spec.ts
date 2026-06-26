@@ -24,6 +24,7 @@ describe('KeycloakService client roles', () => {
       KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
       KEYCLOAK_CLIENT_SECRET: undefined,
       KEYCLOAK_CLIENT_AUTH_METHOD: undefined,
+      KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD: undefined,
       KEYCLOAK_ADMIN_CLIENT_ID: 'admin-cli',
       KEYCLOAK_ADMIN_CLIENT_SECRET: 'secret',
     };
@@ -118,7 +119,7 @@ describe('KeycloakService client roles', () => {
     });
   });
 
-  it('includes the client secret when exchanging an authorization code for tokens', async () => {
+  it('uses client_secret_basic by default for confidential login clients', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
     const fetchMock: FetchMock = jest.fn<
       Promise<Response>,
@@ -155,12 +156,103 @@ describe('KeycloakService client roles', () => {
 
     const requestParams = new URLSearchParams(requestBody);
     expect(requestParams.get('grant_type')).toBe('authorization_code');
+    expect(requestParams.has('client_id')).toBe(false);
+    expect(requestParams.has('client_secret')).toBe(false);
+    expect(requestParams.get('code')).toBe('authorization-code');
+    expect(requestParams.get('redirect_uri')).toBe(
+      'https://account.example.test/api/auth/callback',
+    );
+
+    const headers = requestInit?.headers as Record<string, string>;
+    const authorization = headers['Authorization'];
+    expect(authorization).toMatch(/^Basic /);
+    expect(
+      Buffer.from(authorization.slice('Basic '.length), 'base64').toString(
+        'utf8',
+      ),
+    ).toBe('cacic-account-manager:account-client-secret');
+  });
+
+  it('includes the client secret in the form when client_secret_post is configured', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
+    process.env.KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD = 'client_secret_post';
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        id_token: 'id-token',
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+
+    await service.exchangeCodeForTokens(
+      'authorization-code',
+      'https://account.example.test/api/auth/callback',
+    );
+
+    const tokenRequest = fetchMock.mock.calls[0];
+    const requestBody = tokenRequest?.[1]?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected token request body to be a string.');
+    }
+
+    const requestParams = new URLSearchParams(requestBody);
     expect(requestParams.get('client_id')).toBe('cacic-account-manager');
     expect(requestParams.get('code')).toBe('authorization-code');
     expect(requestParams.get('redirect_uri')).toBe(
       'https://account.example.test/api/auth/callback',
     );
     expect(requestParams.get('client_secret')).toBe('account-client-secret');
+  });
+
+  it('adds PKCE parameters to authorization and token requests', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        id_token: 'id-token',
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+    const authUrl = new URL(
+      service.getAuthUrl(
+        'https://account.example.test/api/auth/callback',
+        'state-1',
+        {
+          codeChallenge: 'challenge-1',
+        },
+      ),
+    );
+
+    expect(authUrl.searchParams.get('code_challenge')).toBe('challenge-1');
+    expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
+
+    await service.exchangeCodeForTokens(
+      'authorization-code',
+      'https://account.example.test/api/auth/callback',
+      'verifier-1',
+    );
+
+    const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected token request body to be a string.');
+    }
+
+    const requestParams = new URLSearchParams(requestBody);
+    expect(requestParams.get('code_verifier')).toBe('verifier-1');
   });
 
   it('requires the login client secret in production by default', () => {

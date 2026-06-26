@@ -17,7 +17,10 @@ import { AccountLinkingService } from './account-linking.service';
 type KeycloakServiceMock = {
   getUserBasicInfo: jest.Mock;
   getEndSessionUrl: jest.Mock;
-  getAuthUrl: jest.Mock;
+  getAuthUrl: jest.Mock<
+    ReturnType<KeycloakService['getAuthUrl']>,
+    Parameters<KeycloakService['getAuthUrl']>
+  >;
   exchangeCodeForTokens: jest.Mock;
   getUserInfo: jest.Mock;
 };
@@ -93,7 +96,10 @@ describe('AccountLinkingController', () => {
     keycloakService = {
       getUserBasicInfo: jest.fn(),
       getEndSessionUrl: jest.fn(),
-      getAuthUrl: jest.fn(),
+      getAuthUrl: jest.fn<
+        ReturnType<KeycloakService['getAuthUrl']>,
+        Parameters<KeycloakService['getAuthUrl']>
+      >(),
       exchangeCodeForTokens: jest.fn(),
       getUserInfo: jest.fn(),
     };
@@ -224,30 +230,39 @@ describe('AccountLinkingController', () => {
     expect(result).toEqual({ url: 'https://sso/logout' });
   });
 
-  it('resumes Google linking when the account-linking state matches', () => {
+  it('resumes Google linking with PKCE when the account-linking state matches', async () => {
     keycloakService.getAuthUrl.mockReturnValue('https://sso/auth');
     session.accountLinkingState = 'state-1';
     const { res, redirect } = createRedirectResponse();
 
-    controller.resumeGoogleLinking('state-1', session, res);
+    await controller.resumeGoogleLinking('state-1', session, res);
 
-    expect(keycloakService.getAuthUrl).toHaveBeenCalledWith(
+    const getAuthUrlCall = keycloakService.getAuthUrl.mock.calls[0];
+    expect(getAuthUrlCall?.[0]).toBe(
       'http://localhost:3000/api/auth/account-linking/google/callback',
-      'state-1',
-      { prompt: 'login', maxAge: 0 },
     );
+    expect(getAuthUrlCall?.[1]).toBe('state-1');
+    const getAuthUrlOptions = getAuthUrlCall?.[2];
+    expect(getAuthUrlOptions).toMatchObject({
+      prompt: 'login',
+      maxAge: 0,
+    });
+    expect(getAuthUrlOptions?.codeChallenge).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(session.accountLinkingCodeVerifier).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(redirect).toHaveBeenCalledWith('https://sso/auth');
   });
 
-  it('clears account-linking state and redirects to failure when resume state is invalid', () => {
+  it('clears account-linking state and redirects to failure when resume state is invalid', async () => {
     session.accountLinkingState = 'state-1';
     session.accountLinkingUserId = 'secondary-user';
+    session.accountLinkingCodeVerifier = 'verifier-1';
     const { res, redirect } = createRedirectResponse();
 
-    controller.resumeGoogleLinking('bad-state', session, res);
+    await controller.resumeGoogleLinking('bad-state', session, res);
 
     expect(session.accountLinkingState).toBeUndefined();
     expect(session.accountLinkingUserId).toBeUndefined();
+    expect(session.accountLinkingCodeVerifier).toBeUndefined();
     expect(redirect).toHaveBeenCalledWith(
       'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
     );
@@ -256,6 +271,7 @@ describe('AccountLinkingController', () => {
   it('creates a merge request for a newly authenticated different Google account', async () => {
     session.accountLinkingState = 'state-1';
     session.accountLinkingUserId = 'secondary-user';
+    session.accountLinkingCodeVerifier = 'verifier-1';
     keycloakService.exchangeCodeForTokens.mockResolvedValue({
       access_token: 'access-token',
     });
@@ -277,6 +293,11 @@ describe('AccountLinkingController', () => {
 
     await controller.googleCallback('code-1', 'state-1', '', session, res);
 
+    expect(keycloakService.exchangeCodeForTokens).toHaveBeenCalledWith(
+      'code-1',
+      'http://localhost:3000/api/auth/account-linking/google/callback',
+      'verifier-1',
+    );
     expect(accountLinkingService.createMergeRequest).toHaveBeenCalledWith(
       'secondary-user',
       'candidate-user',
@@ -322,11 +343,13 @@ describe('AccountLinkingController', () => {
     const { res, redirect } = createRedirectResponse();
     session.accountLinkingState = 'state-1';
     session.accountLinkingUserId = 'secondary-user';
+    session.accountLinkingCodeVerifier = 'verifier-1';
 
     await controller.googleCallback('code-1', 'bad-state', '', session, res);
 
     expect(session.accountLinkingState).toBeUndefined();
     expect(session.accountLinkingUserId).toBeUndefined();
+    expect(session.accountLinkingCodeVerifier).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(
       'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
