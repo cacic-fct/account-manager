@@ -8,6 +8,7 @@ import {
   Session,
   HttpException,
   HttpStatus,
+  HttpCode,
   UseGuards,
   Logger,
 } from '@nestjs/common';
@@ -30,12 +31,14 @@ import {
   UserProfileDto,
   AuthStatusDto,
   OnboardingStatusDto,
+  PasswordLoginDto,
+  PasswordLoginResponseDto,
   UnespRoleRequiredDto,
   UserApplicationDto,
   LogoutRequestDto,
   LogoutResponseDto,
 } from './dto/user-profile.dto';
-import { SessionUser } from './interfaces/auth.interface';
+import { KeycloakUser, SessionUser } from './interfaces/auth.interface';
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { CsrfGuard, SkipCsrf } from './csrf/csrf.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
@@ -284,6 +287,118 @@ export class AuthController {
     response.redirect(redirectUrl);
   }
 
+  private async createSessionFromKeycloakUser(
+    session: AuthSession,
+    tokens: Awaited<ReturnType<KeycloakService['exchangeCodeForTokens']>>,
+    keycloakUser: KeycloakUser,
+    context: string,
+  ): Promise<SessionUser> {
+    this.logger.debug(`${context} - Keycloak user data`, {
+      sub: keycloakUser.sub,
+      email: keycloakUser.email,
+      name: keycloakUser.name,
+      picture: keycloakUser.picture,
+      hasPicture: !!keycloakUser.picture,
+    });
+
+    let user = await this.userService.findByKeycloakId(keycloakUser.sub);
+    if (!user) {
+      user = await this.userService.createFromKeycloak(keycloakUser);
+    } else {
+      user = await this.userService.updateFromKeycloakOAuth(keycloakUser);
+    }
+
+    user = await this.userService.findByKeycloakId(keycloakUser.sub);
+
+    if (!user) {
+      throw new HttpException(
+        'Failed to create or find user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    let isOnboarded = user.isOnboarded;
+
+    try {
+      const onboardingStatus = await this.userService.checkOnboardingStatus(
+        user.keycloakId,
+      );
+
+      isOnboarded = user.isOnboarded && !onboardingStatus.needsOnboarding;
+      this.logger.debug(`${context} - user onboarding status`, {
+        userId: user.keycloakId,
+        userIsOnboarded: user.isOnboarded,
+        onboardingStatusNeedsOnboarding: onboardingStatus.needsOnboarding,
+        finalIsOnboarded: isOnboarded,
+      });
+    } catch (error) {
+      if (error instanceof KeycloakConnectionException) {
+        this.logger.error(
+          `${context} - Keycloak connection error during onboarding check`,
+          error,
+        );
+        isOnboarded = false;
+      } else {
+        this.logger.error(
+          `${context} - error checking onboarding status`,
+          error,
+        );
+      }
+    }
+
+    session.user = {
+      id: user.id,
+      email: user.email,
+      keycloakId: user.keycloakId,
+      isOnboarded,
+    };
+    session.accessToken = tokens.access_token;
+    session.refreshToken = tokens.refresh_token;
+    session.idToken = tokens.id_token;
+    this.applyKeycloakSessionLifetime(session, tokens);
+
+    return session.user;
+  }
+
+  private isPasswordLoginEnabled(): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
+
+    const configured =
+      this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ENABLED') ??
+      process.env.KEYCLOAK_PASSWORD_LOGIN_ENABLED;
+
+    if (configured !== undefined) {
+      const normalized = configured.trim().toLowerCase();
+
+      if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+        return true;
+      }
+
+      if (['0', 'false', 'no', 'off'].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  private resolvePostLoginRedirectUrl(
+    isOnboarded: boolean,
+    requestedReturnUrl?: string,
+  ): string {
+    const returnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
+
+    if (isOnboarded && returnUrl) {
+      return returnUrl;
+    }
+
+    return isOnboarded
+      ? `${this.appConfig.frontendUrl}applications`
+      : `${this.appConfig.frontendUrl}onboarding`;
+  }
+
   @ApiOperation({
     summary: 'Initiate OAuth login',
     description: 'Redirects to Keycloak login page to start OAuth flow',
@@ -458,6 +573,91 @@ export class AuthController {
       codeChallenge: pkce.challenge,
     });
     await this.redirectAfterSessionSave(session, res, authUrl);
+  }
+
+  @ApiOperation({
+    summary: 'Development password login',
+    description:
+      'Authenticates with email and password through Keycloak direct access grants. Enabled by default outside production and controlled by KEYCLOAK_PASSWORD_LOGIN_ENABLED.',
+  })
+  @ApiBody({
+    type: PasswordLoginDto,
+    description: 'Development login credentials',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password login completed',
+    type: PasswordLoginResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid email or password',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Password login is disabled',
+  })
+  @SkipCsrf()
+  @HttpCode(HttpStatus.OK)
+  @Post('password-login')
+  async passwordLogin(
+    @Body() body: PasswordLoginDto,
+    @Session() session: AuthSession,
+  ): Promise<PasswordLoginResponseDto> {
+    if (!this.isPasswordLoginEnabled()) {
+      throw new HttpException(
+        process.env.NODE_ENV === 'production'
+          ? 'Not found'
+          : 'Password login is disabled',
+        process.env.NODE_ENV === 'production'
+          ? HttpStatus.NOT_FOUND
+          : HttpStatus.FORBIDDEN,
+      );
+    }
+
+    try {
+      const email = body.email.trim().toLowerCase();
+      const tokens = await this.keycloakService.exchangePasswordForTokens(
+        email,
+        body.password,
+      );
+      const keycloakUser = await this.keycloakService.getUserInfo(
+        tokens.access_token,
+      );
+      const sessionUser = await this.createSessionFromKeycloakUser(
+        session,
+        tokens,
+        keycloakUser,
+        'Password login',
+      );
+
+      const redirectUrl = this.resolvePostLoginRedirectUrl(
+        sessionUser.isOnboarded,
+        body.returnTo,
+      );
+
+      if (sessionUser.isOnboarded) {
+        delete session.redirectTo;
+      }
+
+      await this.saveSession(session);
+
+      return {
+        success: true,
+        isAuthenticated: true,
+        isOnboarded: sessionUser.isOnboarded,
+        redirectUrl,
+      };
+    } catch (error) {
+      this.logger.warn('Password login failed', {
+        email: body.email,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw new HttpException(
+        'Invalid email or password',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
   }
 
   @ApiOperation({

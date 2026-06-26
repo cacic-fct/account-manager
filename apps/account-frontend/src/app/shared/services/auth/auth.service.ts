@@ -9,12 +9,15 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   BehaviorSubject,
   catchError,
+  Observable,
   of,
   tap,
+  throwError,
 } from 'rxjs';
-import { ApiService } from '../api.service';
+import { ApiService, type PasswordLoginResponse } from '../api.service';
 import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
+import { environment } from '../../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -143,6 +146,52 @@ export class AuthService {
     window.location.href = this.apiService.getLoginUrl(
       this.resolveApplicationReturnPath(targetUrl),
     );
+  }
+
+  public passwordLogin(
+    email: string,
+    password: string,
+    targetUrl?: string,
+  ): Observable<PasswordLoginResponse> {
+    if (environment.production) {
+      return throwError(
+        () => new Error('Password login is available only in development.'),
+      );
+    }
+
+    this.isLoadingSignal.set(true);
+    this.clearSilentLoginAttempt();
+
+    return this.apiService
+      .passwordLogin({
+        email,
+        password,
+        returnTo: this.resolveApplicationReturnPath(targetUrl),
+      })
+      .pipe(
+        tap((result: PasswordLoginResponse) => {
+          this.authStatusSignal.set({
+            isAuthenticated: result.isAuthenticated,
+            isOnboarded: result.isOnboarded,
+          });
+          this.isAuthenticatedSubject$.next(result.isAuthenticated);
+          this.isDoneLoadingSubject$.next(true);
+          this.isLoadingSignal.set(false);
+
+          if (result.isAuthenticated) {
+            this.csrfService.fetchToken().subscribe({
+              error: (err) =>
+                console.error('Failed to fetch CSRF token:', err),
+            });
+            this.loadCurrentUser();
+          }
+        }),
+        catchError((error) => {
+          this.isLoadingSignal.set(false);
+          this.isDoneLoadingSubject$.next(true);
+          return throwError(() => error);
+        }),
+      );
   }
 
   private trySilentLogin(): boolean {

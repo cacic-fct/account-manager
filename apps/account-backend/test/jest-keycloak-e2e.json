@@ -2,8 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
-  "testRegex": "test/.*\\.e2e-spec\\.ts$",
-  "testPathIgnorePatterns": ["<rootDir>/test/.*keycloak.*\\.e2e-spec\\.ts$"],
+  "testRegex": "test/.*keycloak.*\\.e2e-spec\\.ts$",
   "transform": {
     "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.spec.json" }]
   },

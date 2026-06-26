@@ -26,6 +26,7 @@ describe('KeycloakService client roles', () => {
       KEYCLOAK_CLIENT_SECRET: undefined,
       KEYCLOAK_CLIENT_AUTH_METHOD: undefined,
       KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD: undefined,
+      KEYCLOAK_LOGIN_IDP_HINT: undefined,
       KEYCLOAK_ADMIN_CLIENT_ID: 'admin-cli',
       KEYCLOAK_ADMIN_CLIENT_SECRET: 'secret',
     };
@@ -254,6 +255,97 @@ describe('KeycloakService client roles', () => {
 
     const requestParams = new URLSearchParams(requestBody);
     expect(requestParams.get('code_verifier')).toBe('verifier-1');
+  });
+
+  it('does not force a Keycloak IdP hint in non-production by default', () => {
+    const service = new KeycloakService();
+    const authUrl = new URL(
+      service.getAuthUrl(
+        'https://account.example.test/api/auth/callback',
+        'state-1',
+      ),
+    );
+
+    expect(authUrl.searchParams.has('kc_idp_hint')).toBe(false);
+  });
+
+  it('uses the configured Keycloak IdP hint in non-production', () => {
+    process.env.KEYCLOAK_LOGIN_IDP_HINT = 'google';
+    const service = new KeycloakService();
+    const authUrl = new URL(
+      service.getAuthUrl(
+        'https://account.example.test/api/auth/callback',
+        'state-1',
+      ),
+    );
+
+    expect(authUrl.searchParams.get('kc_idp_hint')).toBe('google');
+  });
+
+  it('keeps the Google IdP hint by default in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
+    process.env.KEYCLOAK_ADMIN_CLIENT_SECRET = 'admin-secret';
+    const service = new KeycloakService();
+    const authUrl = new URL(
+      service.getAuthUrl(
+        'https://account.example.test/api/auth/callback',
+        'state-1',
+      ),
+    );
+
+    expect(authUrl.searchParams.get('kc_idp_hint')).toBe('google');
+  });
+
+  it('exchanges password credentials with direct access grants and local dev defaults', async () => {
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        id_token: 'id-token',
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+
+    await service.exchangePasswordForTokens('aluno@unesp.br', '1');
+
+    const tokenRequest = fetchMock.mock.calls[0];
+    expect(tokenRequest?.[0]).toBe(
+      'https://sso.example.test/realms/cacic/protocol/openid-connect/token',
+    );
+
+    const requestInit = tokenRequest?.[1];
+    expect(requestInit?.method).toBe('POST');
+
+    const requestBody = requestInit?.body;
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected token request body to be a string.');
+    }
+
+    const requestParams = new URLSearchParams(requestBody);
+    expect(requestParams.get('grant_type')).toBe('password');
+    expect(requestParams.get('username')).toBe('aluno@unesp.br');
+    expect(requestParams.get('password')).toBe('1');
+    expect(requestParams.get('scope')).toBe(
+      'openid profile email phone identity-document academic-profile',
+    );
+    expect(requestParams.has('client_id')).toBe(false);
+    expect(requestParams.has('client_secret')).toBe(false);
+
+    const headers = requestInit?.headers as Record<string, string>;
+    const authorization = headers['Authorization'];
+    expect(authorization).toMatch(/^Basic /);
+    expect(
+      Buffer.from(authorization.slice('Basic '.length), 'base64').toString(
+        'utf8',
+      ),
+    ).toBe('cacic-account-manager:cacic-account-manager-dev-secret');
   });
 
   it('logs Cloudflare-facing token endpoint diagnostics when code exchange fails', async () => {

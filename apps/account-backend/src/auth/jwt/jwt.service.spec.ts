@@ -36,25 +36,62 @@ const createPayload = (overrides: Partial<JwtPayload> = {}): JwtPayload => ({
 
 describe('JwtService M2M authorization', () => {
   it('requires an explicit M2M audience', () => {
-    expect(
-      () =>
-        new JwtService(
-          createConfigService({
-            KEYCLOAK_M2M_AUDIENCE: undefined,
-          }),
-        ),
-    ).toThrow('KEYCLOAK_M2M_AUDIENCE must be configured');
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      expect(
+        () =>
+          new JwtService(
+            createConfigService({
+              KEYCLOAK_M2M_AUDIENCE: undefined,
+            }),
+          ),
+      ).toThrow('KEYCLOAK_M2M_AUDIENCE must be configured');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it('requires an explicit M2M allowed-client list', () => {
-    expect(
-      () =>
-        new JwtService(
-          createConfigService({
-            KEYCLOAK_M2M_ALLOWED_CLIENTS: '',
-          }),
-        ),
-    ).toThrow('KEYCLOAK_M2M_ALLOWED_CLIENTS must be configured');
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      expect(
+        () =>
+          new JwtService(
+            createConfigService({
+              KEYCLOAK_M2M_ALLOWED_CLIENTS: '',
+            }),
+          ),
+      ).toThrow('KEYCLOAK_M2M_ALLOWED_CLIENTS must be configured');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
+  it('uses local development M2M defaults outside production', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
+
+    try {
+      const service = new JwtService(
+        createConfigService({
+          KEYCLOAK_URL: undefined,
+          KEYCLOAK_REALM: undefined,
+          KEYCLOAK_M2M_AUDIENCE: undefined,
+          KEYCLOAK_M2M_ALLOWED_CLIENTS: undefined,
+        }),
+      );
+
+      expect(service.isAllowedM2MClient(createPayload())).toBe(true);
+      expect(service.hasRequiredRole(createPayload(), 'privacy:write')).toBe(
+        true,
+      );
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it('allows only configured M2M callers', () => {
@@ -108,15 +145,22 @@ describe('JwtService M2M authorization', () => {
   });
 
   it('does not reuse browser login credentials for outbound M2M tokens', async () => {
-    const service = new JwtService(
-      createConfigService({
-        KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
-        KEYCLOAK_CLIENT_SECRET: 'login-secret',
-      }),
-    );
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
 
-    await expect(service.getClientCredentialsToken()).rejects.toThrow(
-      'KEYCLOAK_M2M_CLIENT_ID and KEYCLOAK_M2M_CLIENT_SECRET must be configured',
-    );
+    try {
+      const service = new JwtService(
+        createConfigService({
+          KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
+          KEYCLOAK_CLIENT_SECRET: 'login-secret',
+        }),
+      );
+
+      await expect(service.getClientCredentialsToken()).rejects.toThrow(
+        'KEYCLOAK_M2M_CLIENT_ID must be configured',
+      );
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 });

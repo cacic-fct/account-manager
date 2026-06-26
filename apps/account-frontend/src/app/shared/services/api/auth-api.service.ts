@@ -12,6 +12,17 @@ import { CacheService } from '../cache.service';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_DURATIONS, API_CACHE_KEYS } from './api-cache.constants';
 
+export interface PasswordLoginRequest {
+  email: string;
+  password: string;
+  returnTo?: string;
+}
+
+export interface PasswordLoginResponse extends AuthStatus {
+  success: true;
+  redirectUrl: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -54,6 +65,24 @@ export class AuthApiService {
       API_CACHE_DURATIONS.AUTH_STATUS,
       1 * 60 * 1000,
     );
+  }
+
+  passwordLogin(
+    credentials: PasswordLoginRequest,
+  ): Observable<PasswordLoginResponse> {
+    return this.http
+      .post<PasswordLoginResponse>(
+        `${this.baseUrl}/auth/password-login`,
+        credentials,
+        {
+          withCredentials: true,
+        },
+      )
+      .pipe(
+        tap(() => {
+          this.clearAuthCache();
+        }),
+      );
   }
 
   getOnboardingStatus(): Observable<{

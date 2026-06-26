@@ -43,9 +43,18 @@ export class JwtService {
   >();
 
   constructor(private configService: ConfigService) {
-    this.keycloakBaseUrl = this.configService.get<string>('KEYCLOAK_URL') ?? '';
-    this.realm = this.configService.get<string>('KEYCLOAK_REALM') ?? '';
-    this.expectedAudience = this.readRequiredConfig('KEYCLOAK_M2M_AUDIENCE');
+    this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback(
+      'KEYCLOAK_URL',
+      'http://localhost:8080',
+    );
+    this.realm = this.readConfigWithDevelopmentFallback(
+      'KEYCLOAK_REALM',
+      'cacic-sso',
+    );
+    this.expectedAudience = this.readConfigWithDevelopmentFallback(
+      'KEYCLOAK_M2M_AUDIENCE',
+      'cacic-account-manager-audience',
+    );
     this.clockSkewToleranceSeconds =
       this.configService.get<number>('JWT_CLOCK_SKEW_TOLERANCE') ?? 30;
     this.requireServiceAccountToken =
@@ -53,11 +62,8 @@ export class JwtService {
       'false';
     this.allowedM2MClients = this.readRequiredListConfig(
       'KEYCLOAK_M2M_ALLOWED_CLIENTS',
+      'cacic-event-manager-m2m',
     );
-
-    if (!this.keycloakBaseUrl || !this.realm) {
-      throw new Error('KEYCLOAK_URL and KEYCLOAK_REALM must be configured');
-    }
 
     const jwksUri = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/certs`;
 
@@ -247,10 +253,16 @@ export class JwtService {
   ): Promise<string> {
     const clientId =
       options.clientId ||
-      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_ID');
+      this.readConfigWithDevelopmentFallback(
+        'KEYCLOAK_M2M_CLIENT_ID',
+        'cacic-account-manager-m2m',
+      );
     const clientSecret =
       options.clientSecret ||
-      this.configService.get<string>('KEYCLOAK_M2M_CLIENT_SECRET');
+      this.readConfigWithDevelopmentFallback(
+        'KEYCLOAK_M2M_CLIENT_SECRET',
+        'cacic-account-manager-m2m-dev-secret',
+      );
 
     if (!clientId || !clientSecret) {
       throw new Error(
@@ -331,8 +343,32 @@ export class JwtService {
     return value;
   }
 
-  private readRequiredListConfig(name: string): string[] {
-    const value = this.readRequiredConfig(name);
+  private readConfigWithDevelopmentFallback(
+    name: string,
+    developmentFallback: string,
+  ): string {
+    const value = this.configService.get<string>(name)?.trim();
+    if (value) {
+      return value;
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`${name} must be configured for M2M authentication`);
+    }
+
+    this.logger.warn(`${name} is not configured; using development fallback`, {
+      developmentFallback,
+    });
+    return developmentFallback;
+  }
+
+  private readRequiredListConfig(
+    name: string,
+    developmentFallback?: string,
+  ): string[] {
+    const value = developmentFallback
+      ? this.readConfigWithDevelopmentFallback(name, developmentFallback)
+      : this.readRequiredConfig(name);
     const entries = value
       .split(',')
       .map((entry) => entry.trim())

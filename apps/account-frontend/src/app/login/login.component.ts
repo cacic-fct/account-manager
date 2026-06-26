@@ -1,140 +1,219 @@
-import { Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../shared/services/auth/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [MatCardModule, MatButtonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+  ],
   template: `
-    <div class="login-container">
-      <mat-card class="login-card">
+    <main class="login-shell">
+      <mat-card class="login-card" appearance="outlined">
         <mat-card-header>
-          <mat-card-title> do CACiC</mat-card-title>
+          <mat-card-title>Entrar no CACiC</mat-card-title>
+          <mat-card-subtitle>Use seu e-mail e senha.</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
-          <div class="login-content">
-            <mat-icon class="login-icon">account_circle</mat-icon>
-            <p>
-              Se você possui vínculo com a Unesp, use seu e-mail institucional
-              para fazer login.
-            </p>
+          <form [formGroup]="form" class="login-form" (ngSubmit)="submit()">
+            <mat-form-field appearance="outline">
+              <mat-label>E-mail</mat-label>
+              <input
+                matInput
+                type="email"
+                autocomplete="username"
+                formControlName="email"
+              />
+              @if (form.controls.email.hasError('email')) {
+                <mat-error>Informe um e-mail válido.</mat-error>
+              }
+              @if (form.controls.email.hasError('required')) {
+                <mat-error>Informe o e-mail.</mat-error>
+              }
+            </mat-form-field>
 
-            @if (errorMessage) {
-              <div class="error-message">
-                {{ errorMessage }}
-              </div>
+            <mat-form-field appearance="outline">
+              <mat-label>Senha</mat-label>
+              <input
+                matInput
+                [type]="hidePassword() ? 'password' : 'text'"
+                autocomplete="current-password"
+                formControlName="password"
+              />
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                [attr.aria-label]="
+                  hidePassword() ? 'Mostrar senha' : 'Ocultar senha'
+                "
+                (click)="hidePassword.set(!hidePassword())"
+              >
+                <mat-icon>
+                  {{ hidePassword() ? 'visibility' : 'visibility_off' }}
+                </mat-icon>
+              </button>
+              @if (form.controls.password.hasError('required')) {
+                <mat-error>Informe a senha.</mat-error>
+              }
+            </mat-form-field>
+
+            @if (errorMessage()) {
+              <p class="error-message" role="alert">
+                {{ errorMessage() }}
+              </p>
             }
-          </div>
-        </mat-card-content>
 
-        <mat-card-actions>
-          <div class="actions-center">
             <button
-              mat-raised-button
+              mat-flat-button
               color="primary"
-              (click)="login()"
-              class="login-button"
+              type="submit"
+              [disabled]="form.invalid || isSubmitting()"
             >
               <mat-icon>login</mat-icon>
-              Entrar com o Google
+              {{ isSubmitting() ? 'Entrando...' : 'Entrar' }}
             </button>
-          </div>
-        </mat-card-actions>
+
+            <button
+              mat-button
+              type="button"
+              [disabled]="isSubmitting()"
+              (click)="loginWithSso()"
+            >
+              <mat-icon>account_circle</mat-icon>
+              Entrar com SSO
+            </button>
+          </form>
+        </mat-card-content>
       </mat-card>
-    </div>
+    </main>
   `,
   styles: [
     `
-      .login-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+      .login-shell {
         min-height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--mat-sys-surface-container-low);
       }
 
       .login-card {
-        max-width: 400px;
-        width: 100%;
-        text-align: center;
+        width: min(100%, 420px);
+        border-radius: 8px;
       }
 
-      .login-content {
-        padding: 20px 0;
+      mat-card-header {
+        padding: 24px 24px 8px;
       }
 
-      .login-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        margin-bottom: 20px;
-        color: #666;
+      mat-card-content {
+        padding: 16px 24px 24px;
       }
 
-      .login-button {
-        width: 100%;
-        height: 48px;
-        font-size: 16px;
+      .login-form {
+        display: grid;
+        gap: 16px;
       }
 
-      .actions-center {
-        display: flex;
-        justify-content: center;
-        width: 100%;
+      .login-form > button {
+        min-height: 44px;
       }
 
       .error-message {
-        background: #ffebee;
-        color: #c62828;
+        margin: 0;
         padding: 12px;
-        border-radius: 4px;
-        margin: 16px 0;
-        border: 1px solid #e57373;
-      }
-
-      mat-card-title {
-        text-align: center;
-        margin-bottom: 8px;
-      }
-
-      mat-card-subtitle {
-        text-align: center;
-        color: #666;
+        border-radius: 8px;
+        color: var(--mat-sys-error);
+        background: var(--mat-sys-error-container);
       }
     `,
   ],
 })
 export class LoginComponent {
-  private authService = inject(AuthService);
-  private router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  errorMessage = '';
+  protected readonly hidePassword = signal(true);
+  protected readonly isSubmitting = signal(false);
+  protected readonly errorMessage = signal<string | null>(null);
+  protected readonly form = this.formBuilder.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]],
+  });
 
   constructor() {
-    // Check URL parameters for error messages
-    const urlParams = new URLSearchParams(window.location.search);
-    const error = urlParams.get('error');
-
-    if (error === 'auth_failed') {
-      this.errorMessage = 'Authentication failed. Please try again.';
+    if (this.route.snapshot.queryParamMap.get('error') === 'auth_failed') {
+      this.errorMessage.set('Não foi possível entrar. Tente novamente.');
     }
 
-    // If user is already authenticated, redirect them
     if (this.authService.isAuthenticated()) {
-      if (this.authService.isOnboarded()) {
-        this.router.navigateByUrl('/applications');
-      } else {
-        this.router.navigateByUrl('/onboarding');
-      }
+      void this.router.navigateByUrl(
+        this.authService.isOnboarded() ? '/applications' : '/onboarding',
+      );
     }
   }
 
-  login(): void {
-    this.authService.login();
+  protected submit(): void {
+    if (this.form.invalid || this.isSubmitting()) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
+
+    const { email, password } = this.form.getRawValue();
+    this.authService
+      .passwordLogin(email, password, this.returnTo())
+      .subscribe({
+        next: (result) => {
+          this.isSubmitting.set(false);
+          this.navigateTo(result.redirectUrl);
+        },
+        error: () => {
+          this.isSubmitting.set(false);
+          this.errorMessage.set('E-mail ou senha inválidos.');
+        },
+      });
+  }
+
+  protected loginWithSso(): void {
+    this.authService.login(this.returnTo());
+  }
+
+  private returnTo(): string | undefined {
+    return this.route.snapshot.queryParamMap.get('returnTo') ?? undefined;
+  }
+
+  private navigateTo(url: string): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    window.location.assign(url);
   }
 }

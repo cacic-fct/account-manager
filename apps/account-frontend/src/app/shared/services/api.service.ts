@@ -41,7 +41,11 @@ import type {
 } from '@cacic/shared-types';
 import { CacheService } from './cache.service';
 import { AccountLinkingApiService } from './api/account-linking-api.service';
-import { AuthApiService } from './api/auth-api.service';
+import {
+  AuthApiService,
+  type PasswordLoginRequest,
+  type PasswordLoginResponse,
+} from './api/auth-api.service';
 import { API_CACHE_KEYS } from './api/api-cache.constants';
 import { DiscordApiService } from './api/discord-api.service';
 import { KeycloakPermissionsApiService } from './api/keycloak-permissions-api.service';
@@ -85,6 +89,7 @@ export type {
   StudentEntityMembershipCreateRequest,
   StudentEntityMembershipUpdateRequest,
 } from '@cacic/shared-types';
+export type { PasswordLoginRequest, PasswordLoginResponse };
 
 @Injectable({
   providedIn: 'root',
@@ -108,6 +113,12 @@ export class ApiService {
 
   checkAuth(): Observable<AuthStatus> {
     return this.authApi.checkAuth();
+  }
+
+  passwordLogin(
+    credentials: PasswordLoginRequest,
+  ): Observable<PasswordLoginResponse> {
+    return this.authApi.passwordLogin(credentials);
   }
 
   getOnboardingStatus(): Observable<{

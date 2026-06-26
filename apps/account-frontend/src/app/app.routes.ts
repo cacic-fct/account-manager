@@ -2,6 +2,18 @@ import { Routes } from '@angular/router';
 import { AuthGuardWithForcedLogin } from './shared/services/auth/auth-guard-forced-login.service';
 import { OnboardingGuard } from './shared/services/auth/onboarding.guard';
 import { AdminGuard } from './shared/services/auth/admin.guard';
+import { environment } from '../environments/environment';
+
+const loginRoute: Routes[number] = environment.production
+  ? {
+      path: 'login',
+      redirectTo: '',
+    }
+  : {
+      path: 'login',
+      loadComponent: () =>
+        import('./login/login.component').then((m) => m.LoginComponent),
+    };
 
 export const routes: Routes = [
   {
@@ -9,15 +21,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./home/home.component').then((m) => m.HomeComponent),
   },
-  // {
-  //   path: 'login',
-  //   loadComponent: () =>
-  //     import('./login/login.component').then((m) => m.LoginComponent),
-  // },
-  {
-    path: 'login',
-    redirectTo: '',
-  },
+  loginRoute,
   {
     path: 'onboarding',
     canActivate: [OnboardingGuard],

@@ -17,7 +17,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid profile email',
-      kc_idp_hint: 'google',
+      ...(this.loginIdpHint && { kc_idp_hint: this.loginIdpHint }),
       ...(state && { state }),
       ...(options?.prompt && { prompt: options.prompt }),
       ...(options?.maxAge !== undefined && { max_age: String(options.maxAge) }),
@@ -108,6 +108,77 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       });
 
       throw new Error('Failed to exchange code for tokens');
+    }
+
+    return response.json() as Promise<{
+      access_token: string;
+      refresh_token: string;
+      id_token: string;
+      expires_in?: number;
+      refresh_expires_in?: number;
+    }>;
+  }
+
+  async exchangePasswordForTokens(
+    username: string,
+    password: string,
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+    id_token: string;
+    expires_in?: number;
+    refresh_expires_in?: number;
+  }> {
+    const tokenUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/token`;
+
+    const body = new URLSearchParams();
+    body.set('grant_type', 'password');
+    body.set('client_id', this.clientId);
+    body.set('username', username);
+    body.set('password', password);
+    body.set(
+      'scope',
+      'openid profile email phone identity-document academic-profile',
+    );
+
+    const headers = this.createFormHeaders();
+    this.appendClientAuthentication(body, headers);
+
+    this.logger.debug('Exchanging password credentials for Keycloak tokens', {
+      tokenUrl,
+      clientId: this.clientId,
+      clientAuthMethod: this.clientAuthMethod,
+      sendsAuthorizationHeader: !!headers.Authorization,
+      sendsClientIdInBody: body.has('client_id'),
+      sendsClientSecretInBody: body.has('client_secret'),
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers,
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.warn('Failed to exchange password credentials for tokens', {
+        status: response.status,
+        statusText: response.statusText,
+        tokenUrl,
+        clientId: this.clientId,
+        clientAuthMethod: this.clientAuthMethod,
+        sendsAuthorizationHeader: !!headers.Authorization,
+        sendsClientIdInBody: body.has('client_id'),
+        sendsClientSecretInBody: body.has('client_secret'),
+        error: details.error,
+        errorDescription: details.errorDescription,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error('Failed to exchange password credentials for tokens');
     }
 
     return response.json() as Promise<{

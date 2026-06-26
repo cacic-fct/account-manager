@@ -4,6 +4,7 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "build:packages": "bunx nx run-many --target=build --projects=m2m-contracts,account-privacy,cookie-banner",
+    "e2e:backend:keycloak": "node tools/run-account-backend-keycloak-e2e.mjs",
     "puppeteer:install-browser": "bunx puppeteer browsers install chrome",
     "verify:package:m2m-contracts": "bun tools/verify-package-artifact.mjs dist/libs/m2m-contracts m2m-contracts",
     "verify:package:account-privacy": "bun tools/verify-package-artifact.mjs dist/libs/account-privacy account-privacy",

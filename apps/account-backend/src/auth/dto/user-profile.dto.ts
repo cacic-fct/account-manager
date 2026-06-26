@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   MinLength,
   IsEnum,
+  IsEmail,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UnespRole } from '@cacic/shared-types';
@@ -212,6 +213,48 @@ export class AuthStatusDto {
     example: true,
   })
   isOnboarded!: boolean;
+}
+
+export class PasswordLoginDto {
+  @ApiProperty({
+    description: 'User email address',
+    example: 'aluno@unesp.br',
+  })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({
+    description: 'User password',
+    example: '1',
+    minLength: 1,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  password!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    example: '/applications',
+  })
+  @IsOptional()
+  @IsString()
+  returnTo?: string;
+}
+
+export class PasswordLoginResponseDto extends AuthStatusDto {
+  @ApiProperty({
+    description: 'Whether the password login completed successfully',
+    example: true,
+  })
+  success!: boolean;
+
+  @ApiProperty({
+    description: 'Validated frontend URL the client should navigate to',
+    example: 'http://localhost:4200/applications',
+  })
+  redirectUrl!: string;
 }
 
 export class OnboardingStatusDto {

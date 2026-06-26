@@ -10,12 +10,13 @@ export abstract class KeycloakBaseOperations {
   protected readonly clientSecret?: string;
   protected readonly adminClientId: string;
   protected readonly adminClientSecret?: string;
+  protected readonly loginIdpHint?: string;
   protected readonly clientUuidCache = new Map<string, string>();
 
   constructor() {
     this.keycloakUrl = this.readEnvWithDevelopmentFallback(
       'KEYCLOAK_URL',
-      'https://sso.cacic.dev.br',
+      'http://localhost:8080',
     );
     this.realm = this.readEnvWithDevelopmentFallback(
       'KEYCLOAK_REALM',
@@ -29,11 +30,10 @@ export abstract class KeycloakBaseOperations {
     this.clientSecret = this.resolveClientSecret();
     this.adminClientId = this.readEnvWithDevelopmentFallback(
       'KEYCLOAK_ADMIN_CLIENT_ID',
-      'admin-cli',
+      'cacic-account-manager-admin-client',
     );
-    this.adminClientSecret = this.readOptionalEnv(
-      'KEYCLOAK_ADMIN_CLIENT_SECRET',
-    );
+    this.adminClientSecret = this.resolveAdminClientSecret();
+    this.loginIdpHint = this.resolveLoginIdpHint();
 
     if (this.isProduction() && !this.adminClientSecret) {
       throw new Error(
@@ -105,7 +105,9 @@ export abstract class KeycloakBaseOperations {
       this.readOptionalEnv('KEYCLOAK_CLIENT_AUTH_METHOD');
 
     if (!configuredMethod) {
-      const hasClientSecret = !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET');
+      const hasClientSecret =
+        !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET') ||
+        !this.isProduction();
       return hasClientSecret || this.isProduction()
         ? 'client_secret_basic'
         : 'none';
@@ -160,10 +162,45 @@ export abstract class KeycloakBaseOperations {
 
     this.logger.warn(
       [
-        'KEYCLOAK_CLIENT_SECRET is not configured; authorization-code login',
-        'will only work if KEYCLOAK_CLIENT_ID is a public Keycloak client',
+        'KEYCLOAK_CLIENT_SECRET is not configured; using static development',
+        'secret for the local Keycloak realm',
       ].join(' '),
     );
+    return 'cacic-account-manager-dev-secret';
+  }
+
+  protected resolveAdminClientSecret(): string | undefined {
+    const secret = this.readOptionalEnv('KEYCLOAK_ADMIN_CLIENT_SECRET');
+
+    if (secret) {
+      return secret;
+    }
+
+    if (this.isProduction()) {
+      return undefined;
+    }
+
+    this.logger.warn(
+      [
+        'KEYCLOAK_ADMIN_CLIENT_SECRET is not configured; using static',
+        'development secret for the local Keycloak realm',
+      ].join(' '),
+    );
+    return 'cacic-account-manager-admin-client-dev-secret';
+  }
+
+  protected resolveLoginIdpHint(): string | undefined {
+    if (this.isProduction()) {
+      return 'google';
+    }
+
+    const configured = process.env['KEYCLOAK_LOGIN_IDP_HINT'];
+
+    if (configured !== undefined) {
+      const value = configured.trim();
+      return value ? value : undefined;
+    }
+
     return undefined;
   }
 
