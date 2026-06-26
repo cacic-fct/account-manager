@@ -3,12 +3,17 @@ import {
   AssignableKeycloakPermission,
 } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { KeycloakService } from './keycloak.service';
 import { AccountPermissionService } from './account-permission.service';
 
 type PrismaMock = {
   keycloakPermissionGrant: {
     findFirst: jest.Mock<Promise<{ id: string } | null>, [unknown]>;
   };
+};
+
+type KeycloakMock = {
+  getUserRoles: jest.Mock<Promise<string[]>, [string]>;
 };
 
 type PermissionGrantFindFirstArgs = {
@@ -39,19 +44,24 @@ const createContext = () => {
       findFirst: jest.fn<Promise<{ id: string } | null>, [unknown]>(),
     },
   };
+  const keycloakService: KeycloakMock = {
+    getUserRoles: jest.fn<Promise<string[]>, [string]>().mockResolvedValue([]),
+  };
   const service = new AccountPermissionService(
     prisma as unknown as PrismaService,
+    keycloakService as unknown as KeycloakService,
   );
 
   return {
+    keycloakService,
     prisma,
     service,
   };
 };
 
 describe('AccountPermissionService', () => {
-  it('checks active grants with the requested permission set', async () => {
-    const { prisma, service } = createContext();
+  it('checks active grants with the requested permission set and super-admin inheritance', async () => {
+    const { keycloakService, prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
       id: 'grant-1',
     });
@@ -69,10 +79,41 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.deletedAt).toBeNull();
     expect(findFirstArgs.where.permission.in).toEqual([
       AssignableKeycloakPermission.AccountManagerAccess,
+      AccountManagerKeycloakRole.SuperAdmin,
     ]);
+    expect(keycloakService.getUserRoles).not.toHaveBeenCalled();
   });
 
-  it('treats Account Manager super-admin as Discord admin access', async () => {
+  it('treats an active Account Manager super-admin grant as Discord admin access', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
+      id: 'grant-1',
+    });
+
+    await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
+
+    const findFirstArgs = getMockArg<PermissionGrantFindFirstArgs>(
+      prisma.keycloakPermissionGrant.findFirst,
+    );
+    expect(findFirstArgs.where.permission.in).toEqual([
+      AccountManagerKeycloakRole.SuperAdmin,
+    ]);
+    expect(keycloakService.getUserRoles).not.toHaveBeenCalled();
+  });
+
+  it('treats the Keycloak super-admin client role as Discord admin access', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
+    keycloakService.getUserRoles.mockResolvedValue([
+      AccountManagerKeycloakRole.SuperAdmin,
+    ]);
+
+    await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
+
+    expect(keycloakService.getUserRoles).toHaveBeenCalledWith('user-1');
+  });
+
+  it('blocks Discord admin access without a super-admin grant or client role', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
 
@@ -97,7 +138,7 @@ describe('AccountPermissionService', () => {
   });
 
   it('checks the Account Manager super-admin grant wrapper', async () => {
-    const { prisma, service } = createContext();
+    const { keycloakService, prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
       id: 'grant-1',
     });
@@ -112,5 +153,22 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.permission.in).toEqual([
       AccountManagerKeycloakRole.SuperAdmin,
     ]);
+    expect(keycloakService.getUserRoles).not.toHaveBeenCalled();
+  });
+
+  it('treats the Keycloak super-admin client role as an inherited permission', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
+    keycloakService.getUserRoles.mockResolvedValue([
+      AccountManagerKeycloakRole.SuperAdmin,
+    ]);
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AssignableKeycloakPermission.AccountManagerAccess,
+      ]),
+    ).resolves.toBe(true);
+
+    expect(keycloakService.getUserRoles).toHaveBeenCalledWith('user-1');
   });
 });
