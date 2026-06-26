@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { KeycloakService } from './keycloak.service';
 
 type FetchMock = jest.Mock<Promise<Response>, Parameters<typeof fetch>>;
@@ -253,6 +254,58 @@ describe('KeycloakService client roles', () => {
 
     const requestParams = new URLSearchParams(requestBody);
     expect(requestParams.get('code_verifier')).toBe('verifier-1');
+  });
+
+  it('logs Cloudflare-facing token endpoint diagnostics when code exchange fails', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
+    const warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock.mockResolvedValueOnce(
+      new Response('<html>cloudflare challenge</html>', {
+        status: 403,
+        statusText: 'Forbidden',
+        headers: {
+          'Content-Type': 'text/html',
+          'CF-Ray': 'abc123-GRU',
+          Server: 'cloudflare',
+          Via: '1.1 cloudflare',
+          Location: 'https://sso.example.test/cdn-cgi/challenge-platform',
+          'WWW-Authenticate': 'Bearer error="invalid_request"',
+        },
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+
+    await expect(
+      service.exchangeCodeForTokens(
+        'authorization-code',
+        'https://account.example.test/api/auth/callback',
+      ),
+    ).rejects.toThrow('Failed to exchange code for tokens');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Failed to exchange code for tokens',
+      expect.objectContaining({
+        status: 403,
+        statusText: 'Forbidden',
+        responseHeaders: expect.objectContaining({
+          cfRay: 'abc123-GRU',
+          contentType: 'text/html',
+          location: 'https://sso.example.test/cdn-cgi/challenge-platform',
+          server: 'cloudflare',
+          via: '1.1 cloudflare',
+          wwwAuthenticate: 'Bearer error="invalid_request"',
+        }) as unknown,
+        bodyPreview: '<html>cloudflare challenge</html>',
+      }),
+    );
   });
 
   it('requires the login client secret in production by default', () => {
