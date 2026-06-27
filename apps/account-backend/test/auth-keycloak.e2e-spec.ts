@@ -13,6 +13,7 @@ import { AccountPermissionService } from '../src/auth/services/account-permissio
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import type { KeycloakUser } from '../src/auth/interfaces/auth.interface';
+import { TotpService } from '../src/totp/totp.service';
 import { API_GLOBAL_PREFIX } from '../src/config/app.config';
 import {
   createAuthTestConfigService,
@@ -71,6 +72,12 @@ describe('Keycloak authentication (e2e)', () => {
             hasAccountManagerSuperAdminGrant: jest
               .fn()
               .mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TotpService,
+          useValue: {
+            getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
