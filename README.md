@@ -17,7 +17,7 @@ Monorepo Nx do gerenciador de contas do CACiC. O projeto centraliza autenticaç�
 
 - Bun instalado.
 - Docker, quando for usar PostgreSQL e Redis locais via Compose.
-- Python 3, apenas para os fluxos do backend que validam PDFs.
+- Python 3, para os fluxos do backend que validam PDFs.
 
 Instale as dependências com:
 
@@ -33,25 +33,11 @@ Copie o exemplo de ambiente do backend e ajuste os valores reais:
 cp apps/account-backend/.env.example apps/account-backend/.env
 ```
 
-Variáveis obrigatórias ou normalmente usadas pelo backend:
-
-- `DATABASE_URL`: conexão PostgreSQL usada pelo Prisma.
-- `SESSION_SECRET`: segredo das sessões HTTP.
-- `BACKEND_URL`: origem pública/local do backend. O backend normaliza os callbacks OAuth para o prefixo público `/api`.
-- `FRONTEND_URL`: URL pública/local do frontend.
-- `REDIS_HOST`, `REDIS_PORT` e, se necessário, `REDIS_PASSWORD`.
-- `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET` e credenciais administrativas/M2M separadas.
-- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` e `DISCORD_GUILD_ID`.
-- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET_NAME` e `S3_REGION`.
-- `ALLOWED_REDIRECT_URLS` e `CORS_ORIGINS`, quando houver mais de uma origem autorizada.
-
 Para subir apenas as dependências locais:
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml up -d
 ```
-
-O Compose de desenvolvimento expõe PostgreSQL em `localhost:5432` e Redis em `localhost:6379`.
 
 ## Prisma
 
