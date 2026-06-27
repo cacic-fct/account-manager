@@ -69,7 +69,9 @@ export class JwtService {
 
     this.jwksClient = jwksClient({
       jwksUri,
-      requestHeaders: {},
+      requestHeaders: {
+        'Accept-Encoding': 'identity',
+      },
       timeout: 30000,
       cache: true,
       cacheMaxEntries: 5,
