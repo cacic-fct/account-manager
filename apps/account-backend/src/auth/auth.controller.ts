@@ -38,7 +38,11 @@ import {
   LogoutRequestDto,
   LogoutResponseDto,
 } from './dto/user-profile.dto';
-import { KeycloakUser, SessionUser } from './interfaces/auth.interface';
+import {
+  KeycloakUser,
+  SessionUser,
+  UserProfile,
+} from './interfaces/auth.interface';
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { CsrfGuard, SkipCsrf } from './csrf/csrf.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
@@ -50,6 +54,7 @@ import {
 import { AccountPermissionService } from './services/account-permission.service';
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
+import { TotpService } from '../totp/totp.service';
 
 export interface AuthSession {
   user?: SessionUser;
@@ -81,6 +86,7 @@ export class AuthController {
     private readonly userService: UserService,
     private readonly configService: ConfigService,
     private readonly accountPermissionService: AccountPermissionService,
+    private readonly totpService: TotpService,
   ) {
     this.appConfig = createAppConfig(this.configService);
   }
@@ -317,6 +323,8 @@ export class AuthController {
       );
     }
 
+    await this.ensureDefaultTotpSeed(user);
+
     let isOnboarded = user.isOnboarded;
 
     try {
@@ -358,6 +366,21 @@ export class AuthController {
     this.applyKeycloakSessionLifetime(session, tokens);
 
     return session.user;
+  }
+
+  private async ensureDefaultTotpSeed(user: UserProfile): Promise<void> {
+    try {
+      await this.totpService.getOrCreateSeed({
+        keycloakId: user.keycloakId,
+        primaryEmail: user.email,
+        displayName: user.displayName || user.fullname || null,
+      });
+    } catch (error) {
+      this.logger.warn('Failed to prepare default TOTP seed during login', {
+        userId: user.keycloakId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 
   private isPasswordLoginEnabled(): boolean {

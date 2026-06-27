@@ -1,0 +1,92 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button routerLink="/settings" aria-label="Voltar">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Segurança off-line</span>
+</mat-toolbar>
+
+<main class="totp-container">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+  } @else {
+    <mat-card class="totp-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>shield_lock</mat-icon>
+        <mat-card-title>Código para uso off-line</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (seed()) {
+          <section class="code-panel" aria-live="polite">
+            <div class="code-copy">
+              <span class="code-label">Código atual</span>
+              <strong class="code">{{ displayCode() }}</strong>
+            </div>
+            <mat-progress-spinner
+              class="countdown-spinner"
+              mode="determinate"
+              [value]="progressValue()"
+              diameter="44"
+              aria-label="Tempo restante do código"
+            ></mat-progress-spinner>
+          </section>
+
+          @if (primaryEmail()) {
+            <p class="email-note">
+              E-mail principal: <strong>{{ primaryEmail() }}</strong>
+            </p>
+          }
+
+          <mat-divider></mat-divider>
+
+          <div class="action-row">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="copyCode()"
+              [disabled]="!code()"
+            >
+              <mat-icon>content_copy</mat-icon>
+              Copiar
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="requestRotateSeed()"
+              [disabled]="isRotating()"
+            >
+              @if (isRotating()) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>sync_lock</mat-icon>
+              }
+              Trocar código secreto
+            </button>
+          </div>
+        } @else if (hasLoadError()) {
+          <section class="error-state">
+            <mat-icon>cloud_off</mat-icon>
+            <h2>Código indisponível</h2>
+            <p>Não foi possível preparar seu código agora.</p>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="retry()"
+            >
+              <mat-icon>refresh</mat-icon>
+              Tentar novamente
+            </button>
+          </section>
+        } @else {
+          <section class="loading-state">
+            <mat-spinner diameter="36"></mat-spinner>
+          </section>
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+</main>

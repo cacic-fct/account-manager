@@ -23,4 +23,9 @@ export const settingsRoutes: Routes = [
     loadChildren: () =>
       import('./privacy/privacy.routes').then((m) => m.privacyRoutes),
   },
+  {
+    path: 'security',
+    loadChildren: () =>
+      import('./security/security.routes').then((m) => m.securityRoutes),
+  },
 ];

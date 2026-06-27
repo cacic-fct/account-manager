@@ -19,6 +19,7 @@ import { KeycloakRoleGuard } from './guards/keycloak-role.guard';
 import { UniversityValidationGuard } from './guards/university-validation.guard';
 import { CsrfModule } from './csrf/csrf.module';
 import { JwtModule } from './jwt/jwt.module';
+import { TotpService } from '../totp/totp.service';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { JwtModule } from './jwt/jwt.module';
     FileValidationService,
     RateLimitService,
     AccountPermissionService,
+    TotpService,
     AuthGuard,
     CurrentUserGuard,
     DiscordAdminGuard,

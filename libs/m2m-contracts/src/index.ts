@@ -1,1 +1,1 @@
-export * from './lib/m2m-contracts.js';
+export * from './lib/m2m-contracts';

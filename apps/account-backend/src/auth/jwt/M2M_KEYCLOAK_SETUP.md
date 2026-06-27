@@ -18,6 +18,7 @@ External backends call Account Manager with `Authorization: Bearer <access_token
 3. On `cacic-account-manager-audience`, create the client roles Account Manager endpoints require:
    - `privacy:read`
    - `privacy:write`
+   - `users:read`
 4. On the caller service account, assign only the needed roles from `cacic-account-manager-audience`.
 5. Add an audience mapper so caller access tokens include `cacic-account-manager-audience` in `aud`.
 6. Set Account Manager environment:
@@ -26,7 +27,7 @@ External backends call Account Manager with `Authorization: Bearer <access_token
 KEYCLOAK_URL=https://sso.example.org
 KEYCLOAK_REALM=cacic-sso
 KEYCLOAK_M2M_AUDIENCE=cacic-account-manager-audience
-KEYCLOAK_M2M_ALLOWED_CLIENTS=cacic-event-manager-m2m
+KEYCLOAK_M2M_ALLOWED_CLIENTS=cacic-event-manager-m2m,cacic-voto-m2m
 KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT=true
 JWT_CLOCK_SKEW_TOLERANCE=30
 ```

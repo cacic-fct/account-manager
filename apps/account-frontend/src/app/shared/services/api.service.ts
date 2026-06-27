@@ -38,6 +38,8 @@ import type {
   StudentEntityMembership,
   StudentEntityMembershipCreateRequest,
   StudentEntityMembershipUpdateRequest,
+  TotpSeed,
+  TotpStatus,
 } from '@cacic/shared-types';
 import { CacheService } from './cache.service';
 import { AccountLinkingApiService } from './api/account-linking-api.service';
@@ -51,6 +53,7 @@ import { DiscordApiService } from './api/discord-api.service';
 import { KeycloakPermissionsApiService } from './api/keycloak-permissions-api.service';
 import { LgpdApiService } from './api/lgpd-api.service';
 import { PrivacyApiService } from './api/privacy-api.service';
+import { TotpApiService } from './api/totp-api.service';
 
 export type {
   LgpdRequest,
@@ -88,6 +91,8 @@ export type {
   StudentEntityMembership,
   StudentEntityMembershipCreateRequest,
   StudentEntityMembershipUpdateRequest,
+  TotpSeed,
+  TotpStatus,
 } from '@cacic/shared-types';
 export type { PasswordLoginRequest, PasswordLoginResponse };
 
@@ -102,6 +107,7 @@ export class ApiService {
   private keycloakPermissionsApi = inject(KeycloakPermissionsApiService);
   private lgpdApi = inject(LgpdApiService);
   private privacyApi = inject(PrivacyApiService);
+  private totpApi = inject(TotpApiService);
 
   getCurrentUser(): Observable<User> {
     return this.authApi.getCurrentUser();
@@ -439,5 +445,21 @@ export class ApiService {
 
   getPrivacyPreferences(token: string): Observable<Record<string, boolean>> {
     return this.privacyApi.getPrivacyPreferences(token);
+  }
+
+  getTotpStatus(): Observable<TotpStatus> {
+    return this.totpApi.getStatus();
+  }
+
+  getOrCreateTotpSeed(): Observable<TotpSeed> {
+    return this.totpApi.getOrCreateSeed();
+  }
+
+  rotateTotpSeed(): Observable<TotpSeed> {
+    return this.totpApi.rotateSeed();
+  }
+
+  disableTotpSeed(): Observable<TotpStatus> {
+    return this.totpApi.disableSeed();
   }
 }

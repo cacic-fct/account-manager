@@ -317,6 +317,55 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     return [...usersById.values()].slice(0, max);
   }
 
+  async searchUsersByAttribute(
+    attributeName: string,
+    attributeValue: string,
+    options: { max?: number } = {},
+  ): Promise<KeycloakUserData[]> {
+    const normalizedAttributeName = attributeName.trim();
+    const normalizedAttributeValue = attributeValue.trim();
+
+    if (!normalizedAttributeName || !normalizedAttributeValue) {
+      return [];
+    }
+
+    const adminToken = await this.getAdminToken();
+    const max = Math.min(Math.max(options.max ?? 10, 1), 50);
+    const searchParams = new URLSearchParams({
+      first: '0',
+      max: String(max),
+      briefRepresentation: 'false',
+      q: `${normalizedAttributeName}:${normalizedAttributeValue}`,
+    });
+    const usersUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`;
+
+    const response = await fetch(usersUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.warn('Failed to search Keycloak users by attribute', {
+        status: response.status,
+        statusText: response.statusText,
+        usersUrl,
+        attributeName: normalizedAttributeName,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to search users by attribute: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as KeycloakUserData[];
+  }
+
   async getUserBasicInfo(userId: string): Promise<KeycloakUserData | null> {
     const adminToken = await this.getAdminToken();
     const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;

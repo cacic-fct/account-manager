@@ -33,6 +33,7 @@ All users use the password `1`.
 | `cacic-account-manager-admin-client` | `cacic-account-manager-admin-client-dev-secret` |
 | `cacic-account-manager-m2m` | `cacic-account-manager-m2m-dev-secret` |
 | `cacic-event-manager-m2m` | `cacic-event-manager-m2m-dev-secret` |
+| `cacic-voto-m2m` | `cacic-voto-m2m-dev-secret` |
 
 The backends use these values as development fallbacks when the matching
 environment variables are not set. In production, set real secrets; the

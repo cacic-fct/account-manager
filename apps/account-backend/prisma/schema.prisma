@@ -92,6 +92,24 @@ model PrivacySetting {
   @@map("user_privacy_settings")
 }
 
+model User {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  keycloakId             String    @unique @map("keycloak_id")
+  primaryEmail           String    @map("primary_email")
+  primaryEmailNormalized String    @unique @map("primary_email_normalized")
+  displayName            String?   @map("display_name")
+  totpSecretEncrypted    String?   @map("totp_secret_encrypted")
+  totpSecretIv           String?   @map("totp_secret_iv")
+  totpSecretAuthTag      String?   @map("totp_secret_auth_tag")
+  totpSecretCreatedAt    DateTime? @map("totp_secret_created_at")
+  totpSecretRotatedAt    DateTime? @map("totp_secret_rotated_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([primaryEmailNormalized])
+  @@map("users")
+}
+
 model AccountMergeRequest {
   id                   String             @id @default(uuid(7)) @db.Uuid
   requesterUserId      String             @map("requester_user_id")

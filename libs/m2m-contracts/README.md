@@ -20,10 +20,13 @@ bun add @cacic-fct/account-manager-m2m-contracts
 ```ts
 import {
   M2M_PRIVACY_ROLES,
+  M2M_USER_ROLES,
   M2M_PRIVACY_ROUTES,
+  M2M_USER_ROUTES,
   CACIC_TRACKING_ROUTES,
   PRIVACY_SETTING_TYPES,
   type M2MBulkPrivacySettingsRequest,
+  type M2MUserEnrollmentLookupRequest,
   type M2MPrivacySettingResponse,
 } from '@cacic-fct/account-manager-m2m-contracts';
 
@@ -37,6 +40,11 @@ const body: M2MBulkPrivacySettingsRequest = {
 };
 
 const trackingRefreshUrl = CACIC_TRACKING_ROUTES.session;
+const userLookupRole = M2M_USER_ROLES.READ;
+const userLookupUrl = M2M_USER_ROUTES.enrollmentLookup();
+const userLookupBody: M2MUserEnrollmentLookupRequest = {
+  enrollmentNumbers: ['24123456'],
+};
 ```
 
 ## Building

@@ -70,6 +70,11 @@
           "name": "privacy:write",
           "description": "Write account privacy data over M2M",
           "clientRole": true
+        },
+        {
+          "name": "users:read",
+          "description": "Read limited Keycloak user data over M2M",
+          "clientRole": true
         }
       ],
       "cacic-event-manager-audience": [
@@ -667,6 +672,26 @@
       "optionalClientScopes": []
     },
     {
+      "clientId": "cacic-voto-m2m",
+      "name": "CACiC Voto M2M",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "cacic-voto-m2m-dev-secret",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "roles",
+        "profile",
+        "email",
+        "cacic-account-manager-audience"
+      ],
+      "optionalClientScopes": []
+    },
+    {
       "clientId": "cacic-account-manager-audience",
       "name": "CACiC Account Manager Audience",
       "enabled": true,
@@ -842,6 +867,14 @@
       "serviceAccountClientId": "cacic-event-manager-m2m",
       "clientRoles": {
         "cacic-account-manager-audience": ["privacy:read", "privacy:write"]
+      }
+    },
+    {
+      "username": "service-account-cacic-voto-m2m",
+      "enabled": true,
+      "serviceAccountClientId": "cacic-voto-m2m",
+      "clientRoles": {
+        "cacic-account-manager-audience": ["users:read"]
       }
     }
   ]

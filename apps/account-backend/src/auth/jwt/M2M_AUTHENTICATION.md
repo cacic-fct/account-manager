@@ -1,6 +1,6 @@
-# M2M Authentication For Account Manager Privacy API
+# M2M Authentication For Account Manager APIs
 
-The privacy API uses OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and call Account Manager with `Authorization: Bearer <token>`.
+The M2M APIs use OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and call Account Manager with `Authorization: Bearer <token>`.
 
 ## Token Requirements
 
@@ -28,14 +28,15 @@ For an Event Manager caller:
 2. On its **Roles** tab, create:
    - `privacy:read`
    - `privacy:write`
-3. Create or open confidential client `cacic-event-manager-m2m`.
+   - `users:read`
+3. Create or open confidential clients for each caller, for example `cacic-event-manager-m2m` and `cacic-voto-m2m`.
 4. Enable **Client authentication** and **Service accounts roles**.
-5. On `cacic-event-manager-m2m` **Service account roles**, assign only the required roles from `cacic-account-manager-audience`.
+5. On each caller **Service account roles**, assign only the required roles from `cacic-account-manager-audience`.
 6. Create or open client scope `cacic-account-manager-audience`.
 7. Add an **Audience** mapper:
    - Included Client Audience: `cacic-account-manager-audience`
    - Add to access token: on
-8. Attach that client scope to `cacic-event-manager-m2m` as a **Default** client scope.
+8. Attach that client scope to each caller as a **Default** client scope.
 
 ## Account Manager Environment
 
@@ -43,7 +44,7 @@ For an Event Manager caller:
 KEYCLOAK_URL=https://sso.cacic.dev.br
 KEYCLOAK_REALM=cacic-sso
 KEYCLOAK_M2M_AUDIENCE=cacic-account-manager-audience
-KEYCLOAK_M2M_ALLOWED_CLIENTS=cacic-event-manager-m2m
+KEYCLOAK_M2M_ALLOWED_CLIENTS=cacic-event-manager-m2m,cacic-voto-m2m
 KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT=true
 JWT_CLOCK_SKEW_TOLERANCE=30
 ```
@@ -61,9 +62,12 @@ bun add @cacic-fct/account-manager-m2m-contracts
 ```ts
 import {
   M2M_PRIVACY_ROLES,
+  M2M_USER_ROLES,
   M2M_PRIVACY_ROUTES,
+  M2M_USER_ROUTES,
   PRIVACY_SETTING_TYPES,
   type M2MBulkPrivacySettingsRequest,
+  type M2MUserEnrollmentLookupRequest,
 } from '@cacic-fct/account-manager-m2m-contracts';
 
 const requiredRole = M2M_PRIVACY_ROLES.WRITE;
@@ -75,6 +79,12 @@ const body: M2MBulkPrivacySettingsRequest = {
       enabled: false,
     },
   ],
+};
+
+const usersRequiredRole = M2M_USER_ROLES.READ;
+const usersRoute = M2M_USER_ROUTES.enrollmentLookup();
+const usersBody: M2MUserEnrollmentLookupRequest = {
+  enrollmentNumbers: ['24123456'],
 };
 ```
 
@@ -131,6 +141,8 @@ curl -X POST "https://account.cacic.dev.br/api/v1/privacy/user/USER_ID/settings/
 - `GET /api/v1/privacy/user/:userId/cookie-consent` requires `privacy:read`.
 - `POST /api/v1/privacy/user/:userId/cookie-consent` requires `privacy:write`.
 - `POST /api/v1/privacy/user/:userId/settings/bulk` requires `privacy:write`.
+- `POST /api/v1/users/enrollment-lookup` requires `users:read`.
+- `POST /api/v1/users/identifier-lookup` requires `users:read`.
 
 ## Common Failures
 

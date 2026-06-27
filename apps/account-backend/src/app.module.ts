@@ -12,6 +12,8 @@ import { UniversityValidationModule } from './university-validation/university-v
 import { CsrfModule } from './auth/csrf/csrf.module';
 import { KeycloakPermissionsModule } from './keycloak-permissions/keycloak-permissions.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { TotpModule } from './totp/totp.module';
+import { M2MUsersModule } from './m2m-users/m2m-users.module';
 import { ConfigModule } from '@nestjs/config';
 import { NecordModule } from 'necord';
 import { GatewayIntentBits } from 'discord.js';
@@ -55,6 +57,8 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     UniversityValidationModule,
     ConfigModule.forRoot(),
     FeatureFlagsModule,
+    TotpModule,
+    M2MUsersModule,
     PrismaModule,
     NecordModule.forRoot({
       token: discordBotToken,

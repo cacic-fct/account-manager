@@ -7,3 +7,4 @@ export * from './interfaces/privacy.interface';
 export * from './interfaces/lgpd.interface';
 export * from './interfaces/student-verification.interface';
 export * from './interfaces/keycloak-permission.interface';
+export * from './interfaces/totp.interface';

@@ -22,6 +22,7 @@ import {
   ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
 } from '../constants/admin-permissions';
 import { AccountPermissionService } from './account-permission.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class UserService {
@@ -30,6 +31,7 @@ export class UserService {
   constructor(
     private readonly keycloakService: KeycloakService,
     private readonly accountPermissionService: AccountPermissionService,
+    private readonly prisma: PrismaService,
     @Optional()
     private readonly eventManagerProfileSync?: EventManagerProfileSyncService,
   ) {}
@@ -183,11 +185,13 @@ export class UserService {
         return null;
       }
 
-      return this.attributesToUserProfile(
+      const profile = this.attributesToUserProfile(
         keycloakId,
         attributes,
         userBasicInfo,
       );
+      await this.upsertLeanUser(profile);
+      return profile;
     } catch (error) {
       this.logger.error('Error finding user by Keycloak ID', error);
       return null;
@@ -204,7 +208,9 @@ export class UserService {
       const attributes = await this.keycloakService.getUserAttributes(
         keycloakUser.id,
       );
-      return this.attributesToUserProfile(keycloakUser.id, attributes);
+      const profile = this.attributesToUserProfile(keycloakUser.id, attributes);
+      await this.upsertLeanUser(profile);
+      return profile;
     } catch (error) {
       this.logger.error('Error finding user by email', error);
       return null;
@@ -268,7 +274,12 @@ export class UserService {
       this.logger.debug('User attributes updated successfully', {
         userId: keycloakUser.sub,
       });
-      return this.attributesToUserProfile(keycloakUser.sub, attributes);
+      const profile = this.attributesToUserProfile(
+        keycloakUser.sub,
+        attributes,
+      );
+      await this.upsertLeanUser(profile);
+      return profile;
     } catch (error) {
       this.logger.error(
         'Error updating user attributes during creation',
@@ -276,7 +287,12 @@ export class UserService {
       );
       // If updating attributes fails, still return a basic user profile
       // This ensures the user can still log in and complete onboarding later
-      return this.attributesToUserProfile(keycloakUser.sub, attributes);
+      const profile = this.attributesToUserProfile(
+        keycloakUser.sub,
+        attributes,
+      );
+      await this.upsertLeanUser(profile);
+      return profile;
     }
   }
 
@@ -493,6 +509,7 @@ export class UserService {
         userId,
         updatedAttributes,
       );
+      await this.upsertLeanUser(updatedProfile);
       await this.notifyProfileUpdated(updatedProfile);
 
       return updatedProfile;
@@ -736,7 +753,12 @@ export class UserService {
         { skipValidation: true }, // Skip validation since we're just updating OAuth data
       );
 
-      return this.attributesToUserProfile(keycloakUser.sub, updatedAttributes);
+      const profile = this.attributesToUserProfile(
+        keycloakUser.sub,
+        updatedAttributes,
+      );
+      await this.upsertLeanUser(profile);
+      return profile;
     } catch (error) {
       this.logger.error('Error updating user from Keycloak OAuth', error);
       // If update fails, still return the current user profile
@@ -800,6 +822,35 @@ export class UserService {
     } catch (error) {
       this.logger.warn('Failed to notify Event Manager about profile update', {
         userId: profile.keycloakId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  async upsertLeanUser(profile: UserProfile): Promise<void> {
+    const primaryEmail = profile.email.trim();
+    if (!primaryEmail) {
+      return;
+    }
+
+    try {
+      await this.prisma.user.upsert({
+        where: { keycloakId: profile.keycloakId },
+        create: {
+          keycloakId: profile.keycloakId,
+          primaryEmail,
+          primaryEmailNormalized: primaryEmail.toLowerCase(),
+          displayName: profile.displayName || profile.fullname || null,
+        },
+        update: {
+          primaryEmail,
+          primaryEmailNormalized: primaryEmail.toLowerCase(),
+          displayName: profile.displayName || profile.fullname || null,
+        },
+      });
+    } catch (error) {
+      this.logger.warn('Failed to sync lean user projection', {
+        keycloakId: profile.keycloakId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }

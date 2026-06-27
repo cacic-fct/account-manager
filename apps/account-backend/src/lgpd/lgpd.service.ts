@@ -1030,6 +1030,7 @@ export class LgpdService {
       await tx.privacySetting.deleteMany({ where: { userId } });
       await tx.lgpdRequest.deleteMany({ where: { userId } });
       await tx.discordLink.deleteMany({ where: { userId } });
+      await tx.user.deleteMany({ where: { keycloakId: userId } });
       await tx.deleteAccountRequest.deleteMany({
         where: {
           userId,
