@@ -9,7 +9,7 @@ import {
   type _Object,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { Readable } from 'stream';
+import { Readable, Transform } from 'stream';
 
 export interface S3Config {
   endpoint: string;
@@ -49,6 +49,8 @@ export class S3Service {
         secretAccessKey,
       },
       forcePathStyle: true, // Required for SeaweedFS S3 API
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
 
     this.logger.log(
@@ -66,32 +68,36 @@ export class S3Service {
     metadata?: Record<string, string>,
   ): Promise<{ key: string; size: number }> {
     try {
+      let uploadedSize = 0;
+      let uploadBody: Buffer | Readable;
+
+      if (Buffer.isBuffer(body)) {
+        uploadedSize = body.length;
+        uploadBody = body;
+      } else {
+        uploadBody = this.createCountingStream(body, (byteLength) => {
+          uploadedSize += byteLength;
+        });
+      }
+
       const upload = new Upload({
         client: this.s3Client,
         params: {
           Bucket: this.bucketName,
           Key: key,
-          Body: body,
+          Body: uploadBody,
           ContentType: contentType,
-          ContentLength: body instanceof Buffer ? body.length : undefined,
+          ContentLength: Buffer.isBuffer(body) ? body.length : undefined,
           Metadata: metadata,
         },
       });
 
       await upload.done();
 
-      // Get file size
-      const headResult = await this.s3Client.send(
-        new HeadObjectCommand({
-          Bucket: this.bucketName,
-          Key: key,
-        }),
-      );
-
       this.logger.log(`File uploaded successfully: ${key}`);
       return {
         key,
-        size: headResult.ContentLength || 0,
+        size: uploadedSize,
       };
     } catch (error: unknown) {
       this.logger.error(`Failed to upload file ${key}:`, error);
@@ -99,6 +105,30 @@ export class S3Service {
         `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
+  }
+
+  private createCountingStream(
+    body: Readable,
+    countBytes: (byteLength: number) => void,
+  ): Readable {
+    const countingStream = new Transform({
+      transform(chunk: Buffer | string, encoding, callback) {
+        countBytes(
+          typeof chunk === 'string'
+            ? Buffer.byteLength(chunk, encoding)
+            : chunk.byteLength,
+        );
+        callback(null, chunk);
+      },
+    });
+
+    body.on('error', (error) => {
+      countingStream.destroy(error);
+    });
+
+    body.pipe(countingStream);
+
+    return countingStream;
   }
 
   /**
