@@ -4,9 +4,7 @@
       <div mat-card-avatar class="card-avatar">
         <mat-icon>gavel</mat-icon>
       </div>
-      <mat-card-title>
-        Seleção de cargos
-      </mat-card-title>
+      <mat-card-title> Seleção de cargos </mat-card-title>
       <mat-card-subtitle>
         Escolha os cargos do Discord para receber notificações quando for
         mencionado.
@@ -26,7 +24,7 @@
             <h3>Não foi possível obter a lista de cargos</h3>
             <p>{{ errorMessage() }}</p>
             @switch (errorAction()) {
-              @case ("login") {
+              @case ('login') {
                 <button
                   mat-raised-button
                   color="primary"
@@ -35,7 +33,7 @@
                   Entrar
                 </button>
               }
-              @case ("link") {
+              @case ('link') {
                 <button
                   mat-raised-button
                   color="primary"
@@ -59,19 +57,9 @@
       } @else if (selectableRoles().length > 0) {
         <div class="toolbar-row">
           <div>
-            <h3>Cargos disponíveis</h3>
             <p>{{ selectedCount() }} selecionado(s) para sua conta.</p>
           </div>
           <div class="quick-actions" aria-label="Ações rápidas">
-            <button
-              mat-button
-              type="button"
-              [disabled]="isSaving()"
-              (click)="selectAllRoles()"
-            >
-              <mat-icon>select_all</mat-icon>
-              Selecionar todos
-            </button>
             <button
               mat-button
               type="button"
@@ -87,8 +75,9 @@
         <div class="instructions">
           <mat-icon>info</mat-icon>
           <p>
-            Estes são os cargos liberados pela administração para autoatribuição.
-            As alterações são aplicadas ao seu usuário no servidor do Discord.
+            Estes são os cargos liberados pela administração para
+            autoatribuição. As alterações são aplicadas ao seu usuário no
+            servidor do Discord.
           </p>
         </div>
 

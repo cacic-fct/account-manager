@@ -382,18 +382,6 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
     this.formChangeSignal.update((val) => val + 1);
   }
 
-  selectAllRoles(): void {
-    this.availableRoles().forEach((role) => {
-      const control = this.roleForm.get(role.id);
-      if (control) {
-        control.setValue(true);
-      }
-    });
-
-    // Trigger form change detection
-    this.formChangeSignal.update((val) => val + 1);
-  }
-
   clearAllRoles(): void {
     this.availableRoles().forEach((role) => {
       const control = this.roleForm.get(role.id);
