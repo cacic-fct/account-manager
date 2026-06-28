@@ -7,11 +7,15 @@ import {
 } from '@cacic-fct/account-manager-m2m-contracts';
 
 export interface CacicUmamiGlobal {
-  identify?: (userId: string, data?: Record<string, unknown>) => void;
+  identify?: (data: CacicUmamiIdentifyPayload) => void;
   track?: (
     eventNameOrData?: string | Record<string, unknown>,
     eventData?: Record<string, unknown>,
   ) => void;
+}
+
+export interface CacicUmamiIdentifyPayload extends Record<string, unknown> {
+  id: string;
 }
 
 export interface CacicTrackingIdentity {
@@ -90,9 +94,10 @@ export async function initCacicUmamiTracking(
   }
 
   if (config.identify !== false) {
-    window.umami?.identify?.(identity.userId, {
+    window.umami?.identify?.({
       cookie_banner_accepted: identity.cookieBannerAccepted,
       ...config.identifyData,
+      id: identity.userId,
     });
   }
 
