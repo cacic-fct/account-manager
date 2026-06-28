@@ -333,12 +333,6 @@ export class LgpdService {
         };
       }
 
-      data.integracao_futura = {
-        nota: 'Este espaço será usado para dados de outros sistemas integrados no futuro',
-        sistemas_disponiveis: [],
-        data_consulta: new Date().toISOString(),
-      };
-
       const externalData = await this.collectExternalData(
         userId,
         userProfile?.email || '',
