@@ -7,6 +7,7 @@ import { UserProfile } from '../../auth/interfaces/auth.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DiscordClientService } from './discord-client.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
+import { KeycloakService } from '../../auth/services/keycloak.service';
 import {
   checkComputerScienceEnrollmentPattern,
   DISCORD_MANAGED_ROLE_IDS,
@@ -22,6 +23,7 @@ interface AssignManagedRoleOptions {
   discordUserId?: string;
   member?: GuildMember;
   reason?: string;
+  skipKeycloakHealthCheck?: boolean;
 }
 
 interface ManagedRoleAssignmentResult {
@@ -37,12 +39,15 @@ interface ManagedRoleAssignmentResult {
 @Injectable()
 export class DiscordRoleService {
   private readonly logger = new Logger(DiscordRoleService.name);
+  private readonly recentManagedRoleMutationUntil = new Map<string, number>();
+  private readonly managedRoleMutationTtlMs = 15_000;
 
   constructor(
     private readonly prisma: PrismaService,
     private userService: UserService,
     private readonly discordClientService: DiscordClientService,
     private readonly configService: ConfigService,
+    private readonly keycloakService: KeycloakService,
     @Optional()
     private readonly featureFlags?: FeatureFlagService,
   ) {}
@@ -97,6 +102,25 @@ export class DiscordRoleService {
     discordLink: DiscordLink,
     options: AssignManagedRoleOptions = {},
   ): Promise<ManagedRoleAssignmentResult> {
+    if (
+      options.skipKeycloakHealthCheck !== true &&
+      !(await this.keycloakService.isRealmReachable())
+    ) {
+      this.logger.warn(
+        `Skipping Discord role assignment for link ${discordLink.id}: Keycloak realm health check failed`,
+      );
+
+      return {
+        eligibleRole: null,
+        roleId: null,
+        roleName: null,
+        memberFound: false,
+        roleApplied: false,
+        registrationRoleApplied: false,
+        staleRolesRemoved: 0,
+      };
+    }
+
     const user = await this.userService.findByKeycloakId(discordLink.userId);
 
     if (!user) {
@@ -240,13 +264,23 @@ export class DiscordRoleService {
     userId: string,
     reason = 'user-profile-sync',
   ): Promise<void> {
+    if (!(await this.keycloakService.isRealmReachable())) {
+      this.logger.warn(
+        `Skipping Discord role sync for user ${userId}: Keycloak realm health check failed`,
+      );
+      return;
+    }
+
     const discordLinks = await this.prisma.discordLink.findMany({
       where: { userId, deleted: false, isVerified: true },
     });
 
     for (const discordLink of discordLinks) {
       try {
-        await this.assignUserRole(discordLink, { reason });
+        await this.assignUserRole(discordLink, {
+          reason,
+          skipKeycloakHealthCheck: true,
+        });
       } catch (error) {
         this.logger.warn(
           `Failed to sync Discord role for link ${discordLink.id}:`,
@@ -267,6 +301,13 @@ export class DiscordRoleService {
       return { checked: 0, synced: 0, failed: 0 };
     }
 
+    if (!(await this.keycloakService.isRealmReachable())) {
+      this.logger.warn(
+        'Skipping Discord managed role sync: Keycloak realm health check failed',
+      );
+      return { checked: 0, synced: 0, failed: 0 };
+    }
+
     const discordLinks = await this.prisma.discordLink.findMany({
       where: { deleted: false, isVerified: true },
       orderBy: { createdAt: 'asc' },
@@ -281,6 +322,7 @@ export class DiscordRoleService {
           client,
           guildId,
           reason,
+          skipKeycloakHealthCheck: true,
         });
         synced += 1;
       } catch (error) {
@@ -350,6 +392,22 @@ export class DiscordRoleService {
       };
     }
 
+    const keycloakReachable = await this.keycloakService.isRealmReachable();
+
+    if (!keycloakReachable) {
+      this.logger.warn(
+        'Skipping Discord guild member role state sync: Keycloak realm health check failed',
+      );
+      return {
+        checked: 0,
+        linkedSynced: 0,
+        invalidLinkedCleaned: 0,
+        staleManagedRolesRemoved: 0,
+        registrationEnsured: 0,
+        failed: 0,
+      };
+    }
+
     const guild = await client.guilds.fetch(guildId);
     const [members, discordLinks] = await Promise.all([
       guild.members.fetch(),
@@ -394,6 +452,7 @@ export class DiscordRoleService {
             guildId,
             member,
             reason,
+            skipKeycloakHealthCheck: true,
           });
           staleManagedRolesRemoved += result.staleRolesRemoved;
           if (result.registrationRoleApplied) {
@@ -442,6 +501,21 @@ export class DiscordRoleService {
       registrationEnsured,
       failed,
     };
+  }
+
+  hasRecentManagedRoleMutation(memberId: string): boolean {
+    const mutationUntil = this.recentManagedRoleMutationUntil.get(memberId);
+
+    if (!mutationUntil) {
+      return false;
+    }
+
+    if (mutationUntil <= Date.now()) {
+      this.recentManagedRoleMutationUntil.delete(memberId);
+      return false;
+    }
+
+    return true;
   }
 
   private async resolveGuildMember(
@@ -498,6 +572,7 @@ export class DiscordRoleService {
       }
 
       try {
+        this.markManagedRoleMutation(member);
         await member.roles.remove(
           roleId,
           reason ?? 'CACiC managed role reconciliation',
@@ -536,6 +611,7 @@ export class DiscordRoleService {
     }
 
     try {
+      this.markManagedRoleMutation(member);
       await member.roles.add(
         DISCORD_REGISTRATION_ROLE.roleId,
         reason ?? 'CACiC registration role reconciliation',
@@ -559,6 +635,7 @@ export class DiscordRoleService {
     }
 
     try {
+      this.markManagedRoleMutation(member);
       await member.roles.remove(
         DISCORD_REGISTRATION_ROLE.roleId,
         reason ?? 'CACiC managed role reconciliation',
@@ -593,6 +670,7 @@ export class DiscordRoleService {
     }
 
     try {
+      this.markManagedRoleMutation(member);
       await member.roles.add(
         roleId,
         reason ?? 'CACiC managed role reconciliation',
@@ -617,6 +695,13 @@ export class DiscordRoleService {
   private hasManagedRoleAssigned(member: Pick<GuildMember, 'roles'>): boolean {
     return DISCORD_MANAGED_ROLE_IDS.some((roleId) =>
       member.roles.cache.has(roleId),
+    );
+  }
+
+  private markManagedRoleMutation(member: Pick<GuildMember, 'id'>): void {
+    this.recentManagedRoleMutationUntil.set(
+      member.id,
+      Date.now() + this.managedRoleMutationTtlMs,
     );
   }
 

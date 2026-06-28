@@ -7,6 +7,7 @@ import { UserService } from '../../auth/services/user.service';
 import { UserProfile } from '../../auth/interfaces/auth.interface';
 import { DiscordClientService } from './discord-client.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
+import { KeycloakService } from '../../auth/services/keycloak.service';
 import {
   DISCORD_MANAGED_ROLES,
   DISCORD_REGISTRATION_ROLE,
@@ -34,6 +35,10 @@ type ConfigServiceMock = {
 
 type FeatureFlagServiceMock = {
   isUndergraduateUnespRoleVerificationDisabled: jest.Mock<Promise<boolean>, []>;
+};
+
+type KeycloakServiceMock = {
+  isRealmReachable: jest.Mock<Promise<boolean>, []>;
 };
 
 type MockMember = {
@@ -176,11 +181,15 @@ const createContext = (members: readonly GuildMember[]) => {
       .fn<Promise<boolean>, []>()
       .mockResolvedValue(false),
   };
+  const keycloakService: KeycloakServiceMock = {
+    isRealmReachable: jest.fn<Promise<boolean>, []>().mockResolvedValue(true),
+  };
   const service = new DiscordRoleService(
     prisma as unknown as PrismaService,
     userService as unknown as UserService,
     discordClientService as unknown as DiscordClientService,
     configService as unknown as ConfigService,
+    keycloakService as unknown as KeycloakService,
     featureFlags as unknown as FeatureFlagService,
   );
 
@@ -189,6 +198,7 @@ const createContext = (members: readonly GuildMember[]) => {
   return {
     prisma,
     userService,
+    keycloakService,
     service,
   };
 };
@@ -264,6 +274,7 @@ describe('DiscordRoleService managed-role enforcement', () => {
       where: { id: '00000000-0000-7000-8000-000000000001' },
       data: { assignedRole: 'student' },
     });
+    expect(service.hasRecentManagedRoleMutation('discord-1')).toBe(true);
   });
 
   it('cleans verified links whose local account no longer exists instead of assigning visitor', async () => {
@@ -298,5 +309,61 @@ describe('DiscordRoleService managed-role enforcement', () => {
       DISCORD_REGISTRATION_ROLE.roleId,
       'test-hard-enforcement',
     );
+  });
+
+  it('does not mutate Discord roles when assigning while Keycloak is unreachable', async () => {
+    const linkedMember = createMember('discord-1', [
+      DISCORD_MANAGED_ROLES.unesp.roleId,
+    ]);
+    const { prisma, service, userService, keycloakService } = createContext([
+      linkedMember.member,
+    ]);
+    keycloakService.isRealmReachable.mockResolvedValue(false);
+
+    await expect(
+      service.assignUserRole(createDiscordLink(), {
+        member: linkedMember.member,
+        reason: 'test-linked-sync',
+      }),
+    ).resolves.toEqual({
+      eligibleRole: null,
+      roleId: null,
+      roleName: null,
+      memberFound: false,
+      roleApplied: false,
+      registrationRoleApplied: false,
+      staleRolesRemoved: 0,
+    });
+    expect(userService.findByKeycloakId).not.toHaveBeenCalled();
+    expect(prisma.discordLink.update).not.toHaveBeenCalled();
+    expect(linkedMember.remove).not.toHaveBeenCalled();
+    expect(linkedMember.add).not.toHaveBeenCalled();
+    expect(service.hasRecentManagedRoleMutation('discord-1')).toBe(false);
+  });
+
+  it('skips destructive guild enforcement while Keycloak is unreachable', async () => {
+    const linkedMember = createMember('discord-1', [
+      DISCORD_MANAGED_ROLES.visitor.roleId,
+    ]);
+    const { prisma, service, keycloakService } = createContext([
+      linkedMember.member,
+    ]);
+    keycloakService.isRealmReachable.mockResolvedValue(false);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+
+    await expect(
+      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
+    ).resolves.toEqual({
+      checked: 0,
+      linkedSynced: 0,
+      invalidLinkedCleaned: 0,
+      staleManagedRolesRemoved: 0,
+      registrationEnsured: 0,
+      failed: 0,
+    });
+    expect(prisma.discordLink.findMany).not.toHaveBeenCalled();
+    expect(prisma.discordLink.update).not.toHaveBeenCalled();
+    expect(linkedMember.remove).not.toHaveBeenCalled();
+    expect(linkedMember.add).not.toHaveBeenCalled();
   });
 });

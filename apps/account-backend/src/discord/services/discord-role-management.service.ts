@@ -322,10 +322,11 @@ export class DiscordRoleManagementService {
     const rolesToAdd = dto.selectedRoleIds.filter(
       (roleId) => !currentSelectableRoleIds.includes(roleId),
     );
+    const reason = `CACiC self-service role selection by account ${userId}`;
 
     for (const roleId of rolesToRemove) {
       try {
-        await member.roles.remove(roleId);
+        await member.roles.remove(roleId, reason);
       } catch (error) {
         this.logger.warn(
           `Failed to remove role ${roleId} from user ${userId}:`,
@@ -336,7 +337,7 @@ export class DiscordRoleManagementService {
 
     for (const roleId of rolesToAdd) {
       try {
-        await member.roles.add(roleId);
+        await member.roles.add(roleId, reason);
       } catch (error) {
         this.logger.warn(
           `Failed to add role ${roleId} to user ${userId}:`,

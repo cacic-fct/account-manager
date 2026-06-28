@@ -99,6 +99,29 @@ export abstract class KeycloakBaseOperations {
     return process.env.NODE_ENV === 'production';
   }
 
+  async isRealmReachable(): Promise<boolean> {
+    const configurationUrl = `${this.keycloakUrl}/realms/${this.realm}/.well-known/openid-configuration`;
+
+    try {
+      const response = await fetch(configurationUrl);
+      return response.ok;
+    } catch (error) {
+      if (this.isConnectionError(error)) {
+        this.logger.warn('Keycloak realm health check failed', {
+          configurationUrl,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+
+      this.logger.warn('Keycloak realm health check returned an error', {
+        configurationUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
   protected resolveClientAuthMethod(): KeycloakClientAuthMethod {
     const configuredMethod =
       this.readOptionalEnv('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD') ??

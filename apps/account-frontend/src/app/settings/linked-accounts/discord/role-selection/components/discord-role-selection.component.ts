@@ -21,14 +21,19 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatChipsModule } from '@angular/material/chips';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DiscordRoleOptionComponent } from '../../../../../shared/components/discord-role-option.component';
 import { ApiService } from '../../../../../shared/services/api.service';
-import type { DiscordRole, UserRoles, RoleSelectionResponse } from '@cacic/shared-types';
+import type {
+  DiscordRole,
+  UserRoles,
+  RoleSelectionResponse,
+} from '@cacic/shared-types';
+
+type RoleSelectionErrorAction = 'login' | 'link' | 'retry';
 
 @Component({
   selector: 'app-discord-role-selection',
-  standalone: true,
   imports: [
     ReactiveFormsModule,
     MatCardModule,
@@ -37,7 +42,7 @@ import type { DiscordRole, UserRoles, RoleSelectionResponse } from '@cacic/share
     MatCheckboxModule,
     MatProgressSpinnerModule,
     MatDividerModule,
-    MatChipsModule,
+    DiscordRoleOptionComponent,
   ],
   templateUrl: './discord-role-selection.component.html',
   styleUrl: './discord-role-selection.component.scss',
@@ -57,6 +62,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
   availableRoles = signal<DiscordRole[]>([]);
   userRoles = signal<UserRoles | null>(null);
   errorMessage = signal<string>('');
+  errorAction = signal<RoleSelectionErrorAction>('retry');
   successMessage = signal<string>('');
   initialSelectedIds = signal<Set<string>>(new Set());
 
@@ -122,10 +128,10 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
     const seconds = remaining % 60;
 
     if (minutes > 0) {
-      return `Please wait ${minutes}m ${seconds}s before updating again (${attempts} recent attempts)`;
-    } else {
-      return `Please wait ${seconds}s before updating again (${attempts} recent attempts)`;
+      return `Aguarde ${minutes}min ${seconds}s antes de atualizar novamente (${attempts} tentativas recentes).`;
     }
+
+    return `Aguarde ${seconds}s antes de atualizar novamente (${attempts} tentativas recentes).`;
   });
 
   // Get selected role IDs from the reactive form
@@ -205,8 +211,8 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
       error: (error: HttpErrorResponse) => {
         console.error('Error loading available Discord roles:', error);
         this.snackBar.open(
-          'Failed to load available roles. Please try again.',
-          'Close',
+          'Não foi possível carregar os cargos disponíveis.',
+          'Fechar',
           { duration: 5000 },
         );
         this.isLoading.set(false);
@@ -254,18 +260,22 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
       error: (error: HttpErrorResponse) => {
         console.error('Error loading user Discord roles:', error);
         let errorMessage =
-          'Failed to load your current roles. Please try again.';
+          'Não foi possível carregar seus cargos atuais. Tente novamente.';
+        let errorAction: RoleSelectionErrorAction = 'retry';
 
         if (error.status === 400) {
           errorMessage =
-            'Please link your Discord account first to manage roles.';
+            'Vincule sua conta do Discord para gerenciar seus cargos.';
+          errorAction = 'link';
         } else if (error.status === 401) {
-          errorMessage = 'Please log in to manage your Discord roles.';
+          errorMessage = 'Faça login para gerenciar seus cargos do Discord.';
+          errorAction = 'login';
         } else if (error.status === 500) {
-          errorMessage = 'Server error occurred. Please try again later.';
+          errorMessage = 'Erro no servidor. Tente novamente mais tarde.';
         }
 
         this.errorMessage.set(errorMessage);
+        this.errorAction.set(errorAction);
         this.isLoading.set(false);
       },
     });
@@ -306,7 +316,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response: RoleSelectionResponse) => {
           this.successMessage.set(
-            response.message || 'Your Discord roles have been updated!',
+            response.message || 'Seus cargos do Discord foram atualizados.',
           );
           // Clear success message after 3 seconds
           setTimeout(() => this.successMessage.set(''), 3000);
@@ -325,7 +335,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         error: (error: HttpErrorResponse) => {
           console.error('Error updating Discord roles:', error);
           let errorMessage =
-            'Failed to update your Discord roles. Please try again.';
+            'Não foi possível atualizar seus cargos do Discord. Tente novamente.';
 
           // Handle cooldown from backend
           if (error.status === 429) {
@@ -334,7 +344,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
               error.error?.cooldownSeconds || Math.pow(2, attempts);
 
             this.setCooldown(attempts);
-            errorMessage = `Too many attempts. Please wait ${cooldownSeconds}s before trying again.`;
+            errorMessage = `Muitas tentativas. Aguarde ${cooldownSeconds}s antes de tentar novamente.`;
           } else {
             // Increment attempts on other errors and set cooldown
             const newAttempts = this.updateAttempts() + 1;
@@ -343,7 +353,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
             if (error.status === 400) {
               errorMessage =
                 error.error?.message ||
-                'Some roles could not be assigned. Please check your selections.';
+                'Alguns cargos não puderam ser atribuídos. Confira sua seleção.';
             }
           }
 
@@ -370,10 +380,6 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
 
     // Trigger form change detection after reset
     this.formChangeSignal.update((val) => val + 1);
-  }
-
-  getRoleColor(role: DiscordRole): string {
-    return role.color && role.color !== '#000000' ? role.color : '#99aab5';
   }
 
   selectAllRoles(): void {

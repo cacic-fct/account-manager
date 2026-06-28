@@ -29,7 +29,9 @@ import {
   type DiscordRoleChange,
   type RoleChangeData,
 } from './discord-role-confirmation-dialog.component';
+import { DiscordRoleOptionComponent } from '../../../shared/components/discord-role-option.component';
 import { ApiService } from '../../../shared/services/api.service';
+import { normalizeDiscordRoleColor } from '../../../shared/utils/discord-role-color.util';
 import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
 
 @Component({
@@ -44,6 +46,7 @@ import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
     MatDividerModule,
     MatDialogModule,
     ReactiveFormsModule,
+    DiscordRoleOptionComponent,
   ],
   templateUrl: './discord-role-admin.component.html',
   styleUrl: './discord-role-admin.component.scss',
@@ -376,7 +379,7 @@ export class DiscordRoleAdminComponent implements OnInit {
   }
 
   private hexToNumber(hexColor: string): number {
-    const normalizedColor = this.normalizeRoleColor(hexColor);
+    const normalizedColor = normalizeDiscordRoleColor(hexColor);
     if (normalizedColor === '#99aab5') return 0;
     return parseInt(normalizedColor.replace('#', ''), 16);
   }
@@ -473,54 +476,4 @@ export class DiscordRoleAdminComponent implements OnInit {
     }
   }
 
-  getRoleColor(role: DiscordRole): string {
-    return this.normalizeRoleColor(role.color);
-  }
-
-  getRoleTextColor(role: DiscordRole): '#000000' | '#ffffff' {
-    return this.getReadableTextColor(this.getRoleColor(role));
-  }
-
-  private normalizeRoleColor(color: string | null | undefined): string {
-    if (!color || color === '#000000') {
-      return '#99aab5';
-    }
-
-    const trimmed = color.trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
-      return trimmed.toLowerCase();
-    }
-
-    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
-      const [, r, g, b] = trimmed;
-      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
-    }
-
-    return '#99aab5';
-  }
-
-  private getReadableTextColor(color: string): '#000000' | '#ffffff' {
-    const luminance = this.getRelativeLuminance(color);
-    const contrastWithBlack = (luminance + 0.05) / 0.05;
-    const contrastWithWhite = 1.05 / (luminance + 0.05);
-
-    return contrastWithBlack >= contrastWithWhite ? '#000000' : '#ffffff';
-  }
-
-  private getRelativeLuminance(color: string): number {
-    const red = parseInt(color.slice(1, 3), 16);
-    const green = parseInt(color.slice(3, 5), 16);
-    const blue = parseInt(color.slice(5, 7), 16);
-
-    const [linearRed, linearGreen, linearBlue] = [red, green, blue].map(
-      (channel) => {
-        const value = channel / 255;
-        return value <= 0.03928
-          ? value / 12.92
-          : Math.pow((value + 0.055) / 1.055, 2.4);
-      },
-    );
-
-    return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue;
-  }
 }
