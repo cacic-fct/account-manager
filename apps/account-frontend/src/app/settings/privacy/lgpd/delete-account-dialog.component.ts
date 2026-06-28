@@ -15,33 +15,40 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    ReactiveFormsModule
-],
+    ReactiveFormsModule,
+  ],
   template: `
     <h2 mat-dialog-title class="warning-title">
       <mat-icon>warning</mat-icon>
       Excluir Conta Permanentemente
     </h2>
-    
+
     <mat-dialog-content>
       <div class="warning-content">
-        <p><strong>ATENÇÃO: sua conta será desativada imediatamente.</strong></p>
-    
+        <p>
+          <strong>ATENÇÃO: sua conta será desativada imediatamente.</strong>
+        </p>
+
         <p>A exclusão da sua conta resultará em:</p>
         <ul>
           <li>Bloqueio de acesso ao CACiC SSO e aplicações vinculadas</li>
           <li>Ocultação dos seus dados nos sistemas CACiC</li>
-          <li>Retenção dos dados por 1 ano para prevenção a fraude e invasões de conta</li>
-          <li>Exclusão definitiva após 1 ano, salvo reativação administrativa</li>
+          <li>
+            Retenção dos dados por 1 ano para prevenção a fraude e invasões de
+            conta
+          </li>
+          <li>
+            Exclusão definitiva após 1 ano, salvo reativação administrativa
+          </li>
         </ul>
-    
+
         <p>Os seguintes serviços serão notificados sobre o agendamento:</p>
         <ul>
-          <li>Keycloak (sistema de autenticação)</li>
-          <li>Serviço de usuários</li>
+          <li>Gerenciador de contas do CACiC</li>
+          <li>Sistema de autenticação</li>
           <li>Sistemas externos integrados</li>
         </ul>
-    
+
         <form [formGroup]="deleteForm" class="delete-form">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Digite "DELETE" para confirmar</mat-label>
@@ -50,21 +57,15 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
               formControlName="confirmation"
               placeholder="DELETE"
               autocomplete="off"
-              />
+            />
             @if (deleteForm.get('confirmation')?.hasError('required')) {
-              <mat-error
-                >
-                Confirmação é obrigatória
-              </mat-error>
+              <mat-error> Confirmação é obrigatória </mat-error>
             }
             @if (deleteForm.get('confirmation')?.hasError('pattern')) {
-              <mat-error
-                >
-                Digite exatamente "DELETE"
-              </mat-error>
+              <mat-error> Digite exatamente "DELETE" </mat-error>
             }
           </mat-form-field>
-    
+
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Motivo da exclusão (opcional)</mat-label>
             <textarea
@@ -77,7 +78,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
         </form>
       </div>
     </mat-dialog-content>
-    
+
     <mat-dialog-actions align="end">
       <button mat-button (click)="cancel()">Cancelar</button>
       <button
@@ -85,12 +86,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
         color="warn"
         [disabled]="!deleteForm.valid"
         (click)="confirm()"
-        >
+      >
         <mat-icon>delete_forever</mat-icon>
         Solicitar Exclusão
       </button>
     </mat-dialog-actions>
-    `,
+  `,
   styles: [
     `
       .warning-title {
@@ -147,7 +148,7 @@ export class DeleteAccountDialogComponent {
   confirm(): void {
     if (this.deleteForm.valid) {
       this.dialogRef.close({
-        confirmation: this.deleteForm.value.confirmation!,
+        confirmation: this.deleteForm.value.confirmation,
         reason: this.deleteForm.value.reason || undefined,
       });
     }

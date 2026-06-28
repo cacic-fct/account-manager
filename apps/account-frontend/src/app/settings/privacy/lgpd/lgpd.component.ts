@@ -1,4 +1,11 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,9 +13,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
+import { MatToolbarModule } from '@angular/material/toolbar';
 import {
   ApiService,
   LgpdRequest,
@@ -17,7 +26,30 @@ import {
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import { LgpdConfirmDialogComponent } from './lgpd-confirm-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
-import { MatToolbar } from '@angular/material/toolbar';
+
+type LgpdRequestStatus = LgpdRequest['status'];
+
+const STATUS_LABELS: Record<LgpdRequestStatus, string> = {
+  pending: 'Pendente',
+  processing: 'Processando',
+  completed: 'Concluído',
+  failed: 'Falhou',
+};
+
+const STATUS_COLORS: Record<LgpdRequestStatus, 'accent' | 'primary' | 'warn'> =
+  {
+    pending: 'accent',
+    processing: 'primary',
+    completed: 'primary',
+    failed: 'warn',
+  };
+
+const STATUS_ICONS: Record<LgpdRequestStatus, string> = {
+  pending: 'schedule',
+  processing: 'autorenew',
+  completed: 'check_circle',
+  failed: 'error',
+};
 
 @Component({
   selector: 'app-lgpd',
@@ -28,11 +60,13 @@ import { MatToolbar } from '@angular/material/toolbar';
     MatProgressSpinnerModule,
     MatTableModule,
     MatChipsModule,
-    MatToolbar,
-    RouterLink
-],
+    MatTooltipModule,
+    MatToolbarModule,
+    RouterLink,
+  ],
   templateUrl: './lgpd.component.html',
   styleUrl: './lgpd.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LgpdComponent implements OnInit {
   private apiService = inject(ApiService);
@@ -41,32 +75,44 @@ export class LgpdComponent implements OnInit {
   private dialog = inject(MatDialog);
   private router = inject(Router);
 
-  isLoading = signal(false);
-  isCreatingRequest = signal(false);
-  isDeletingAccount = signal(false);
-  requests = signal<LgpdRequest[]>([]);
+  protected isLoading = signal(false);
+  protected isCreatingRequest = signal(false);
+  protected isDeletingAccount = signal(false);
+  protected requests = signal<LgpdRequest[]>([]);
 
-  displayedColumns: string[] = [
+  protected readonly displayedColumns = [
     'status',
     'createdAt',
-    'fileName',
     'fileSize',
     'actions',
   ];
+
+  protected readonly canCreateNewRequest = computed(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    return !this.requests().some((request) => {
+      const createdAt = new Date(request.createdAt).getTime();
+
+      return (
+        createdAt > oneDayAgo ||
+        request.status === 'pending' ||
+        request.status === 'processing'
+      );
+    });
+  });
 
   ngOnInit(): void {
     this.loadRequests();
   }
 
-  loadRequests(): void {
+  protected loadRequests(): void {
     this.isLoading.set(true);
     this.apiService.getLgpdRequests().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
-      error: (error) => {
-        console.error('Erro ao carregar solicitações:', error);
+      error: () => {
         this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
@@ -76,15 +122,14 @@ export class LgpdComponent implements OnInit {
     });
   }
 
-  refreshRequests(): void {
+  protected refreshRequests(): void {
     this.isLoading.set(true);
     this.apiService.getLgpdRequestsFresh().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
-      error: (error) => {
-        console.error('Erro ao carregar solicitações:', error);
+      error: () => {
         this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
@@ -94,7 +139,7 @@ export class LgpdComponent implements OnInit {
     });
   }
 
-  createRequest(): void {
+  protected createRequest(): void {
     const dialogRef = this.dialog.open(LgpdConfirmDialogComponent, {
       width: '500px',
       disableClose: true,
@@ -110,7 +155,7 @@ export class LgpdComponent implements OnInit {
   private executeCreateRequest(): void {
     this.isCreatingRequest.set(true);
     this.apiService.createLgpdRequest().subscribe({
-      next: (request) => {
+      next: () => {
         this.snackBar.open(
           'Solicitação criada com sucesso! O processamento pode levar alguns minutos.',
           'Fechar',
@@ -123,10 +168,11 @@ export class LgpdComponent implements OnInit {
         this.isCreatingRequest.set(false);
       },
       error: (error) => {
-        console.error('Erro ao criar solicitação:', error);
-        const errorMessage =
-          error.error?.message ||
-          'Erro ao criar solicitação. Tente novamente mais tarde.';
+        const errorMessage = this.getApiErrorMessage(
+          error,
+          'Erro ao criar solicitação. Tente novamente mais tarde.',
+        );
+
         this.snackBar.open(errorMessage, 'Fechar', {
           duration: 8000,
           panelClass: ['error-snackbar'],
@@ -136,7 +182,7 @@ export class LgpdComponent implements OnInit {
     });
   }
 
-  downloadFile(request: LgpdRequest): void {
+  protected downloadFile(request: LgpdRequest): void {
     if (request.status !== 'completed') {
       this.snackBar.open(
         'O arquivo ainda não está pronto para download.',
@@ -160,41 +206,43 @@ export class LgpdComponent implements OnInit {
 
     // Open download link in new window to trigger download
     const downloadUrl = this.apiService.downloadLgpdFile(request.id);
-    window.open(downloadUrl, '_blank');
+    const downloadWindow = window.open(downloadUrl, '_blank', 'noopener');
+
+    if (downloadWindow) {
+      downloadWindow.opener = null;
+    }
 
     // Reload requests to update download timestamp (will use fresh data)
     setTimeout(() => this.refreshRequests(), 1000);
   }
 
-  getStatusLabel(status: string): string {
-    const statusLabels: Record<string, string> = {
-      pending: 'Pendente',
-      processing: 'Processando',
-      completed: 'Concluído',
-      failed: 'Falhou',
-    };
-    return statusLabels[status] || status;
+  protected getStatusLabel(status: LgpdRequestStatus): string {
+    return STATUS_LABELS[status];
   }
 
-  getStatusColor(status: string): string {
-    const statusColors: Record<string, string> = {
-      pending: 'accent',
-      processing: 'primary',
-      completed: 'primary',
-      failed: 'warn',
-    };
-    return statusColors[status] || 'basic';
+  protected getStatusColor(status: LgpdRequestStatus): 'accent' | 'primary' | 'warn' {
+    return STATUS_COLORS[status];
   }
 
-  formatFileSize(bytes?: number): string {
-    if (!bytes) return '-';
+  protected getStatusIcon(status: LgpdRequestStatus): string {
+    return STATUS_ICONS[status];
+  }
+
+  protected formatFileSize(bytes?: number): string {
+    if (!bytes || bytes <= 0) return '-';
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const i = Math.min(
+      Math.floor(Math.log(bytes) / Math.log(1024)),
+      sizes.length - 1,
+    );
+
     return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
   }
 
-  formatDate(date: Date | string): string {
+  protected formatDate(date?: Date | string): string {
+    if (!date) return '-';
     const d = new Date(date);
+
     return d.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -204,21 +252,21 @@ export class LgpdComponent implements OnInit {
     });
   }
 
-  canDownload(request: LgpdRequest): boolean {
+  protected canDownload(request: LgpdRequest): boolean {
     return (
       request.status === 'completed' &&
       (!request.expiresAt || new Date() <= new Date(request.expiresAt))
     );
   }
 
-  isExpired(request: LgpdRequest): boolean {
+  protected isExpired(request: LgpdRequest): boolean {
     return (
       request.expiresAt !== undefined &&
       new Date() > new Date(request.expiresAt)
     );
   }
 
-  openDeleteAccountDialog(): void {
+  protected openDeleteAccountDialog(): void {
     const dialogRef = this.dialog.open(DeleteAccountDialogComponent, {
       width: '600px',
       disableClose: true,
@@ -235,7 +283,7 @@ export class LgpdComponent implements OnInit {
     this.isDeletingAccount.set(true);
 
     this.apiService.deleteAccount(request).subscribe({
-      next: (response) => {
+      next: () => {
         this.snackBar.open(
           'Solicitação de exclusão de conta enviada com sucesso. Você será redirecionado para a página de login.',
           'Fechar',
@@ -249,10 +297,11 @@ export class LgpdComponent implements OnInit {
         }, 2000);
       },
       error: (error) => {
-        console.error('Error deleting account:', error);
         this.snackBar.open(
-          error.error?.message ||
+          this.getApiErrorMessage(
+            error,
             'Erro ao solicitar exclusão da conta. Tente novamente.',
+          ),
           'Fechar',
           { duration: 5000 },
         );
@@ -261,16 +310,13 @@ export class LgpdComponent implements OnInit {
     });
   }
 
-  canCreateNewRequest(): boolean {
-    const recentRequests = this.requests().filter((req) => {
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-      return (
-        new Date(req.createdAt) > oneDayAgo ||
-        req.status === 'pending' ||
-        req.status === 'processing'
-      );
-    });
-    return recentRequests.length === 0;
+  private getApiErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error !== 'object' || error === null || !('error' in error)) {
+      return fallback;
+    }
+
+    const body = (error as { error?: { message?: unknown } }).error;
+
+    return typeof body?.message === 'string' ? body.message : fallback;
   }
 }
