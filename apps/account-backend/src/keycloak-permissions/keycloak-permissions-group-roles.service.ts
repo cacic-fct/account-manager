@@ -1,0 +1,181 @@
+import {
+  PermissionGroupKey,
+  PermissionGroupRoleGrant,
+  PermissionGroupRoleGrantUpdateRequest,
+} from '@cacic/shared-types';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { AccountPermissionService } from '../auth/services/account-permission.service';
+import { KeycloakService } from '../auth/services/keycloak.service';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  getPermissionGroupDefinition,
+  mapGroupRoleGrant,
+  normalizePermissionList,
+  parsePermissionOrThrow,
+} from './keycloak-permissions.helpers';
+import { GROUP_ROLE_GRANT_SELECT } from './keycloak-permissions.records';
+import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
+import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.service';
+
+@Injectable()
+export class KeycloakPermissionsGroupRolesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly keycloakService: KeycloakService,
+    private readonly accountPermissionService: AccountPermissionService,
+    private readonly catalog: KeycloakPermissionsCatalogService,
+    private readonly sync: KeycloakPermissionsSyncService,
+  ) {}
+
+  async listPermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+  ): Promise<PermissionGroupRoleGrant[]> {
+    const group = getPermissionGroupDefinition(groupKey);
+    const [dbGrants, keycloakPermissions] = await Promise.all([
+      this.prisma.keycloakGroupPermissionGrant.findMany({
+        where: {
+          groupKey,
+          deletedAt: null,
+        },
+        select: GROUP_ROLE_GRANT_SELECT,
+        orderBy: [{ clientId: 'asc' }, { roleName: 'asc' }],
+      }),
+      this.catalog.listKeycloakGroupPermissions(group),
+    ]);
+    const grants = dbGrants.map((grant) => mapGroupRoleGrant(grant));
+    const dbPermissionSet = new Set(grants.map((grant) => grant.permission));
+
+    for (const permission of keycloakPermissions) {
+      if (dbPermissionSet.has(permission.permission)) {
+        continue;
+      }
+
+      grants.push({
+        id: `keycloak:${group.key}:${permission.permission}`,
+        groupKey: group.key,
+        clientId: permission.clientId,
+        roleName: permission.roleName,
+        permission: permission.permission,
+        source: 'keycloak',
+        validFrom: null,
+        validUntil: null,
+        status: 'active',
+      });
+    }
+
+    return grants.sort((left, right) =>
+      `${left.clientId}:${left.roleName}`.localeCompare(
+        `${right.clientId}:${right.roleName}`,
+      ),
+    );
+  }
+
+  async updatePermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+    input: PermissionGroupRoleGrantUpdateRequest,
+    actorId?: string,
+  ): Promise<PermissionGroupRoleGrant[]> {
+    const group = getPermissionGroupDefinition(groupKey);
+    const permissions = normalizePermissionList(input.permissions);
+    await this.catalog.assertPermissionsKnown(permissions);
+
+    if (!actorId) {
+      throw new ForbiddenException('Authentication required');
+    }
+
+    for (const permission of permissions) {
+      await this.assertActorCanAssignPermission(actorId, permission);
+    }
+
+    const existingDbGrants =
+      await this.prisma.keycloakGroupPermissionGrant.findMany({
+        where: {
+          groupKey,
+          deletedAt: null,
+        },
+        select: GROUP_ROLE_GRANT_SELECT,
+      });
+    const existingByPermission = new Map(
+      existingDbGrants.map((grant) => [grant.permission, grant]),
+    );
+    const desiredPermissions = new Set(permissions);
+    const keycloakPermissions =
+      await this.catalog.listKeycloakGroupPermissions(group);
+
+    for (const permission of permissions) {
+      if (existingByPermission.has(permission)) {
+        continue;
+      }
+
+      const parsedPermission = parsePermissionOrThrow(permission);
+      const grant = await this.prisma.keycloakGroupPermissionGrant.create({
+        data: {
+          groupKey,
+          keycloakGroupId: group.keycloakGroupId,
+          permission,
+          clientId: parsedPermission.clientId,
+          roleName: parsedPermission.roleName,
+          createdById: actorId,
+          updatedById: actorId,
+        },
+        select: GROUP_ROLE_GRANT_SELECT,
+      });
+      await this.sync.syncGroupRoleGrantAfterWrite(grant, {
+        throwOnFailure: false,
+      });
+    }
+
+    for (const grant of existingDbGrants) {
+      if (desiredPermissions.has(grant.permission)) {
+        continue;
+      }
+
+      await this.assertActorCanAssignPermission(actorId, grant.permission);
+      await this.keycloakService.removeGroupClientRoles(
+        grant.keycloakGroupId,
+        [grant.roleName],
+        grant.clientId,
+      );
+      await this.prisma.keycloakGroupPermissionGrant.update({
+        where: { id: grant.id },
+        data: {
+          deletedAt: new Date(),
+          updatedById: actorId,
+          lastSyncedAt: new Date(),
+          lastSyncError: null,
+        },
+      });
+    }
+
+    for (const permission of keycloakPermissions) {
+      if (desiredPermissions.has(permission.permission)) {
+        continue;
+      }
+
+      await this.assertActorCanAssignPermission(actorId, permission.permission);
+      await this.keycloakService.removeGroupClientRoles(
+        group.keycloakGroupId,
+        [permission.roleName],
+        permission.clientId,
+      );
+    }
+
+    return this.listPermissionGroupRoleGrants(groupKey);
+  }
+
+  private async assertActorCanAssignPermission(
+    actorId: string,
+    permission: string,
+  ): Promise<void> {
+    if (
+      !(await this.accountPermissionService.canAssignPermission(
+        actorId,
+        permission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Você não pode conceder uma permissão que não possui.',
+      );
+    }
+  }
+}

@@ -33,11 +33,15 @@ import type {
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
   KeycloakPermissionUser,
-  StudentEntityDefinition,
-  StudentEntityKey,
-  StudentEntityMembership,
-  StudentEntityMembershipCreateRequest,
-  StudentEntityMembershipUpdateRequest,
+  PermissionGroupDefinition,
+  PermissionGroupKey,
+  PermissionGroupMembership,
+  PermissionGroupMembershipCreateRequest,
+  PermissionGroupMembershipUpdateRequest,
+  PermissionGroupRoleGrant,
+  PermissionGroupRoleGrantUpdateRequest,
+  PermissionSelfRemovalResult,
+  PermissionSelfServiceAccess,
   TotpSeed,
   TotpStatus,
 } from '@cacic/shared-types';
@@ -86,11 +90,15 @@ export type {
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
   KeycloakPermissionUser,
-  StudentEntityDefinition,
-  StudentEntityKey,
-  StudentEntityMembership,
-  StudentEntityMembershipCreateRequest,
-  StudentEntityMembershipUpdateRequest,
+  PermissionGroupDefinition,
+  PermissionGroupKey,
+  PermissionGroupMembership,
+  PermissionGroupMembershipCreateRequest,
+  PermissionGroupMembershipUpdateRequest,
+  PermissionGroupRoleGrant,
+  PermissionGroupRoleGrantUpdateRequest,
+  PermissionSelfRemovalResult,
+  PermissionSelfServiceAccess,
   TotpSeed,
   TotpStatus,
 } from '@cacic/shared-types';
@@ -229,8 +237,24 @@ export class ApiService {
     return this.keycloakPermissionsApi.getKeycloakPermissionCatalog();
   }
 
-  getStudentEntityCatalog(): Observable<StudentEntityDefinition[]> {
-    return this.keycloakPermissionsApi.getStudentEntityCatalog();
+  getPermissionGroupCatalog(): Observable<PermissionGroupDefinition[]> {
+    return this.keycloakPermissionsApi.getPermissionGroupCatalog();
+  }
+
+  getPermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+  ): Observable<PermissionGroupRoleGrant[]> {
+    return this.keycloakPermissionsApi.getPermissionGroupRoleGrants(groupKey);
+  }
+
+  updatePermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+    dto: PermissionGroupRoleGrantUpdateRequest,
+  ): Observable<PermissionGroupRoleGrant[]> {
+    return this.keycloakPermissionsApi.updatePermissionGroupRoleGrants(
+      groupKey,
+      dto,
+    );
   }
 
   searchKeycloakPermissionUsers(
@@ -245,16 +269,18 @@ export class ApiService {
     return this.keycloakPermissionsApi.getKeycloakPermissionGrants(userId);
   }
 
-  getUserStudentEntityMemberships(
+  getUserPermissionGroupMemberships(
     userId: string,
-  ): Observable<StudentEntityMembership[]> {
-    return this.keycloakPermissionsApi.getUserStudentEntityMemberships(userId);
+  ): Observable<PermissionGroupMembership[]> {
+    return this.keycloakPermissionsApi.getUserPermissionGroupMemberships(
+      userId,
+    );
   }
 
-  getStudentEntityMemberships(
-    entity?: StudentEntityKey,
-  ): Observable<StudentEntityMembership[]> {
-    return this.keycloakPermissionsApi.getStudentEntityMemberships(entity);
+  getPermissionGroupMemberships(
+    groupKey?: PermissionGroupKey,
+  ): Observable<PermissionGroupMembership[]> {
+    return this.keycloakPermissionsApi.getPermissionGroupMemberships(groupKey);
   }
 
   createKeycloakPermissionGrant(
@@ -263,10 +289,10 @@ export class ApiService {
     return this.keycloakPermissionsApi.createKeycloakPermissionGrant(dto);
   }
 
-  createStudentEntityMembership(
-    dto: StudentEntityMembershipCreateRequest,
-  ): Observable<StudentEntityMembership> {
-    return this.keycloakPermissionsApi.createStudentEntityMembership(dto);
+  createPermissionGroupMembership(
+    dto: PermissionGroupMembershipCreateRequest,
+  ): Observable<PermissionGroupMembership> {
+    return this.keycloakPermissionsApi.createPermissionGroupMembership(dto);
   }
 
   updateKeycloakPermissionGrant(
@@ -276,11 +302,11 @@ export class ApiService {
     return this.keycloakPermissionsApi.updateKeycloakPermissionGrant(id, dto);
   }
 
-  updateStudentEntityMembership(
+  updatePermissionGroupMembership(
     id: string,
-    dto: StudentEntityMembershipUpdateRequest,
-  ): Observable<StudentEntityMembership> {
-    return this.keycloakPermissionsApi.updateStudentEntityMembership(id, dto);
+    dto: PermissionGroupMembershipUpdateRequest,
+  ): Observable<PermissionGroupMembership> {
+    return this.keycloakPermissionsApi.updatePermissionGroupMembership(id, dto);
   }
 
   deleteKeycloakPermissionGrant(
@@ -289,14 +315,28 @@ export class ApiService {
     return this.keycloakPermissionsApi.deleteKeycloakPermissionGrant(id);
   }
 
-  deleteStudentEntityMembership(
+  deletePermissionGroupMembership(
     id: string,
   ): Observable<{ deleted: true; id: string }> {
-    return this.keycloakPermissionsApi.deleteStudentEntityMembership(id);
+    return this.keycloakPermissionsApi.deletePermissionGroupMembership(id);
   }
 
   syncKeycloakPermissionGrants(): Observable<{ queued: true }> {
     return this.keycloakPermissionsApi.syncKeycloakPermissionGrants();
+  }
+
+  getSelfServicePermissions(): Observable<PermissionSelfServiceAccess> {
+    return this.keycloakPermissionsApi.getSelfServiceAccess();
+  }
+
+  selfRemovePermissionGroupMembership(
+    id: string,
+  ): Observable<PermissionSelfRemovalResult> {
+    return this.keycloakPermissionsApi.selfRemoveMembership(id);
+  }
+
+  selfRemovePermissionGrant(id: string): Observable<PermissionSelfRemovalResult> {
+    return this.keycloakPermissionsApi.selfRemoveGrant(id);
   }
 
   getApplications(): Observable<Application[]> {

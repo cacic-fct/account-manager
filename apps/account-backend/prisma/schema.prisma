@@ -173,6 +173,8 @@ model KeycloakPermissionGrant {
   studentEntityMembership   StudentEntityMembership? @relation(fields: [studentEntityMembershipId], references: [id], onDelete: SetNull)
   studentEntityMembershipId String?                  @map("student_entity_membership_id") @db.Uuid
   permission                String
+  clientId                  String                   @map("client_id")
+  roleName                  String                   @map("role_name")
   validFrom                 DateTime?                @map("valid_from")
   validUntil                DateTime?                @map("valid_until")
   createdAt                 DateTime                 @default(now()) @map("created_at")
@@ -186,10 +188,38 @@ model KeycloakPermissionGrant {
   @@index([userId])
   @@index([studentEntityMembershipId])
   @@index([permission])
+  @@index([clientId, roleName])
   @@index([validFrom])
   @@index([validUntil])
   @@index([deletedAt])
   @@map("keycloak_permission_grants")
+}
+
+model KeycloakGroupPermissionGrant {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  groupKey      String    @map("group_key")
+  keycloakGroupId String  @map("keycloak_group_id")
+  permission    String
+  clientId      String    @map("client_id")
+  roleName      String    @map("role_name")
+  validFrom     DateTime? @map("valid_from")
+  validUntil    DateTime? @map("valid_until")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  createdById   String?   @map("created_by_id")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  updatedById   String?   @map("updated_by_id")
+  deletedAt     DateTime? @map("deleted_at")
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  lastSyncError String?   @map("last_sync_error")
+
+  @@index([groupKey])
+  @@index([keycloakGroupId])
+  @@index([permission])
+  @@index([clientId, roleName])
+  @@index([validFrom])
+  @@index([validUntil])
+  @@index([deletedAt])
+  @@map("keycloak_group_permission_grants")
 }
 
 model StudentEntityMembership {
@@ -200,7 +230,7 @@ model StudentEntityMembership {
   userEmail         String?   @map("user_email")
   userDisplayName   String?   @map("user_display_name")
   mandateStart      DateTime  @map("mandate_start")
-  mandateEnd        DateTime  @map("mandate_end")
+  mandateEnd        DateTime? @map("mandate_end")
   createdAt         DateTime  @default(now()) @map("created_at")
   createdById       String?   @map("created_by_id")
   updatedAt         DateTime  @updatedAt @map("updated_at")

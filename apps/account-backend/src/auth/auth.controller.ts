@@ -46,11 +46,7 @@ import {
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { CsrfGuard, SkipCsrf } from './csrf/csrf.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
-import { hasRequiredKeycloakRoles } from './guards/keycloak-role.guard';
-import {
-  ACCOUNT_MANAGER_ADMIN_ROLES,
-  ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
-} from './constants/admin-permissions';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { AccountPermissionService } from './services/account-permission.service';
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
@@ -1460,30 +1456,23 @@ export class AuthController {
         };
       }
 
-      const userRoles = await this.keycloakService.getUserRoles(userId);
-
-      const userAdminRoles = userRoles.filter((role) =>
-        ACCOUNT_MANAGER_ADMIN_ROLES.includes(
-          role as (typeof ACCOUNT_MANAGER_ADMIN_ROLES)[number],
-        ),
-      );
-
-      const hasKeycloakAdminRole = hasRequiredKeycloakRoles(
-        userRoles,
-        ACCOUNT_MANAGER_ADMIN_ROLES,
-      );
       const hasDbSuperAdminGrant =
         await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
           userId,
         );
+      const isAdmin =
+        hasDbSuperAdminGrant ||
+        (await this.accountPermissionService.hasAccountManagerAdminAccess(
+          userId,
+        ));
       const adminGroups = hasDbSuperAdminGrant
-        ? [...new Set([...userAdminRoles, ACCOUNT_MANAGER_SUPER_ADMIN_ROLE])]
-        : userAdminRoles;
-      const isAdmin = hasKeycloakAdminRole || hasDbSuperAdminGrant;
+        ? [AccountManagerPermission.SuperAdmin]
+        : isAdmin
+          ? ['db-backed-admin']
+          : [];
 
       this.logger.debug('Admin status check for user', {
         userId,
-        userRoles,
         adminGroups,
         isAdmin,
       });

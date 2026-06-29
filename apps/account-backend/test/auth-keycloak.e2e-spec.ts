@@ -72,6 +72,7 @@ describe('Keycloak authentication (e2e)', () => {
             hasAccountManagerSuperAdminGrant: jest
               .fn()
               .mockResolvedValue(false),
+            hasAccountManagerAdminAccess: jest.fn().mockResolvedValue(false),
           },
         },
         {

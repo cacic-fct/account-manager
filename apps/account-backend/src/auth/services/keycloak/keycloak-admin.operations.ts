@@ -123,6 +123,38 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     return roles;
   }
 
+  async listClientRoles(clientId: string): Promise<KeycloakRole[]> {
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles?briefRepresentation=false`;
+
+    const response = await fetch(rolesUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.error('Failed to list Keycloak client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        clientId,
+        rolesUrl,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to list client roles ${clientId}: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as KeycloakRole[];
+  }
+
   protected async getClientUuid(
     clientId: string,
     adminToken?: string,

@@ -1,9 +1,11 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth } from '@nestjs/swagger';
-import { ACCOUNT_MANAGER_ADMIN_ROLES } from '../constants/admin-permissions';
+import { AccountManagerPermission } from '@cacic/shared-types';
+import {
+  AccountPermissionGuard,
+  RequireAccountPermissions,
+} from './account-permission.guard';
 import { AuthGuard } from './auth.guard';
-import { DiscordAdminGuard } from './discord-admin.guard';
-import { KeycloakRoleGuard, RequireKeycloakRoles } from './keycloak-role.guard';
 import { UniversityValidationGuard } from './university-validation.guard';
 
 /**
@@ -42,8 +44,30 @@ export const Auth = () =>
  */
 export const Admin = () =>
   applyDecorators(
-    RequireKeycloakRoles(ACCOUNT_MANAGER_ADMIN_ROLES),
-    UseGuards(KeycloakRoleGuard),
+    RequireAccountPermissions([
+      AccountManagerPermission.DiscordManagementRead,
+      AccountManagerPermission.DiscordManagementUpdate,
+      AccountManagerPermission.StudentVerificationRead,
+      AccountManagerPermission.StudentVerificationReview,
+      AccountManagerPermission.StudentVerificationDownload,
+      AccountManagerPermission.AccountDeletionRead,
+      AccountManagerPermission.AccountDeletionUpdate,
+      AccountManagerPermission.PermissionGrantRead,
+      AccountManagerPermission.PermissionGrantAssign,
+      AccountManagerPermission.PermissionGrantRevoke,
+      AccountManagerPermission.PermissionGrantSync,
+    ]),
+    UseGuards(AccountPermissionGuard),
+    ApiCookieAuth(),
+  );
+
+export const AccountPermissions = (
+  permissions: readonly string[],
+  mode: 'any' | 'all' = 'any',
+) =>
+  applyDecorators(
+    RequireAccountPermissions(permissions, mode),
+    UseGuards(AccountPermissionGuard),
     ApiCookieAuth(),
   );
 
@@ -62,8 +86,12 @@ export const Admin = () =>
  */
 export const StudentVerificationAdmin = () =>
   applyDecorators(
-    RequireKeycloakRoles(ACCOUNT_MANAGER_ADMIN_ROLES),
-    UseGuards(KeycloakRoleGuard),
+    RequireAccountPermissions([
+      AccountManagerPermission.StudentVerificationRead,
+      AccountManagerPermission.StudentVerificationReview,
+      AccountManagerPermission.StudentVerificationDownload,
+    ]),
+    UseGuards(AccountPermissionGuard),
     ApiCookieAuth(),
   );
 
@@ -81,7 +109,14 @@ export const StudentVerificationAdmin = () =>
  * ```
  */
 export const DiscordAdmin = () =>
-  applyDecorators(UseGuards(DiscordAdminGuard), ApiCookieAuth());
+  applyDecorators(
+    RequireAccountPermissions([
+      AccountManagerPermission.DiscordManagementRead,
+      AccountManagerPermission.DiscordManagementUpdate,
+    ]),
+    UseGuards(AccountPermissionGuard),
+    ApiCookieAuth(),
+  );
 
 /**
  * Decorator for university validation endpoints.

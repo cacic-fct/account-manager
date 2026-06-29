@@ -1,39 +1,80 @@
-import { AccountManagerKeycloakRole } from '@cacic/shared-types';
+import {
+  ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
+  AccountManagerPermission,
+  parseKeycloakPermissionId,
+} from '@cacic/shared-types';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { KeycloakService } from './keycloak.service';
 
 @Injectable()
 export class AccountPermissionService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly keycloakService: KeycloakService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async hasAnyActivePermission(
     userId: string,
     permissions: readonly string[],
     now = new Date(),
   ): Promise<boolean> {
-    if (permissions.length === 0) {
+    const normalizedPermissions = this.normalizePermissionList(permissions);
+    if (normalizedPermissions.length === 0) {
       return false;
     }
 
-    const grantPermissions = this.withSuperAdminPermission(permissions);
-    if (await this.hasAnyActivePermissionGrant(userId, grantPermissions, now)) {
+    const permissionsWithSuperAdmin = [
+      ...new Set([
+        ...normalizedPermissions,
+        AccountManagerPermission.SuperAdmin,
+      ]),
+    ];
+
+    return this.hasAnyDirectOrGroupPermission(
+      userId,
+      permissionsWithSuperAdmin,
+      now,
+    );
+  }
+
+  async hasAllActivePermissions(
+    userId: string,
+    permissions: readonly string[],
+    now = new Date(),
+  ): Promise<boolean> {
+    const normalizedPermissions = this.normalizePermissionList(permissions);
+    if (normalizedPermissions.length === 0) {
+      return false;
+    }
+
+    if (await this.hasAccountManagerSuperAdminGrant(userId, now)) {
       return true;
     }
 
-    return this.hasAccountManagerSuperAdminClientRole(userId);
+    const results = await Promise.all(
+      normalizedPermissions.map((permission) =>
+        this.hasAnyDirectOrGroupPermission(userId, [permission], now),
+      ),
+    );
+
+    return results.every(Boolean);
   }
 
   async hasAccountManagerSuperAdminGrant(
     userId: string,
     now = new Date(),
   ): Promise<boolean> {
-    return this.hasAnyActivePermissionGrant(
+    return this.hasAnyDirectOrGroupPermission(
       userId,
-      [AccountManagerKeycloakRole.SuperAdmin],
+      [AccountManagerPermission.SuperAdmin],
+      now,
+    );
+  }
+
+  async hasAccountManagerAdminAccess(
+    userId: string,
+    now = new Date(),
+  ): Promise<boolean> {
+    return this.hasAnyActivePermission(
+      userId,
+      ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
       now,
     );
   }
@@ -44,12 +85,76 @@ export class AccountPermissionService {
   ): Promise<boolean> {
     return this.hasAnyActivePermission(
       userId,
-      [AccountManagerKeycloakRole.SuperAdmin],
+      [
+        AccountManagerPermission.DiscordManagementRead,
+        AccountManagerPermission.DiscordManagementUpdate,
+      ],
       now,
     );
   }
 
-  private async hasAnyActivePermissionGrant(
+  async canAssignPermission(
+    actorId: string,
+    permission: string,
+    now = new Date(),
+  ): Promise<boolean> {
+    if (
+      !(await this.hasAnyActivePermission(
+        actorId,
+        [AccountManagerPermission.PermissionGrantAssign],
+        now,
+      ))
+    ) {
+      return false;
+    }
+
+    const parsedPermission = parseKeycloakPermissionId(permission);
+    if (!parsedPermission) {
+      return false;
+    }
+
+    if (
+      await this.hasClientSuperAdminPermission(
+        actorId,
+        parsedPermission.clientId,
+        now,
+      )
+    ) {
+      return true;
+    }
+
+    return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
+  }
+
+  async hasClientSuperAdminPermission(
+    userId: string,
+    clientId: string,
+    now = new Date(),
+  ): Promise<boolean> {
+    return this.hasAnyDirectOrGroupPermission(
+      userId,
+      [`${clientId}:super-admin`],
+      now,
+    );
+  }
+
+  private async hasAnyDirectOrGroupPermission(
+    userId: string,
+    permissions: readonly string[],
+    now: Date,
+  ): Promise<boolean> {
+    if (permissions.length === 0) {
+      return false;
+    }
+
+    if (await this.hasAnyDirectPermissionGrant(userId, permissions, now)) {
+      return true;
+    }
+
+    return this.hasAnyGroupPermissionGrant(userId, permissions, now);
+  }
+
+  private async hasAnyDirectPermissionGrant(
     userId: string,
     permissions: readonly string[],
     now: Date,
@@ -68,18 +173,49 @@ export class AccountPermissionService {
     return !!grant;
   }
 
-  private async hasAccountManagerSuperAdminClientRole(
+  private async hasAnyGroupPermissionGrant(
     userId: string,
+    permissions: readonly string[],
+    now: Date,
   ): Promise<boolean> {
-    const userRoles = await this.keycloakService.getUserRoles(userId);
-    return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
+    const memberships = await this.prisma.studentEntityMembership.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        mandateStart: { lte: now },
+        OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
+      },
+      select: { entity: true },
+    });
+
+    const groupKeys = [
+      ...new Set(memberships.map((membership) => membership.entity)),
+    ];
+    if (groupKeys.length === 0) {
+      return false;
+    }
+
+    const grant = await this.prisma.keycloakGroupPermissionGrant.findFirst({
+      where: {
+        groupKey: { in: groupKeys },
+        deletedAt: null,
+        permission: { in: [...permissions] },
+        OR: [{ validFrom: null }, { validFrom: { lte: now } }],
+        AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }],
+      },
+      select: { id: true },
+    });
+
+    return !!grant;
   }
 
-  private withSuperAdminPermission(
-    permissions: readonly string[],
-  ): readonly string[] {
+  private normalizePermissionList(permissions: readonly string[]): string[] {
     return [
-      ...new Set([...permissions, AccountManagerKeycloakRole.SuperAdmin]),
+      ...new Set(
+        permissions
+          .map((permission) => permission.trim())
+          .filter((permission) => permission.length > 0),
+      ),
     ];
   }
 }

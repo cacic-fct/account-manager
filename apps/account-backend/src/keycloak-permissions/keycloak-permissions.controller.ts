@@ -10,7 +10,10 @@ import {
   Session,
   UseGuards,
 } from '@nestjs/common';
-import { StudentEntityKey } from '@cacic/shared-types';
+import {
+  AccountManagerPermission,
+  PermissionGroupKey,
+} from '@cacic/shared-types';
 import {
   ApiOperation,
   ApiParam,
@@ -18,16 +21,26 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Admin } from '../auth/guards/auth.decorator';
+import { AccountPermissions, Auth } from '../auth/guards/auth.decorator';
 import { AuthSession } from '../auth/auth.controller';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { KeycloakPermissionsService } from './keycloak-permissions.service';
 import {
   KeycloakPermissionGrantCreateDto,
   KeycloakPermissionGrantUpdateDto,
-  StudentEntityMembershipCreateDto,
-  StudentEntityMembershipUpdateDto,
+  PermissionGroupMembershipCreateDto,
+  PermissionGroupMembershipUpdateDto,
+  PermissionGroupRoleGrantUpdateDto,
 } from './dto/keycloak-permission-grant.dto';
+
+const PERMISSION_READ = [AccountManagerPermission.PermissionGrantRead] as const;
+const PERMISSION_ASSIGN = [
+  AccountManagerPermission.PermissionGrantAssign,
+] as const;
+const PERMISSION_REVOKE = [
+  AccountManagerPermission.PermissionGrantRevoke,
+] as const;
+const PERMISSION_SYNC = [AccountManagerPermission.PermissionGrantSync] as const;
 
 @ApiTags('Admin Permissions')
 @Controller('admin/permissions')
@@ -36,26 +49,57 @@ export class KeycloakPermissionsController {
     private readonly keycloakPermissions: KeycloakPermissionsService,
   ) {}
 
-  @ApiOperation({ summary: 'List assignable Keycloak permissions' })
+  @ApiOperation({ summary: 'List assignable Keycloak client roles' })
   @ApiResponse({
     status: 200,
     description: 'Assignable permission catalog returned successfully',
   })
-  @Admin()
+  @AccountPermissions(PERMISSION_READ)
   @Get('catalog')
   listCatalog() {
     return this.keycloakPermissions.listCatalog();
   }
 
-  @ApiOperation({ summary: 'List managed student entities' })
+  @ApiOperation({ summary: 'List managed permission groups' })
   @ApiResponse({
     status: 200,
-    description: 'Student entity catalog returned successfully',
+    description: 'Permission group catalog returned successfully',
   })
-  @Admin()
-  @Get('student-entities/catalog')
-  listStudentEntities() {
-    return this.keycloakPermissions.listStudentEntities();
+  @AccountPermissions(PERMISSION_READ)
+  @Get('groups/catalog')
+  listPermissionGroups() {
+    return this.keycloakPermissions.listPermissionGroups();
+  }
+
+  @ApiOperation({ summary: 'List Keycloak role grants enabled for a group' })
+  @ApiParam({
+    name: 'groupKey',
+    description: 'Managed permission group key.',
+  })
+  @AccountPermissions(PERMISSION_READ)
+  @Get('groups/:groupKey/role-grants')
+  listGroupRoleGrants(@Param('groupKey') groupKey: PermissionGroupKey) {
+    return this.keycloakPermissions.listPermissionGroupRoleGrants(groupKey);
+  }
+
+  @ApiOperation({ summary: 'Replace Keycloak role grants enabled for a group' })
+  @ApiParam({
+    name: 'groupKey',
+    description: 'Managed permission group key.',
+  })
+  @AccountPermissions(PERMISSION_ASSIGN)
+  @UseGuards(CsrfGuard)
+  @Put('groups/:groupKey/role-grants')
+  updateGroupRoleGrants(
+    @Param('groupKey') groupKey: PermissionGroupKey,
+    @Body() input: PermissionGroupRoleGrantUpdateDto,
+    @Session() session: AuthSession,
+  ) {
+    return this.keycloakPermissions.updatePermissionGroupRoleGrants(
+      groupKey,
+      input,
+      session.user?.keycloakId,
+    );
   }
 
   @ApiOperation({
@@ -70,64 +114,54 @@ export class KeycloakPermissionsController {
     status: 200,
     description: 'Matching Keycloak users returned successfully',
   })
-  @Admin()
+  @AccountPermissions(PERMISSION_READ)
   @Get('users')
   searchUsers(@Query('query') query = '') {
     return this.keycloakPermissions.searchUsers(query);
   }
 
-  @ApiOperation({ summary: 'List permission grants for a Keycloak user' })
+  @ApiOperation({
+    summary: 'List direct permission grants for a Keycloak user',
+  })
   @ApiParam({
     name: 'userId',
     description: 'Keycloak user id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'User permission grants returned successfully',
-  })
-  @Admin()
+  @AccountPermissions(PERMISSION_READ)
   @Get('users/:userId/grants')
   listUserGrants(@Param('userId') userId: string) {
     return this.keycloakPermissions.listUserGrants(userId);
   }
 
-  @ApiOperation({ summary: 'List student entity memberships for a user' })
+  @ApiOperation({ summary: 'List managed group memberships for a user' })
   @ApiParam({
     name: 'userId',
     description: 'Keycloak user id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'User student entity memberships returned successfully',
-  })
-  @Admin()
-  @Get('users/:userId/student-entity-memberships')
+  @AccountPermissions(PERMISSION_READ)
+  @Get('users/:userId/group-memberships')
   listUserMemberships(@Param('userId') userId: string) {
     return this.keycloakPermissions.listUserMemberships(userId);
   }
 
-  @ApiOperation({ summary: 'List student entity memberships' })
+  @ApiOperation({ summary: 'List managed group memberships' })
   @ApiQuery({
-    name: 'entity',
+    name: 'groupKey',
     required: false,
-    description: 'Optional student entity key.',
+    description: 'Optional managed permission group key.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Student entity memberships returned successfully',
-  })
-  @Admin()
-  @Get('student-entities/memberships')
-  listMemberships(@Query('entity') entity?: StudentEntityKey) {
-    return this.keycloakPermissions.listStudentEntityMemberships(entity);
+  @AccountPermissions(PERMISSION_READ)
+  @Get('groups/memberships')
+  listMemberships(@Query('groupKey') groupKey?: PermissionGroupKey) {
+    return this.keycloakPermissions.listPermissionGroupMemberships(groupKey);
   }
 
-  @ApiOperation({ summary: 'Create a Keycloak permission grant' })
+  @ApiOperation({ summary: 'Create a direct Keycloak permission grant' })
   @ApiResponse({
     status: 201,
     description: 'Permission grant created successfully',
   })
-  @Admin()
+  @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
   @Post('grants')
   createGrant(
@@ -140,34 +174,30 @@ export class KeycloakPermissionsController {
     );
   }
 
-  @ApiOperation({ summary: 'Create a student entity mandate membership' })
+  @ApiOperation({ summary: 'Create a managed group membership' })
   @ApiResponse({
     status: 201,
-    description: 'Student entity membership created successfully',
+    description: 'Managed group membership created successfully',
   })
-  @Admin()
+  @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
-  @Post('student-entities/memberships')
+  @Post('groups/memberships')
   createMembership(
-    @Body() input: StudentEntityMembershipCreateDto,
+    @Body() input: PermissionGroupMembershipCreateDto,
     @Session() session: AuthSession,
   ) {
-    return this.keycloakPermissions.createStudentEntityMembership(
+    return this.keycloakPermissions.createPermissionGroupMembership(
       input,
       session.user?.keycloakId,
     );
   }
 
-  @ApiOperation({ summary: 'Update a Keycloak permission grant validity' })
+  @ApiOperation({ summary: 'Update a direct permission grant' })
   @ApiParam({
     name: 'id',
     description: 'Permission grant id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Permission grant updated successfully',
-  })
-  @Admin()
+  @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
   @Put('grants/:id')
   updateGrant(
@@ -182,40 +212,32 @@ export class KeycloakPermissionsController {
     );
   }
 
-  @ApiOperation({ summary: 'Update a student entity mandate membership' })
+  @ApiOperation({ summary: 'Update a managed group membership' })
   @ApiParam({
     name: 'id',
-    description: 'Student entity membership id.',
+    description: 'Managed group membership id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Student entity membership updated successfully',
-  })
-  @Admin()
+  @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
-  @Put('student-entities/memberships/:id')
+  @Put('groups/memberships/:id')
   updateMembership(
     @Param('id') id: string,
-    @Body() input: StudentEntityMembershipUpdateDto,
+    @Body() input: PermissionGroupMembershipUpdateDto,
     @Session() session: AuthSession,
   ) {
-    return this.keycloakPermissions.updateStudentEntityMembership(
+    return this.keycloakPermissions.updatePermissionGroupMembership(
       id,
       input,
       session.user?.keycloakId,
     );
   }
 
-  @ApiOperation({ summary: 'Delete a Keycloak permission grant' })
+  @ApiOperation({ summary: 'Delete a direct permission grant' })
   @ApiParam({
     name: 'id',
     description: 'Permission grant id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Permission grant deleted successfully',
-  })
-  @Admin()
+  @AccountPermissions(PERMISSION_REVOKE)
   @UseGuards(CsrfGuard)
   @Delete('grants/:id')
   async deleteGrant(
@@ -226,23 +248,19 @@ export class KeycloakPermissionsController {
     return { deleted: true, id };
   }
 
-  @ApiOperation({ summary: 'Delete a student entity mandate membership' })
+  @ApiOperation({ summary: 'Delete a managed group membership' })
   @ApiParam({
     name: 'id',
-    description: 'Student entity membership id.',
+    description: 'Managed group membership id.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Student entity membership deleted successfully',
-  })
-  @Admin()
+  @AccountPermissions(PERMISSION_REVOKE)
   @UseGuards(CsrfGuard)
-  @Delete('student-entities/memberships/:id')
+  @Delete('groups/memberships/:id')
   async deleteMembership(
     @Param('id') id: string,
     @Session() session: AuthSession,
   ): Promise<{ deleted: true; id: string }> {
-    await this.keycloakPermissions.deleteStudentEntityMembership(
+    await this.keycloakPermissions.deletePermissionGroupMembership(
       id,
       session.user?.keycloakId,
     );
@@ -254,11 +272,53 @@ export class KeycloakPermissionsController {
     status: 202,
     description: 'Permission grant synchronization queued successfully',
   })
-  @Admin()
+  @AccountPermissions(PERMISSION_SYNC)
   @UseGuards(CsrfGuard)
   @Post('sync')
   async sync(): Promise<{ queued: true }> {
     await this.keycloakPermissions.enqueueSync('manual');
     return { queued: true };
+  }
+}
+
+@ApiTags('User Permissions')
+@Controller('permissions')
+export class UserPermissionsController {
+  constructor(
+    private readonly keycloakPermissions: KeycloakPermissionsService,
+  ) {}
+
+  @ApiOperation({ summary: 'List current user groups and direct permissions' })
+  @Auth()
+  @Get('me')
+  getSelfServiceAccess(@Session() session: AuthSession) {
+    return this.keycloakPermissions.getSelfServiceAccess(
+      session.user!.keycloakId,
+    );
+  }
+
+  @ApiOperation({ summary: 'Remove current user from a managed group' })
+  @Auth()
+  @UseGuards(CsrfGuard)
+  @Delete('me/groups/:id')
+  selfRemoveMembership(
+    @Param('id') id: string,
+    @Session() session: AuthSession,
+  ) {
+    return this.keycloakPermissions.selfRemoveMembership(
+      session.user!.keycloakId,
+      id,
+    );
+  }
+
+  @ApiOperation({ summary: 'Remove a direct permission from current user' })
+  @Auth()
+  @UseGuards(CsrfGuard)
+  @Delete('me/grants/:id')
+  selfRemoveGrant(@Param('id') id: string, @Session() session: AuthSession) {
+    return this.keycloakPermissions.selfRemoveGrant(
+      session.user!.keycloakId,
+      id,
+    );
   }
 }

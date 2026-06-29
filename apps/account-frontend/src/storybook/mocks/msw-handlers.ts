@@ -9,9 +9,10 @@ import {
   mockAdminSelectableRoles,
   mockKeycloakPermissionCatalog,
   mockKeycloakPermissionUsers,
+  mockPermissionGroupCatalog,
+  mockPermissionGroupRoleGrants,
   mockRoles,
   mockServerSettings,
-  mockStudentEntityCatalog,
   mockStudentEntityMemberships,
   mockUserRoles,
   mockVerificationStatusApproved,
@@ -20,11 +21,12 @@ import {
   mockVerificationStatusRejected,
 } from './component-mocks';
 import {
-  AssignableKeycloakPermission,
-  StudentEntityKey,
+  PermissionGroupKey,
   type KeycloakPermissionUser,
-  type StudentEntityMembershipCreateRequest,
-  type StudentEntityMembershipUpdateRequest,
+  type KeycloakPermissionGrantCreateRequest,
+  type PermissionGroupMembershipCreateRequest,
+  type PermissionGroupMembershipUpdateRequest,
+  type PermissionGroupRoleGrantUpdateRequest,
 } from '@cacic/shared-types';
 
 const API_BASE = '*/api';
@@ -32,6 +34,7 @@ const API_BASE = '*/api';
 export type KeycloakPermissionsStoryState = {
   rosterMode: 'balanced' | 'empty' | 'large';
   searchMode: 'matches' | 'empty' | 'error';
+  selfServiceMode: 'mixed' | 'empty' | 'groups-only' | 'grants-only';
   failureMode: 'none' | 'catalog' | 'save';
   responseDelayMs: number;
 };
@@ -39,6 +42,7 @@ export type KeycloakPermissionsStoryState = {
 const defaultKeycloakPermissionsStoryState: KeycloakPermissionsStoryState = {
   rosterMode: 'balanced',
   searchMode: 'matches',
+  selfServiceMode: 'mixed',
   failureMode: 'none',
   responseDelayMs: 0,
 };
@@ -60,13 +64,13 @@ const delayForStory = async (): Promise<void> => {
   }
 };
 
-const getMembershipsForRoster = (entity: StudentEntityKey) => {
+const getMembershipsForRoster = (groupKey: PermissionGroupKey) => {
   if (keycloakPermissionsStoryState.rosterMode === 'empty') {
     return [];
   }
 
   const memberships = mockStudentEntityMemberships.filter(
-    (membership) => membership.entity === entity,
+    (membership) => membership.groupKey === groupKey,
   );
 
   if (keycloakPermissionsStoryState.rosterMode !== 'large') {
@@ -78,9 +82,8 @@ const getMembershipsForRoster = (entity: StudentEntityKey) => {
     .map((user, index) =>
       createMockStudentEntityMembership(
         user,
-        entity,
+        groupKey,
         index + memberships.length + 1,
-        [AssignableKeycloakPermission.AccountManagerAccess],
       ),
     );
 
@@ -93,15 +96,11 @@ const getUserMemberships = (userId: string) =>
   );
 
 const getUserGrants = (userId: string) => {
-  const membershipGrants = getUserMemberships(userId).flatMap(
-    (membership) => membership.permissionGrants,
-  );
-
   if (userId === mockKeycloakPermissionUsers[0]?.id) {
-    return [mockDirectKeycloakPermissionGrant, ...membershipGrants];
+    return [mockDirectKeycloakPermissionGrant];
   }
 
-  return membershipGrants;
+  return [];
 };
 
 const searchPermissionUsers = (
@@ -259,11 +258,57 @@ export const keycloakPermissionHandlers = [
 
     return HttpResponse.json(mockKeycloakPermissionCatalog);
   }),
+  http.get(`${API_BASE}/admin/permissions/groups/catalog`, async () => {
+    await delayForStory();
+    return HttpResponse.json(mockPermissionGroupCatalog);
+  }),
   http.get(
-    `${API_BASE}/admin/permissions/student-entities/catalog`,
-    async () => {
+    `${API_BASE}/admin/permissions/groups/:groupKey/role-grants`,
+    async ({ params }) => {
       await delayForStory();
-      return HttpResponse.json(mockStudentEntityCatalog);
+      const groupKey = String(params['groupKey']) as PermissionGroupKey;
+      return HttpResponse.json(
+        mockPermissionGroupRoleGrants.filter(
+          (grant) => grant.groupKey === groupKey,
+        ),
+      );
+    },
+  ),
+  http.put(
+    `${API_BASE}/admin/permissions/groups/:groupKey/role-grants`,
+    async ({ params, request }) => {
+      await delayForStory();
+      if (keycloakPermissionsStoryState.failureMode === 'save') {
+        return HttpResponse.json(
+          { message: 'Falha ao salvar permissoes do grupo' },
+          { status: 500 },
+        );
+      }
+
+      const groupKey = String(params['groupKey']) as PermissionGroupKey;
+      const body = (await request.json()) as PermissionGroupRoleGrantUpdateRequest;
+      return HttpResponse.json(
+        body.permissions.map((permission, index) => {
+          const definition = mockKeycloakPermissionCatalog.find(
+            (candidate) => candidate.permission === permission,
+          );
+          return {
+            id: `group-grant-${groupKey.toLowerCase()}-${index + 10}`,
+            groupKey,
+            clientId: definition?.clientId ?? permission.split(':')[0] ?? '',
+            roleName: definition?.roleName ?? permission.split(':')[1] ?? '',
+            permission,
+            source: 'database',
+            validFrom: null,
+            validUntil: null,
+            status: 'active',
+            createdAt: new Date('2026-06-21T12:00:00.000Z').toISOString(),
+            createdById: 'storybook-admin',
+            updatedAt: new Date('2026-06-21T12:00:00.000Z').toISOString(),
+            updatedById: 'storybook-admin',
+          };
+        }),
+      );
     },
   ),
   http.get(`${API_BASE}/admin/permissions/users`, async ({ request }) => {
@@ -292,23 +337,20 @@ export const keycloakPermissionHandlers = [
     },
   ),
   http.get(
-    `${API_BASE}/admin/permissions/users/:userId/student-entity-memberships`,
+    `${API_BASE}/admin/permissions/users/:userId/group-memberships`,
     async ({ params }) => {
       await delayForStory();
       return HttpResponse.json(getUserMemberships(String(params['userId'])));
     },
   ),
-  http.get(
-    `${API_BASE}/admin/permissions/student-entities/memberships`,
-    async ({ request }) => {
-      await delayForStory();
-      const entity =
-        (new URL(request.url).searchParams.get('entity') as StudentEntityKey) ??
-        StudentEntityKey.Cacic;
+  http.get(`${API_BASE}/admin/permissions/groups/memberships`, async ({ request }) => {
+    await delayForStory();
+    const groupKey =
+      (new URL(request.url).searchParams.get('groupKey') as PermissionGroupKey) ??
+      PermissionGroupKey.Cacic;
 
-      return HttpResponse.json(getMembershipsForRoster(entity));
-    },
-  ),
+    return HttpResponse.json(getMembershipsForRoster(groupKey));
+  }),
   http.post(`${API_BASE}/admin/permissions/grants`, async ({ request }) => {
     await delayForStory();
     if (keycloakPermissionsStoryState.failureMode === 'save') {
@@ -318,12 +360,7 @@ export const keycloakPermissionHandlers = [
       );
     }
 
-    const body = (await request.json()) as {
-      userId: string;
-      permission: AssignableKeycloakPermission;
-      validFrom?: string | null;
-      validUntil?: string | null;
-    };
+    const body = (await request.json()) as KeycloakPermissionGrantCreateRequest;
     const user =
       mockKeycloakPermissionUsers.find(
         (candidate) => candidate.id === body.userId,
@@ -337,44 +374,41 @@ export const keycloakPermissionHandlers = [
     );
   }),
   http.post(
-    `${API_BASE}/admin/permissions/student-entities/memberships`,
+    `${API_BASE}/admin/permissions/groups/memberships`,
     async ({ request }) => {
       await delayForStory();
       if (keycloakPermissionsStoryState.failureMode === 'save') {
         return HttpResponse.json(
-          { message: 'Falha ao salvar mandato' },
+          { message: 'Falha ao salvar vinculo' },
           { status: 500 },
         );
       }
 
-      const body = (await request.json()) as StudentEntityMembershipCreateRequest;
+      const body = (await request.json()) as PermissionGroupMembershipCreateRequest;
       const user =
         mockKeycloakPermissionUsers.find(
           (candidate) => candidate.id === body.userId,
         ) ?? mockKeycloakPermissionUsers[0];
 
-      return HttpResponse.json(
-        createMockStudentEntityMembership(
-          user,
-          body.entity,
-          16,
-          body.permissions,
-        ),
-      );
+      return HttpResponse.json({
+        ...createMockStudentEntityMembership(user, body.groupKey, 16),
+        validFrom: body.validFrom,
+        validUntil: body.validUntil ?? null,
+      });
     },
   ),
   http.put(
-    `${API_BASE}/admin/permissions/student-entities/memberships/:id`,
+    `${API_BASE}/admin/permissions/groups/memberships/:id`,
     async ({ params, request }) => {
       await delayForStory();
       if (keycloakPermissionsStoryState.failureMode === 'save') {
         return HttpResponse.json(
-          { message: 'Falha ao salvar mandato' },
+          { message: 'Falha ao salvar vinculo' },
           { status: 500 },
         );
       }
 
-      const body = (await request.json()) as StudentEntityMembershipUpdateRequest;
+      const body = (await request.json()) as PermissionGroupMembershipUpdateRequest;
       const existingMembership =
         mockStudentEntityMemberships.find(
           (membership) => membership.id === params['id'],
@@ -387,13 +421,12 @@ export const keycloakPermissionHandlers = [
       return HttpResponse.json({
         ...createMockStudentEntityMembership(
           user,
-          existingMembership.entity,
+          existingMembership.groupKey,
           17,
-          body.permissions,
         ),
         id: String(params['id']),
-        mandateStart: body.mandateStart,
-        mandateEnd: body.mandateEnd,
+        validFrom: body.validFrom,
+        validUntil: body.validUntil ?? null,
       });
     },
   ),
@@ -406,7 +439,7 @@ export const keycloakPermissionHandlers = [
     return HttpResponse.json({ deleted: true, id: String(params['id']) });
   }),
   http.delete(
-    `${API_BASE}/admin/permissions/student-entities/memberships/:id`,
+    `${API_BASE}/admin/permissions/groups/memberships/:id`,
     async ({ params }) => {
       await delayForStory();
       return HttpResponse.json({ deleted: true, id: String(params['id']) });
@@ -415,6 +448,36 @@ export const keycloakPermissionHandlers = [
   http.post(`${API_BASE}/admin/permissions/sync`, async () => {
     await delayForStory();
     return HttpResponse.json({ queued: true });
+  }),
+  http.get(`${API_BASE}/permissions/me`, async () => {
+    await delayForStory();
+    const memberships = getUserMemberships(mockKeycloakPermissionUsers[0].id);
+    const grants = getUserGrants(mockKeycloakPermissionUsers[0].id);
+
+    if (keycloakPermissionsStoryState.selfServiceMode === 'empty') {
+      return HttpResponse.json({ memberships: [], grants: [] });
+    }
+
+    if (keycloakPermissionsStoryState.selfServiceMode === 'groups-only') {
+      return HttpResponse.json({ memberships, grants: [] });
+    }
+
+    if (keycloakPermissionsStoryState.selfServiceMode === 'grants-only') {
+      return HttpResponse.json({ memberships: [], grants });
+    }
+
+    return HttpResponse.json({
+      memberships,
+      grants,
+    });
+  }),
+  http.delete(`${API_BASE}/permissions/me/groups/:id`, async ({ params }) => {
+    await delayForStory();
+    return HttpResponse.json({ removed: true, id: String(params['id']) });
+  }),
+  http.delete(`${API_BASE}/permissions/me/grants/:id`, async ({ params }) => {
+    await delayForStory();
+    return HttpResponse.json({ removed: true, id: String(params['id']) });
   }),
 ];
 

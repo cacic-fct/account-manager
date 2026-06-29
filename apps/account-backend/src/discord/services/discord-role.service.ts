@@ -9,6 +9,11 @@ import { DiscordClientService } from './discord-client.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import {
+  PERMISSION_GROUP_CATALOG,
+  PERMISSION_GROUP_DISCORD_ROLE_IDS,
+  type PermissionGroupDefinition,
+} from '@cacic/shared-types';
+import {
   checkComputerScienceEnrollmentPattern,
   DISCORD_MANAGED_ROLE_IDS,
   DISCORD_REGISTRATION_ROLE,
@@ -501,6 +506,75 @@ export class DiscordRoleService {
       registrationEnsured,
       failed,
     };
+  }
+
+  async reconcilePermissionGroupAffiliationRoles(
+    userId: string,
+    reason = 'permission-group-affiliation-sync',
+  ): Promise<{ links: number; rolesAdded: number; rolesRemoved: number }> {
+    const now = new Date();
+    const memberships = await this.prisma.studentEntityMembership.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        mandateStart: { lte: now },
+        OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
+      },
+      select: {
+        entity: true,
+      },
+    });
+    const expectedRoleIds = new Set(
+      memberships
+        .map((membership) => {
+          const definition = (
+            PERMISSION_GROUP_CATALOG as readonly PermissionGroupDefinition[]
+          ).find((definition) => definition.key === membership.entity);
+
+          return definition?.discordRoleId;
+        })
+        .filter((roleId): roleId is string => !!roleId),
+    );
+    const discordLinks = await this.prisma.discordLink.findMany({
+      where: { userId, deleted: false, isVerified: true },
+    });
+
+    let rolesAdded = 0;
+    let rolesRemoved = 0;
+
+    for (const discordLink of discordLinks) {
+      const member = await this.resolveGuildMember(discordLink, { reason });
+      if (!member) {
+        continue;
+      }
+
+      for (const roleId of PERMISSION_GROUP_DISCORD_ROLE_IDS) {
+        const shouldHaveRole = expectedRoleIds.has(roleId);
+        const hasRole = member.roles.cache.has(roleId);
+
+        if (shouldHaveRole && !hasRole) {
+          if (await this.ensureManagedRole(member, roleId, roleId, reason)) {
+            rolesAdded += 1;
+          }
+          continue;
+        }
+
+        if (!shouldHaveRole && hasRole) {
+          try {
+            this.markManagedRoleMutation(member);
+            await member.roles.remove(roleId, reason);
+            rolesRemoved += 1;
+          } catch (error) {
+            this.logger.warn(
+              `Failed to remove Discord permission group role ${roleId} from ${member.id}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    return { links: discordLinks.length, rolesAdded, rolesRemoved };
   }
 
   hasRecentManagedRoleMutation(memberId: string): boolean {

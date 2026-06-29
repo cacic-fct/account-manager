@@ -17,9 +17,10 @@ import {
 } from '@nestjs/swagger';
 import { DiscordSettingsService } from '../services/discord-settings.service';
 import { DiscordLinkService } from '../services/discord-link.service';
-import { Auth, DiscordAdmin } from '../../auth/guards/auth.decorator';
+import { AccountPermissions, Auth } from '../../auth/guards/auth.decorator';
 import { AccountPermissionService } from '../../auth/services/account-permission.service';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import {
   ServerSettingDto,
   UpdateServerSettingDto,
@@ -112,7 +113,7 @@ export class DiscordAdminController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
   @Get('settings')
   async getAllServerSettings(): Promise<ServerSettingDto[]> {
     return await this.discordSettingsService.getAllServerSettings();
@@ -144,7 +145,7 @@ export class DiscordAdminController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Put('settings/:key')
   async updateServerSetting(
@@ -172,7 +173,7 @@ export class DiscordAdminController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
   @Get('user/:userId/links')
   async getAllUserDiscordLinks(@Param('userId') userId: string) {
     const links = await this.discordLinkService.getAllDiscordLinksForUser(
@@ -207,7 +208,7 @@ export class DiscordAdminController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Post('links/:linkId/restore')
   async restoreDiscordLink(@Param('linkId') linkId: string) {

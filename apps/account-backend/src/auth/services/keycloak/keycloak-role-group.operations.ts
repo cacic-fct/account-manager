@@ -263,8 +263,16 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
   async addUserToGroupPath(userId: string, groupPath: string): Promise<void> {
     const group = await this.getGroupByPath(groupPath);
+    await this.addUserToGroupId(userId, group.id, groupPath);
+  }
+
+  async addUserToGroupId(
+    userId: string,
+    groupId: string,
+    groupLabel = groupId,
+  ): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${group.id}`;
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
     const response = await fetch(groupUrl, {
       method: 'PUT',
@@ -280,8 +288,8 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         status: response.status,
         statusText: response.statusText,
         userId,
-        groupPath,
-        groupId: group.id,
+        groupPath: groupLabel,
+        groupId,
         groupUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
@@ -289,7 +297,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
       });
 
       throw new Error(
-        `Failed to add user to Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
+        `Failed to add user to Keycloak group ${groupLabel}: ${response.status} ${response.statusText}`,
       );
     }
   }
@@ -299,8 +307,16 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     groupPath: string,
   ): Promise<void> {
     const group = await this.getGroupByPath(groupPath);
+    await this.removeUserFromGroupId(userId, group.id, groupPath);
+  }
+
+  async removeUserFromGroupId(
+    userId: string,
+    groupId: string,
+    groupLabel = groupId,
+  ): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${group.id}`;
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
     const response = await fetch(groupUrl, {
       method: 'DELETE',
@@ -316,8 +332,8 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         status: response.status,
         statusText: response.statusText,
         userId,
-        groupPath,
-        groupId: group.id,
+        groupPath: groupLabel,
+        groupId,
         groupUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
@@ -325,7 +341,142 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
       });
 
       throw new Error(
-        `Failed to remove user from Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
+        `Failed to remove user from Keycloak group ${groupLabel}: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  async getGroupClientRoles(
+    groupId: string,
+    clientId = this.clientId,
+  ): Promise<string[]> {
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}/composite`;
+
+    const response = await fetch(rolesUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        this.logger.warn('Group not found when getting client roles', {
+          groupId,
+          clientId,
+        });
+        return [];
+      }
+
+      const details = await this.readTokenError(response);
+
+      this.logger.error('Failed to get group client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        groupId,
+        clientId,
+        rolesUrl,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to get group client roles: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const roles = (await response.json()) as Array<{ name: string }>;
+    return roles.map((role) => role.name);
+  }
+
+  async addGroupClientRoles(
+    groupId: string,
+    roleNames: readonly string[],
+    clientId = this.clientId,
+  ): Promise<void> {
+    const roles = await this.getClientRolesByName(clientId, roleNames);
+
+    if (roles.length === 0) {
+      return;
+    }
+
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
+
+    const response = await fetch(roleMappingsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roles),
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.error('Failed to assign group client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        groupId,
+        clientId,
+        roleNames,
+        roleMappingsUrl,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to assign group client roles: ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  async removeGroupClientRoles(
+    groupId: string,
+    roleNames: readonly string[],
+    clientId = this.clientId,
+  ): Promise<void> {
+    const roles = await this.getClientRolesByName(clientId, roleNames);
+
+    if (roles.length === 0) {
+      return;
+    }
+
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
+
+    const response = await fetch(roleMappingsUrl, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roles),
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.error('Failed to remove group client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        groupId,
+        clientId,
+        roleNames,
+        roleMappingsUrl,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to remove group client roles: ${response.status} ${response.statusText}`,
       );
     }
   }

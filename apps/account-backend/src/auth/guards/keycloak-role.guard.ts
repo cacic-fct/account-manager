@@ -1,6 +1,6 @@
 import {
   AccountManagerKeycloakRole,
-  isAssignableKeycloakPermission,
+  buildKeycloakPermissionId,
 } from '@cacic/shared-types';
 import {
   CanActivate,
@@ -96,7 +96,13 @@ export class KeycloakRoleGuard implements CanActivate {
       }
 
       const dbBackedPermissions = [
-        ...new Set(config.roles.filter(isAssignableKeycloakPermission)),
+        ...new Set(
+          config.roles.map((role) =>
+            role.includes(':')
+              ? role
+              : buildKeycloakPermissionId('cacic-account-manager', role),
+          ),
+        ),
       ];
       const hasDbPermission =
         dbBackedPermissions.length > 0 && config.mode === 'all'
