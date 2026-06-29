@@ -256,7 +256,7 @@ export class KeycloakPermissionsController {
     name: 'id',
     description: 'Permission grant id.',
   })
-  @AccountPermissions(PERMISSION_ASSIGN)
+  @AccountPermissions(PERMISSION_ASSIGN_OR_REVOKE)
   @UseGuards(CsrfGuard)
   @Put('grants/:id')
   updateGrant(
@@ -276,7 +276,7 @@ export class KeycloakPermissionsController {
     name: 'id',
     description: 'Managed group membership id.',
   })
-  @AccountPermissions(PERMISSION_ASSIGN)
+  @AccountPermissions(PERMISSION_ASSIGN_OR_REVOKE)
   @UseGuards(CsrfGuard)
   @Put('groups/memberships/:id')
   updateMembership(

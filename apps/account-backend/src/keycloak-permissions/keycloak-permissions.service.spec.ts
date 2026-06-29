@@ -737,7 +737,7 @@ describe('KeycloakPermissionsService', () => {
     );
   });
 
-  it('deactivates legacy membership-linked grants when memberships are updated', async () => {
+  it('does not deactivate membership-linked grants when memberships stay active', async () => {
     const { keycloakService, prisma, service } = createContext();
     const legacyGrant = createGrant({
       id: 'legacy-grant-1',
@@ -764,6 +764,41 @@ describe('KeycloakPermissionsService', () => {
       'admin-1',
     );
 
+    expect(keycloakService.removeUserClientRoles).not.toHaveBeenCalled();
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('deactivates legacy membership-linked grants when memberships become inactive', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const legacyGrant = createGrant({
+      id: 'legacy-grant-1',
+      studentEntityMembershipId: 'membership-1',
+    });
+    const membership = createMembership({
+      permissionGrants: [legacyGrant],
+    });
+    const inactiveMembership = createMembership({
+      mandateEnd: new Date(Date.now() - 1000),
+      permissionGrants: [legacyGrant],
+    });
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(membership)
+      .mockResolvedValueOnce(inactiveMembership);
+    prisma.studentEntityMembership.update.mockResolvedValue(inactiveMembership);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...legacyGrant,
+      deletedAt: new Date(),
+    });
+
+    await service.updatePermissionGroupMembership(
+      'membership-1',
+      {
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: new Date(Date.now() - 1000).toISOString(),
+      },
+      'admin-1',
+    );
+
     expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
       'user-1',
       ['permission-grant#read'],
@@ -776,7 +811,7 @@ describe('KeycloakPermissionsService', () => {
         updatedById: string;
         lastSyncError: null;
       };
-    }>(prisma.keycloakPermissionGrant.update);
+    }>(prisma.keycloakPermissionGrant.update, 1);
     expect(updateArgs.where).toEqual({ id: 'legacy-grant-1' });
     expect(updateArgs.data.deletedAt).toBeInstanceOf(Date);
     expect(updateArgs.data.updatedById).toBe('admin-1');
@@ -829,6 +864,50 @@ describe('KeycloakPermissionsService', () => {
       clientId: 'cacic-event-manager',
       roleName: 'events#publish',
     });
+  });
+
+  it('allows revoke-only actors to expire an active direct grant', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const validUntil = new Date(Date.now() - 60 * 1000);
+    const existingGrant = createGrant();
+    const expiredGrant = createGrant({
+      validUntil,
+      updatedById: 'admin-1',
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    accountPermissionService.canRevokePermission.mockResolvedValue(true);
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(existingGrant)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(expiredGrant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(expiredGrant);
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: validUntil.toISOString(),
+        },
+        'admin-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: existingGrant.id,
+        validUntil: validUntil.toISOString(),
+      }),
+    );
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
+      existingGrant.userId,
+      [existingGrant.roleName],
+      existingGrant.clientId,
+    );
   });
 
   it('rejects hidden Keycloak roles', async () => {

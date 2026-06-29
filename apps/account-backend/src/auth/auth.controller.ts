@@ -1418,7 +1418,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Check admin status',
     description:
-      'Check if the current user has admin privileges by verifying Keycloak roles',
+      'Check if the current user has Account Manager admin privileges from database-backed permission grants',
   })
   @ApiResponse({
     status: 200,
@@ -1433,8 +1433,9 @@ export class AuthController {
         adminGroups: {
           type: 'array',
           items: { type: 'string' },
-          example: ['super-admin'],
-          description: 'List of admin roles the user has',
+          example: [AccountManagerPermission.SuperAdmin, 'db-backed-admin'],
+          description:
+            'Account Manager admin permission markers returned for the user',
         },
       },
     },

@@ -107,13 +107,16 @@ export class AccountPermissionService {
     userId: string,
     now = new Date(),
   ): Promise<boolean> {
-    return this.hasAnyActivePermission(
-      userId,
-      [
-        AccountManagerPermission.DiscordManagementRead,
-        AccountManagerPermission.DiscordManagementUpdate,
-      ],
-      now,
+    return (
+      (await this.hasAccountManagerSuperAdminAccess(userId, now)) ||
+      (await this.hasAnyActivePermission(
+        userId,
+        [
+          AccountManagerPermission.DiscordManagementRead,
+          AccountManagerPermission.DiscordManagementUpdate,
+        ],
+        now,
+      ))
     );
   }
 

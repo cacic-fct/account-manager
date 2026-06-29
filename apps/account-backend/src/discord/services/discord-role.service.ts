@@ -156,9 +156,9 @@ export class DiscordRoleService {
         null,
         options.reason,
       );
-      await this.reconcilePermissionGroupAffiliationRoles(
-        discordLink.userId,
-        options.reason ?? 'discord-link-missing-account-role-reconciled',
+      await this.removePermissionGroupRolesFromMember(
+        member,
+        options.reason ?? 'discord-link-missing-account-role-cleanup',
       );
       const registrationRoleApplied =
         await this.ensureRegistrationRoleForMember(member, options.reason);

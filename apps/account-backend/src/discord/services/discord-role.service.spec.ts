@@ -156,13 +156,16 @@ const createContext = (members: readonly GuildMember[]) => {
     members: {
       fetch: jest
         .fn<Promise<Map<string, GuildMember> | GuildMember>, [string?]>()
-        .mockImplementation((memberId?: string) =>
-          Promise.resolve(
-            memberId
-              ? (guildMembers.get(memberId) as GuildMember)
-              : guildMembers,
-          ),
-        ),
+        .mockImplementation((memberId?: string) => {
+          if (!memberId) {
+            return Promise.resolve(guildMembers);
+          }
+
+          const member = guildMembers.get(memberId);
+          return member
+            ? Promise.resolve(member)
+            : Promise.reject(new Error('Unknown Guild Member'));
+        }),
     },
   };
   const client = {
@@ -328,7 +331,7 @@ describe('DiscordRoleService managed-role enforcement', () => {
     );
   });
 
-  it('keeps active permission-group roles while cleaning links whose local account no longer exists', async () => {
+  it('removes permission-group roles while cleaning links whose local account no longer exists', async () => {
     const groupRoleId = PERMISSION_GROUP_DISCORD_ROLE_IDS[0];
     if (!groupRoleId) {
       throw new Error('Expected at least one permission group Discord role.');
@@ -361,7 +364,7 @@ describe('DiscordRoleService managed-role enforcement', () => {
       DISCORD_MANAGED_ROLES.visitor.roleId,
       'test-hard-enforcement',
     );
-    expect(linkedMember.remove).not.toHaveBeenCalledWith(
+    expect(linkedMember.remove).toHaveBeenCalledWith(
       groupRoleId,
       'test-hard-enforcement',
     );

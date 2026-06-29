@@ -186,7 +186,9 @@ export class KeycloakPermissionsMembershipsService {
     await this.sync.syncMembershipAfterWrite(membership, {
       removeIfPreviouslyActive: wasActive,
     });
-    await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+    if (wasActive && !willBeActive) {
+      await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+    }
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
       'permission-group-membership-updated',

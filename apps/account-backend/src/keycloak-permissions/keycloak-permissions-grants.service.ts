@@ -131,7 +131,6 @@ export class KeycloakPermissionsGrantsService {
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
     }
-    await this.assertActorCanAssignPermission(actorId, nextPermission);
 
     const parsedPermission = parsePermissionOrThrow(nextPermission);
     const validity = normalizeValidityWindow(
@@ -145,6 +144,12 @@ export class KeycloakPermissionsGrantsService {
     const willBeActive =
       (!validity.validFrom || validity.validFrom.getTime() <= now.getTime()) &&
       (!validity.validUntil || validity.validUntil.getTime() > now.getTime());
+    const isGrantingNewActiveAccess =
+      willBeActive &&
+      (!wasActive || nextPermission !== existingGrant.permission);
+    if (isGrantingNewActiveAccess) {
+      await this.assertActorCanAssignPermission(actorId, nextPermission);
+    }
     const duplicateGrant = await this.findActiveGrant(
       existingGrant.userId,
       nextPermission,

@@ -28,58 +28,11 @@
 
 <div class="page-container">
   @if (loadingCatalog()) {
-    <div class="loading-state">
+    <div class="loading-state" aria-live="polite">
       <mat-spinner diameter="42"></mat-spinner>
       <p>Carregando permissões.</p>
     </div>
   } @else {
-    <section class="search-panel" aria-label="Buscar pessoas">
-      <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
-        <mat-form-field appearance="outline">
-          <mat-label>Nome, CPF ou e-mail</mat-label>
-          <input matInput formControlName="query" />
-          <mat-icon matSuffix>search</mat-icon>
-        </mat-form-field>
-        <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
-          @if (searching()) {
-            <mat-spinner diameter="20"></mat-spinner>
-          } @else {
-            <mat-icon>search</mat-icon>
-          }
-          Buscar
-        </button>
-      </form>
-
-      @if (users().length > 0) {
-        <div class="user-results">
-          @for (user of users(); track user.id) {
-            <button
-              type="button"
-              class="user-result"
-              [class.selected]="selectedUser()?.id === user.id"
-              (click)="selectUser(user)"
-            >
-              <span class="user-main">
-                <mat-icon>person</mat-icon>
-                <span>
-                  <strong>{{ user.displayName }}</strong>
-                  <small>{{ user.email }}</small>
-                </span>
-              </span>
-              @if (user.identityDocument) {
-                <span class="identity">{{ user.identityDocument }}</span>
-              }
-            </button>
-          }
-        </div>
-      } @else if (!searching() && searchForm.controls.query.touched) {
-        <div class="empty-state compact">
-          <mat-icon>person_search</mat-icon>
-          <p>Nenhuma pessoa encontrada.</p>
-        </div>
-      }
-    </section>
-
     <mat-tab-group animationDuration="160ms">
       <mat-tab label="Grupos">
         <section class="tab-grid">
@@ -95,6 +48,7 @@
                     type="button"
                     class="group-option"
                     [class.selected]="selectedGroupKey() === group.key"
+                    [attr.aria-pressed]="selectedGroupKey() === group.key"
                     (click)="selectGroup(group.key)"
                   >
                     <span class="group-icon">
@@ -102,12 +56,12 @@
                         {{ group.rootLabel === "Comissões" ? "groups" : "school" }}
                       </mat-icon>
                     </span>
-                    <span>
+                    <span class="group-copy">
                       <strong>{{ group.label }}</strong>
                       <small>{{ group.rootLabel }}</small>
                     </span>
                     @if (group.discordRoleId) {
-                      <mat-chip>Discord</mat-chip>
+                      <mat-chip class="group-chip">Discord</mat-chip>
                     }
                   </button>
                 }
@@ -147,7 +101,7 @@
                     </mat-select>
                   </mat-form-field>
 
-                  <div class="inline-chips" aria-label="Permissões ativas">
+                  <div class="inline-chips" aria-label="Permissões ativas no grupo">
                     @for (grant of groupRoleGrants(); track grant.id) {
                       <mat-chip>
                         {{ getPermissionClientLabel(grant.permission) }} ·
@@ -168,15 +122,79 @@
                     >
                       @if (savingGroupRoles()) {
                         <mat-spinner diameter="20"></mat-spinner>
+                        Salvando
                       } @else {
                         <mat-icon>save</mat-icon>
+                        Salvar permissões
                       }
-                      Salvar permissões
                     </button>
                   </div>
                 </form>
 
                 <mat-divider></mat-divider>
+
+                <section class="person-picker" aria-label="Selecionar pessoa para o vínculo">
+                  <div class="section-heading">
+                    <h3>Selecionar pessoa</h3>
+                    @if (selectedUser(); as user) {
+                      <span>{{ user.displayName }} selecionada</span>
+                    } @else {
+                      <span>Busque por nome, CPF ou e-mail</span>
+                    }
+                  </div>
+
+                  <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Nome, CPF ou e-mail</mat-label>
+                      <input matInput type="search" formControlName="query" />
+                      <mat-icon matSuffix>search</mat-icon>
+                      @if (searchForm.controls.query.hasError("required")) {
+                        <mat-error>Informe nome, CPF ou e-mail.</mat-error>
+                      } @else if (searchForm.controls.query.hasError("minlength")) {
+                        <mat-error>Digite pelo menos 2 caracteres.</mat-error>
+                      }
+                    </mat-form-field>
+                    <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
+                      @if (searching()) {
+                        <mat-spinner diameter="20"></mat-spinner>
+                        Buscando
+                      } @else {
+                        <mat-icon>search</mat-icon>
+                        Buscar pessoa
+                      }
+                    </button>
+                  </form>
+
+                  @if (users().length > 0) {
+                    <div class="user-results">
+                      @for (user of users(); track user.id) {
+                        <button
+                          type="button"
+                          class="user-result"
+                          [class.selected]="selectedUser()?.id === user.id"
+                          [attr.aria-pressed]="selectedUser()?.id === user.id"
+                          (click)="selectUser(user)"
+                        >
+                          <span class="user-main">
+                            <mat-icon>person</mat-icon>
+                            <span>
+                              <strong>{{ user.displayName }}</strong>
+                              <small>{{ user.email }}</small>
+                            </span>
+                          </span>
+                          @if (user.identityDocument) {
+                            <span class="identity">{{ user.identityDocument }}</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  } @else if (!searching() && searchForm.controls.query.touched) {
+                    <div class="empty-state compact">
+                      <mat-icon>person_search</mat-icon>
+                      <p>Nenhuma pessoa encontrada. Revise os dados e tente novamente.</p>
+                    </div>
+                  }
+                </section>
 
                 <form
                   class="membership-form"
@@ -184,7 +202,7 @@
                   (ngSubmit)="saveMembership()"
                 >
                   <div class="section-heading">
-                    <h3>Pessoas no grupo</h3>
+                    <h3>Prazo do vínculo</h3>
                     @if (group.discordRoleId) {
                       <span>Adiciona o cargo Discord {{ group.discordRoleId }}</span>
                     }
@@ -209,21 +227,32 @@
                     <mat-form-field appearance="outline">
                       <mat-label>Início do vínculo</mat-label>
                       <input matInput type="datetime-local" formControlName="validFrom" />
+                      @if (membershipForm.controls.validFrom.hasError("required")) {
+                        <mat-error>Informe o início do vínculo.</mat-error>
+                      }
                     </mat-form-field>
 
                     <mat-form-field appearance="outline">
                       <mat-label>Fim do vínculo</mat-label>
-                      <input
-                        matInput
-                        type="datetime-local"
-                        formControlName="validUntil"
-                        [readonly]="membershipForm.controls.indefinite.value"
-                      />
+                      <input matInput type="datetime-local" formControlName="validUntil" />
+                      @if (membershipForm.controls.indefinite.value) {
+                        <mat-hint>Ignorado enquanto o vínculo for indefinido.</mat-hint>
+                      }
+                      @if (membershipForm.controls.validUntil.hasError("required")) {
+                        <mat-error>Informe o fim do vínculo.</mat-error>
+                      } @else if (membershipForm.controls.validUntil.hasError("invalidDate")) {
+                        <mat-error>Informe uma data e hora válidas.</mat-error>
+                      }
                     </mat-form-field>
                   </div>
 
                   <div class="form-actions">
-                    <mat-checkbox formControlName="indefinite">Indefinido</mat-checkbox>
+                    <mat-checkbox
+                      formControlName="indefinite"
+                      (change)="setMembershipIndefinite($event.checked)"
+                    >
+                      Vínculo indefinido
+                    </mat-checkbox>
                     <button
                       mat-flat-button
                       color="primary"
@@ -232,13 +261,19 @@
                     >
                       @if (savingMembership()) {
                         <mat-spinner diameter="20"></mat-spinner>
+                        Vinculando
                       } @else {
                         <mat-icon>group_add</mat-icon>
+                        Vincular pessoa
                       }
-                      Vincular pessoa
                     </button>
                   </div>
                 </form>
+
+                <div class="section-heading records-heading">
+                  <h3>Pessoas vinculadas</h3>
+                  <span>{{ groupMemberships().length }} vínculo(s)</span>
+                </div>
 
                 @if (groupMemberships().length === 0) {
                   <div class="empty-state compact">
@@ -249,14 +284,14 @@
                   <div class="record-list">
                     @for (membership of groupMemberships(); track membership.id) {
                       <div class="record-row">
-                        <span>
+                        <span class="record-main">
                           <strong>
                             {{ membership.userDisplayName || membership.userEmail || membership.userId }}
                           </strong>
                           <small>{{ formatMembership(membership) }}</small>
                         </span>
                         <span class="row-actions">
-                          <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+                          <mat-chip class="status-chip">{{ getStatusLabel(membership.status) }}</mat-chip>
                           @if (deletingId() === membership.id) {
                             <mat-spinner diameter="24"></mat-spinner>
                           } @else {
@@ -265,7 +300,7 @@
                               type="button"
                               color="warn"
                               matTooltip="Remover vínculo"
-                              aria-label="Remover vínculo"
+                              [attr.aria-label]="'Remover vínculo de ' + (membership.userDisplayName || membership.userEmail || membership.userId)"
                               (click)="confirmDeleteMembership(membership)"
                             >
                               <mat-icon>delete</mat-icon>
@@ -295,10 +330,73 @@
             </mat-card-header>
 
             <mat-card-content>
+              <section class="person-picker" aria-label="Selecionar pessoa para permissão direta">
+                <div class="section-heading">
+                  <h3>Selecionar pessoa</h3>
+                  @if (selectedUser(); as user) {
+                    <span>{{ user.displayName }} selecionada</span>
+                  } @else {
+                    <span>Busque antes de conceder uma permissão direta</span>
+                  }
+                </div>
+
+                <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Nome, CPF ou e-mail</mat-label>
+                    <input matInput type="search" formControlName="query" />
+                    <mat-icon matSuffix>search</mat-icon>
+                    @if (searchForm.controls.query.hasError("required")) {
+                      <mat-error>Informe nome, CPF ou e-mail.</mat-error>
+                    } @else if (searchForm.controls.query.hasError("minlength")) {
+                      <mat-error>Digite pelo menos 2 caracteres.</mat-error>
+                    }
+                  </mat-form-field>
+                  <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
+                    @if (searching()) {
+                      <mat-spinner diameter="20"></mat-spinner>
+                      Buscando
+                    } @else {
+                      <mat-icon>search</mat-icon>
+                      Buscar pessoa
+                    }
+                  </button>
+                </form>
+
+                @if (users().length > 0) {
+                  <div class="user-results">
+                    @for (user of users(); track user.id) {
+                      <button
+                        type="button"
+                        class="user-result"
+                        [class.selected]="selectedUser()?.id === user.id"
+                        [attr.aria-pressed]="selectedUser()?.id === user.id"
+                        (click)="selectUser(user)"
+                      >
+                        <span class="user-main">
+                          <mat-icon>person</mat-icon>
+                          <span>
+                            <strong>{{ user.displayName }}</strong>
+                            <small>{{ user.email }}</small>
+                          </span>
+                        </span>
+                        @if (user.identityDocument) {
+                          <span class="identity">{{ user.identityDocument }}</span>
+                        }
+                      </button>
+                    }
+                  </div>
+                } @else if (!searching() && searchForm.controls.query.touched) {
+                  <div class="empty-state compact">
+                    <mat-icon>person_search</mat-icon>
+                    <p>Nenhuma pessoa encontrada. Revise os dados e tente novamente.</p>
+                  </div>
+                }
+              </section>
+
               @if (!selectedUser()) {
-                <div class="empty-state">
+                <div class="empty-state compact">
                   <mat-icon>person_search</mat-icon>
-                  <p>Busque e selecione uma pessoa.</p>
+                  <p>Selecione uma pessoa para conceder uma permissão direta.</p>
                 </div>
               } @else {
                 <form
@@ -314,7 +412,7 @@
                           @for (permission of client.permissions; track permission.permission) {
                             <mat-option
                               [value]="permission.permission"
-                              [disabled]="!availableDirectPermissions().includes(permission)"
+                              [disabled]="!availableDirectPermissionIds().has(permission.permission)"
                             >
                               {{ permission.label }}
                             </mat-option>
@@ -322,6 +420,9 @@
                         </mat-optgroup>
                       }
                     </mat-select>
+                    @if (directGrantForm.controls.permission.hasError("required")) {
+                      <mat-error>Selecione a permissão que será concedida.</mat-error>
+                    }
                   </mat-form-field>
 
                   <div class="date-grid">
@@ -332,29 +433,38 @@
 
                     <mat-form-field appearance="outline">
                       <mat-label>Fim</mat-label>
-                      <input
-                        matInput
-                        type="datetime-local"
-                        formControlName="validUntil"
-                        [readonly]="directGrantForm.controls.indefinite.value"
-                      />
+                      <input matInput type="datetime-local" formControlName="validUntil" />
+                      @if (directGrantForm.controls.indefinite.value) {
+                        <mat-hint>Ignorado enquanto a permissão for indefinida.</mat-hint>
+                      }
+                      @if (directGrantForm.controls.validUntil.hasError("required")) {
+                        <mat-error>Informe o fim da permissão.</mat-error>
+                      } @else if (directGrantForm.controls.validUntil.hasError("invalidDate")) {
+                        <mat-error>Informe uma data e hora válidas.</mat-error>
+                      }
                     </mat-form-field>
                   </div>
 
                   <div class="form-actions">
-                    <mat-checkbox formControlName="indefinite">Indefinida</mat-checkbox>
+                    <mat-checkbox
+                      formControlName="indefinite"
+                      (change)="setDirectGrantIndefinite($event.checked)"
+                    >
+                      Permissão indefinida
+                    </mat-checkbox>
                     <button
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingGrant() || availableDirectPermissions().length === 0"
+                      [disabled]="savingGrant() || !hasAvailableDirectPermissions()"
                     >
                       @if (savingGrant()) {
                         <mat-spinner diameter="20"></mat-spinner>
+                        Concedendo
                       } @else {
                         <mat-icon>add</mat-icon>
+                        Conceder
                       }
-                      Conceder
                     </button>
                   </div>
                 </form>
@@ -374,7 +484,7 @@
                   <div class="record-list">
                     @for (grant of directGrants(); track grant.id) {
                       <div class="record-row">
-                        <span>
+                        <span class="record-main">
                           <strong>{{ getPermissionLabel(grant.permission) }}</strong>
                           <small>
                             {{ getPermissionClientLabel(grant.permission) }} ·
@@ -382,7 +492,7 @@
                           </small>
                         </span>
                         <span class="row-actions">
-                          <mat-chip>{{ getStatusLabel(grant.status) }}</mat-chip>
+                          <mat-chip class="status-chip">{{ getStatusLabel(grant.status) }}</mat-chip>
                           @if (deletingId() === grant.id) {
                             <mat-spinner diameter="24"></mat-spinner>
                           } @else {
@@ -391,7 +501,7 @@
                               type="button"
                               color="warn"
                               matTooltip="Remover permissão"
-                              aria-label="Remover permissão"
+                              [attr.aria-label]="'Remover permissão ' + getPermissionLabel(grant.permission)"
                               (click)="confirmDeleteGrant(grant)"
                             >
                               <mat-icon>delete</mat-icon>
@@ -426,11 +536,11 @@
                 <div class="record-list compact-list">
                   @for (membership of userMemberships(); track membership.id) {
                     <div class="record-row">
-                      <span>
+                      <span class="record-main">
                         <strong>{{ getGroupLabel(membership.groupKey) }}</strong>
                         <small>{{ formatMembership(membership) }}</small>
                       </span>
-                      <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+                      <mat-chip class="status-chip">{{ getStatusLabel(membership.status) }}</mat-chip>
                     </div>
                   }
                 </div>

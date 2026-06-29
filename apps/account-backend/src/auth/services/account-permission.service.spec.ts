@@ -200,6 +200,13 @@ describe('AccountPermissionService', () => {
     ).resolves.toBe(true);
   });
 
+  it('treats a Keycloak super-admin role as Discord admin access', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+
+    await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
+  });
+
   it('requires assign permission before assigning any grant', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);

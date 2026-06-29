@@ -6,7 +6,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ReactiveFormsModule, Validators, FormBuilder } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   KeycloakPermissionDefinition,
@@ -26,7 +31,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -61,7 +65,6 @@ import {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatListModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatTabsModule,
@@ -107,14 +110,14 @@ export class PermissionsComponent implements OnInit {
 
   protected membershipForm = this.formBuilder.nonNullable.group({
     validFrom: [this.toDateTimeLocal(new Date()), Validators.required],
-    validUntil: [''],
+    validUntil: [{ value: '', disabled: true }],
     indefinite: [true],
   });
 
   protected directGrantForm = this.formBuilder.nonNullable.group({
     permission: ['', Validators.required],
     validFrom: [''],
-    validUntil: [''],
+    validUntil: [{ value: '', disabled: true }],
     indefinite: [true],
   });
 
@@ -139,6 +142,19 @@ export class PermissionsComponent implements OnInit {
 
   protected availableDirectPermissions = computed(() =>
     availableDirectPermissions(this.catalog(), this.directGrants()),
+  );
+
+  protected availableDirectPermissionIds = computed(
+    () =>
+      new Set(
+        this.availableDirectPermissions().map(
+          (permission) => permission.permission,
+        ),
+      ),
+  );
+
+  protected hasAvailableDirectPermissions = computed(
+    () => this.availableDirectPermissions().length > 0,
   );
 
   ngOnInit(): void {
@@ -177,6 +193,20 @@ export class PermissionsComponent implements OnInit {
         this.searching.set(false);
       },
     });
+  }
+
+  protected setMembershipIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.membershipForm.controls.validUntil,
+      checked,
+    );
+  }
+
+  protected setDirectGrantIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      checked,
+    );
   }
 
   protected selectUser(user: KeycloakPermissionUser): void {
@@ -248,6 +278,8 @@ export class PermissionsComponent implements OnInit {
       ? null
       : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
+      this.membershipForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.membershipForm.controls.validUntil.markAsTouched();
       this.snackBar.open('Informe o fim do vínculo ou marque como indefinido.', 'Fechar', {
         duration: 5000,
       });
@@ -299,6 +331,8 @@ export class PermissionsComponent implements OnInit {
       ? null
       : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
+      this.directGrantForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.directGrantForm.controls.validUntil.markAsTouched();
       this.snackBar.open('Informe o fim da permissão ou marque como indefinida.', 'Fechar', {
         duration: 5000,
       });
@@ -565,6 +599,26 @@ export class PermissionsComponent implements OnInit {
       validUntil: '',
       indefinite: true,
     });
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      true,
+    );
+  }
+
+  private updateOptionalEndDateControl(
+    control: FormControl<string>,
+    indefinite: boolean,
+  ): void {
+    if (indefinite) {
+      control.reset('');
+      control.clearValidators();
+      control.disable();
+    } else {
+      control.enable();
+      control.setValidators(Validators.required);
+    }
+
+    control.updateValueAndValidity();
   }
 
   private toDateTimeLocal(date: Date): string {
