@@ -14,6 +14,7 @@ export default {
     'src/auth/guards/discord-admin.guard.ts',
     'src/auth/guards/university-validation.guard.ts',
     'src/auth/services/account-permission.service.ts',
+    'src/common/services/s3.service.ts',
     'src/discord/services/discord-role-management.service.ts',
     'src/feature-flags/feature-flags.service.ts',
     'src/student-verification/services/admin-operations.service.ts',

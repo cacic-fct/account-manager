@@ -5,6 +5,11 @@
   "scripts": {
     "build:packages": "bunx nx run-many --target=build --projects=m2m-contracts,account-privacy,cookie-banner",
     "e2e:backend:keycloak": "node tools/run-account-backend-keycloak-e2e.mjs",
+    "e2e:backend:keycloak:cov": "node tools/run-account-backend-keycloak-e2e.mjs --coverage",
+    "integration:backend:seaweedfs": "node tools/run-account-backend-seaweedfs-integration.mjs",
+    "integration:backend:seaweedfs:cov": "node tools/run-account-backend-seaweedfs-integration.mjs --coverage",
+    "test:backend:python": "python3 -m unittest discover -s apps/account-backend/scripts -p '*_test.py'",
+    "test:backend:python:cov": "python3 -m coverage run --source=apps/account-backend/scripts --omit='apps/account-backend/scripts/*_test.py,apps/account-backend/scripts/test_pdf_verification.py' -m unittest discover -s apps/account-backend/scripts -p '*_test.py' && python3 -m coverage xml -o coverage/apps/account-backend-python/coverage.xml",
     "puppeteer:install-browser": "bunx puppeteer browsers install chrome",
     "verify:package:m2m-contracts": "bun tools/verify-package-artifact.mjs dist/libs/m2m-contracts m2m-contracts",
     "verify:package:account-privacy": "bun tools/verify-package-artifact.mjs dist/libs/account-privacy account-privacy",

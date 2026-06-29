@@ -68,6 +68,11 @@ bunx nx build account-backend
 bunx nx test account-frontend
 bunx nx test account-backend
 bunx nx e2e account-backend
+bunx nx run account-backend:test-python
+
+# Integrações reais usadas no CI
+bun run e2e:backend:keycloak
+bun run integration:backend:seaweedfs
 
 # Lint
 bunx nx affected -t eslint:lint --parallel=3
@@ -80,3 +85,5 @@ bunx nx build-storybook account-frontend
 bun run build:packages
 bun run publish:packages
 ```
+
+Os testes unitários e o E2E rápido do backend usam mocks para integrações externas. As rotas `e2e:backend:keycloak` e `integration:backend:seaweedfs` sobem containers isolados para validar Keycloak e SeaweedFS como no CI.

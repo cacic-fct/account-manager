@@ -61,10 +61,51 @@
         "command": "bun run jest --config ./test/jest-e2e.json --runInBand"
       }
     },
+    "e2e-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/apps/account-backend-e2e"],
+      "options": {
+        "cwd": "apps/account-backend",
+        "command": "bun run jest --config ./test/jest-e2e.json --runInBand --coverage --coverageDirectory ../../coverage/apps/account-backend-e2e --coverageReporters=json --coverageReporters=lcov --coverageReporters=clover"
+      }
+    },
     "e2e-keycloak": {
       "executor": "nx:run-commands",
       "options": {
         "command": "bun run e2e:backend:keycloak"
+      }
+    },
+    "e2e-keycloak-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/apps/account-backend-keycloak-e2e"],
+      "options": {
+        "command": "bun run e2e:backend:keycloak:cov"
+      }
+    },
+    "integration-seaweedfs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run integration:backend:seaweedfs"
+      }
+    },
+    "integration-seaweedfs-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/apps/account-backend-seaweedfs-integration"],
+      "options": {
+        "command": "bun run integration:backend:seaweedfs:cov"
+      }
+    },
+    "test-python": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m unittest discover -s apps/account-backend/scripts -p '*_test.py'"
+      }
+    },
+    "test-python-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/apps/account-backend-python"],
+      "options": {
+        "command": "bun run test:backend:python:cov"
       }
     },
     "lint": {

@@ -1,0 +1,15 @@
+name: cacic-seaweedfs-test
+
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    command:
+      - server
+      - -s3
+      - -s3.port=8333
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -dir=/data
+    ports:
+      - '${SEAWEEDFS_S3_TEST_PORT:-18333}:8333'
+    volumes:
+      - ./seaweedfs/s3.test.json:/etc/seaweedfs/s3.json:ro

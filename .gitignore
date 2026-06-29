@@ -10,3 +10,10 @@ node_modules/
 .env
 
 dist/
+
+__pycache__
+
+lcov-report/
+coverage-final.json
+lcov.info
+clover.xml

@@ -11,6 +11,7 @@ import { AccountPermissionService } from '../src/auth/services/account-permissio
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import { API_GLOBAL_PREFIX } from '../src/config/app.config';
+import { TotpService } from '../src/totp/totp.service';
 import {
   createAuthTestConfigService,
   createKeycloakUser,
@@ -41,9 +42,13 @@ describe('Authentication (fast e2e)', () => {
           'http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth',
         );
         url.searchParams.set('client_id', 'cacic-account-manager');
-        url.searchParams.set('state', state);
-        url.searchParams.set('code_challenge', options.codeChallenge);
-        if (options.prompt) {
+        if (state) {
+          url.searchParams.set('state', state);
+        }
+        if (options?.codeChallenge) {
+          url.searchParams.set('code_challenge', options.codeChallenge);
+        }
+        if (options?.prompt) {
           url.searchParams.set('prompt', options.prompt);
         }
         return url.toString();
@@ -112,6 +117,12 @@ describe('Authentication (fast e2e)', () => {
               .fn()
               .mockResolvedValue(false),
             hasAccountManagerAdminAccess: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: TotpService,
+          useValue: {
+            getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

@@ -252,6 +252,40 @@ describe('AccountLinkingController', () => {
     expect(redirect).toHaveBeenCalledWith('https://sso/auth');
   });
 
+  it('saves the session before redirecting to the Google linking auth URL', async () => {
+    keycloakService.getAuthUrl.mockReturnValue('https://sso/auth');
+    session.accountLinkingState = 'state-1';
+    session.save = jest.fn((callback: (error?: Error) => void) => {
+      callback();
+    });
+    const { res, redirect } = createRedirectResponse();
+
+    await controller.resumeGoogleLinking('state-1', session, res);
+
+    expect(session.save).toHaveBeenCalledTimes(1);
+    expect(redirect).toHaveBeenCalledWith('https://sso/auth');
+  });
+
+  it('clears state and redirects to failure when session save fails', async () => {
+    keycloakService.getAuthUrl.mockReturnValue('https://sso/auth');
+    session.accountLinkingState = 'state-1';
+    session.accountLinkingUserId = 'secondary-user';
+    session.accountLinkingCodeVerifier = 'verifier-1';
+    session.save = jest.fn((callback: (error?: Error) => void) => {
+      callback(new Error('save failed'));
+    });
+    const { res, redirect } = createRedirectResponse();
+
+    await controller.resumeGoogleLinking('state-1', session, res);
+
+    expect(session.accountLinkingState).toBeUndefined();
+    expect(session.accountLinkingUserId).toBeUndefined();
+    expect(session.accountLinkingCodeVerifier).toBeUndefined();
+    expect(redirect).toHaveBeenCalledWith(
+      'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
+    );
+  });
+
   it('clears account-linking state and redirects to failure when resume state is invalid', async () => {
     session.accountLinkingState = 'state-1';
     session.accountLinkingUserId = 'secondary-user';

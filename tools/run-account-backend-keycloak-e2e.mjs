@@ -9,6 +9,8 @@ const keycloakUrl = `http://localhost:${keycloakPort}`;
 const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200/app/';
 const keepContainer = process.env.KEYCLOAK_TEST_KEEPALIVE === 'true';
+const collectCoverage =
+  process.argv.includes('--coverage') || process.env.COLLECT_COVERAGE === 'true';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -83,6 +85,25 @@ function buildTestEnv() {
 
 async function main() {
   const testEnv = buildTestEnv();
+  const jestArgs = [
+    'run',
+    'jest',
+    '--config',
+    './test/jest-keycloak-e2e.json',
+    '--runInBand',
+  ];
+
+  if (collectCoverage) {
+    jestArgs.push(
+      '--coverage',
+      '--coverageDirectory',
+      '../../coverage/apps/account-backend-keycloak-e2e',
+      '--coverageReporters=json',
+      '--coverageReporters=lcov',
+      '--coverageReporters=clover',
+    );
+  }
+
   dockerCompose(['down', '-v', '--remove-orphans']);
   dockerCompose(['up', '-d']);
 
@@ -93,13 +114,7 @@ async function main() {
 
   run(
     process.platform === 'win32' ? 'bun.cmd' : 'bun',
-    [
-      'run',
-      'jest',
-      '--config',
-      './test/jest-keycloak-e2e.json',
-      '--runInBand',
-    ],
+    jestArgs,
     {
       cwd: `${rootDir}/apps/account-backend`,
       env: testEnv,

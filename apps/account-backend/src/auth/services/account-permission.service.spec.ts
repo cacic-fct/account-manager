@@ -66,6 +66,22 @@ const createContext = () => {
 };
 
 describe('AccountPermissionService', () => {
+  it('rejects empty permission checks without querying grants', async () => {
+    const { prisma, service } = createContext();
+
+    await expect(service.hasAnyActivePermission('user-1', [])).resolves.toBe(
+      false,
+    );
+    await expect(service.hasAllActivePermissions('user-1', [])).resolves.toBe(
+      false,
+    );
+
+    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+    expect(
+      prisma.keycloakGroupPermissionGrant.findFirst,
+    ).not.toHaveBeenCalled();
+  });
+
   it('checks active direct grants with super-admin inheritance', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
@@ -137,12 +153,47 @@ describe('AccountPermissionService', () => {
     );
 
     await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
+    await expect(service.hasAccountManagerAdminAccess('user-1')).resolves.toBe(
+      true,
+    );
     await expect(
       service.hasAllActivePermissions('user-1', [
         AccountManagerPermission.DiscordManagementUpdate,
         AccountManagerPermission.AccountDeletionUpdate,
       ]),
     ).resolves.toBe(true);
+  });
+
+  it('requires every requested permission when no super-admin grant exists', async () => {
+    const { prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+
+        return Promise.resolve(
+          permissions.includes(
+            AccountManagerPermission.DiscordManagementRead,
+          ) ||
+            permissions.includes(AccountManagerPermission.AccountDeletionRead)
+            ? { id: 'grant-1' }
+            : null,
+        );
+      },
+    );
+
+    await expect(
+      service.hasAllActivePermissions('user-1', [
+        AccountManagerPermission.DiscordManagementRead,
+        AccountManagerPermission.AccountDeletionRead,
+      ]),
+    ).resolves.toBe(true);
+    await expect(
+      service.hasAllActivePermissions('user-1', [
+        AccountManagerPermission.DiscordManagementRead,
+        AccountManagerPermission.AccountDeletionUpdate,
+      ]),
+    ).resolves.toBe(false);
   });
 
   it('requires assign permission before assigning any grant', async () => {
@@ -162,6 +213,26 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.permission.in).toContain(
       AccountManagerPermission.PermissionGrantAssign,
     );
+  });
+
+  it('rejects invalid permission ids even when the actor can assign grants', async () => {
+    const { prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+
+        return Promise.resolve(
+          permissions.includes(AccountManagerPermission.PermissionGrantAssign)
+            ? { id: 'grant-assign' }
+            : null,
+        );
+      },
+    );
+
+    await expect(
+      service.canAssignPermission('actor-1', 'not-a-keycloak-permission'),
+    ).resolves.toBe(false);
   });
 
   it('allows client super-admins with assign permission to assign any role for that client', async () => {
@@ -222,5 +293,25 @@ describe('AccountPermissionService', () => {
         AccountManagerPermission.AccountDeletionUpdate,
       ),
     ).resolves.toBe(false);
+  });
+
+  it('returns false when the low-level permission helper receives no permissions', async () => {
+    const { prisma, service } = createContext();
+    const internals = service as unknown as {
+      hasAnyDirectOrGroupPermission: (
+        userId: string,
+        permissions: readonly string[],
+        now: Date,
+      ) => Promise<boolean>;
+    };
+
+    await expect(
+      internals.hasAnyDirectOrGroupPermission('user-1', [], new Date()),
+    ).resolves.toBe(false);
+
+    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+    expect(
+      prisma.keycloakGroupPermissionGrant.findFirst,
+    ).not.toHaveBeenCalled();
   });
 });
