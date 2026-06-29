@@ -151,6 +151,9 @@ export class PermissionsComponent implements OnInit {
     }
 
     this.selectedGroupKey.set(groupKey);
+    this.groupRoleGrants.set([]);
+    this.groupMemberships.set([]);
+    this.groupRolesForm.controls.permissions.setValue([]);
     this.loadGroup(groupKey);
   }
 
@@ -191,11 +194,17 @@ export class PermissionsComponent implements OnInit {
     }
 
     const permissions = this.groupRolesForm.controls.permissions.value;
+    const groupKey = group.key;
     this.savingGroupRoles.set(true);
     this.apiService
-      .updatePermissionGroupRoleGrants(group.key, { permissions })
+      .updatePermissionGroupRoleGrants(groupKey, { permissions })
       .subscribe({
         next: (grants) => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
           this.groupRoleGrants.set(grants);
           this.groupRolesForm.controls.permissions.setValue(
             grants.map((grant) => grant.permission),
@@ -206,6 +215,11 @@ export class PermissionsComponent implements OnInit {
           this.savingGroupRoles.set(false);
         },
         error: () => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
           this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
             duration: 5000,
           });
@@ -448,6 +462,10 @@ export class PermissionsComponent implements OnInit {
       memberships: this.apiService.getPermissionGroupMemberships(groupKey),
     }).subscribe({
       next: ({ roleGrants, memberships }) => {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
+        }
+
         this.groupRoleGrants.set(roleGrants);
         this.groupMemberships.set(memberships);
         this.groupRolesForm.controls.permissions.setValue(
@@ -458,6 +476,10 @@ export class PermissionsComponent implements OnInit {
         this.loadingGroup.set(false);
       },
       error: () => {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
+        }
+
         this.snackBar.open('Erro ao carregar grupo.', 'Fechar', {
           duration: 5000,
         });
@@ -473,11 +495,19 @@ export class PermissionsComponent implements OnInit {
       memberships: this.apiService.getUserPermissionGroupMemberships(userId),
     }).subscribe({
       next: ({ grants, memberships }) => {
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
+
         this.directGrants.set(grants);
         this.userMemberships.set(memberships);
         this.loadingUserAccess.set(false);
       },
       error: () => {
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
+
         this.snackBar.open('Erro ao carregar permissões da pessoa.', 'Fechar', {
           duration: 5000,
         });

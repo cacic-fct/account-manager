@@ -7,20 +7,22 @@ ALTER TABLE "student_entity_memberships"
 
 UPDATE "keycloak_permission_grants"
 SET
-  "client_id" = 'cacic-account-manager',
-  "role_name" = "permission"
-WHERE "client_id" IS NULL OR "role_name" IS NULL;
+  "client_id" = btrim(split_part("permission", ':', 1)),
+  "role_name" = btrim(substring("permission" from position(':' in "permission") + 1))
+WHERE ("client_id" IS NULL OR "role_name" IS NULL)
+  AND position(':' in "permission") > 0;
 
 UPDATE "keycloak_permission_grants"
-SET "permission" = "client_id" || ':' || "role_name"
-WHERE position(':' in "permission") = 0;
+SET
+  "client_id" = 'cacic-account-manager',
+  "role_name" = btrim("permission"),
+  "permission" = 'cacic-account-manager' || ':' || btrim("permission")
+WHERE ("client_id" IS NULL OR "role_name" IS NULL)
+  AND position(':' in "permission") = 0;
 
 ALTER TABLE "keycloak_permission_grants"
   ALTER COLUMN "client_id" SET NOT NULL,
   ALTER COLUMN "role_name" SET NOT NULL;
-
-CREATE INDEX "keycloak_permission_grants_client_id_role_name_idx"
-  ON "keycloak_permission_grants"("client_id", "role_name");
 
 CREATE TABLE "keycloak_group_permission_grants" (
   "id" UUID NOT NULL,

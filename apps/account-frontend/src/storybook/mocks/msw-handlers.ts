@@ -2,6 +2,7 @@ import { delay, http, HttpResponse } from 'msw';
 
 import {
   createMockKeycloakPermissionGrant,
+  createMockPermissionGroupRoleGrant,
   createMockStudentEntityMembership,
   mockDiscordStatusLinked,
   mockDiscordStatusNotLinked,
@@ -288,26 +289,9 @@ export const keycloakPermissionHandlers = [
       const groupKey = String(params['groupKey']) as PermissionGroupKey;
       const body = (await request.json()) as PermissionGroupRoleGrantUpdateRequest;
       return HttpResponse.json(
-        body.permissions.map((permission, index) => {
-          const definition = mockKeycloakPermissionCatalog.find(
-            (candidate) => candidate.permission === permission,
-          );
-          return {
-            id: `group-grant-${groupKey.toLowerCase()}-${index + 10}`,
-            groupKey,
-            clientId: definition?.clientId ?? permission.split(':')[0] ?? '',
-            roleName: definition?.roleName ?? permission.split(':')[1] ?? '',
-            permission,
-            source: 'database',
-            validFrom: null,
-            validUntil: null,
-            status: 'active',
-            createdAt: new Date('2026-06-21T12:00:00.000Z').toISOString(),
-            createdById: 'storybook-admin',
-            updatedAt: new Date('2026-06-21T12:00:00.000Z').toISOString(),
-            updatedById: 'storybook-admin',
-          };
-        }),
+        body.permissions.map((permission, index) =>
+          createMockPermissionGroupRoleGrant(groupKey, permission, index + 10),
+        ),
       );
     },
   ),

@@ -33,6 +33,11 @@ import { normalizeDiscordRoleColor } from '../utils/discord-role-color.util';
     </div>
   `,
   styles: `
+    :host {
+      display: block;
+      width: 100%;
+    }
+
     .role-info {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;

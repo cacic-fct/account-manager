@@ -3,6 +3,7 @@ import {
   PermissionGroupKey,
 } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { KeycloakService } from './keycloak.service';
 import { AccountPermissionService } from './account-permission.service';
 
 type PrismaMock = {
@@ -15,6 +16,13 @@ type PrismaMock = {
   studentEntityMembership: {
     findMany: jest.Mock<Promise<{ entity: string }[]>, [unknown]>;
   };
+};
+
+type KeycloakMock = {
+  getGroupClientRoles: jest.Mock<
+    ReturnType<KeycloakService['getGroupClientRoles']>,
+    Parameters<KeycloakService['getGroupClientRoles']>
+  >;
 };
 
 type PermissionFindFirstArgs = {
@@ -55,11 +63,21 @@ const createContext = () => {
   prisma.keycloakGroupPermissionGrant.findFirst.mockResolvedValue(null);
   prisma.studentEntityMembership.findMany.mockResolvedValue([]);
 
+  const keycloakService: KeycloakMock = {
+    getGroupClientRoles: jest.fn<
+      ReturnType<KeycloakService['getGroupClientRoles']>,
+      Parameters<KeycloakService['getGroupClientRoles']>
+    >(),
+  };
+  keycloakService.getGroupClientRoles.mockResolvedValue([]);
+
   const service = new AccountPermissionService(
     prisma as unknown as PrismaService,
+    keycloakService as unknown as KeycloakService,
   );
 
   return {
+    keycloakService,
     prisma,
     service,
   };
@@ -122,6 +140,32 @@ describe('AccountPermissionService', () => {
     ]);
   });
 
+  it('resolves active permission through a Keycloak-only group role mapping', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.studentEntityMembership.findMany.mockResolvedValue([
+      { entity: PermissionGroupKey.Cacic },
+    ]);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? ['student-verification#review']
+            : [],
+        ),
+    );
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AccountManagerPermission.StudentVerificationReview,
+      ]),
+    ).resolves.toBe(true);
+
+    expect(keycloakService.getGroupClientRoles).toHaveBeenCalledWith(
+      '5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
+      'cacic-account-manager',
+    );
+  });
+
   it('treats a super-admin grant as all account-manager admin permissions', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockImplementation(
@@ -161,6 +205,25 @@ describe('AccountPermissionService', () => {
     );
     expect(findFirstArgs.where.permission.in).toContain(
       AccountManagerPermission.PermissionGrantAssign,
+    );
+  });
+
+  it('requires revoke permission before revoking any grant', async () => {
+    const { prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.canRevokePermission(
+        'actor-1',
+        AccountManagerPermission.DiscordManagementRead,
+      ),
+    ).resolves.toBe(false);
+
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
+      prisma.keycloakPermissionGrant.findFirst,
+    );
+    expect(findFirstArgs.where.permission.in).toContain(
+      AccountManagerPermission.PermissionGrantRevoke,
     );
   });
 

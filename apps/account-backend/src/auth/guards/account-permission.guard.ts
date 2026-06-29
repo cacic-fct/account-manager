@@ -9,8 +9,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { AccountManagerKeycloakRole } from '@cacic/shared-types';
 import { AuthSession } from '../auth.controller';
 import { AccountPermissionService } from '../services/account-permission.service';
+import { KeycloakService } from '../services/keycloak.service';
 
 export const ACCOUNT_PERMISSIONS_KEY = 'accountPermissions';
 
@@ -34,6 +36,7 @@ export class AccountPermissionGuard implements CanActivate {
 
   constructor(
     private readonly accountPermissionService: AccountPermissionService,
+    private readonly keycloakService: KeycloakService,
     private readonly reflector: Reflector,
   ) {}
 
@@ -70,7 +73,10 @@ export class AccountPermissionGuard implements CanActivate {
               config.permissions,
             );
 
-      if (!hasPermission) {
+      if (
+        !hasPermission &&
+        !(await this.hasKeycloakSuperAdminBootstrapAccess(userId))
+      ) {
         throw new ForbiddenException(
           'Required Account Manager permission missing',
         );
@@ -87,5 +93,12 @@ export class AccountPermissionGuard implements CanActivate {
         'Unable to verify Account Manager permissions',
       );
     }
+  }
+
+  private async hasKeycloakSuperAdminBootstrapAccess(
+    userId: string,
+  ): Promise<boolean> {
+    const userRoles = await this.keycloakService.getUserRoles(userId);
+    return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
   }
 }

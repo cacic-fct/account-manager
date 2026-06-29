@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Post,
   Put,
@@ -53,6 +54,16 @@ export class KeycloakPermissionsController {
   @ApiResponse({
     status: 200,
     description: 'Assignable permission catalog returned successfully',
+    example: [
+      {
+        permission: 'cacic-account-manager:permission-grant#read',
+        clientId: 'cacic-account-manager',
+        clientLabel: 'Conta CACiC',
+        roleName: 'permission-grant#read',
+        label: 'Ler permissões',
+        source: 'keycloak',
+      },
+    ],
   })
   @AccountPermissions(PERMISSION_READ)
   @Get('catalog')
@@ -64,6 +75,15 @@ export class KeycloakPermissionsController {
   @ApiResponse({
     status: 200,
     description: 'Permission group catalog returned successfully',
+    example: [
+      {
+        key: 'CACIC',
+        label: 'CACiC',
+        rootLabel: 'Entidades estudantis',
+        keycloakGroupPath: '/Entidades estudantis/CACiC',
+        discordRoleId: '533900085642133504',
+      },
+    ],
   })
   @AccountPermissions(PERMISSION_READ)
   @Get('groups/catalog')
@@ -76,6 +96,24 @@ export class KeycloakPermissionsController {
     name: 'groupKey',
     description: 'Managed permission group key.',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Group role grants returned successfully',
+    example: [
+      {
+        id: 'group-grant-1',
+        groupKey: 'CACIC',
+        clientId: 'cacic-account-manager',
+        roleName: 'permission-grant#read',
+        permission: 'cacic-account-manager:permission-grant#read',
+        source: 'database',
+        validFrom: null,
+        validUntil: null,
+        status: 'active',
+        lastSyncedAt: '2026-06-21T12:00:00.000Z',
+      },
+    ],
+  })
   @AccountPermissions(PERMISSION_READ)
   @Get('groups/:groupKey/role-grants')
   listGroupRoleGrants(@Param('groupKey') groupKey: PermissionGroupKey) {
@@ -86,6 +124,23 @@ export class KeycloakPermissionsController {
   @ApiParam({
     name: 'groupKey',
     description: 'Managed permission group key.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Group role grants replaced successfully',
+    example: [
+      {
+        id: 'group-grant-1',
+        groupKey: 'CACIC',
+        clientId: 'cacic-account-manager',
+        roleName: 'permission-grant#read',
+        permission: 'cacic-account-manager:permission-grant#read',
+        source: 'database',
+        validFrom: null,
+        validUntil: null,
+        status: 'active',
+      },
+    ],
   })
   @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
@@ -271,9 +326,11 @@ export class KeycloakPermissionsController {
   @ApiResponse({
     status: 202,
     description: 'Permission grant synchronization queued successfully',
+    example: { queued: true },
   })
   @AccountPermissions(PERMISSION_SYNC)
   @UseGuards(CsrfGuard)
+  @HttpCode(202)
   @Post('sync')
   async sync(): Promise<{ queued: true }> {
     await this.keycloakPermissions.enqueueSync('manual');

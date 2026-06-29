@@ -152,6 +152,10 @@ type AccountPermissionMock = {
     ReturnType<AccountPermissionService['canAssignPermission']>,
     Parameters<AccountPermissionService['canAssignPermission']>
   >;
+  canRevokePermission: jest.Mock<
+    ReturnType<AccountPermissionService['canRevokePermission']>,
+    Parameters<AccountPermissionService['canRevokePermission']>
+  >;
 };
 
 type DiscordRoleMock = {
@@ -387,8 +391,13 @@ const createContext = () => {
       ReturnType<AccountPermissionService['canAssignPermission']>,
       Parameters<AccountPermissionService['canAssignPermission']>
     >(),
+    canRevokePermission: jest.fn<
+      ReturnType<AccountPermissionService['canRevokePermission']>,
+      Parameters<AccountPermissionService['canRevokePermission']>
+    >(),
   };
   accountPermissionService.canAssignPermission.mockResolvedValue(true);
+  accountPermissionService.canRevokePermission.mockResolvedValue(true);
 
   const discordRoleService: DiscordRoleMock = {
     reconcilePermissionGroupAffiliationRoles: jest.fn<
@@ -539,7 +548,7 @@ describe('KeycloakPermissionsService', () => {
       'admin-1',
       permission,
     );
-    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
       'admin-1',
       stalePermission,
     );
@@ -710,6 +719,7 @@ describe('KeycloakPermissionsService', () => {
     });
 
     expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
     expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
       'user-1',
       ['permission-grant#read'],

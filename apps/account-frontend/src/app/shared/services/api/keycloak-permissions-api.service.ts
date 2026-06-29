@@ -47,8 +47,10 @@ export class KeycloakPermissionsApiService {
   getPermissionGroupRoleGrants(
     groupKey: PermissionGroupKey,
   ): Observable<PermissionGroupRoleGrant[]> {
+    const encodedGroupKey = encodeURIComponent(groupKey);
+
     return this.http.get<PermissionGroupRoleGrant[]>(
-      `${this.baseUrl}/admin/permissions/groups/${groupKey}/role-grants`,
+      `${this.baseUrl}/admin/permissions/groups/${encodedGroupKey}/role-grants`,
       {
         withCredentials: true,
       },
@@ -59,8 +61,10 @@ export class KeycloakPermissionsApiService {
     groupKey: PermissionGroupKey,
     dto: PermissionGroupRoleGrantUpdateRequest,
   ): Observable<PermissionGroupRoleGrant[]> {
+    const encodedGroupKey = encodeURIComponent(groupKey);
+
     return this.http.put<PermissionGroupRoleGrant[]>(
-      `${this.baseUrl}/admin/permissions/groups/${groupKey}/role-grants`,
+      `${this.baseUrl}/admin/permissions/groups/${encodedGroupKey}/role-grants`,
       dto,
       {
         withCredentials: true,

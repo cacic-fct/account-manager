@@ -1,6 +1,8 @@
 import {
+  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerKeycloakRole,
   buildKeycloakPermissionId,
+  parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import {
   CanActivate,
@@ -95,15 +97,9 @@ export class KeycloakRoleGuard implements CanActivate {
         return true;
       }
 
-      const dbBackedPermissions = [
-        ...new Set(
-          config.roles.map((role) =>
-            role.includes(':')
-              ? role
-              : buildKeycloakPermissionId('cacic-account-manager', role),
-          ),
-        ),
-      ];
+      const dbBackedPermissions = this.getDbBackedAccountManagerPermissions(
+        config.roles,
+      );
       const hasDbPermission =
         dbBackedPermissions.length > 0 && config.mode === 'all'
           ? (
@@ -134,5 +130,43 @@ export class KeycloakRoleGuard implements CanActivate {
       this.logger.error('Keycloak role verification failed', error);
       throw new ForbiddenException('Unable to verify Keycloak roles');
     }
+  }
+
+  private getDbBackedAccountManagerPermissions(
+    roles: readonly string[],
+  ): string[] {
+    const accountManagerRoleNames = new Set<string>(
+      Object.values(AccountManagerKeycloakRole),
+    );
+
+    return [
+      ...new Set(
+        roles.flatMap((role) => {
+          const parsedPermission = parseKeycloakPermissionId(role);
+          if (parsedPermission) {
+            return parsedPermission.clientId ===
+              ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+              accountManagerRoleNames.has(parsedPermission.roleName)
+              ? [
+                  buildKeycloakPermissionId(
+                    parsedPermission.clientId,
+                    parsedPermission.roleName,
+                  ),
+                ]
+              : [];
+          }
+
+          const roleName = role.trim();
+          return accountManagerRoleNames.has(roleName)
+            ? [
+                buildKeycloakPermissionId(
+                  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
+                  roleName,
+                ),
+              ]
+            : [];
+        }),
+      ),
+    ];
   }
 }

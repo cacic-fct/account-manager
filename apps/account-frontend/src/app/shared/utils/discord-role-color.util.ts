@@ -1,11 +1,12 @@
 export function normalizeDiscordRoleColor(
   color: string | null | undefined,
 ): string {
-  if (!color || color === '#000000') {
+  const trimmed = color?.trim();
+
+  if (!trimmed || trimmed === '#000000') {
     return '#99aab5';
   }
 
-  const trimmed = color.trim();
   if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
     return trimmed.toLowerCase();
   }
@@ -19,9 +20,9 @@ export function normalizeDiscordRoleColor(
 }
 
 export function getReadableDiscordRoleTextColor(
-  color: string,
+  color: string | null | undefined,
 ): '#000000' | '#ffffff' {
-  const luminance = getRelativeLuminance(color);
+  const luminance = getRelativeLuminance(normalizeDiscordRoleColor(color));
   const contrastWithBlack = (luminance + 0.05) / 0.05;
   const contrastWithWhite = 1.05 / (luminance + 0.05);
 

@@ -352,7 +352,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
   ): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}/composite`;
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
 
     const response = await fetch(rolesUrl, {
       headers: {

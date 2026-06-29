@@ -140,7 +140,11 @@ export class KeycloakPermissionsGrantsService {
         ? existingGrant.validUntil
         : input.validUntil,
     );
-    const wasActive = isGrantActive(existingGrant, new Date());
+    const now = new Date();
+    const wasActive = isGrantActive(existingGrant, now);
+    const willBeActive =
+      (!validity.validFrom || validity.validFrom.getTime() <= now.getTime()) &&
+      (!validity.validUntil || validity.validUntil.getTime() > now.getTime());
     const duplicateGrant = await this.findActiveGrant(
       existingGrant.userId,
       nextPermission,
@@ -148,6 +152,16 @@ export class KeycloakPermissionsGrantsService {
     );
     if (duplicateGrant) {
       throw new ConflictException('Essa permissão já foi concedida.');
+    }
+
+    if (
+      wasActive &&
+      (nextPermission !== existingGrant.permission || !willBeActive)
+    ) {
+      await this.assertActorCanRevokePermission(
+        actorId,
+        existingGrant.permission,
+      );
     }
 
     if (wasActive && nextPermission !== existingGrant.permission) {
@@ -186,8 +200,11 @@ export class KeycloakPermissionsGrantsService {
     },
   ): Promise<void> {
     const grant = await this.getDirectGrantRecordOrThrow(id);
-    if (actorId && options.enforceActorPermission !== false) {
-      await this.assertActorCanAssignPermission(actorId, grant.permission);
+    if (options.enforceActorPermission !== false) {
+      if (!actorId) {
+        throw new ForbiddenException('Authentication required');
+      }
+      await this.assertActorCanRevokePermission(actorId, grant.permission);
     }
 
     await this.keycloakService.removeUserClientRoles(
@@ -279,6 +296,22 @@ export class KeycloakPermissionsGrantsService {
     ) {
       throw new ForbiddenException(
         'Você não pode conceder uma permissão que não possui.',
+      );
+    }
+  }
+
+  private async assertActorCanRevokePermission(
+    actorId: string,
+    permission: string,
+  ): Promise<void> {
+    if (
+      !(await this.accountPermissionService.canRevokePermission(
+        actorId,
+        permission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Você não pode revogar uma permissão que não possui.',
       );
     }
   }

@@ -42,6 +42,22 @@ export class KeycloakPermissionsCatalogService {
               source: 'keycloak' as const,
             })),
         );
+
+        if (client.clientId === 'cacic-account-manager') {
+          const knownPermissions = new Set(
+            definitions
+              .filter(
+                (definition) => definition.clientId === 'cacic-account-manager',
+              )
+              .map((definition) => definition.permission),
+          );
+
+          definitions.push(
+            ...fallbackAccountManagerDefinitions().filter(
+              (definition) => !knownPermissions.has(definition.permission),
+            ),
+          );
+        }
       } catch (error) {
         this.logger.warn(
           `Failed to load Keycloak roles for ${client.clientId}`,

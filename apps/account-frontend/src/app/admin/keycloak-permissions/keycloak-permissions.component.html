@@ -1,12 +1,14 @@
 <mat-toolbar color="primary" class="toolbar">
-  <button mat-icon-button routerLink="/admin" aria-label="Voltar">
+  <button mat-icon-button type="button" routerLink="/admin" aria-label="Voltar">
     <mat-icon>arrow_back</mat-icon>
   </button>
   <span>Permissões</span>
   <span class="spacer"></span>
   <button
     mat-icon-button
+    type="button"
     matTooltip="Atualizar"
+    aria-label="Atualizar"
     [disabled]="loadingCatalog() || loadingGroup() || loadingUserAccess()"
     (click)="refreshCurrent()"
   >
@@ -14,7 +16,9 @@
   </button>
   <button
     mat-icon-button
+    type="button"
     matTooltip="Sincronizar com Keycloak"
+    aria-label="Sincronizar com Keycloak"
     [disabled]="syncing()"
     (click)="syncGrants()"
   >
@@ -258,8 +262,10 @@
                           } @else {
                             <button
                               mat-icon-button
+                              type="button"
                               color="warn"
                               matTooltip="Remover vínculo"
+                              aria-label="Remover vínculo"
                               (click)="confirmDeleteMembership(membership)"
                             >
                               <mat-icon>delete</mat-icon>
@@ -382,8 +388,10 @@
                           } @else {
                             <button
                               mat-icon-button
+                              type="button"
                               color="warn"
                               matTooltip="Remover permissão"
+                              aria-label="Remover permissão"
                               (click)="confirmDeleteGrant(grant)"
                             >
                               <mat-icon>delete</mat-icon>

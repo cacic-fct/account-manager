@@ -213,7 +213,7 @@ export const mockStudentEntityMemberships: PermissionGroupMembership[] = [
   ),
 ];
 
-const createMockPermissionGroupRoleGrant = (
+export const createMockPermissionGroupRoleGrant = (
   groupKey: PermissionGroupKey,
   permission: string,
   index: number,

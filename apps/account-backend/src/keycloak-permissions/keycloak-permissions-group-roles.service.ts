@@ -130,7 +130,7 @@ export class KeycloakPermissionsGroupRolesService {
         continue;
       }
 
-      await this.assertActorCanAssignPermission(actorId, grant.permission);
+      await this.assertActorCanRevokePermission(actorId, grant.permission);
       await this.keycloakService.removeGroupClientRoles(
         grant.keycloakGroupId,
         [grant.roleName],
@@ -152,7 +152,11 @@ export class KeycloakPermissionsGroupRolesService {
         continue;
       }
 
-      await this.assertActorCanAssignPermission(actorId, permission.permission);
+      if (existingByPermission.has(permission.permission)) {
+        continue;
+      }
+
+      await this.assertActorCanRevokePermission(actorId, permission.permission);
       await this.keycloakService.removeGroupClientRoles(
         group.keycloakGroupId,
         [permission.roleName],
@@ -175,6 +179,22 @@ export class KeycloakPermissionsGroupRolesService {
     ) {
       throw new ForbiddenException(
         'Você não pode conceder uma permissão que não possui.',
+      );
+    }
+  }
+
+  private async assertActorCanRevokePermission(
+    actorId: string,
+    permission: string,
+  ): Promise<void> {
+    if (
+      !(await this.accountPermissionService.canRevokePermission(
+        actorId,
+        permission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Você não pode revogar uma permissão que não possui.',
       );
     }
   }
