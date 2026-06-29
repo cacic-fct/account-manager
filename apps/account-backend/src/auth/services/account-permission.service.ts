@@ -1,6 +1,8 @@
 import {
   ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
+  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerPermission,
+  AccountManagerKeycloakRole,
   KEYCLOAK_PERMISSION_CLIENTS,
   PermissionGroupKey,
   parseKeycloakPermissionId,
@@ -75,6 +77,21 @@ export class AccountPermissionService {
     );
   }
 
+  async hasAccountManagerSuperAdminAccess(
+    userId: string,
+    now = new Date(),
+  ): Promise<boolean> {
+    return (
+      (await this.hasAccountManagerSuperAdminGrant(userId, now)) ||
+      (await this.hasKeycloakSuperAdminBootstrapAccess(userId))
+    );
+  }
+
+  async hasKeycloakSuperAdminBootstrapAccess(userId: string): Promise<boolean> {
+    const userRoles = await this.keycloakService.getUserRoles(userId);
+    return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
+  }
+
   async hasAccountManagerAdminAccess(
     userId: string,
     now = new Date(),
@@ -105,6 +122,18 @@ export class AccountPermissionService {
     permission: string,
     now = new Date(),
   ): Promise<boolean> {
+    const parsedPermission = parseKeycloakPermissionId(permission);
+    if (!parsedPermission) {
+      return false;
+    }
+
+    if (
+      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+      (await this.hasKeycloakSuperAdminBootstrapAccess(actorId))
+    ) {
+      return true;
+    }
+
     if (
       !(await this.hasAnyActivePermission(
         actorId,
@@ -112,11 +141,6 @@ export class AccountPermissionService {
         now,
       ))
     ) {
-      return false;
-    }
-
-    const parsedPermission = parseKeycloakPermissionId(permission);
-    if (!parsedPermission) {
       return false;
     }
 
@@ -138,6 +162,18 @@ export class AccountPermissionService {
     permission: string,
     now = new Date(),
   ): Promise<boolean> {
+    const parsedPermission = parseKeycloakPermissionId(permission);
+    if (!parsedPermission) {
+      return false;
+    }
+
+    if (
+      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+      (await this.hasKeycloakSuperAdminBootstrapAccess(actorId))
+    ) {
+      return true;
+    }
+
     if (
       !(await this.hasAnyActivePermission(
         actorId,
@@ -145,11 +181,6 @@ export class AccountPermissionService {
         now,
       ))
     ) {
-      return false;
-    }
-
-    const parsedPermission = parseKeycloakPermissionId(permission);
-    if (!parsedPermission) {
       return false;
     }
 
@@ -206,6 +237,7 @@ export class AccountPermissionService {
       where: {
         userId,
         deletedAt: null,
+        studentEntityMembershipId: null,
         permission: { in: [...permissions] },
         OR: [{ validFrom: null }, { validFrom: { lte: now } }],
         AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }],

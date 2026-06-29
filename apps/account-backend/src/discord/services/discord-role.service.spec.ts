@@ -1,7 +1,11 @@
 import type { DiscordLink } from '@prisma/client';
 import type { Client, GuildMember, Role } from 'discord.js';
 import { ConfigService } from '@nestjs/config';
-import { UnespRole } from '@cacic/shared-types';
+import {
+  PERMISSION_GROUP_DISCORD_ROLE_IDS,
+  PermissionGroupKey,
+  UnespRole,
+} from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserService } from '../../auth/services/user.service';
 import { UserProfile } from '../../auth/interfaces/auth.interface';
@@ -18,6 +22,9 @@ type PrismaMock = {
   discordLink: {
     findMany: jest.Mock<Promise<DiscordLink[]>, unknown[]>;
     update: jest.Mock<Promise<DiscordLink>, unknown[]>;
+  };
+  studentEntityMembership: {
+    findMany: jest.Mock<Promise<{ entity: string }[]>, unknown[]>;
   };
 };
 
@@ -148,8 +155,14 @@ const createContext = (members: readonly GuildMember[]) => {
   const guild = {
     members: {
       fetch: jest
-        .fn<Promise<Map<string, GuildMember>>, []>()
-        .mockResolvedValue(guildMembers),
+        .fn<Promise<Map<string, GuildMember> | GuildMember>, [string?]>()
+        .mockImplementation((memberId?: string) =>
+          Promise.resolve(
+            memberId
+              ? (guildMembers.get(memberId) as GuildMember)
+              : guildMembers,
+          ),
+        ),
     },
   };
   const client = {
@@ -163,6 +176,9 @@ const createContext = (members: readonly GuildMember[]) => {
     discordLink: {
       findMany: jest.fn<Promise<DiscordLink[]>, unknown[]>(),
       update: jest.fn<Promise<DiscordLink>, unknown[]>(),
+    },
+    studentEntityMembership: {
+      findMany: jest.fn<Promise<{ entity: string }[]>, unknown[]>(),
     },
   };
   const userService: UserServiceMock = {
@@ -194,6 +210,7 @@ const createContext = (members: readonly GuildMember[]) => {
   );
 
   prisma.discordLink.update.mockResolvedValue(createDiscordLink());
+  prisma.studentEntityMembership.findMany.mockResolvedValue([]);
 
   return {
     prisma,
@@ -307,6 +324,45 @@ describe('DiscordRoleService managed-role enforcement', () => {
     );
     expect(linkedMember.add).toHaveBeenCalledWith(
       DISCORD_REGISTRATION_ROLE.roleId,
+      'test-hard-enforcement',
+    );
+  });
+
+  it('keeps active permission-group roles while cleaning links whose local account no longer exists', async () => {
+    const groupRoleId = PERMISSION_GROUP_DISCORD_ROLE_IDS[0];
+    if (!groupRoleId) {
+      throw new Error('Expected at least one permission group Discord role.');
+    }
+    const linkedMember = createMember('discord-1', [
+      DISCORD_MANAGED_ROLES.visitor.roleId,
+      groupRoleId,
+    ]);
+    const { prisma, service, userService } = createContext([
+      linkedMember.member,
+    ]);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    prisma.studentEntityMembership.findMany.mockResolvedValue([
+      { entity: PermissionGroupKey.Cacic },
+    ]);
+    userService.findByKeycloakId.mockResolvedValue(null);
+
+    await expect(
+      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
+    ).resolves.toEqual({
+      checked: 1,
+      linkedSynced: 0,
+      invalidLinkedCleaned: 1,
+      staleManagedRolesRemoved: 1,
+      registrationEnsured: 1,
+      failed: 0,
+    });
+
+    expect(linkedMember.remove).toHaveBeenCalledWith(
+      DISCORD_MANAGED_ROLES.visitor.roleId,
+      'test-hard-enforcement',
+    );
+    expect(linkedMember.remove).not.toHaveBeenCalledWith(
+      groupRoleId,
       'test-hard-enforcement',
     );
   });

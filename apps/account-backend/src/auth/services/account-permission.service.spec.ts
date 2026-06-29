@@ -19,6 +19,10 @@ type PrismaMock = {
 };
 
 type KeycloakMock = {
+  getUserRoles: jest.Mock<
+    ReturnType<KeycloakService['getUserRoles']>,
+    Parameters<KeycloakService['getUserRoles']>
+  >;
   getGroupClientRoles: jest.Mock<
     ReturnType<KeycloakService['getGroupClientRoles']>,
     Parameters<KeycloakService['getGroupClientRoles']>
@@ -31,6 +35,7 @@ type PermissionFindFirstArgs = {
     groupKey?: { in: string[] };
     permission: { in: string[] };
     deletedAt: null;
+    studentEntityMembershipId?: null;
   };
 };
 
@@ -64,11 +69,16 @@ const createContext = () => {
   prisma.studentEntityMembership.findMany.mockResolvedValue([]);
 
   const keycloakService: KeycloakMock = {
+    getUserRoles: jest.fn<
+      ReturnType<KeycloakService['getUserRoles']>,
+      Parameters<KeycloakService['getUserRoles']>
+    >(),
     getGroupClientRoles: jest.fn<
       ReturnType<KeycloakService['getGroupClientRoles']>,
       Parameters<KeycloakService['getGroupClientRoles']>
     >(),
   };
+  keycloakService.getUserRoles.mockResolvedValue([]);
   keycloakService.getGroupClientRoles.mockResolvedValue([]);
 
   const service = new AccountPermissionService(
@@ -101,6 +111,7 @@ describe('AccountPermissionService', () => {
     );
     expect(findFirstArgs.where.userId).toBe('user-1');
     expect(findFirstArgs.where.deletedAt).toBeNull();
+    expect(findFirstArgs.where.studentEntityMembershipId).toBeNull();
     expect(findFirstArgs.where.permission.in).toEqual([
       AccountManagerPermission.PermissionGrantRead,
       AccountManagerPermission.SuperAdmin,
@@ -206,6 +217,25 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.permission.in).toContain(
       AccountManagerPermission.PermissionGrantAssign,
     );
+  });
+
+  it('allows Keycloak super-admins to seed account-manager grants', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+
+    await expect(
+      service.canAssignPermission(
+        'actor-1',
+        AccountManagerPermission.PermissionGrantAssign,
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      service.canRevokePermission(
+        'actor-1',
+        AccountManagerPermission.PermissionGrantRevoke,
+      ),
+    ).resolves.toBe(true);
+    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
   });
 
   it('requires revoke permission before revoking any grant', async () => {

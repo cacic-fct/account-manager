@@ -41,6 +41,10 @@ const PERMISSION_ASSIGN = [
 const PERMISSION_REVOKE = [
   AccountManagerPermission.PermissionGrantRevoke,
 ] as const;
+const PERMISSION_ASSIGN_OR_REVOKE = [
+  AccountManagerPermission.PermissionGrantAssign,
+  AccountManagerPermission.PermissionGrantRevoke,
+] as const;
 const PERMISSION_SYNC = [AccountManagerPermission.PermissionGrantSync] as const;
 
 @ApiTags('Admin Permissions')
@@ -142,7 +146,7 @@ export class KeycloakPermissionsController {
       },
     ],
   })
-  @AccountPermissions(PERMISSION_ASSIGN)
+  @AccountPermissions(PERMISSION_ASSIGN_OR_REVOKE)
   @UseGuards(CsrfGuard)
   @Put('groups/:groupKey/role-grants')
   updateGroupRoleGrants(

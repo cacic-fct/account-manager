@@ -1456,16 +1456,16 @@ export class AuthController {
         };
       }
 
-      const hasDbSuperAdminGrant =
-        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+      const hasSuperAdminAccess =
+        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
           userId,
         );
       const isAdmin =
-        hasDbSuperAdminGrant ||
+        hasSuperAdminAccess ||
         (await this.accountPermissionService.hasAccountManagerAdminAccess(
           userId,
         ));
-      const adminGroups = hasDbSuperAdminGrant
+      const adminGroups = hasSuperAdminAccess
         ? [AccountManagerPermission.SuperAdmin]
         : isAdmin
           ? ['db-backed-admin']
