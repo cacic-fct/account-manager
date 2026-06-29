@@ -122,9 +122,12 @@
                     >
                       @if (savingGroupRoles()) {
                         <mat-spinner diameter="20"></mat-spinner>
-                        Salvando
                       } @else {
                         <mat-icon>save</mat-icon>
+                      }
+                      @if (savingGroupRoles()) {
+                        Salvando
+                      } @else {
                         Salvar permissões
                       }
                     </button>
@@ -157,9 +160,12 @@
                     <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
                       @if (searching()) {
                         <mat-spinner diameter="20"></mat-spinner>
-                        Buscando
                       } @else {
                         <mat-icon>search</mat-icon>
+                      }
+                      @if (searching()) {
+                        Buscando
+                      } @else {
                         Buscar pessoa
                       }
                     </button>
@@ -261,9 +267,12 @@
                     >
                       @if (savingMembership()) {
                         <mat-spinner diameter="20"></mat-spinner>
-                        Vinculando
                       } @else {
                         <mat-icon>group_add</mat-icon>
+                      }
+                      @if (savingMembership()) {
+                        Vinculando
+                      } @else {
                         Vincular pessoa
                       }
                     </button>
@@ -354,9 +363,12 @@
                   <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
                     @if (searching()) {
                       <mat-spinner diameter="20"></mat-spinner>
-                      Buscando
                     } @else {
                       <mat-icon>search</mat-icon>
+                    }
+                    @if (searching()) {
+                      Buscando
+                    } @else {
                       Buscar pessoa
                     }
                   </button>
@@ -460,9 +472,12 @@
                     >
                       @if (savingGrant()) {
                         <mat-spinner diameter="20"></mat-spinner>
-                        Concedendo
                       } @else {
                         <mat-icon>add</mat-icon>
+                      }
+                      @if (savingGrant()) {
+                        Concedendo
+                      } @else {
                         Conceder
                       }
                     </button>
