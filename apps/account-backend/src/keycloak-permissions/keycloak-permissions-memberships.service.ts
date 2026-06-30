@@ -164,7 +164,7 @@ export class KeycloakPermissionsMembershipsService {
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
     }
-    if (!wasActive && willBeActive) {
+    if (willBeActive) {
       await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
     }
     if (wasActive && !willBeActive) {

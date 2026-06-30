@@ -72,7 +72,7 @@ export class AccountPermissionGuard implements CanActivate {
 
       if (
         !hasPermission &&
-        !(await this.accountPermissionService.hasKeycloakSuperAdminBootstrapAccess(
+        !(await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
           userId,
         ))
       ) {

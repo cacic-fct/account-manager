@@ -207,6 +207,24 @@ describe('AccountPermissionService', () => {
     await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
   });
 
+  it('falls back to database permissions when Keycloak bootstrap role lookup fails', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+        return Promise.resolve(
+          permissions.includes(AccountManagerPermission.DiscordManagementRead)
+            ? { id: 'grant-1' }
+            : null,
+        );
+      },
+    );
+
+    await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
+  });
+
   it('requires assign permission before assigning any grant', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
@@ -243,6 +261,32 @@ describe('AccountPermissionService', () => {
       ),
     ).resolves.toBe(true);
     expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('continues through assign permission checks when Keycloak bootstrap role lookup fails', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+        return Promise.resolve(
+          permissions.includes(
+            AccountManagerPermission.PermissionGrantAssign,
+          ) ||
+            permissions.includes(AccountManagerPermission.DiscordManagementRead)
+            ? { id: 'grant-1' }
+            : null,
+        );
+      },
+    );
+
+    await expect(
+      service.canAssignPermission(
+        'actor-1',
+        AccountManagerPermission.DiscordManagementRead,
+      ),
+    ).resolves.toBe(true);
   });
 
   it('requires revoke permission before revoking any grant', async () => {

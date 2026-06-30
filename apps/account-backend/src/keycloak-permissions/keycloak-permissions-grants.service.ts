@@ -147,7 +147,12 @@ export class KeycloakPermissionsGrantsService {
     const isGrantingNewActiveAccess =
       willBeActive &&
       (!wasActive || nextPermission !== existingGrant.permission);
-    if (isGrantingNewActiveAccess) {
+    const isKeepingActiveAccessWithValidityChange =
+      wasActive &&
+      willBeActive &&
+      nextPermission === existingGrant.permission &&
+      !hasSameValidityWindow(existingGrant, validity);
+    if (isGrantingNewActiveAccess || isKeepingActiveAccessWithValidityChange) {
       await this.assertActorCanAssignPermission(actorId, nextPermission);
     }
     const duplicateGrant = await this.findActiveGrant(

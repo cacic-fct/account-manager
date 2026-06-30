@@ -83,7 +83,7 @@ export class AccountPermissionService {
   ): Promise<boolean> {
     return (
       (await this.hasAccountManagerSuperAdminGrant(userId, now)) ||
-      (await this.hasKeycloakSuperAdminBootstrapAccess(userId))
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(userId))
     );
   }
 
@@ -132,7 +132,7 @@ export class AccountPermissionService {
 
     if (
       parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
-      (await this.hasKeycloakSuperAdminBootstrapAccess(actorId))
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
     ) {
       return true;
     }
@@ -172,7 +172,7 @@ export class AccountPermissionService {
 
     if (
       parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
-      (await this.hasKeycloakSuperAdminBootstrapAccess(actorId))
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
     ) {
       return true;
     }
@@ -229,6 +229,16 @@ export class AccountPermissionService {
       (await this.hasAnyGroupPermissionGrant(userId, permissions, now)) ||
       (await this.hasAnyKeycloakGroupPermissionGrant(userId, permissions, now))
     );
+  }
+
+  private async hasKeycloakSuperAdminBootstrapFallbackAccess(
+    userId: string,
+  ): Promise<boolean> {
+    try {
+      return await this.hasKeycloakSuperAdminBootstrapAccess(userId);
+    } catch {
+      return false;
+    }
   }
 
   private async hasAnyDirectPermissionGrant(

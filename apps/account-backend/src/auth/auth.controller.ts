@@ -52,6 +52,8 @@ import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
 import { TotpService } from '../totp/totp.service';
 
+const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
+
 export interface AuthSession {
   user?: SessionUser;
   accessToken?: string;
@@ -1433,9 +1435,26 @@ export class AuthController {
         adminGroups: {
           type: 'array',
           items: { type: 'string' },
-          example: [AccountManagerPermission.SuperAdmin, 'db-backed-admin'],
+          uniqueItems: true,
+          oneOf: [
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [AccountManagerPermission.SuperAdmin],
+            },
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [DATABASE_BACKED_ADMIN_MARKER],
+            },
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [],
+            },
+          ],
           description:
-            'Account Manager admin permission markers returned for the user',
+            'Account Manager admin permission marker returned for the user. The controller returns either the super-admin marker, the database-backed admin marker, or an empty array.',
         },
       },
     },
@@ -1469,7 +1488,7 @@ export class AuthController {
       const adminGroups = hasSuperAdminAccess
         ? [AccountManagerPermission.SuperAdmin]
         : isAdmin
-          ? ['db-backed-admin']
+          ? [DATABASE_BACKED_ADMIN_MARKER]
           : [];
 
       this.logger.debug('Admin status check for user', {

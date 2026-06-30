@@ -738,7 +738,10 @@ describe('KeycloakPermissionsService', () => {
   });
 
   it('does not deactivate membership-linked grants when memberships stay active', async () => {
-    const { keycloakService, prisma, service } = createContext();
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
     const legacyGrant = createGrant({
       id: 'legacy-grant-1',
       studentEntityMembershipId: 'membership-1',
@@ -746,6 +749,9 @@ describe('KeycloakPermissionsService', () => {
     const membership = createMembership({
       permissionGrants: [legacyGrant],
     });
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+      groupGrant,
+    ]);
     prisma.studentEntityMembership.findFirst
       .mockResolvedValueOnce(membership)
       .mockResolvedValueOnce(membership);
@@ -766,6 +772,45 @@ describe('KeycloakPermissionsService', () => {
 
     expect(keycloakService.removeUserClientRoles).not.toHaveBeenCalled();
     expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+  });
+
+  it('rejects active membership extensions when the actor cannot assign group permissions', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership();
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
   });
 
   it('deactivates legacy membership-linked grants when memberships become inactive', async () => {
@@ -908,6 +953,39 @@ describe('KeycloakPermissionsService', () => {
       [existingGrant.roleName],
       existingGrant.clientId,
     );
+  });
+
+  it('requires assign permission to keep an active direct grant active with a validity change', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const validUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const existingGrant = createGrant({
+      validUntil: new Date(Date.now() + 60 * 1000),
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: validUntil.toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode conceder uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
   });
 
   it('rejects hidden Keycloak roles', async () => {
