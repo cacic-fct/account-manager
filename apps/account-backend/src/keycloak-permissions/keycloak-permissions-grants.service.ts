@@ -144,14 +144,22 @@ export class KeycloakPermissionsGrantsService {
     const willBeActive =
       (!validity.validFrom || validity.validFrom.getTime() <= now.getTime()) &&
       (!validity.validUntil || validity.validUntil.getTime() > now.getTime());
+    const willProvideAccess =
+      !validity.validUntil || validity.validUntil.getTime() > now.getTime();
     const isGrantingNewActiveAccess =
-      willBeActive &&
+      willProvideAccess &&
       (!wasActive || nextPermission !== existingGrant.permission);
     const isKeepingActiveAccessWithValidityChange =
       wasActive &&
       willBeActive &&
       nextPermission === existingGrant.permission &&
       !hasSameValidityWindow(existingGrant, validity);
+    const isShorteningActiveAccess =
+      wasActive &&
+      willBeActive &&
+      !!validity.validUntil &&
+      (!existingGrant.validUntil ||
+        validity.validUntil.getTime() < existingGrant.validUntil.getTime());
     if (isGrantingNewActiveAccess || isKeepingActiveAccessWithValidityChange) {
       await this.assertActorCanAssignPermission(actorId, nextPermission);
     }
@@ -166,7 +174,9 @@ export class KeycloakPermissionsGrantsService {
 
     if (
       wasActive &&
-      (nextPermission !== existingGrant.permission || !willBeActive)
+      (nextPermission !== existingGrant.permission ||
+        !willBeActive ||
+        isShorteningActiveAccess)
     ) {
       await this.assertActorCanRevokePermission(
         actorId,
@@ -217,20 +227,39 @@ export class KeycloakPermissionsGrantsService {
       await this.assertActorCanRevokePermission(actorId, grant.permission);
     }
 
-    await this.keycloakService.removeUserClientRoles(
-      grant.userId,
-      [grant.roleName],
-      grant.clientId,
-    );
+    const now = new Date();
     await this.prisma.keycloakPermissionGrant.update({
       where: { id },
       data: {
-        deletedAt: new Date(),
+        deletedAt: now,
         updatedById: actorId,
-        lastSyncedAt: new Date(),
+        lastSyncedAt: null,
         lastSyncError: null,
       },
     });
+
+    try {
+      await this.keycloakService.removeUserClientRoles(
+        grant.userId,
+        [grant.roleName],
+        grant.clientId,
+      );
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id },
+        data: {
+          lastSyncedAt: new Date(),
+          lastSyncError: null,
+        },
+      });
+    } catch (error) {
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id },
+        data: {
+          lastSyncError: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
   }
 
   async selfRemoveGrant(
@@ -282,6 +311,7 @@ export class KeycloakPermissionsGrantsService {
     permission: string,
     exceptId?: string,
   ): Promise<GrantRecord | null> {
+    const now = new Date();
     return this.prisma.keycloakPermissionGrant.findFirst({
       where: {
         ...(exceptId ? { id: { not: exceptId } } : {}),
@@ -289,6 +319,10 @@ export class KeycloakPermissionsGrantsService {
         permission,
         deletedAt: null,
         studentEntityMembershipId: null,
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+        ],
       },
       select: GRANT_SELECT,
     });

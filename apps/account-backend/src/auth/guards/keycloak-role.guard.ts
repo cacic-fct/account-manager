@@ -100,9 +100,12 @@ export class KeycloakRoleGuard implements CanActivate {
       const dbBackedPermissions = this.getDbBackedAccountManagerPermissions(
         config.roles,
       );
+      const canFullyMapRolesToDbPermissions =
+        dbBackedPermissions.length === config.roles.length;
       const hasDbPermission =
-        dbBackedPermissions.length > 0 && config.mode === 'all'
-          ? (
+        config.mode === 'all'
+          ? canFullyMapRolesToDbPermissions &&
+            (
               await Promise.all(
                 dbBackedPermissions.map((permission) =>
                   this.accountPermissionService.hasAnyActivePermission(userId, [

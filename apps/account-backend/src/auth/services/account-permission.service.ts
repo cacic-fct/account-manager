@@ -250,10 +250,23 @@ export class AccountPermissionService {
       where: {
         userId,
         deletedAt: null,
-        studentEntityMembershipId: null,
+        OR: [
+          { studentEntityMembershipId: null },
+          {
+            studentEntityMembership: {
+              is: {
+                deletedAt: null,
+                mandateStart: { lte: now },
+                OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
+              },
+            },
+          },
+        ],
         permission: { in: [...permissions] },
-        OR: [{ validFrom: null }, { validFrom: { lte: now } }],
-        AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }],
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+        ],
       },
       select: { id: true },
     });

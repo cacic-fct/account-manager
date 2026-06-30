@@ -5,7 +5,12 @@ import {
   buildKeycloakPermissionId,
   KeycloakPermissionDefinition,
 } from '@cacic/shared-types';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import {
   fallbackAccountManagerDefinitions,
@@ -20,7 +25,15 @@ export class KeycloakPermissionsCatalogService {
   constructor(private readonly keycloakService: KeycloakService) {}
 
   async listCatalog(): Promise<KeycloakPermissionDefinition[]> {
+    return (await this.loadCatalog()).definitions;
+  }
+
+  private async loadCatalog(): Promise<{
+    definitions: KeycloakPermissionDefinition[];
+    unavailableClientIds: string[];
+  }> {
     const definitions: KeycloakPermissionDefinition[] = [];
+    const unavailableClientIds: string[] = [];
 
     for (const client of KEYCLOAK_PERMISSION_CLIENTS) {
       try {
@@ -66,15 +79,20 @@ export class KeycloakPermissionsCatalogService {
 
         if (client.clientId === 'cacic-account-manager') {
           definitions.push(...fallbackAccountManagerDefinitions());
+        } else {
+          unavailableClientIds.push(client.clientId);
         }
       }
     }
 
-    return definitions.sort((left, right) =>
-      `${left.clientLabel}:${left.label}`.localeCompare(
-        `${right.clientLabel}:${right.label}`,
+    return {
+      definitions: definitions.sort((left, right) =>
+        `${left.clientLabel}:${left.label}`.localeCompare(
+          `${right.clientLabel}:${right.label}`,
+        ),
       ),
-    );
+      unavailableClientIds,
+    };
   }
 
   listPermissionGroups(): readonly PermissionGroupDefinition[] {
@@ -117,8 +135,15 @@ export class KeycloakPermissionsCatalogService {
   }
 
   async assertPermissionsKnown(permissions: readonly string[]): Promise<void> {
+    const catalog = await this.loadCatalog();
+    if (catalog.unavailableClientIds.length > 0) {
+      throw new ServiceUnavailableException(
+        `Catálogo de permissões indisponível para: ${catalog.unavailableClientIds.join(', ')}.`,
+      );
+    }
+
     const knownPermissions = new Set(
-      (await this.listCatalog()).map((definition) => definition.permission),
+      catalog.definitions.map((definition) => definition.permission),
     );
     const unknown = permissions.filter(
       (permission) => !knownPermissions.has(permission),

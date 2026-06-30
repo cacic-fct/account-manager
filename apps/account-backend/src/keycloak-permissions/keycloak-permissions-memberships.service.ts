@@ -159,15 +159,24 @@ export class KeycloakPermissionsMembershipsService {
     const willBeActive =
       validity.mandateStart.getTime() <= now.getTime() &&
       (!validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime());
+    const willProvideAccess =
+      !validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime();
+    const isShorteningActiveAccess =
+      wasActive &&
+      willBeActive &&
+      !!validity.mandateEnd &&
+      (!existingMembership.mandateEnd ||
+        validity.mandateEnd.getTime() <
+          existingMembership.mandateEnd.getTime());
     const groupKey = existingMembership.entity as PermissionGroupKey;
 
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
     }
-    if (willBeActive) {
+    if (willProvideAccess) {
       await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
     }
-    if (wasActive && !willBeActive) {
+    if (wasActive && (!willBeActive || isShorteningActiveAccess)) {
       await this.assertActorCanRevokeGroupPermissions(actorId, groupKey);
       await this.assertActorCanRevokeLinkedGrants(actorId, existingMembership);
     }
@@ -188,6 +197,8 @@ export class KeycloakPermissionsMembershipsService {
     });
     if (wasActive && !willBeActive) {
       await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+    } else if (isShorteningActiveAccess) {
+      await this.shortenLinkedPermissionGrants(membership, actorId);
     }
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
@@ -366,6 +377,33 @@ export class KeycloakPermissionsMembershipsService {
           deletedAt: now,
           updatedById: actorId,
           lastSyncedAt: now,
+          lastSyncError: null,
+        },
+      });
+    }
+  }
+
+  private async shortenLinkedPermissionGrants(
+    membership: MembershipRecord,
+    actorId: string | undefined,
+  ): Promise<void> {
+    if (!membership.mandateEnd) {
+      return;
+    }
+
+    for (const grant of membership.permissionGrants) {
+      if (
+        grant.validUntil &&
+        grant.validUntil.getTime() <= membership.mandateEnd.getTime()
+      ) {
+        continue;
+      }
+
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id: grant.id },
+        data: {
+          validUntil: membership.mandateEnd,
+          updatedById: actorId,
           lastSyncError: null,
         },
       });

@@ -355,7 +355,7 @@ describe('DiscordRoleService managed-role enforcement', () => {
       checked: 1,
       linkedSynced: 0,
       invalidLinkedCleaned: 1,
-      staleManagedRolesRemoved: 1,
+      staleManagedRolesRemoved: 2,
       registrationEnsured: 1,
       failed: 0,
     });

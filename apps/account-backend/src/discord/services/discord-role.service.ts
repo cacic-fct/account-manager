@@ -151,15 +151,18 @@ export class DiscordRoleService {
         };
       }
 
-      const staleRolesRemoved = await this.removeStaleManagedRoles(
+      const managedRolesRemoved = await this.removeStaleManagedRoles(
         member,
         null,
         options.reason,
       );
-      await this.removePermissionGroupRolesFromMember(
-        member,
-        options.reason ?? 'discord-link-missing-account-role-cleanup',
-      );
+      const permissionGroupRolesRemoved =
+        await this.removePermissionGroupRolesFromMember(
+          member,
+          options.reason ?? 'discord-link-missing-account-role-cleanup',
+        );
+      const staleRolesRemoved =
+        managedRolesRemoved + permissionGroupRolesRemoved;
       const registrationRoleApplied =
         await this.ensureRegistrationRoleForMember(member, options.reason);
 

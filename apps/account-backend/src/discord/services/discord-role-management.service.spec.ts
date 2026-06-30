@@ -490,11 +490,11 @@ describe('DiscordRoleManagementService', () => {
     });
     expect(remove).toHaveBeenCalledWith(
       'role-old',
-      'CACiC self-service role selection by account user-1',
+      'CACiC self-service role selection',
     );
     expect(add).toHaveBeenCalledWith(
       'role-new',
-      'CACiC self-service role selection by account user-1',
+      'CACiC self-service role selection',
     );
     expect(fetch).toHaveBeenCalledWith(true);
   });

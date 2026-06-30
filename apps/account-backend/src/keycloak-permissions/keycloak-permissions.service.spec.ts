@@ -712,7 +712,7 @@ describe('KeycloakPermissionsService', () => {
     const permission = AccountManagerPermission.PermissionGrantRead;
     const groupGrant = createGroupRoleGrant({ permission });
     const membership = createMembership();
-    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
       groupGrant,
     ]);
     prisma.studentEntityMembership.findFirst
@@ -749,7 +749,7 @@ describe('KeycloakPermissionsService', () => {
     const membership = createMembership({
       permissionGrants: [legacyGrant],
     });
-    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
       groupGrant,
     ]);
     prisma.studentEntityMembership.findFirst
@@ -807,6 +807,80 @@ describe('KeycloakPermissionsService', () => {
     });
 
     expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects future membership access when the actor cannot assign group permissions', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership({
+      mandateStart: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('requires revoke permission before shortening active membership access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership();
+    accountPermissionService.canRevokePermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 60 * 1000).toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode remover pessoas de um grupo que concede permissões que você não pode revogar.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
       'admin-1',
       permission,
     );
@@ -986,6 +1060,99 @@ describe('KeycloakPermissionsService', () => {
     );
     expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
     expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('requires assign permission before scheduling future direct grant access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validFrom: new Date(Date.now() + 60 * 60 * 1000),
+      permission: AccountManagerPermission.PermissionGrantRead,
+    });
+    const nextPermission = AccountManagerPermission.DiscordManagementUpdate;
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          permission: nextPermission,
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode conceder uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      nextPermission,
+    );
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('requires revoke permission before shortening active direct grant access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validUntil: null,
+    });
+    accountPermissionService.canRevokePermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: new Date(Date.now() + 60 * 1000).toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode revogar uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('marks direct grants deleted before removing the external Keycloak role', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...grant,
+      deletedAt: new Date(),
+    });
+
+    await service.deleteGrant(grant.id, 'admin-1');
+
+    const deleteUpdateArgs = getMockArg<{
+      data: { deletedAt: Date; lastSyncedAt: null };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(deleteUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncedAt).toBeNull();
+    expect(
+      prisma.keycloakPermissionGrant.update.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      keycloakService.removeUserClientRoles.mock.invocationCallOrder[0],
+    );
   });
 
   it('rejects hidden Keycloak roles', async () => {

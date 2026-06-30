@@ -36,7 +36,46 @@ type PermissionFindFirstArgs = {
     permission: { in: string[] };
     deletedAt: null;
     studentEntityMembershipId?: null;
+    OR?: DirectGrantSourceFilter[];
   };
+};
+
+type DirectGrantSourceFilter =
+  | { studentEntityMembershipId: null }
+  | {
+      studentEntityMembership: {
+        is: {
+          deletedAt: null;
+          mandateStart: { lte: Date };
+          OR: [{ mandateEnd: null }, { mandateEnd: { gt: Date } }];
+        };
+      };
+    };
+
+const expectDirectOrLegacyMembershipGrantFilter = (
+  filters: DirectGrantSourceFilter[] | undefined,
+): void => {
+  expect(filters?.[0]).toEqual({ studentEntityMembershipId: null });
+  const legacyMembershipFilter = filters?.[1];
+  if (
+    !legacyMembershipFilter ||
+    !('studentEntityMembership' in legacyMembershipFilter)
+  ) {
+    throw new Error('Expected legacy membership grant filter.');
+  }
+
+  expect(
+    legacyMembershipFilter.studentEntityMembership.is.deletedAt,
+  ).toBeNull();
+  expect(
+    legacyMembershipFilter.studentEntityMembership.is.mandateStart.lte,
+  ).toBeInstanceOf(Date);
+  expect(legacyMembershipFilter.studentEntityMembership.is.OR[0]).toEqual({
+    mandateEnd: null,
+  });
+  expect(
+    legacyMembershipFilter.studentEntityMembership.is.OR[1].mandateEnd.gt,
+  ).toBeInstanceOf(Date);
 };
 
 const getMockArg = <T>(
@@ -111,7 +150,7 @@ describe('AccountPermissionService', () => {
     );
     expect(findFirstArgs.where.userId).toBe('user-1');
     expect(findFirstArgs.where.deletedAt).toBeNull();
-    expect(findFirstArgs.where.studentEntityMembershipId).toBeNull();
+    expectDirectOrLegacyMembershipGrantFilter(findFirstArgs.where.OR);
     expect(findFirstArgs.where.permission.in).toEqual([
       AccountManagerPermission.PermissionGrantRead,
       AccountManagerPermission.SuperAdmin,
@@ -149,6 +188,24 @@ describe('AccountPermissionService', () => {
       AccountManagerPermission.StudentVerificationReview,
       AccountManagerPermission.SuperAdmin,
     ]);
+  });
+
+  it('preserves active legacy membership-linked grants during permission checks', async () => {
+    const { prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
+      id: 'legacy-grant-1',
+    });
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AccountManagerPermission.PermissionGrantRead,
+      ]),
+    ).resolves.toBe(true);
+
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
+      prisma.keycloakPermissionGrant.findFirst,
+    );
+    expectDirectOrLegacyMembershipGrantFilter(findFirstArgs.where.OR);
   });
 
   it('resolves active permission through a Keycloak-only group role mapping', async () => {

@@ -324,7 +324,7 @@ export class DiscordRoleManagementService {
     const rolesToAdd = dto.selectedRoleIds.filter(
       (roleId) => !currentSelectableRoleIds.includes(roleId),
     );
-    const reason = `CACiC self-service role selection by account ${userId}`;
+    const reason = 'CACiC self-service role selection';
 
     for (const roleId of rolesToRemove) {
       try {
