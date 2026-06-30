@@ -136,71 +136,16 @@
 
                 <mat-divider></mat-divider>
 
-                <section class="person-picker" aria-label="Selecionar pessoa para o vínculo">
-                  <div class="section-heading">
-                    <h3>Selecionar pessoa</h3>
-                    @if (selectedUser(); as user) {
-                      <span>{{ user.displayName }} selecionada</span>
-                    } @else {
-                      <span>Busque por nome, CPF ou e-mail</span>
-                    }
-                  </div>
-
-                  <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
-                    <mat-form-field appearance="outline">
-                      <mat-label>Nome, CPF ou e-mail</mat-label>
-                      <input matInput type="search" formControlName="query" />
-                      <mat-icon matSuffix>search</mat-icon>
-                      @if (searchForm.controls.query.hasError("required")) {
-                        <mat-error>Informe nome, CPF ou e-mail.</mat-error>
-                      } @else if (searchForm.controls.query.hasError("minlength")) {
-                        <mat-error>Digite pelo menos 2 caracteres.</mat-error>
-                      }
-                    </mat-form-field>
-                    <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
-                      @if (searching()) {
-                        <mat-spinner diameter="20"></mat-spinner>
-                      } @else {
-                        <mat-icon>search</mat-icon>
-                      }
-                      @if (searching()) {
-                        Buscando
-                      } @else {
-                        Buscar pessoa
-                      }
-                    </button>
-                  </form>
-
-                  @if (users().length > 0) {
-                    <div class="user-results">
-                      @for (user of users(); track user.id) {
-                        <button
-                          type="button"
-                          class="user-result"
-                          [class.selected]="selectedUser()?.id === user.id"
-                          [attr.aria-pressed]="selectedUser()?.id === user.id"
-                          (click)="selectUser(user)"
-                        >
-                          <span class="user-main">
-                            <mat-icon>person</mat-icon>
-                            <span>
-                              <strong>{{ user.displayName }}</strong>
-                              <small>{{ user.email }}</small>
-                            </span>
-                          </span>
-                          @if (user.identityDocument) {
-                            <span class="identity">{{ user.identityDocument }}</span>
-                          }
-                        </button>
-                      }
-                    </div>
-                  } @else if (!searching() && searchForm.controls.query.touched) {
-                    <div class="empty-state compact">
-                      <mat-icon>person_search</mat-icon>
-                      <p>Nenhuma pessoa encontrada. Revise os dados e tente novamente.</p>
-                    </div>
-                  }
-                </section>
+                <app-keycloak-permissions-person-picker
+                  ariaLabel="Selecionar pessoa para o vínculo"
+                  emptyHint="Busque por nome, CPF ou e-mail"
+                  [searchForm]="searchForm"
+                  [searching]="searching()"
+                  [selectedUser]="selectedUser()"
+                  [users]="users()"
+                  (search)="searchUsers()"
+                  (userSelected)="selectUser($event)"
+                />
 
                 <form
                   class="membership-form"
@@ -339,71 +284,16 @@
             </mat-card-header>
 
             <mat-card-content>
-              <section class="person-picker" aria-label="Selecionar pessoa para permissão direta">
-                <div class="section-heading">
-                  <h3>Selecionar pessoa</h3>
-                  @if (selectedUser(); as user) {
-                    <span>{{ user.displayName }} selecionada</span>
-                  } @else {
-                    <span>Busque antes de conceder uma permissão direta</span>
-                  }
-                </div>
-
-                <form class="search-form" [formGroup]="searchForm" (ngSubmit)="searchUsers()">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Nome, CPF ou e-mail</mat-label>
-                    <input matInput type="search" formControlName="query" />
-                    <mat-icon matSuffix>search</mat-icon>
-                    @if (searchForm.controls.query.hasError("required")) {
-                      <mat-error>Informe nome, CPF ou e-mail.</mat-error>
-                    } @else if (searchForm.controls.query.hasError("minlength")) {
-                      <mat-error>Digite pelo menos 2 caracteres.</mat-error>
-                    }
-                  </mat-form-field>
-                  <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
-                    @if (searching()) {
-                      <mat-spinner diameter="20"></mat-spinner>
-                    } @else {
-                      <mat-icon>search</mat-icon>
-                    }
-                    @if (searching()) {
-                      Buscando
-                    } @else {
-                      Buscar pessoa
-                    }
-                  </button>
-                </form>
-
-                @if (users().length > 0) {
-                  <div class="user-results">
-                    @for (user of users(); track user.id) {
-                      <button
-                        type="button"
-                        class="user-result"
-                        [class.selected]="selectedUser()?.id === user.id"
-                        [attr.aria-pressed]="selectedUser()?.id === user.id"
-                        (click)="selectUser(user)"
-                      >
-                        <span class="user-main">
-                          <mat-icon>person</mat-icon>
-                          <span>
-                            <strong>{{ user.displayName }}</strong>
-                            <small>{{ user.email }}</small>
-                          </span>
-                        </span>
-                        @if (user.identityDocument) {
-                          <span class="identity">{{ user.identityDocument }}</span>
-                        }
-                      </button>
-                    }
-                  </div>
-                } @else if (!searching() && searchForm.controls.query.touched) {
-                  <div class="empty-state compact">
-                    <mat-icon>person_search</mat-icon>
-                    <p>Nenhuma pessoa encontrada. Revise os dados e tente novamente.</p>
-                  </div>
-                }
-              </section>
+              <app-keycloak-permissions-person-picker
+                ariaLabel="Selecionar pessoa para permissão direta"
+                emptyHint="Busque antes de conceder uma permissão direta"
+                [searchForm]="searchForm"
+                [searching]="searching()"
+                [selectedUser]="selectedUser()"
+                [users]="users()"
+                (search)="searchUsers()"
+                (userSelected)="selectUser($event)"
+              />
 
               @if (!selectedUser()) {
                 <div class="empty-state compact">

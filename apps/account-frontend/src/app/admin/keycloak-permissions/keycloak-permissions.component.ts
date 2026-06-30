@@ -51,6 +51,7 @@ import {
   getStatusLabel,
   groupPermissionsByClient,
 } from './keycloak-permissions.view-model';
+import { KeycloakPermissionsPersonPickerComponent } from './keycloak-permissions-person-picker.component';
 
 @Component({
   selector: 'app-permissions',
@@ -70,6 +71,7 @@ import {
     MatTabsModule,
     MatToolbarModule,
     MatTooltipModule,
+    KeycloakPermissionsPersonPickerComponent,
   ],
   templateUrl: './keycloak-permissions.component.html',
   styleUrl: './keycloak-permissions.component.scss',

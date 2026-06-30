@@ -51,6 +51,10 @@ import { AccountPermissionService } from './services/account-permission.service'
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
 import { TotpService } from '../totp/totp.service';
+import {
+  redirectAfterSessionSave,
+  saveSession,
+} from './session-redirect.utils';
 
 const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
 
@@ -262,33 +266,6 @@ export class AuthController {
     } catch {
       return null;
     }
-  }
-
-  private saveSession(session: AuthSession): Promise<void> {
-    const saveSessionCallback = session.save;
-    if (!saveSessionCallback) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      saveSessionCallback.call(session, (error?: Error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      });
-    });
-  }
-
-  private async redirectAfterSessionSave(
-    session: AuthSession,
-    response: Response,
-    redirectUrl: string,
-  ): Promise<void> {
-    await this.saveSession(session);
-    response.redirect(redirectUrl);
   }
 
   private async createSessionFromKeycloakUser(
@@ -538,7 +515,7 @@ export class AuthController {
       ...(prompt ? { prompt } : {}),
       codeChallenge: pkce.challenge,
     });
-    await this.redirectAfterSessionSave(session, response, authUrl);
+    await redirectAfterSessionSave(session, response, authUrl);
   }
 
   @ApiOperation({
@@ -593,7 +570,7 @@ export class AuthController {
       prompt: 'none',
       codeChallenge: pkce.challenge,
     });
-    await this.redirectAfterSessionSave(session, res, authUrl);
+    await redirectAfterSessionSave(session, res, authUrl);
   }
 
   @ApiOperation({
@@ -661,7 +638,7 @@ export class AuthController {
         delete session.redirectTo;
       }
 
-      await this.saveSession(session);
+      await saveSession(session);
 
       return {
         success: true,
@@ -751,18 +728,14 @@ export class AuthController {
         if (wasSilentLogin) {
           const fallbackUrl = new URL(returnUrl || this.appConfig.frontendUrl);
           fallbackUrl.searchParams.set('sso', 'none');
-          await this.redirectAfterSessionSave(
-            session,
-            res,
-            fallbackUrl.toString(),
-          );
+          await redirectAfterSessionSave(session, res, fallbackUrl.toString());
           return;
         }
 
         this.logger.warn('OAuth callback returned an error', {
           error: oauthError,
         });
-        await this.redirectAfterSessionSave(
+        await redirectAfterSessionSave(
           session,
           res,
           `${this.appConfig.frontendUrl}login?error=auth_failed`,
@@ -877,7 +850,7 @@ export class AuthController {
             returnUrl,
           });
           delete session.redirectTo;
-          await this.redirectAfterSessionSave(session, res, returnUrl);
+          await redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -892,7 +865,7 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        await this.redirectAfterSessionSave(session, res, frontendUrl);
+        await redirectAfterSessionSave(session, res, frontendUrl);
         return;
       } catch (error) {
         // For connection errors, assume the user needs onboarding to be safe
@@ -915,7 +888,7 @@ export class AuthController {
           this.applyKeycloakSessionLifetime(session, tokens);
 
           // Redirect to onboarding to be safe - the onboarding page will show an error
-          await this.redirectAfterSessionSave(
+          await redirectAfterSessionSave(
             session,
             res,
             `${this.appConfig.frontendUrl}onboarding`,
@@ -951,7 +924,7 @@ export class AuthController {
             },
           );
           delete session.redirectTo;
-          await this.redirectAfterSessionSave(session, res, returnUrl);
+          await redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -966,7 +939,7 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        await this.redirectAfterSessionSave(session, res, frontendUrl);
+        await redirectAfterSessionSave(session, res, frontendUrl);
         return;
       }
     } catch (error) {
@@ -974,7 +947,7 @@ export class AuthController {
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
-      await this.redirectAfterSessionSave(
+      await redirectAfterSessionSave(
         session,
         res,
         `${this.appConfig.frontendUrl}login?error=auth_failed`,

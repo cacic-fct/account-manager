@@ -1,4 +1,12 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,17 +26,7 @@ import {
 import { MatDialog } from '@angular/material/dialog';
 import { UniversityValidationDialogComponent } from '../../university-validation-dialog/university-validation-dialog.component';
 import { environment } from '../../../environments/environment';
-
-type BannerType = 'success' | 'error' | 'warning' | 'info';
-
-interface BannerConfig {
-  type: BannerType;
-  title: string;
-  message: string;
-  icon: string;
-  visible: boolean;
-  dismissible?: boolean;
-}
+import { TransientBannerController } from '../../shared/ui/transient-banner.controller';
 
 @Component({
   selector: 'app-student-verification',
@@ -45,8 +43,9 @@ interface BannerConfig {
     RouterLink,
     CommonModule,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class StudentVerificationComponent implements OnInit {
+export class StudentVerificationComponent implements OnInit, OnDestroy {
   private studentVerificationService = inject(StudentVerificationService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
@@ -63,76 +62,27 @@ export class StudentVerificationComponent implements OnInit {
   useManualFallback = signal(false);
   uploadProgress = signal(0);
 
-  // Banner system
-  currentBanner = signal<BannerConfig | null>(null);
-  private bannerTimeout?: number;
-
-  private showBanner(
-    type: BannerType,
-    title: string,
-    message: string,
-    dismissible = true,
-    autoHide = false,
-  ): void {
-    // Clear any existing timeout
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-    }
-
-    this.currentBanner.set({
-      type,
-      title,
-      message,
-      icon: this.getBannerIcon(type),
-      visible: true,
-      dismissible,
-    });
-
-    // Auto-hide banner after 5 seconds for success/info messages
-    if (autoHide) {
-      this.bannerTimeout = window.setTimeout(() => {
-        this.dismissBanner();
-      }, 5000);
-    }
-  }
-
-  private getBannerIcon(type: BannerType): string {
-    switch (type) {
-      case 'success':
-        return 'check_circle';
-      case 'error':
-        return 'error';
-      case 'warning':
-        return 'warning';
-      case 'info':
-        return 'info';
-      default:
-        return 'info';
-    }
-  }
+  private banners = new TransientBannerController();
+  currentBanner = this.banners.currentBanner;
 
   dismissBanner(): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-      this.bannerTimeout = undefined;
-    }
-    this.currentBanner.set(null);
+    this.banners.dismiss();
   }
 
   private showSuccessBanner(title: string, message: string): void {
-    this.showBanner('success', title, message, true, true);
+    this.banners.showSuccess(title, message);
   }
 
   private showErrorBanner(title: string, message: string): void {
-    this.showBanner('error', title, message);
+    this.banners.showError(title, message);
   }
 
   private showWarningBanner(title: string, message: string): void {
-    this.showBanner('warning', title, message);
+    this.banners.showWarning(title, message);
   }
 
   private showInfoBanner(title: string, message: string): void {
-    this.showBanner('info', title, message);
+    this.banners.showInfo(title, message);
   }
 
   ngOnInit(): void {
@@ -147,6 +97,10 @@ export class StudentVerificationComponent implements OnInit {
         }
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.banners.destroy();
   }
 
   onFileSelected(event: Event): void {
