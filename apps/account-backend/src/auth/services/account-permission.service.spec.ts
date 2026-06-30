@@ -261,6 +261,22 @@ describe('AccountPermissionService', () => {
     );
   });
 
+  it('treats failed Keycloak group permission probes as misses', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.studentEntityMembership.findMany.mockResolvedValue([
+      { entity: PermissionGroupKey.Cacic },
+    ]);
+    keycloakService.getGroupClientRoles.mockRejectedValue(
+      new Error('Keycloak down'),
+    );
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AccountManagerPermission.StudentVerificationReview,
+      ]),
+    ).resolves.toBe(false);
+  });
+
   it('treats a super-admin grant as all account-manager admin permissions', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockImplementation(

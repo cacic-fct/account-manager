@@ -84,7 +84,10 @@ export class KeycloakPermissionsGrantsService {
       );
     }
 
-    const existingGrant = await this.findActiveGrant(userId, permission);
+    const existingGrant = await this.findNonDeletedDirectGrant(
+      userId,
+      permission,
+    );
     if (existingGrant) {
       if (hasSameValidityWindow(existingGrant, validity)) {
         return mapGrant(existingGrant);
@@ -163,7 +166,7 @@ export class KeycloakPermissionsGrantsService {
     if (isGrantingNewActiveAccess || isKeepingActiveAccessWithValidityChange) {
       await this.assertActorCanAssignPermission(actorId, nextPermission);
     }
-    const duplicateGrant = await this.findActiveGrant(
+    const duplicateGrant = await this.findNonDeletedDirectGrant(
       existingGrant.userId,
       nextPermission,
       existingGrant.id,
@@ -244,6 +247,20 @@ export class KeycloakPermissionsGrantsService {
         },
       });
     } catch (error) {
+      if (this.isMissingKeycloakClientRoleError(error, grant)) {
+        const now = new Date();
+        await this.prisma.keycloakPermissionGrant.update({
+          where: { id },
+          data: {
+            deletedAt: now,
+            updatedById: actorId,
+            lastSyncedAt: now,
+            lastSyncError: null,
+          },
+        });
+        return;
+      }
+
       await this.prisma.keycloakPermissionGrant.update({
         where: { id },
         data: {
@@ -298,12 +315,11 @@ export class KeycloakPermissionsGrantsService {
     return grant;
   }
 
-  private async findActiveGrant(
+  private async findNonDeletedDirectGrant(
     userId: string,
     permission: string,
     exceptId?: string,
   ): Promise<GrantRecord | null> {
-    const now = new Date();
     return this.prisma.keycloakPermissionGrant.findFirst({
       where: {
         ...(exceptId ? { id: { not: exceptId } } : {}),
@@ -311,13 +327,19 @@ export class KeycloakPermissionsGrantsService {
         permission,
         deletedAt: null,
         studentEntityMembershipId: null,
-        AND: [
-          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
-          { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
-        ],
       },
       select: GRANT_SELECT,
     });
+  }
+
+  private isMissingKeycloakClientRoleError(
+    error: unknown,
+    grant: GrantRecord,
+  ): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes(
+      `Keycloak client role ${grant.clientId}:${grant.roleName} was not found`,
+    );
   }
 
   private async assertActorCanAssignPermission(

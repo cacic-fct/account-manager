@@ -494,6 +494,39 @@ describe('KeycloakPermissionsService', () => {
     ).toBe(false);
   });
 
+  it('allows known account-manager permission writes when another client catalog is unavailable', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    keycloakService.listClientRoles.mockImplementation((clientId) => {
+      if (clientId === 'cacic-event-manager') {
+        return Promise.reject(new Error('Event Manager down'));
+      }
+
+      if (clientId === 'cacic-account-manager') {
+        return Promise.resolve([
+          { id: 'role-grant-read', name: 'permission-grant#read' },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(grant);
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission: AccountManagerPermission.PermissionGrantRead,
+        },
+        'admin-1',
+      ),
+    ).resolves.toEqual(expect.objectContaining({ id: grant.id }));
+  });
+
   it('shows Keycloak-only group roles as active grants', async () => {
     const { keycloakService, service } = createContext();
     keycloakService.getGroupClientRoles.mockImplementation(
@@ -1001,6 +1034,37 @@ describe('KeycloakPermissionsService', () => {
     });
   });
 
+  it('rejects duplicate non-deleted scheduled direct grants before create', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validFrom: new Date(Date.now() + 60 * 60 * 1000),
+      validUntil: null,
+    });
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission: existingGrant.permission,
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Essa permissão já foi concedida para essa pessoa. Atualize ou remova a concessão atual antes de criar outra.',
+      },
+    });
+
+    expect(prisma.keycloakPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
+  });
+
   it('allows revoke-only actors to expire an active direct grant', async () => {
     const { accountPermissionService, keycloakService, prisma, service } =
       createContext();
@@ -1189,6 +1253,34 @@ describe('KeycloakPermissionsService', () => {
     }>(prisma.keycloakPermissionGrant.update);
     expect(failureUpdateArgs.data.deletedAt).toBeUndefined();
     expect(failureUpdateArgs.data.lastSyncError).toBe('Keycloak down');
+  });
+
+  it('marks direct grants deleted when the external Keycloak role is already gone', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    keycloakService.removeUserClientRoles.mockRejectedValueOnce(
+      new Error(
+        `Keycloak client role ${grant.clientId}:${grant.roleName} was not found`,
+      ),
+    );
+
+    await expect(
+      service.deleteGrant(grant.id, 'admin-1'),
+    ).resolves.toBeUndefined();
+
+    const deleteUpdateArgs = getMockArg<{
+      data: {
+        deletedAt: Date;
+        updatedById: string;
+        lastSyncedAt: Date;
+        lastSyncError: null;
+      };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(deleteUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.updatedById).toBe('admin-1');
+    expect(deleteUpdateArgs.data.lastSyncedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncError).toBeNull();
   });
 
   it('rejects hidden Keycloak roles', async () => {

@@ -4,6 +4,7 @@ import {
   PermissionGroupDefinition,
   buildKeycloakPermissionId,
   KeycloakPermissionDefinition,
+  parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import {
   BadRequestException,
@@ -137,9 +138,20 @@ export class KeycloakPermissionsCatalogService {
 
   async assertPermissionsKnown(permissions: readonly string[]): Promise<void> {
     const catalog = await this.loadCatalog();
-    if (catalog.unavailableClientIds.length > 0) {
+    const unavailableClientIds = new Set(catalog.unavailableClientIds);
+    const requestedUnavailableClientIds = [
+      ...new Set(
+        permissions
+          .map((permission) => parseKeycloakPermissionId(permission)?.clientId)
+          .filter(
+            (clientId): clientId is string =>
+              !!clientId && unavailableClientIds.has(clientId),
+          ),
+      ),
+    ];
+    if (requestedUnavailableClientIds.length > 0) {
       throw new ServiceUnavailableException(
-        `Catálogo de permissões indisponível para: ${catalog.unavailableClientIds.join(', ')}.`,
+        `Catálogo de permissões indisponível para: ${requestedUnavailableClientIds.join(', ')}.`,
       );
     }
 

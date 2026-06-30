@@ -225,10 +225,19 @@ export class AccountPermissionService {
       return true;
     }
 
-    return (
-      (await this.hasAnyGroupPermissionGrant(userId, permissions, now)) ||
-      (await this.hasAnyKeycloakGroupPermissionGrant(userId, permissions, now))
-    );
+    if (await this.hasAnyGroupPermissionGrant(userId, permissions, now)) {
+      return true;
+    }
+
+    try {
+      return await this.hasAnyKeycloakGroupPermissionGrant(
+        userId,
+        permissions,
+        now,
+      );
+    } catch {
+      return false;
+    }
   }
 
   private async hasKeycloakSuperAdminBootstrapFallbackAccess(
