@@ -227,27 +227,19 @@ export class KeycloakPermissionsGrantsService {
       await this.assertActorCanRevokePermission(actorId, grant.permission);
     }
 
-    const now = new Date();
-    await this.prisma.keycloakPermissionGrant.update({
-      where: { id },
-      data: {
-        deletedAt: now,
-        updatedById: actorId,
-        lastSyncedAt: null,
-        lastSyncError: null,
-      },
-    });
-
     try {
       await this.keycloakService.removeUserClientRoles(
         grant.userId,
         [grant.roleName],
         grant.clientId,
       );
+      const now = new Date();
       await this.prisma.keycloakPermissionGrant.update({
         where: { id },
         data: {
-          lastSyncedAt: new Date(),
+          deletedAt: now,
+          updatedById: actorId,
+          lastSyncedAt: now,
           lastSyncError: null,
         },
       });

@@ -128,6 +128,7 @@ export class KeycloakPermissionsCatalogService {
           `Failed to load Keycloak roles for group ${group.key}`,
           error,
         );
+        throw error;
       }
     }
 

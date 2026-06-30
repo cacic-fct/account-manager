@@ -1393,7 +1393,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Check admin status',
     description:
-      'Check if the current user has Account Manager admin privileges from database-backed permission grants',
+      'Check if the current user has Account Manager admin privileges from database-backed permission grants, including the Keycloak bootstrap super-admin fallback.',
   })
   @ApiResponse({
     status: 200,

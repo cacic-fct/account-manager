@@ -72,6 +72,8 @@ export class KeycloakRoleGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
+    let keycloakError: unknown;
+
     try {
       const userRoles = await this.keycloakService.getUserRoles(userId);
       if (userRoles.includes(AccountManagerKeycloakRole.SuperAdmin)) {
@@ -87,7 +89,15 @@ export class KeycloakRoleGuard implements CanActivate {
       if (hasRequiredRoles) {
         return true;
       }
+    } catch (error) {
+      keycloakError = error;
+      this.logger.warn(
+        'Keycloak role verification failed; checking database-backed permissions',
+        error,
+      );
+    }
 
+    try {
       const hasDbSuperAdmin =
         await this.accountPermissionService.hasAnyActivePermission(userId, [
           AccountManagerKeycloakRole.SuperAdmin,
@@ -120,19 +130,26 @@ export class KeycloakRoleGuard implements CanActivate {
               dbBackedPermissions,
             ));
 
-      if (!hasDbPermission) {
-        throw new ForbiddenException('Required permission missing');
+      if (hasDbPermission) {
+        return true;
       }
-
-      return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
       }
 
-      this.logger.error('Keycloak role verification failed', error);
+      this.logger.error(
+        'Database-backed permission verification failed',
+        error,
+      );
+      throw new ForbiddenException('Unable to verify permissions');
+    }
+
+    if (keycloakError) {
       throw new ForbiddenException('Unable to verify Keycloak roles');
     }
+
+    throw new ForbiddenException('Required permission missing');
   }
 
   private getDbBackedAccountManagerPermissions(

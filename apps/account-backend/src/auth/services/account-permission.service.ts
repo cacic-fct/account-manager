@@ -4,7 +4,7 @@ import {
   AccountManagerPermission,
   AccountManagerKeycloakRole,
   KEYCLOAK_PERMISSION_CLIENTS,
-  PermissionGroupKey,
+  isPermissionGroupKey,
   parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import { Injectable } from '@nestjs/common';
@@ -311,9 +311,11 @@ export class AccountPermissionService {
     }
 
     for (const membership of memberships) {
-      const group = getPermissionGroupDefinition(
-        membership.entity as PermissionGroupKey,
-      );
+      if (!isPermissionGroupKey(membership.entity)) {
+        continue;
+      }
+
+      const group = getPermissionGroupDefinition(membership.entity);
       for (const client of KEYCLOAK_PERMISSION_CLIENTS) {
         const expectedRoles = permissionsByClient.get(client.clientId);
         if (!expectedRoles || expectedRoles.size === 0) {

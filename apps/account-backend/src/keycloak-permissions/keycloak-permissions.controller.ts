@@ -16,6 +16,7 @@ import {
   PermissionGroupKey,
 } from '@cacic/shared-types';
 import {
+  ApiBody,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -46,6 +47,44 @@ const PERMISSION_ASSIGN_OR_REVOKE = [
   AccountManagerPermission.PermissionGrantRevoke,
 ] as const;
 const PERMISSION_SYNC = [AccountManagerPermission.PermissionGrantSync] as const;
+
+const DIRECT_GRANT_EXAMPLE = {
+  id: 'grant-1',
+  userId: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
+  userEmail: 'alice@example.com',
+  userDisplayName: 'Alice Example',
+  clientId: 'cacic-account-manager',
+  roleName: 'permission-grant#read',
+  permission: 'cacic-account-manager:permission-grant#read',
+  source: 'direct',
+  validFrom: null,
+  validUntil: null,
+  status: 'active',
+  createdAt: '2026-06-21T12:00:00.000Z',
+  createdById: 'admin-1',
+  updatedAt: '2026-06-21T12:00:00.000Z',
+  updatedById: 'admin-1',
+  lastSyncedAt: '2026-06-21T12:00:05.000Z',
+};
+
+const GROUP_MEMBERSHIP_EXAMPLE = {
+  id: 'membership-1',
+  groupKey: 'CACIC',
+  keycloakGroupId: '5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
+  keycloakGroupPath: '/Entidades estudantis/CACiC',
+  discordRoleId: '533900085642133504',
+  userId: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
+  userEmail: 'alice@example.com',
+  userDisplayName: 'Alice Example',
+  validFrom: '2026-01-01T00:00:00.000Z',
+  validUntil: null,
+  status: 'active',
+  createdAt: '2026-06-21T12:00:00.000Z',
+  createdById: 'admin-1',
+  updatedAt: '2026-06-21T12:00:00.000Z',
+  updatedById: 'admin-1',
+  lastSyncedAt: '2026-06-21T12:00:05.000Z',
+};
 
 @ApiTags('Admin Permissions')
 @Controller('admin/permissions')
@@ -345,9 +384,27 @@ export class KeycloakPermissionsController {
   }
 
   @ApiOperation({ summary: 'Create a managed group membership' })
+  @ApiBody({
+    type: PermissionGroupMembershipCreateDto,
+    examples: {
+      activeMembership: {
+        summary: 'Active managed group membership',
+        value: {
+          userId: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
+          groupKey: 'CACIC',
+          validFrom: '2026-01-01T00:00:00.000Z',
+          validUntil: null,
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: 'Managed group membership created successfully',
+    schema: {
+      type: 'object',
+      example: GROUP_MEMBERSHIP_EXAMPLE,
+    },
   })
   @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
@@ -366,6 +423,32 @@ export class KeycloakPermissionsController {
   @ApiParam({
     name: 'id',
     description: 'Permission grant id.',
+  })
+  @ApiBody({
+    type: KeycloakPermissionGrantUpdateDto,
+    examples: {
+      extendGrant: {
+        summary: 'Update a direct grant validity window',
+        value: {
+          permission: 'cacic-account-manager:permission-grant#read',
+          validFrom: '2026-06-21T12:00:00.000Z',
+          validUntil: '2026-12-31T23:59:59.000Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permission grant updated successfully',
+    schema: {
+      type: 'object',
+      example: {
+        ...DIRECT_GRANT_EXAMPLE,
+        validFrom: '2026-06-21T12:00:00.000Z',
+        validUntil: '2026-12-31T23:59:59.000Z',
+        updatedAt: '2026-06-21T12:10:00.000Z',
+      },
+    },
   })
   @AccountPermissions(PERMISSION_ASSIGN_OR_REVOKE)
   @UseGuards(CsrfGuard)
@@ -387,6 +470,30 @@ export class KeycloakPermissionsController {
     name: 'id',
     description: 'Managed group membership id.',
   })
+  @ApiBody({
+    type: PermissionGroupMembershipUpdateDto,
+    examples: {
+      shortenMembership: {
+        summary: 'Shorten an active managed group membership',
+        value: {
+          validFrom: '2026-01-01T00:00:00.000Z',
+          validUntil: '2026-06-30T23:59:59.000Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed group membership updated successfully',
+    schema: {
+      type: 'object',
+      example: {
+        ...GROUP_MEMBERSHIP_EXAMPLE,
+        validUntil: '2026-06-30T23:59:59.000Z',
+        updatedAt: '2026-06-21T12:10:00.000Z',
+      },
+    },
+  })
   @AccountPermissions(PERMISSION_ASSIGN_OR_REVOKE)
   @UseGuards(CsrfGuard)
   @Put('groups/memberships/:id')
@@ -407,6 +514,19 @@ export class KeycloakPermissionsController {
     name: 'id',
     description: 'Permission grant id.',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Permission grant deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        deleted: { type: 'boolean', example: true },
+        id: { type: 'string', example: 'grant-1' },
+      },
+      required: ['deleted', 'id'],
+      example: { deleted: true, id: 'grant-1' },
+    },
+  })
   @AccountPermissions(PERMISSION_REVOKE)
   @UseGuards(CsrfGuard)
   @Delete('grants/:id')
@@ -422,6 +542,19 @@ export class KeycloakPermissionsController {
   @ApiParam({
     name: 'id',
     description: 'Managed group membership id.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed group membership deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        deleted: { type: 'boolean', example: true },
+        id: { type: 'string', example: 'membership-1' },
+      },
+      required: ['deleted', 'id'],
+      example: { deleted: true, id: 'membership-1' },
+    },
   })
   @AccountPermissions(PERMISSION_REVOKE)
   @UseGuards(CsrfGuard)

@@ -654,6 +654,25 @@ describe('KeycloakPermissionsService', () => {
     expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
   });
 
+  it('fails closed when Keycloak group role permissions cannot be loaded', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getGroupClientRoles.mockRejectedValueOnce(
+      new Error('Keycloak down'),
+    );
+
+    await expect(
+      service.updatePermissionGroupRoleGrants(
+        PermissionGroupKey.Cacic,
+        { permissions: [AccountManagerPermission.PermissionGrantRead] },
+        'admin-1',
+      ),
+    ).rejects.toThrow('Keycloak down');
+
+    expect(prisma.keycloakGroupPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
+    expect(keycloakService.removeGroupClientRoles).not.toHaveBeenCalled();
+  });
+
   it('creates a permission group membership and reconciles Keycloak plus Discord side effects', async () => {
     const { discordRoleService, keycloakService, prisma, service } =
       createContext();
@@ -876,10 +895,7 @@ describe('KeycloakPermissionsService', () => {
       },
     });
 
-    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
-      'admin-1',
-      permission,
-    );
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
     expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
       'admin-1',
       permission,
@@ -1132,7 +1148,7 @@ describe('KeycloakPermissionsService', () => {
     expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
   });
 
-  it('marks direct grants deleted before removing the external Keycloak role', async () => {
+  it('marks direct grants deleted after removing the external Keycloak role', async () => {
     const { keycloakService, prisma, service } = createContext();
     const grant = createGrant();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
@@ -1144,15 +1160,35 @@ describe('KeycloakPermissionsService', () => {
     await service.deleteGrant(grant.id, 'admin-1');
 
     const deleteUpdateArgs = getMockArg<{
-      data: { deletedAt: Date; lastSyncedAt: null };
+      data: { deletedAt: Date; lastSyncedAt: Date; lastSyncError: null };
     }>(prisma.keycloakPermissionGrant.update);
     expect(deleteUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
-    expect(deleteUpdateArgs.data.lastSyncedAt).toBeNull();
+    expect(deleteUpdateArgs.data.lastSyncedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncError).toBeNull();
     expect(
-      prisma.keycloakPermissionGrant.update.mock.invocationCallOrder[0],
-    ).toBeLessThan(
       keycloakService.removeUserClientRoles.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      prisma.keycloakPermissionGrant.update.mock.invocationCallOrder[0],
     );
+  });
+
+  it('keeps direct grants visible for retry when Keycloak role removal fails', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    keycloakService.removeUserClientRoles.mockRejectedValueOnce(
+      new Error('Keycloak down'),
+    );
+
+    await expect(service.deleteGrant(grant.id, 'admin-1')).rejects.toThrow(
+      'Keycloak down',
+    );
+
+    const failureUpdateArgs = getMockArg<{
+      data: { deletedAt?: Date; lastSyncError: string };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(failureUpdateArgs.data.deletedAt).toBeUndefined();
+    expect(failureUpdateArgs.data.lastSyncError).toBe('Keycloak down');
   });
 
   it('rejects hidden Keycloak roles', async () => {

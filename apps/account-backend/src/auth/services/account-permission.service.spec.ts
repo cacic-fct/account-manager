@@ -234,6 +234,33 @@ describe('AccountPermissionService', () => {
     );
   });
 
+  it('skips legacy memberships with unknown group keys during Keycloak group permission checks', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.studentEntityMembership.findMany.mockResolvedValue([
+      { entity: 'LEGACY_GROUP' },
+      { entity: PermissionGroupKey.Cacic },
+    ]);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? ['student-verification#review']
+            : [],
+        ),
+    );
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AccountManagerPermission.StudentVerificationReview,
+      ]),
+    ).resolves.toBe(true);
+
+    expect(keycloakService.getGroupClientRoles).toHaveBeenCalledWith(
+      '5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
+      'cacic-account-manager',
+    );
+  });
+
   it('treats a super-admin grant as all account-manager admin permissions', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockImplementation(

@@ -168,12 +168,21 @@ export class KeycloakPermissionsMembershipsService {
       (!existingMembership.mandateEnd ||
         validity.mandateEnd.getTime() <
           existingMembership.mandateEnd.getTime());
+    const extendsActiveAccess =
+      wasActive &&
+      willBeActive &&
+      (!validity.mandateEnd ||
+        (!!existingMembership.mandateEnd &&
+          validity.mandateEnd.getTime() >
+            existingMembership.mandateEnd.getTime()));
+    const grantsOrExtendsAccess =
+      (!wasActive && willProvideAccess) || extendsActiveAccess;
     const groupKey = existingMembership.entity as PermissionGroupKey;
 
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
     }
-    if (willProvideAccess) {
+    if (grantsOrExtendsAccess) {
       await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
     }
     if (wasActive && (!willBeActive || isShorteningActiveAccess)) {
