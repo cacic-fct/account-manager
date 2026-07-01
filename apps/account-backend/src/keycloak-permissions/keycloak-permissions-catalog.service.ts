@@ -102,8 +102,31 @@ export class KeycloakPermissionsCatalogService {
 
   async listKeycloakGroupPermissions(
     group: PermissionGroupDefinition,
+    options: { allowPartial?: boolean } = {},
   ): Promise<KeycloakPermissionDefinition[]> {
+    return (await this.loadKeycloakGroupPermissions(group, options))
+      .permissions;
+  }
+
+  async listKeycloakGroupPermissionsWithAvailability(
+    group: PermissionGroupDefinition,
+    options: { allowPartial?: boolean } = {},
+  ): Promise<{
+    permissions: KeycloakPermissionDefinition[];
+    unavailableClientIds: string[];
+  }> {
+    return this.loadKeycloakGroupPermissions(group, options);
+  }
+
+  private async loadKeycloakGroupPermissions(
+    group: PermissionGroupDefinition,
+    options: { allowPartial?: boolean },
+  ): Promise<{
+    permissions: KeycloakPermissionDefinition[];
+    unavailableClientIds: string[];
+  }> {
     const permissions: KeycloakPermissionDefinition[] = [];
+    const unavailableClientIds: string[] = [];
 
     for (const client of KEYCLOAK_PERMISSION_CLIENTS) {
       try {
@@ -126,14 +149,19 @@ export class KeycloakPermissionsCatalogService {
         );
       } catch (error) {
         this.logger.warn(
-          `Failed to load Keycloak roles for group ${group.key}`,
+          `Failed to load Keycloak roles for group ${group.key} and client ${client.clientId}`,
           error,
         );
+        unavailableClientIds.push(client.clientId);
+        if (options.allowPartial) {
+          continue;
+        }
+
         throw error;
       }
     }
 
-    return permissions;
+    return { permissions, unavailableClientIds };
   }
 
   async assertPermissionsKnown(permissions: readonly string[]): Promise<void> {

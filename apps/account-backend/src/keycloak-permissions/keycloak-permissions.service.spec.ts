@@ -687,19 +687,79 @@ describe('KeycloakPermissionsService', () => {
     expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
   });
 
-  it('fails closed when Keycloak group role permissions cannot be loaded', async () => {
+  it('updates available group role clients when another managed client is unavailable', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const stalePermission = AccountManagerPermission.StudentVerificationReview;
+    const createdGrant = createGroupRoleGrant({ permission });
+
+    prisma.keycloakGroupPermissionGrant.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([createdGrant]);
+    prisma.keycloakGroupPermissionGrant.create.mockResolvedValue(createdGrant);
+    prisma.keycloakGroupPermissionGrant.update.mockResolvedValue(createdGrant);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) => {
+        if (clientId === 'cacic-account-manager') {
+          return Promise.resolve(['student-verification#review']);
+        }
+
+        if (clientId === 'cacic-event-manager') {
+          return Promise.reject(new Error('Event Manager down'));
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [permission] },
+      'admin-1',
+    );
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      stalePermission,
+    );
+    expect(keycloakService.addGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['permission-grant#read'],
+      'cacic-account-manager',
+    );
+    expect(keycloakService.removeGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['student-verification#review'],
+      'cacic-account-manager',
+    );
+  });
+
+  it('rejects desired group role changes for unavailable clients', async () => {
     const { keycloakService, prisma, service } = createContext();
-    keycloakService.getGroupClientRoles.mockRejectedValueOnce(
-      new Error('Keycloak down'),
+    const eventPermission = 'cacic-event-manager:events#publish';
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        clientId === 'cacic-event-manager'
+          ? Promise.reject(new Error('Event Manager down'))
+          : Promise.resolve([]),
     );
 
     await expect(
       service.updatePermissionGroupRoleGrants(
         PermissionGroupKey.Cacic,
-        { permissions: [AccountManagerPermission.PermissionGrantRead] },
+        { permissions: [eventPermission] },
         'admin-1',
       ),
-    ).rejects.toThrow('Keycloak down');
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Permissões do grupo indisponíveis para: cacic-event-manager.',
+      },
+    });
 
     expect(prisma.keycloakGroupPermissionGrant.create).not.toHaveBeenCalled();
     expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();

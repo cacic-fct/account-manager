@@ -3,7 +3,11 @@ import {
   PermissionGroupRoleGrant,
   PermissionGroupRoleGrantUpdateRequest,
 } from '@cacic/shared-types';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,7 +44,9 @@ export class KeycloakPermissionsGroupRolesService {
         select: GROUP_ROLE_GRANT_SELECT,
         orderBy: [{ clientId: 'asc' }, { roleName: 'asc' }],
       }),
-      this.catalog.listKeycloakGroupPermissions(group),
+      this.catalog.listKeycloakGroupPermissions(group, {
+        allowPartial: true,
+      }),
     ]);
     const grants = dbGrants.map((grant) => mapGroupRoleGrant(grant));
     const dbPermissionSet = new Set(grants.map((grant) => grant.permission));
@@ -95,8 +101,15 @@ export class KeycloakPermissionsGroupRolesService {
       existingDbGrants.map((grant) => [grant.permission, grant]),
     );
     const desiredPermissions = new Set(permissions);
-    const keycloakPermissions =
-      await this.catalog.listKeycloakGroupPermissions(group);
+    const groupPermissionState =
+      await this.catalog.listKeycloakGroupPermissionsWithAvailability(group, {
+        allowPartial: true,
+      });
+    const keycloakPermissions = groupPermissionState.permissions;
+    this.assertDesiredClientsAvailable(
+      permissions,
+      groupPermissionState.unavailableClientIds,
+    );
     const currentPermissions = new Set([
       ...existingByPermission.keys(),
       ...keycloakPermissions.map((permission) => permission.permission),
@@ -202,5 +215,30 @@ export class KeycloakPermissionsGroupRolesService {
         'Você não pode revogar uma permissão que não possui.',
       );
     }
+  }
+
+  private assertDesiredClientsAvailable(
+    permissions: readonly string[],
+    unavailableClientIds: readonly string[],
+  ): void {
+    const unavailableClientSet = new Set(unavailableClientIds);
+    if (unavailableClientSet.size === 0) {
+      return;
+    }
+
+    const requestedUnavailableClientIds = [
+      ...new Set(
+        permissions
+          .map((permission) => parsePermissionOrThrow(permission).clientId)
+          .filter((clientId) => unavailableClientSet.has(clientId)),
+      ),
+    ];
+    if (requestedUnavailableClientIds.length === 0) {
+      return;
+    }
+
+    throw new ServiceUnavailableException(
+      `Permissões do grupo indisponíveis para: ${requestedUnavailableClientIds.join(', ')}.`,
+    );
   }
 }
