@@ -130,7 +130,7 @@ export const createMockKeycloakPermissionGrant = (
 ): KeycloakPermissionGrant => {
   const parsedPermission =
     parseKeycloakPermissionId(permission) ??
-    parseKeycloakPermissionId(AccountManagerPermission.Access);
+    parseKeycloakPermissionId(AccountManagerPermission.PermissionGrantRead);
 
   return {
     id: `grant-${user.id}-${index + 1}`,
@@ -138,7 +138,7 @@ export const createMockKeycloakPermissionGrant = (
     userEmail: user.email,
     userDisplayName: user.displayName,
     clientId: parsedPermission?.clientId ?? ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
-    roleName: parsedPermission?.roleName ?? 'access',
+    roleName: parsedPermission?.roleName ?? 'permission-grant#read',
     permission,
     source: options.source ?? 'direct',
     validFrom: options.validFrom?.toISOString() ?? null,
@@ -221,13 +221,13 @@ export const createMockPermissionGroupRoleGrant = (
 ): PermissionGroupRoleGrant => {
   const parsedPermission =
     parseKeycloakPermissionId(permission) ??
-    parseKeycloakPermissionId(AccountManagerPermission.Access);
+    parseKeycloakPermissionId(AccountManagerPermission.PermissionGrantRead);
 
   return {
     id: `group-grant-${groupKey.toLowerCase()}-${index + 1}`,
     groupKey,
     clientId: parsedPermission?.clientId ?? ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
-    roleName: parsedPermission?.roleName ?? 'access',
+    roleName: parsedPermission?.roleName ?? 'permission-grant#read',
     permission,
     source,
     validFrom: null,
@@ -263,7 +263,7 @@ export const mockPermissionGroupRoleGrants: PermissionGroupRoleGrant[] = [
 export const mockDirectKeycloakPermissionGrant =
   createMockKeycloakPermissionGrant(
     mockKeycloakPermissionUsers[0],
-    AccountManagerPermission.SuperAdmin,
+    AccountManagerPermission.PermissionGrantRead,
     8,
   );
 

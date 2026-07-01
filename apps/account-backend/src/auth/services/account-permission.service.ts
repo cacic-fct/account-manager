@@ -1,9 +1,10 @@
 import {
   ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
-  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerPermission,
   AccountManagerKeycloakRole,
   KEYCLOAK_PERMISSION_CLIENTS,
+  isKeycloakBackedPermission,
+  isKeycloakBackedRoleName,
   isPermissionGroupKey,
   parseKeycloakPermissionId,
 } from '@cacic/shared-types';
@@ -29,16 +30,19 @@ export class AccountPermissionService {
       return false;
     }
 
-    const permissionsWithSuperAdmin = [
-      ...new Set([
-        ...normalizedPermissions,
-        AccountManagerPermission.SuperAdmin,
-      ]),
-    ];
+    if (await this.hasAccountManagerSuperAdminAccess(userId)) {
+      return true;
+    }
+
+    if (
+      await this.hasAnyKeycloakBackedPermission(userId, normalizedPermissions)
+    ) {
+      return true;
+    }
 
     return this.hasAnyDirectOrGroupPermission(
       userId,
-      permissionsWithSuperAdmin,
+      this.getDbManagedPermissions(normalizedPermissions),
       now,
     );
   }
@@ -53,38 +57,38 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (await this.hasAccountManagerSuperAdminGrant(userId, now)) {
+    if (await this.hasAccountManagerSuperAdminAccess(userId)) {
       return true;
     }
 
-    const results = await Promise.all(
-      normalizedPermissions.map((permission) =>
-        this.hasAnyDirectOrGroupPermission(userId, [permission], now),
+    const keycloakBackedPermissions = normalizedPermissions.filter(
+      isKeycloakBackedPermission,
+    );
+    const dbManagedPermissions = this.getDbManagedPermissions(
+      normalizedPermissions,
+    );
+    const [keycloakResults, dbResults] = await Promise.all([
+      Promise.all(
+        keycloakBackedPermissions.map((permission) =>
+          this.hasKeycloakBackedPermission(userId, permission),
+        ),
       ),
-    );
+      Promise.all(
+        dbManagedPermissions.map((permission) =>
+          this.hasAnyDirectOrGroupPermission(userId, [permission], now),
+        ),
+      ),
+    ]);
 
-    return results.every(Boolean);
+    return [...keycloakResults, ...dbResults].every(Boolean);
   }
 
-  async hasAccountManagerSuperAdminGrant(
-    userId: string,
-    now = new Date(),
-  ): Promise<boolean> {
-    return this.hasAnyDirectOrGroupPermission(
-      userId,
-      [AccountManagerPermission.SuperAdmin],
-      now,
-    );
+  async hasAccountManagerSuperAdminGrant(userId: string): Promise<boolean> {
+    return this.hasKeycloakSuperAdminBootstrapFallbackAccess(userId);
   }
 
-  async hasAccountManagerSuperAdminAccess(
-    userId: string,
-    now = new Date(),
-  ): Promise<boolean> {
-    return (
-      (await this.hasAccountManagerSuperAdminGrant(userId, now)) ||
-      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(userId))
-    );
+  async hasAccountManagerSuperAdminAccess(userId: string): Promise<boolean> {
+    return this.hasKeycloakSuperAdminBootstrapFallbackAccess(userId);
   }
 
   async hasKeycloakSuperAdminBootstrapAccess(userId: string): Promise<boolean> {
@@ -108,7 +112,7 @@ export class AccountPermissionService {
     now = new Date(),
   ): Promise<boolean> {
     return (
-      (await this.hasAccountManagerSuperAdminAccess(userId, now)) ||
+      (await this.hasAccountManagerSuperAdminAccess(userId)) ||
       (await this.hasAnyActivePermission(
         userId,
         [
@@ -130,10 +134,11 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (
-      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
-      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
-    ) {
+    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
+      return false;
+    }
+
+    if (await this.hasAccountManagerSuperAdminAccess(actorId)) {
       return true;
     }
 
@@ -151,7 +156,6 @@ export class AccountPermissionService {
       await this.hasClientSuperAdminPermission(
         actorId,
         parsedPermission.clientId,
-        now,
       )
     ) {
       return true;
@@ -170,10 +174,11 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (
-      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
-      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
-    ) {
+    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
+      return false;
+    }
+
+    if (await this.hasAccountManagerSuperAdminAccess(actorId)) {
       return true;
     }
 
@@ -191,7 +196,6 @@ export class AccountPermissionService {
       await this.hasClientSuperAdminPermission(
         actorId,
         parsedPermission.clientId,
-        now,
       )
     ) {
       return true;
@@ -203,13 +207,16 @@ export class AccountPermissionService {
   async hasClientSuperAdminPermission(
     userId: string,
     clientId: string,
-    now = new Date(),
   ): Promise<boolean> {
-    return this.hasAnyDirectOrGroupPermission(
-      userId,
-      [`${clientId}:super-admin`],
-      now,
-    );
+    try {
+      const userRoles = await this.keycloakService.getUserClientRoles(
+        userId,
+        clientId,
+      );
+      return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
+    } catch {
+      return false;
+    }
   }
 
   private async hasAnyDirectOrGroupPermission(
@@ -221,18 +228,27 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (await this.hasAnyDirectPermissionGrant(userId, permissions, now)) {
+    const dbManagedPermissions = this.getDbManagedPermissions(permissions);
+    if (dbManagedPermissions.length === 0) {
+      return false;
+    }
+
+    if (
+      await this.hasAnyDirectPermissionGrant(userId, dbManagedPermissions, now)
+    ) {
       return true;
     }
 
-    if (await this.hasAnyGroupPermissionGrant(userId, permissions, now)) {
+    if (
+      await this.hasAnyGroupPermissionGrant(userId, dbManagedPermissions, now)
+    ) {
       return true;
     }
 
     try {
       return await this.hasAnyKeycloakGroupPermissionGrant(
         userId,
-        permissions,
+        dbManagedPermissions,
         now,
       );
     } catch {
@@ -392,5 +408,53 @@ export class AccountPermissionService {
           .filter((permission) => permission.length > 0),
       ),
     ];
+  }
+
+  private getDbManagedPermissions(permissions: readonly string[]): string[] {
+    return permissions.filter(
+      (permission) => !isKeycloakBackedPermission(permission),
+    );
+  }
+
+  private async hasAnyKeycloakBackedPermission(
+    userId: string,
+    permissions: readonly string[],
+  ): Promise<boolean> {
+    const keycloakBackedPermissions = permissions.filter(
+      isKeycloakBackedPermission,
+    );
+    if (keycloakBackedPermissions.length === 0) {
+      return false;
+    }
+
+    const results = await Promise.all(
+      keycloakBackedPermissions.map((permission) =>
+        this.hasKeycloakBackedPermission(userId, permission),
+      ),
+    );
+    return results.some(Boolean);
+  }
+
+  private async hasKeycloakBackedPermission(
+    userId: string,
+    permission: string,
+  ): Promise<boolean> {
+    const parsedPermission = parseKeycloakPermissionId(permission);
+    if (
+      !parsedPermission ||
+      !isKeycloakBackedRoleName(parsedPermission.roleName)
+    ) {
+      return false;
+    }
+
+    try {
+      const userRoles = await this.keycloakService.getUserClientRoles(
+        userId,
+        parsedPermission.clientId,
+      );
+      return userRoles.includes(parsedPermission.roleName);
+    } catch {
+      return false;
+    }
   }
 }

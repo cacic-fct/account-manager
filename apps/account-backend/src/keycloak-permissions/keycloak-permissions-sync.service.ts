@@ -14,8 +14,10 @@ import {
   isGroupRoleGrantExpired,
   isMembershipActive,
   isMembershipExpired,
+  isDbManagedRole,
 } from './keycloak-permissions.helpers';
 import {
+  DB_MANAGED_ROLE_FILTER,
   GRANT_SELECT,
   GROUP_ROLE_GRANT_SELECT,
   MEMBERSHIP_SELECT,
@@ -92,6 +94,9 @@ export class KeycloakPermissionsSyncService {
     } = {},
   ): Promise<void> {
     const now = new Date();
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
 
     try {
       if (isGrantActive(grant, now)) {
@@ -123,6 +128,9 @@ export class KeycloakPermissionsSyncService {
     } = {},
   ): Promise<void> {
     const now = new Date();
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
 
     try {
       if (isGroupRoleGrantActive(grant, now)) {
@@ -190,6 +198,7 @@ export class KeycloakPermissionsSyncService {
       where: {
         deletedAt: null,
         studentEntityMembershipId: null,
+        roleName: DB_MANAGED_ROLE_FILTER,
       },
       select: GRANT_SELECT,
       orderBy: [{ validUntil: 'asc' }, { validFrom: 'asc' }],
@@ -226,6 +235,7 @@ export class KeycloakPermissionsSyncService {
     const grants = await this.prisma.keycloakGroupPermissionGrant.findMany({
       where: {
         deletedAt: null,
+        roleName: DB_MANAGED_ROLE_FILTER,
       },
       select: GROUP_ROLE_GRANT_SELECT,
       orderBy: [{ validUntil: 'asc' }, { validFrom: 'asc' }],
@@ -258,6 +268,10 @@ export class KeycloakPermissionsSyncService {
   }
 
   private async activateGrant(grant: GrantRecord, now: Date): Promise<void> {
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
+
     await this.keycloakService.addUserClientRoles(
       grant.userId,
       [grant.roleName],
@@ -267,6 +281,10 @@ export class KeycloakPermissionsSyncService {
   }
 
   private async expireGrant(grant: GrantRecord, now: Date): Promise<void> {
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
+
     await this.keycloakService.removeUserClientRoles(
       grant.userId,
       [grant.roleName],
@@ -288,6 +306,10 @@ export class KeycloakPermissionsSyncService {
     grant: GroupRoleGrantRecord,
     now: Date,
   ): Promise<void> {
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
+
     await this.keycloakService.addGroupClientRoles(
       grant.keycloakGroupId,
       [grant.roleName],
@@ -300,6 +322,10 @@ export class KeycloakPermissionsSyncService {
     grant: GroupRoleGrantRecord,
     now: Date,
   ): Promise<void> {
+    if (!isDbManagedRole(grant.roleName)) {
+      return;
+    }
+
     await this.keycloakService.removeGroupClientRoles(
       grant.keycloakGroupId,
       [grant.roleName],
@@ -400,6 +426,10 @@ export class KeycloakPermissionsSyncService {
     now: Date,
   ): Promise<void> {
     for (const grant of membership.permissionGrants) {
+      if (!isDbManagedRole(grant.roleName)) {
+        continue;
+      }
+
       if (isGrantActive(grant, now)) {
         await this.keycloakService.removeUserClientRoles(
           grant.userId,

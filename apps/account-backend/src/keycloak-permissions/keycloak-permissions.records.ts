@@ -1,7 +1,7 @@
 import {
   ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
-  AccountManagerPermission,
   KEYCLOAK_PERMISSION_CLIENTS,
+  KEYCLOAK_BACKED_ROLE_NAMES,
 } from '@cacic/shared-types';
 import { Prisma } from '@prisma/client';
 
@@ -11,13 +11,13 @@ export const MANAGED_KEYCLOAK_CLIENT_IDS = KEYCLOAK_PERMISSION_CLIENTS.map(
   (definition) => definition.clientId,
 );
 
-export const ACCOUNT_MANAGER_SUPER_ADMIN_PERMISSION =
-  AccountManagerPermission.SuperAdmin;
-
 export const ACCOUNT_MANAGER_ADMIN_PERMISSION_IDS = [
   ...ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
-  AccountManagerPermission.SuperAdmin,
 ];
+
+export const DB_MANAGED_ROLE_FILTER = {
+  notIn: [...KEYCLOAK_BACKED_ROLE_NAMES],
+};
 
 export const GRANT_SELECT = {
   id: true,
@@ -85,6 +85,7 @@ export const MEMBERSHIP_SELECT = {
   permissionGrants: {
     where: {
       deletedAt: null,
+      roleName: DB_MANAGED_ROLE_FILTER,
     },
     select: GRANT_SELECT,
     orderBy: [{ permission: 'asc' }, { createdAt: 'asc' }],

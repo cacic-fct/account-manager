@@ -17,7 +17,10 @@ import {
   normalizePermissionList,
   parsePermissionOrThrow,
 } from './keycloak-permissions.helpers';
-import { GROUP_ROLE_GRANT_SELECT } from './keycloak-permissions.records';
+import {
+  DB_MANAGED_ROLE_FILTER,
+  GROUP_ROLE_GRANT_SELECT,
+} from './keycloak-permissions.records';
 import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
 import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.service';
 
@@ -40,6 +43,7 @@ export class KeycloakPermissionsGroupRolesService {
         where: {
           groupKey,
           deletedAt: null,
+          roleName: DB_MANAGED_ROLE_FILTER,
         },
         select: GROUP_ROLE_GRANT_SELECT,
         orderBy: [{ clientId: 'asc' }, { roleName: 'asc' }],
@@ -94,6 +98,7 @@ export class KeycloakPermissionsGroupRolesService {
         where: {
           groupKey,
           deletedAt: null,
+          roleName: DB_MANAGED_ROLE_FILTER,
         },
         select: GROUP_ROLE_GRANT_SELECT,
       });

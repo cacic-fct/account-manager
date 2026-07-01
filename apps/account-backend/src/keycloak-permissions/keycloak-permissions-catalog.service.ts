@@ -16,7 +16,7 @@ import { KeycloakService } from '../auth/services/keycloak.service';
 import {
   fallbackAccountManagerDefinitions,
   getRoleLabel,
-  isHiddenRole,
+  isDbManagedRole,
 } from './keycloak-permissions.helpers';
 
 interface KeycloakPermissionCatalogSnapshot {
@@ -59,7 +59,7 @@ export class KeycloakPermissionsCatalogService {
             client.clientId,
           );
           const definitions = roles
-            .filter((role) => !isHiddenRole(role.name))
+            .filter((role) => isDbManagedRole(role.name))
             .map((role) => ({
               permission: buildKeycloakPermissionId(client.clientId, role.name),
               clientId: client.clientId,
@@ -197,7 +197,7 @@ export class KeycloakPermissionsCatalogService {
 
       permissions.push(
         ...result.roles
-          .filter((roleName) => !isHiddenRole(roleName))
+          .filter((roleName) => isDbManagedRole(roleName))
           .map((roleName) => ({
             permission: buildKeycloakPermissionId(
               result.client.clientId,

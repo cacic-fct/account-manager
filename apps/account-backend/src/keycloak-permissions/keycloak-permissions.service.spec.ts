@@ -472,7 +472,7 @@ const createContext = () => {
 };
 
 describe('KeycloakPermissionsService', () => {
-  it('loads role definitions from configured Keycloak clients and hides uma_protection', async () => {
+  it('loads role definitions from configured Keycloak clients and hides non-db-managed roles', async () => {
     const { keycloakService, service } = createContext();
 
     const catalog = await service.listCatalog();
@@ -486,9 +486,21 @@ describe('KeycloakPermissionsService', () => {
     expect(catalog.map((definition) => definition.permission)).toContain(
       AccountManagerPermission.PermissionGrantRead,
     );
+    expect(catalog.map((definition) => definition.permission)).not.toContain(
+      AccountManagerPermission.Access,
+    );
+    expect(catalog.map((definition) => definition.permission)).not.toContain(
+      AccountManagerPermission.SuperAdmin,
+    );
     expect(catalog.map((definition) => definition.permission)).toContain(
       buildKeycloakPermissionId('cacic-event-manager', 'events#publish'),
     );
+    expect(catalog.some((definition) => definition.roleName === 'access')).toBe(
+      false,
+    );
+    expect(
+      catalog.some((definition) => definition.roleName === 'super-admin'),
+    ).toBe(false);
     expect(
       catalog.some((definition) => definition.roleName === 'uma_protection'),
     ).toBe(false);
@@ -582,7 +594,12 @@ describe('KeycloakPermissionsService', () => {
       (_groupId, clientId) =>
         Promise.resolve(
           clientId === 'cacic-account-manager'
-            ? ['permission-grant#read', 'uma_protection']
+            ? [
+                'access',
+                'super-admin',
+                'permission-grant#read',
+                'uma_protection',
+              ]
             : [],
         ),
     );

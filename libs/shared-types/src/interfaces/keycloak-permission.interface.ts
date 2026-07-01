@@ -17,6 +17,7 @@ export type KeycloakPermissionClientId =
   (typeof KEYCLOAK_PERMISSION_CLIENTS)[number]['clientId'];
 
 export const HIDDEN_KEYCLOAK_ROLE_NAMES = ['uma_protection'] as const;
+export const KEYCLOAK_BACKED_ROLE_NAMES = ['access', 'super-admin'] as const;
 
 export const AccountManagerKeycloakRole = {
   Access: 'access',
@@ -41,8 +42,6 @@ export const ACCOUNT_MANAGER_PERMISSION_CLIENT_ID =
   'cacic-account-manager' satisfies KeycloakPermissionClientId;
 
 export const ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG = [
-  AccountManagerKeycloakRole.Access,
-  AccountManagerKeycloakRole.SuperAdmin,
   AccountManagerKeycloakRole.DiscordManagementRead,
   AccountManagerKeycloakRole.DiscordManagementUpdate,
   AccountManagerKeycloakRole.StudentVerificationRead,
@@ -88,6 +87,19 @@ export function parseKeycloakPermissionId(permission: string): {
   }
 
   return { clientId, roleName };
+}
+
+export function isKeycloakBackedRoleName(roleName: string): boolean {
+  return KEYCLOAK_BACKED_ROLE_NAMES.includes(
+    roleName as (typeof KEYCLOAK_BACKED_ROLE_NAMES)[number],
+  );
+}
+
+export function isKeycloakBackedPermission(permission: string): boolean {
+  const parsedPermission = parseKeycloakPermissionId(permission);
+  return parsedPermission
+    ? isKeycloakBackedRoleName(parsedPermission.roleName)
+    : isKeycloakBackedRoleName(permission.trim());
 }
 
 export const AccountManagerPermission = {

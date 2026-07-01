@@ -15,6 +15,7 @@ import {
   PermissionGroupMembership,
   PermissionGroupMembershipStatus,
   PermissionGroupRoleGrant,
+  isKeycloakBackedRoleName,
 } from '@cacic/shared-types';
 import { BadRequestException } from '@nestjs/common';
 import { KeycloakUserData } from '../auth/services/keycloak.service';
@@ -44,7 +45,10 @@ export function normalizePermission(permission: string): string {
     );
   }
 
-  if (isHiddenRole(parsedPermission.roleName)) {
+  if (
+    isHiddenRole(parsedPermission.roleName) ||
+    isKeycloakBackedRoleName(parsedPermission.roleName)
+  ) {
     throw new BadRequestException(`Permissão inválida: ${permission}.`);
   }
 
@@ -336,6 +340,10 @@ export function isHiddenRole(roleName: string): boolean {
   return HIDDEN_KEYCLOAK_ROLE_NAMES.includes(
     roleName as (typeof HIDDEN_KEYCLOAK_ROLE_NAMES)[number],
   );
+}
+
+export function isDbManagedRole(roleName: string): boolean {
+  return !isHiddenRole(roleName) && !isKeycloakBackedRoleName(roleName);
 }
 
 function normalizeRequiredDate(value: string, fieldLabel: string): Date {

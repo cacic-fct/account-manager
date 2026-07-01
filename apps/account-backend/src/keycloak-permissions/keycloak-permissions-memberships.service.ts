@@ -27,6 +27,7 @@ import {
   normalizePermissionGroupKey,
 } from './keycloak-permissions.helpers';
 import {
+  DB_MANAGED_ROLE_FILTER,
   GROUP_ROLE_GRANT_SELECT,
   MEMBERSHIP_SELECT,
   type MembershipRecord,
@@ -351,6 +352,7 @@ export class KeycloakPermissionsMembershipsService {
         where: {
           groupKey,
           deletedAt: null,
+          roleName: DB_MANAGED_ROLE_FILTER,
         },
         select: GROUP_ROLE_GRANT_SELECT,
       }),
