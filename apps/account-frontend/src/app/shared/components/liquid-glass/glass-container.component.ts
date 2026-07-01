@@ -2,10 +2,13 @@ import {
   Component,
   OnInit,
   ChangeDetectionStrategy,
+  PLATFORM_ID,
   computed,
+  inject,
   input,
   signal,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
   GlassFilterComponent,
   DisplacementMode,
@@ -70,6 +73,8 @@ export interface GlassSize {
   `,
 })
 export class GlassContainerComponent implements OnInit {
+  private readonly platformId = inject(PLATFORM_ID);
+
   className = input('');
   containerStyleValue = input<Record<string, string | number>>({});
   displacementScale = input(25);
@@ -95,10 +100,11 @@ export class GlassContainerComponent implements OnInit {
   clickable = computed(() => Boolean(this.onClick()));
 
   ngOnInit() {
-    this.isFirefox.set(
-      typeof navigator !== 'undefined' &&
-        navigator.userAgent.toLowerCase().includes('firefox'),
-    );
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    this.isFirefox.set(navigator.userAgent.toLowerCase().includes('firefox'));
   }
 
   backdropStyle() {

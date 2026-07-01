@@ -30,7 +30,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "apps/account-frontend",
-        "command": "bun run eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern"
+        "command": "bun run eslint \"src/**/*.ts\" \"src/**/*.html\" --no-error-on-unmatched-pattern"
       }
     },
     "watch": {

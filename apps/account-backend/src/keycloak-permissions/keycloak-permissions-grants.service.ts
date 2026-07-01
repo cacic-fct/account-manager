@@ -315,7 +315,7 @@ export class KeycloakPermissionsGrantsService {
     return grant;
   }
 
-  private async findNonDeletedDirectGrant(
+  private findNonDeletedDirectGrant(
     userId: string,
     permission: string,
     exceptId?: string,

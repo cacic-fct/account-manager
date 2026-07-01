@@ -10,7 +10,9 @@ import {
   inject,
   DestroyRef,
   input,
+  PLATFORM_ID,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
 import {
@@ -104,6 +106,8 @@ export interface LiquidGlassProps {
 })
 export class LiquidGlassComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   @ViewChild('glassRef', { static: true, read: ElementRef })
   glassRef!: ElementRef<HTMLDivElement>;
@@ -143,7 +147,7 @@ export class LiquidGlassComponent implements OnInit {
   constructor() {
     // Generate shader displacement map when in shader mode
     effect(() => {
-      if (this.mode() === 'shader') {
+      if (this.isBrowser && this.mode() === 'shader') {
         const url = this.generateShaderDisplacementMap(
           this.glassSize().width,
           this.glassSize().height,
@@ -160,6 +164,10 @@ export class LiquidGlassComponent implements OnInit {
   }
 
   private generateShaderDisplacementMap(width: number, height: number): string {
+    if (!this.isBrowser) {
+      return '';
+    }
+
     const generator = new ShaderDisplacementGenerator({
       width,
       height,
@@ -173,6 +181,10 @@ export class LiquidGlassComponent implements OnInit {
   }
 
   private setupMouseTracking() {
+    if (!this.isBrowser) {
+      return;
+    }
+
     if (this.globalMousePos() && this.mouseOffset()) {
       // External mouse tracking is provided, don't set up internal tracking
       return;
@@ -212,7 +224,7 @@ export class LiquidGlassComponent implements OnInit {
   }
 
   private setupResizeListener() {
-    if (typeof window === 'undefined') {
+    if (!this.isBrowser) {
       return;
     }
 
@@ -222,6 +234,10 @@ export class LiquidGlassComponent implements OnInit {
   }
 
   private updateGlassSize() {
+    if (!this.isBrowser) {
+      return;
+    }
+
     if (this.glassRef?.nativeElement) {
       const rect = this.glassRef.nativeElement.getBoundingClientRect();
       this.glassSize.set({ width: rect.width, height: rect.height });

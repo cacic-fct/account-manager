@@ -190,6 +190,30 @@ describe('AccountPermissionService', () => {
     ]);
   });
 
+  it('filters legacy membership entities out of group grant lookups', async () => {
+    const { prisma, service } = createContext();
+    prisma.studentEntityMembership.findMany.mockResolvedValue([
+      { entity: 'LEGACY_GROUP' },
+      { entity: PermissionGroupKey.Cacic },
+    ]);
+    prisma.keycloakGroupPermissionGrant.findFirst.mockResolvedValue({
+      id: 'group-grant-1',
+    });
+
+    await expect(
+      service.hasAnyActivePermission('user-1', [
+        AccountManagerPermission.StudentVerificationReview,
+      ]),
+    ).resolves.toBe(true);
+
+    const groupGrantArgs = getMockArg<PermissionFindFirstArgs>(
+      prisma.keycloakGroupPermissionGrant.findFirst,
+    );
+    expect(groupGrantArgs.where.groupKey).toEqual({
+      in: [PermissionGroupKey.Cacic],
+    });
+  });
+
   it('preserves active legacy membership-linked grants during permission checks', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({

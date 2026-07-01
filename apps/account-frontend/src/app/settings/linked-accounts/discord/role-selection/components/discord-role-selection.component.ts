@@ -308,10 +308,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
   saveChanges(): void {
     if (!this.hasChanges()) return;
 
-    // Check cooldown
     if (this.isOnCooldown()) {
-      this.updateErrorMessage.set(this.cooldownMessage());
-      setTimeout(() => this.updateErrorMessage.set(''), 3000);
       return;
     }
 

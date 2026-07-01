@@ -360,7 +360,11 @@ export class AccountPermissionService {
     });
 
     const groupKeys = [
-      ...new Set(memberships.map((membership) => membership.entity)),
+      ...new Set(
+        memberships
+          .map((membership) => membership.entity)
+          .filter(isPermissionGroupKey),
+      ),
     ];
     if (groupKeys.length === 0) {
       return false;

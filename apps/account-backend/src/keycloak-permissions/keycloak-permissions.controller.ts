@@ -168,6 +168,22 @@ export class KeycloakPermissionsController {
     name: 'groupKey',
     description: 'Managed permission group key.',
   })
+  @ApiBody({
+    type: PermissionGroupRoleGrantUpdateDto,
+    description:
+      'Complete list of Keycloak client roles that should be enabled for the managed group.',
+    examples: {
+      replaceGroupRoles: {
+        summary: 'Replace managed group role grants',
+        value: {
+          permissions: [
+            'cacic-account-manager:permission-grant#read',
+            'cacic-event-manager:events#publish',
+          ],
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Group role grants replaced successfully',
@@ -347,6 +363,22 @@ export class KeycloakPermissionsController {
     summary: 'Create a direct Keycloak permission grant',
     description:
       'Creates a direct database-backed permission grant for a Keycloak user and synchronizes the parsed client role to Keycloak.',
+  })
+  @ApiBody({
+    type: KeycloakPermissionGrantCreateDto,
+    description:
+      'Direct Keycloak permission grant payload for one target user and one client role.',
+    examples: {
+      activeGrant: {
+        summary: 'Create an active direct grant',
+        value: {
+          userId: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
+          permission: 'cacic-account-manager:permission-grant#read',
+          validFrom: null,
+          validUntil: null,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 201,

@@ -61,11 +61,9 @@ export class AnalyticsService {
       );
     });
 
-    const stopPreferencesListener = this.privacyService.onPreferencesChange(
-      (preferences) => {
-        this.updateAnalyticsPreferences(preferences);
-      },
-    );
+    const stopPreferencesListener = this.privacyService.onPreferencesChange(() => {
+      this.updateAnalyticsPreferences();
+    });
     this.destroyRef.onDestroy(stopPreferencesListener);
   }
 
