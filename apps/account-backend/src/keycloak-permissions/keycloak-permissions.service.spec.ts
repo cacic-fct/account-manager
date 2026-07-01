@@ -1032,6 +1032,7 @@ describe('KeycloakPermissionsService', () => {
       ['permission-grant#read'],
       'cacic-account-manager',
     );
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledTimes(1);
     const updateArgs = getMockArg<{
       where: { id: string };
       data: {
@@ -1039,7 +1040,7 @@ describe('KeycloakPermissionsService', () => {
         updatedById: string;
         lastSyncError: null;
       };
-    }>(prisma.keycloakPermissionGrant.update, 1);
+    }>(prisma.keycloakPermissionGrant.update);
     expect(updateArgs.where).toEqual({ id: 'legacy-grant-1' });
     expect(updateArgs.data.deletedAt).toBeInstanceOf(Date);
     expect(updateArgs.data.updatedById).toBe('admin-1');

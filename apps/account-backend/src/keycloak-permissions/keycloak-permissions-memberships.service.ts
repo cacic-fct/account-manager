@@ -202,6 +202,7 @@ export class KeycloakPermissionsMembershipsService {
     });
 
     await this.sync.syncMembershipAfterWrite(membership, {
+      deactivateLinkedGrants: wasActive && !willBeActive ? false : undefined,
       removeIfPreviouslyActive: wasActive,
     });
     if (wasActive && !willBeActive) {

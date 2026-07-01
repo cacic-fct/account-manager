@@ -149,6 +149,7 @@ export class KeycloakPermissionsSyncService {
   async syncMembershipAfterWrite(
     membership: MembershipRecord,
     options: {
+      deactivateLinkedGrants?: boolean;
       removeIfPreviouslyActive?: boolean;
       throwOnFailure?: boolean;
     } = {},
@@ -170,7 +171,9 @@ export class KeycloakPermissionsSyncService {
           group.keycloakGroupId,
           group.keycloakGroupPath,
         );
-        await this.deactivateLinkedPermissionGrants(membership, now);
+        if (options.deactivateLinkedGrants ?? true) {
+          await this.deactivateLinkedPermissionGrants(membership, now);
+        }
         await this.markMembershipSynced(membership.id, now);
       }
     } catch (error) {
