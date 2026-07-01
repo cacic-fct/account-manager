@@ -151,11 +151,18 @@ export class DiscordRoleService {
         };
       }
 
-      const staleRolesRemoved = await this.removeStaleManagedRoles(
+      const managedRolesRemoved = await this.removeStaleManagedRoles(
         member,
         null,
         options.reason,
       );
+      const permissionGroupRolesRemoved =
+        await this.removePermissionGroupRolesFromMember(
+          member,
+          options.reason ?? 'discord-link-missing-account-role-cleanup',
+        );
+      const staleRolesRemoved =
+        managedRolesRemoved + permissionGroupRolesRemoved;
       const registrationRoleApplied =
         await this.ensureRegistrationRoleForMember(member, options.reason);
 
@@ -233,6 +240,11 @@ export class DiscordRoleService {
       },
     );
 
+    await this.reconcilePermissionGroupAffiliationRoles(
+      discordLink.userId,
+      options.reason ?? 'discord-link-role-reconciled',
+    );
+
     return {
       eligibleRole: role.category,
       roleId: role.roleId,
@@ -258,6 +270,7 @@ export class DiscordRoleService {
     }
 
     await this.removeStaleManagedRoles(member, null, reason);
+    await this.removePermissionGroupRolesFromMember(member, reason);
     await this.ensureRegistrationRoleForMember(member, reason);
     await this.prisma.discordLink.update({
       where: { id: discordLink.id },
@@ -366,6 +379,7 @@ export class DiscordRoleService {
     }
 
     await this.removeStaleManagedRoles(member, null, reason);
+    await this.removePermissionGroupRolesFromMember(member, reason);
     await this.ensureRegistrationRoleForMember(member, reason);
     return 'registration';
   }
@@ -477,6 +491,8 @@ export class DiscordRoleService {
           null,
           reason,
         );
+        staleManagedRolesRemoved +=
+          await this.removePermissionGroupRolesFromMember(member, reason);
         const roleApplied = await this.ensureRegistrationRoleForMember(
           member,
           reason,
@@ -578,6 +594,7 @@ export class DiscordRoleService {
   }
 
   hasRecentManagedRoleMutation(memberId: string): boolean {
+    this.purgeExpiredManagedRoleMutations();
     const mutationUntil = this.recentManagedRoleMutationUntil.get(memberId);
 
     if (!mutationUntil) {
@@ -655,6 +672,35 @@ export class DiscordRoleService {
       } catch (error) {
         this.logger.warn(
           `Failed to remove stale Discord managed role ${roleId} from ${member.id}:`,
+          error,
+        );
+      }
+    }
+
+    return removed;
+  }
+
+  private async removePermissionGroupRolesFromMember(
+    member: GuildMember,
+    reason?: string,
+  ): Promise<number> {
+    let removed = 0;
+
+    for (const roleId of PERMISSION_GROUP_DISCORD_ROLE_IDS) {
+      if (!member.roles.cache.has(roleId)) {
+        continue;
+      }
+
+      try {
+        this.markManagedRoleMutation(member);
+        await member.roles.remove(
+          roleId,
+          reason ?? 'CACiC permission group role cleanup',
+        );
+        removed += 1;
+      } catch (error) {
+        this.logger.warn(
+          `Failed to remove Discord permission group role ${roleId} from ${member.id}:`,
           error,
         );
       }
@@ -767,16 +813,28 @@ export class DiscordRoleService {
   }
 
   private hasManagedRoleAssigned(member: Pick<GuildMember, 'roles'>): boolean {
-    return DISCORD_MANAGED_ROLE_IDS.some((roleId) =>
-      member.roles.cache.has(roleId),
-    );
+    return [
+      ...DISCORD_MANAGED_ROLE_IDS,
+      ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
+    ].some((roleId) => member.roles.cache.has(roleId));
   }
 
   private markManagedRoleMutation(member: Pick<GuildMember, 'id'>): void {
+    this.purgeExpiredManagedRoleMutations();
     this.recentManagedRoleMutationUntil.set(
       member.id,
       Date.now() + this.managedRoleMutationTtlMs,
     );
+  }
+
+  private purgeExpiredManagedRoleMutations(): void {
+    const now = Date.now();
+    for (const [memberId, mutationUntil] of this
+      .recentManagedRoleMutationUntil) {
+      if (mutationUntil <= now) {
+        this.recentManagedRoleMutationUntil.delete(memberId);
+      }
+    }
   }
 
   private hasNoAssignableRoles(member: GuildMember): boolean {

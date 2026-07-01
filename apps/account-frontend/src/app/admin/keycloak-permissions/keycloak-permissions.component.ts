@@ -6,7 +6,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ReactiveFormsModule, Validators, FormBuilder } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   KeycloakPermissionDefinition,
@@ -26,7 +31,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -47,6 +51,7 @@ import {
   getStatusLabel,
   groupPermissionsByClient,
 } from './keycloak-permissions.view-model';
+import { KeycloakPermissionsPersonPickerComponent } from './keycloak-permissions-person-picker.component';
 
 @Component({
   selector: 'app-permissions',
@@ -61,12 +66,12 @@ import {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatListModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatTabsModule,
     MatToolbarModule,
     MatTooltipModule,
+    KeycloakPermissionsPersonPickerComponent,
   ],
   templateUrl: './keycloak-permissions.component.html',
   styleUrl: './keycloak-permissions.component.scss',
@@ -107,14 +112,14 @@ export class PermissionsComponent implements OnInit {
 
   protected membershipForm = this.formBuilder.nonNullable.group({
     validFrom: [this.toDateTimeLocal(new Date()), Validators.required],
-    validUntil: [''],
+    validUntil: [{ value: '', disabled: true }],
     indefinite: [true],
   });
 
   protected directGrantForm = this.formBuilder.nonNullable.group({
     permission: ['', Validators.required],
     validFrom: [''],
-    validUntil: [''],
+    validUntil: [{ value: '', disabled: true }],
     indefinite: [true],
   });
 
@@ -141,6 +146,19 @@ export class PermissionsComponent implements OnInit {
     availableDirectPermissions(this.catalog(), this.directGrants()),
   );
 
+  protected availableDirectPermissionIds = computed(
+    () =>
+      new Set(
+        this.availableDirectPermissions().map(
+          (permission) => permission.permission,
+        ),
+      ),
+  );
+
+  protected hasAvailableDirectPermissions = computed(
+    () => this.availableDirectPermissions().length > 0,
+  );
+
   ngOnInit(): void {
     this.loadCatalog();
   }
@@ -151,6 +169,9 @@ export class PermissionsComponent implements OnInit {
     }
 
     this.selectedGroupKey.set(groupKey);
+    this.groupRoleGrants.set([]);
+    this.groupMemberships.set([]);
+    this.groupRolesForm.controls.permissions.setValue([]);
     this.loadGroup(groupKey);
   }
 
@@ -176,6 +197,20 @@ export class PermissionsComponent implements OnInit {
     });
   }
 
+  protected setMembershipIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.membershipForm.controls.validUntil,
+      checked,
+    );
+  }
+
+  protected setDirectGrantIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      checked,
+    );
+  }
+
   protected selectUser(user: KeycloakPermissionUser): void {
     this.selectedUser.set(user);
     this.directGrants.set([]);
@@ -191,11 +226,17 @@ export class PermissionsComponent implements OnInit {
     }
 
     const permissions = this.groupRolesForm.controls.permissions.value;
+    const groupKey = group.key;
     this.savingGroupRoles.set(true);
     this.apiService
-      .updatePermissionGroupRoleGrants(group.key, { permissions })
+      .updatePermissionGroupRoleGrants(groupKey, { permissions })
       .subscribe({
         next: (grants) => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
           this.groupRoleGrants.set(grants);
           this.groupRolesForm.controls.permissions.setValue(
             grants.map((grant) => grant.permission),
@@ -206,6 +247,11 @@ export class PermissionsComponent implements OnInit {
           this.savingGroupRoles.set(false);
         },
         error: () => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
           this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
             duration: 5000,
           });
@@ -234,6 +280,8 @@ export class PermissionsComponent implements OnInit {
       ? null
       : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
+      this.membershipForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.membershipForm.controls.validUntil.markAsTouched();
       this.snackBar.open('Informe o fim do vínculo ou marque como indefinido.', 'Fechar', {
         duration: 5000,
       });
@@ -285,6 +333,8 @@ export class PermissionsComponent implements OnInit {
       ? null
       : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
+      this.directGrantForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.directGrantForm.controls.validUntil.markAsTouched();
       this.snackBar.open('Informe o fim da permissão ou marque como indefinida.', 'Fechar', {
         duration: 5000,
       });
@@ -448,6 +498,10 @@ export class PermissionsComponent implements OnInit {
       memberships: this.apiService.getPermissionGroupMemberships(groupKey),
     }).subscribe({
       next: ({ roleGrants, memberships }) => {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
+        }
+
         this.groupRoleGrants.set(roleGrants);
         this.groupMemberships.set(memberships);
         this.groupRolesForm.controls.permissions.setValue(
@@ -458,6 +512,10 @@ export class PermissionsComponent implements OnInit {
         this.loadingGroup.set(false);
       },
       error: () => {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
+        }
+
         this.snackBar.open('Erro ao carregar grupo.', 'Fechar', {
           duration: 5000,
         });
@@ -473,11 +531,19 @@ export class PermissionsComponent implements OnInit {
       memberships: this.apiService.getUserPermissionGroupMemberships(userId),
     }).subscribe({
       next: ({ grants, memberships }) => {
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
+
         this.directGrants.set(grants);
         this.userMemberships.set(memberships);
         this.loadingUserAccess.set(false);
       },
       error: () => {
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
+
         this.snackBar.open('Erro ao carregar permissões da pessoa.', 'Fechar', {
           duration: 5000,
         });
@@ -535,6 +601,26 @@ export class PermissionsComponent implements OnInit {
       validUntil: '',
       indefinite: true,
     });
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      true,
+    );
+  }
+
+  private updateOptionalEndDateControl(
+    control: FormControl<string>,
+    indefinite: boolean,
+  ): void {
+    if (indefinite) {
+      control.reset('');
+      control.clearValidators();
+      control.disable();
+    } else {
+      control.enable();
+      control.setValidators(Validators.required);
+    }
+
+    control.updateValueAndValidity();
   }
 
   private toDateTimeLocal(date: Date): string {

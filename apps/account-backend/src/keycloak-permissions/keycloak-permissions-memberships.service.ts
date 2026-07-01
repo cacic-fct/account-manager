@@ -8,14 +8,18 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { DiscordRoleService } from '../discord/services/discord-role.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   getPermissionGroupDefinition,
+  isGrantActive,
+  isGroupRoleGrantActive,
   isMembershipActive,
   mapKeycloakUser,
   mapMembership,
@@ -23,9 +27,11 @@ import {
   normalizePermissionGroupKey,
 } from './keycloak-permissions.helpers';
 import {
+  GROUP_ROLE_GRANT_SELECT,
   MEMBERSHIP_SELECT,
   type MembershipRecord,
 } from './keycloak-permissions.records';
+import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
 import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.service';
 
 @Injectable()
@@ -34,6 +40,8 @@ export class KeycloakPermissionsMembershipsService {
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
     private readonly discordRoleService: DiscordRoleService,
+    private readonly accountPermissionService: AccountPermissionService,
+    private readonly catalog: KeycloakPermissionsCatalogService,
     private readonly sync: KeycloakPermissionsSyncService,
   ) {}
 
@@ -107,6 +115,10 @@ export class KeycloakPermissionsMembershipsService {
         'Essa pessoa já possui um vínculo ativo nesse grupo.',
       );
     }
+    if (!actorId) {
+      throw new ForbiddenException('Authentication required');
+    }
+    await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
 
     const mappedUser = mapKeycloakUser(user);
     const membership = await this.prisma.studentEntityMembership.create({
@@ -141,8 +153,43 @@ export class KeycloakPermissionsMembershipsService {
     actorId?: string,
   ): Promise<PermissionGroupMembership> {
     const existingMembership = await this.getMembershipRecordOrThrow(id);
-    const wasActive = isMembershipActive(existingMembership, new Date());
+    const now = new Date();
+    const wasActive = isMembershipActive(existingMembership, now);
     const validity = normalizeMandateWindow(input.validFrom, input.validUntil);
+    const willBeActive =
+      validity.mandateStart.getTime() <= now.getTime() &&
+      (!validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime());
+    const willProvideAccess =
+      !validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime();
+    const isShorteningActiveAccess =
+      wasActive &&
+      willBeActive &&
+      !!validity.mandateEnd &&
+      (!existingMembership.mandateEnd ||
+        validity.mandateEnd.getTime() <
+          existingMembership.mandateEnd.getTime());
+    const extendsActiveAccess =
+      wasActive &&
+      willBeActive &&
+      (!validity.mandateEnd ||
+        (!!existingMembership.mandateEnd &&
+          validity.mandateEnd.getTime() >
+            existingMembership.mandateEnd.getTime()));
+    const grantsOrExtendsAccess =
+      (!wasActive && willProvideAccess) || extendsActiveAccess;
+    const groupKey = existingMembership.entity as PermissionGroupKey;
+
+    if (!actorId) {
+      throw new ForbiddenException('Authentication required');
+    }
+    if (grantsOrExtendsAccess) {
+      await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
+    }
+    if (wasActive && (!willBeActive || isShorteningActiveAccess)) {
+      await this.assertActorCanRevokeGroupPermissions(actorId, groupKey);
+      await this.assertActorCanRevokeLinkedGrants(actorId, existingMembership);
+    }
+
     const membership = await this.prisma.studentEntityMembership.update({
       where: { id },
       data: {
@@ -155,8 +202,14 @@ export class KeycloakPermissionsMembershipsService {
     });
 
     await this.sync.syncMembershipAfterWrite(membership, {
+      deactivateLinkedGrants: wasActive && !willBeActive ? false : undefined,
       removeIfPreviouslyActive: wasActive,
     });
+    if (wasActive && !willBeActive) {
+      await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+    } else if (isShorteningActiveAccess) {
+      await this.shortenLinkedPermissionGrants(membership, actorId);
+    }
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
       'permission-group-membership-updated',
@@ -168,11 +221,25 @@ export class KeycloakPermissionsMembershipsService {
   async deletePermissionGroupMembership(
     id: string,
     actorId?: string,
+    options: { enforceActorPermission?: boolean } = {
+      enforceActorPermission: true,
+    },
   ): Promise<void> {
     const membership = await this.getMembershipRecordOrThrow(id);
     const group = getPermissionGroupDefinition(
       membership.entity as PermissionGroupKey,
     );
+    if (options.enforceActorPermission !== false) {
+      if (!actorId) {
+        throw new ForbiddenException('Authentication required');
+      }
+      await this.assertActorCanRevokeGroupPermissions(
+        actorId,
+        membership.entity as PermissionGroupKey,
+      );
+      await this.assertActorCanRevokeLinkedGrants(actorId, membership);
+    }
+    const now = new Date();
 
     await this.keycloakService.removeUserFromGroupId(
       membership.userId,
@@ -182,12 +249,13 @@ export class KeycloakPermissionsMembershipsService {
     await this.prisma.studentEntityMembership.update({
       where: { id },
       data: {
-        deletedAt: new Date(),
+        deletedAt: now,
         updatedById: actorId,
-        lastSyncedAt: new Date(),
+        lastSyncedAt: now,
         lastSyncError: null,
       },
     });
+    await this.deactivateLinkedPermissionGrants(membership, actorId, now);
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
       'permission-group-membership-deleted',
@@ -213,8 +281,143 @@ export class KeycloakPermissionsMembershipsService {
       );
     }
 
-    await this.deletePermissionGroupMembership(membershipId, userId);
+    await this.deletePermissionGroupMembership(membershipId, userId, {
+      enforceActorPermission: false,
+    });
     return { removed: true, id: membershipId };
+  }
+
+  private async assertActorCanAssignGroupPermissions(
+    actorId: string,
+    groupKey: PermissionGroupKey,
+  ): Promise<void> {
+    for (const permission of await this.listActiveGroupPermissions(groupKey)) {
+      if (
+        !(await this.accountPermissionService.canAssignPermission(
+          actorId,
+          permission,
+        ))
+      ) {
+        throw new ForbiddenException(
+          'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
+        );
+      }
+    }
+  }
+
+  private async assertActorCanRevokeGroupPermissions(
+    actorId: string,
+    groupKey: PermissionGroupKey,
+  ): Promise<void> {
+    for (const permission of await this.listActiveGroupPermissions(groupKey)) {
+      if (
+        !(await this.accountPermissionService.canRevokePermission(
+          actorId,
+          permission,
+        ))
+      ) {
+        throw new ForbiddenException(
+          'Você não pode remover pessoas de um grupo que concede permissões que você não pode revogar.',
+        );
+      }
+    }
+  }
+
+  private async assertActorCanRevokeLinkedGrants(
+    actorId: string,
+    membership: MembershipRecord,
+  ): Promise<void> {
+    for (const grant of membership.permissionGrants) {
+      if (
+        !(await this.accountPermissionService.canRevokePermission(
+          actorId,
+          grant.permission,
+        ))
+      ) {
+        throw new ForbiddenException(
+          'Você não pode remover vínculos com permissões legadas que você não pode revogar.',
+        );
+      }
+    }
+  }
+
+  private async listActiveGroupPermissions(
+    groupKey: PermissionGroupKey,
+  ): Promise<string[]> {
+    const now = new Date();
+    const group = getPermissionGroupDefinition(groupKey);
+    const [dbGrants, keycloakPermissions] = await Promise.all([
+      this.prisma.keycloakGroupPermissionGrant.findMany({
+        where: {
+          groupKey,
+          deletedAt: null,
+        },
+        select: GROUP_ROLE_GRANT_SELECT,
+      }),
+      this.catalog.listKeycloakGroupPermissions(group),
+    ]);
+
+    return [
+      ...new Set([
+        ...dbGrants
+          .filter((grant) => isGroupRoleGrantActive(grant, now))
+          .map((grant) => grant.permission),
+        ...keycloakPermissions.map((permission) => permission.permission),
+      ]),
+    ];
+  }
+
+  private async deactivateLinkedPermissionGrants(
+    membership: MembershipRecord,
+    actorId: string | undefined,
+    now: Date,
+  ): Promise<void> {
+    for (const grant of membership.permissionGrants) {
+      if (isGrantActive(grant, now)) {
+        await this.keycloakService.removeUserClientRoles(
+          grant.userId,
+          [grant.roleName],
+          grant.clientId,
+        );
+      }
+
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id: grant.id },
+        data: {
+          deletedAt: now,
+          updatedById: actorId,
+          lastSyncedAt: now,
+          lastSyncError: null,
+        },
+      });
+    }
+  }
+
+  private async shortenLinkedPermissionGrants(
+    membership: MembershipRecord,
+    actorId: string | undefined,
+  ): Promise<void> {
+    if (!membership.mandateEnd) {
+      return;
+    }
+
+    for (const grant of membership.permissionGrants) {
+      if (
+        grant.validUntil &&
+        grant.validUntil.getTime() <= membership.mandateEnd.getTime()
+      ) {
+        continue;
+      }
+
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id: grant.id },
+        data: {
+          validUntil: membership.mandateEnd,
+          updatedById: actorId,
+          lastSyncError: null,
+        },
+      });
+    }
   }
 
   private async getMembershipOrThrow(

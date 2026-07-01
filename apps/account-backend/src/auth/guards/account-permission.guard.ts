@@ -70,7 +70,12 @@ export class AccountPermissionGuard implements CanActivate {
               config.permissions,
             );
 
-      if (!hasPermission) {
+      if (
+        !hasPermission &&
+        !(await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
+          userId,
+        ))
+      ) {
         throw new ForbiddenException(
           'Required Account Manager permission missing',
         );

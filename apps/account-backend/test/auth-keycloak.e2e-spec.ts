@@ -69,7 +69,7 @@ describe('Keycloak authentication (e2e)', () => {
         {
           provide: AccountPermissionService,
           useValue: {
-            hasAccountManagerSuperAdminGrant: jest
+            hasAccountManagerSuperAdminAccess: jest
               .fn()
               .mockResolvedValue(false),
             hasAccountManagerAdminAccess: jest.fn().mockResolvedValue(false),

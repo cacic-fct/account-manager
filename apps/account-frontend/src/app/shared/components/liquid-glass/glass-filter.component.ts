@@ -1,27 +1,32 @@
-import { Component, Input, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+} from '@angular/core';
 import {
   displacementMap,
   polarDisplacementMap,
   prominentDisplacementMap,
 } from './displacement-maps';
-import { ShaderDisplacementGenerator, fragmentShaders } from './shader-utils';
 
 export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
 
 @Component({
   selector: 'app-glass-filter',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <svg
       [style.position]="'absolute'"
-      [style.width.px]="width"
-      [style.height.px]="height"
+      [style.width.px]="width()"
+      [style.height.px]="height()"
       aria-hidden="true"
     >
       <defs>
-        <radialGradient [id]="id + '-edge-mask'" cx="50%" cy="50%" r="50%">
+        <radialGradient [id]="id() + '-edge-mask'" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="black" stop-opacity="0" />
           <stop
-            [attr.offset]="Math.max(30, 80 - aberrationIntensity * 2) + '%'"
+            [attr.offset]="Math.max(30, 80 - aberrationIntensity() * 2) + '%'"
             stop-color="black"
             stop-opacity="0"
           />
@@ -29,7 +34,7 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
         </radialGradient>
 
         <filter
-          [id]="id"
+          [id]="id()"
           x="-35%"
           y="-35%"
           width="170%"
@@ -47,7 +52,6 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             preserveAspectRatio="xMidYMid slice"
           />
 
-          <!-- Create edge mask using the displacement map itself -->
           <feColorMatrix
             in="DISPLACEMENT_MAP"
             type="matrix"
@@ -60,18 +64,16 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
           <feComponentTransfer in="EDGE_INTENSITY" result="EDGE_MASK">
             <feFuncA
               type="discrete"
-              [attr.tableValues]="'0 ' + aberrationIntensity * 0.05 + ' 1'"
+              [attr.tableValues]="'0 ' + aberrationIntensity() * 0.05 + ' 1'"
             />
           </feComponentTransfer>
 
-          <!-- Original undisplaced image for center -->
           <feOffset in="SourceGraphic" dx="0" dy="0" result="CENTER_ORIGINAL" />
 
-          <!-- Red channel displacement with slight offset -->
           <feDisplacementMap
             in="SourceGraphic"
             in2="DISPLACEMENT_MAP"
-            [attr.scale]="displacementScale * (mode === 'shader' ? 1 : -1)"
+            [attr.scale]="displacementScale() * (mode() === 'shader' ? 1 : -1)"
             xChannelSelector="R"
             yChannelSelector="B"
             result="RED_DISPLACED"
@@ -86,13 +88,13 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="RED_CHANNEL"
           />
 
-          <!-- Green channel displacement -->
           <feDisplacementMap
             in="SourceGraphic"
             in2="DISPLACEMENT_MAP"
             [attr.scale]="
-              displacementScale *
-              ((mode === 'shader' ? 1 : -1) - aberrationIntensity * 0.05)
+              displacementScale() *
+              ((mode() === 'shader' ? 1 : -1) -
+                aberrationIntensity() * 0.05)
             "
             xChannelSelector="R"
             yChannelSelector="B"
@@ -108,13 +110,13 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="GREEN_CHANNEL"
           />
 
-          <!-- Blue channel displacement with slight offset -->
           <feDisplacementMap
             in="SourceGraphic"
             in2="DISPLACEMENT_MAP"
             [attr.scale]="
-              displacementScale *
-              ((mode === 'shader' ? 1 : -1) - aberrationIntensity * 0.1)
+              displacementScale() *
+              ((mode() === 'shader' ? 1 : -1) -
+                aberrationIntensity() * 0.1)
             "
             xChannelSelector="R"
             yChannelSelector="B"
@@ -130,7 +132,6 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="BLUE_CHANNEL"
           />
 
-          <!-- Combine all channels with screen blend mode for chromatic aberration -->
           <feBlend
             in="GREEN_CHANNEL"
             in2="BLUE_CHANNEL"
@@ -144,14 +145,14 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="RGB_COMBINED"
           />
 
-          <!-- Add slight blur to soften the aberration effect -->
           <feGaussianBlur
             in="RGB_COMBINED"
-            [attr.stdDeviation]="Math.max(0.1, 0.5 - aberrationIntensity * 0.1)"
+            [attr.stdDeviation]="
+              Math.max(0.1, 0.5 - aberrationIntensity() * 0.1)
+            "
             result="ABERRATED_BLURRED"
           />
 
-          <!-- Apply edge mask to aberration effect -->
           <feComposite
             in="ABERRATED_BLURRED"
             in2="EDGE_MASK"
@@ -159,7 +160,6 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="EDGE_ABERRATION"
           />
 
-          <!-- Create inverted mask for center -->
           <feComponentTransfer in="EDGE_MASK" result="INVERTED_MASK">
             <feFuncA type="table" tableValues="1 0" />
           </feComponentTransfer>
@@ -170,7 +170,6 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
             result="CENTER_CLEAN"
           />
 
-          <!-- Combine edge aberration with clean center -->
           <feComposite
             in="EDGE_ABERRATION"
             in2="CENTER_CLEAN"
@@ -181,24 +180,20 @@ export type DisplacementMode = 'standard' | 'polar' | 'prominent' | 'shader';
     </svg>
   `,
 })
-export class GlassFilterComponent implements OnInit {
-  @Input() id!: string;
-  @Input() displacementScale!: number;
-  @Input() aberrationIntensity!: number;
-  @Input() width!: number;
-  @Input() height!: number;
-  @Input() mode!: DisplacementMode;
-  @Input() shaderMapUrl?: string;
+export class GlassFilterComponent {
+  id = input.required<string>();
+  displacementScale = input.required<number>();
+  aberrationIntensity = input.required<number>();
+  width = input.required<number>();
+  height = input.required<number>();
+  mode = input.required<DisplacementMode>();
+  shaderMapUrl = input<string | undefined>();
 
   Math = Math;
-  currentMap = signal<string>('');
-
-  ngOnInit() {
-    this.currentMap.set(this.getMap());
-  }
+  currentMap = computed(() => this.getMap());
 
   private getMap(): string {
-    switch (this.mode) {
+    switch (this.mode()) {
       case 'standard':
         return displacementMap;
       case 'polar':
@@ -206,9 +201,7 @@ export class GlassFilterComponent implements OnInit {
       case 'prominent':
         return prominentDisplacementMap;
       case 'shader':
-        return this.shaderMapUrl || displacementMap;
-      default:
-        throw new Error(`Invalid mode: ${this.mode}`);
+        return this.shaderMapUrl() || displacementMap;
     }
   }
 }

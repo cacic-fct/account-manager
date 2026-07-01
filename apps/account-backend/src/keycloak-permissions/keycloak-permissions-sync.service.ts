@@ -149,6 +149,7 @@ export class KeycloakPermissionsSyncService {
   async syncMembershipAfterWrite(
     membership: MembershipRecord,
     options: {
+      deactivateLinkedGrants?: boolean;
       removeIfPreviouslyActive?: boolean;
       throwOnFailure?: boolean;
     } = {},
@@ -170,6 +171,9 @@ export class KeycloakPermissionsSyncService {
           group.keycloakGroupId,
           group.keycloakGroupPath,
         );
+        if (options.deactivateLinkedGrants ?? true) {
+          await this.deactivateLinkedPermissionGrants(membership, now);
+        }
         await this.markMembershipSynced(membership.id, now);
       }
     } catch (error) {
@@ -185,6 +189,7 @@ export class KeycloakPermissionsSyncService {
     const grants = await this.prisma.keycloakPermissionGrant.findMany({
       where: {
         deletedAt: null,
+        studentEntityMembershipId: null,
       },
       select: GRANT_SELECT,
       orderBy: [{ validUntil: 'asc' }, { validFrom: 'asc' }],
@@ -325,6 +330,10 @@ export class KeycloakPermissionsSyncService {
       group.keycloakGroupPath,
     );
     await this.markMembershipSynced(membership.id, now);
+    await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
+      membership.userId,
+      'permission-group-membership-activated',
+    );
   }
 
   private async expireMembership(
@@ -349,6 +358,7 @@ export class KeycloakPermissionsSyncService {
         lastSyncError: null,
       },
     });
+    await this.deactivateLinkedPermissionGrants(membership, now);
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
       'permission-group-membership-expired',
@@ -383,6 +393,31 @@ export class KeycloakPermissionsSyncService {
         lastSyncError: null,
       },
     });
+  }
+
+  private async deactivateLinkedPermissionGrants(
+    membership: MembershipRecord,
+    now: Date,
+  ): Promise<void> {
+    for (const grant of membership.permissionGrants) {
+      if (isGrantActive(grant, now)) {
+        await this.keycloakService.removeUserClientRoles(
+          grant.userId,
+          [grant.roleName],
+          grant.clientId,
+        );
+      }
+
+      await this.prisma.keycloakPermissionGrant.update({
+        where: { id: grant.id },
+        data: {
+          deletedAt: now,
+          updatedById: SYNC_ACTOR_ID,
+          lastSyncedAt: now,
+          lastSyncError: null,
+        },
+      });
+    }
   }
 
   private async recordSyncFailure(id: string, error: unknown): Promise<void> {

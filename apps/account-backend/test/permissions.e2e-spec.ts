@@ -173,6 +173,21 @@ describe('Permissions controllers (e2e)', () => {
     );
   });
 
+  it('lets users remove their own managed group memberships', async () => {
+    await request(app.getHttpServer())
+      .delete('/api/permissions/me/groups/membership-1')
+      .expect(200)
+      .expect({
+        removed: true,
+        id: 'membership-1',
+      });
+
+    expect(keycloakPermissions.selfRemoveMembership).toHaveBeenCalledWith(
+      'user-1',
+      'membership-1',
+    );
+  });
+
   it('passes admin group role updates with the session actor id', async () => {
     await request(app.getHttpServer())
       .put('/api/admin/permissions/groups/CACIC/role-grants')

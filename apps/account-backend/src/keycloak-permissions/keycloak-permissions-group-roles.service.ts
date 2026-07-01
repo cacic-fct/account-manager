@@ -3,7 +3,11 @@ import {
   PermissionGroupRoleGrant,
   PermissionGroupRoleGrantUpdateRequest,
 } from '@cacic/shared-types';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,7 +44,9 @@ export class KeycloakPermissionsGroupRolesService {
         select: GROUP_ROLE_GRANT_SELECT,
         orderBy: [{ clientId: 'asc' }, { roleName: 'asc' }],
       }),
-      this.catalog.listKeycloakGroupPermissions(group),
+      this.catalog.listKeycloakGroupPermissions(group, {
+        allowPartial: true,
+      }),
     ]);
     const grants = dbGrants.map((grant) => mapGroupRoleGrant(grant));
     const dbPermissionSet = new Set(grants.map((grant) => grant.permission));
@@ -83,10 +89,6 @@ export class KeycloakPermissionsGroupRolesService {
       throw new ForbiddenException('Authentication required');
     }
 
-    for (const permission of permissions) {
-      await this.assertActorCanAssignPermission(actorId, permission);
-    }
-
     const existingDbGrants =
       await this.prisma.keycloakGroupPermissionGrant.findMany({
         where: {
@@ -99,38 +101,44 @@ export class KeycloakPermissionsGroupRolesService {
       existingDbGrants.map((grant) => [grant.permission, grant]),
     );
     const desiredPermissions = new Set(permissions);
-    const keycloakPermissions =
-      await this.catalog.listKeycloakGroupPermissions(group);
-
-    for (const permission of permissions) {
-      if (existingByPermission.has(permission)) {
-        continue;
-      }
-
-      const parsedPermission = parsePermissionOrThrow(permission);
-      const grant = await this.prisma.keycloakGroupPermissionGrant.create({
-        data: {
-          groupKey,
-          keycloakGroupId: group.keycloakGroupId,
-          permission,
-          clientId: parsedPermission.clientId,
-          roleName: parsedPermission.roleName,
-          createdById: actorId,
-          updatedById: actorId,
-        },
-        select: GROUP_ROLE_GRANT_SELECT,
+    const groupPermissionState =
+      await this.catalog.listKeycloakGroupPermissionsWithAvailability(group, {
+        allowPartial: true,
       });
-      await this.sync.syncGroupRoleGrantAfterWrite(grant, {
-        throwOnFailure: false,
-      });
+    const keycloakPermissions = groupPermissionState.permissions;
+    this.assertDesiredClientsAvailable(
+      permissions,
+      groupPermissionState.unavailableClientIds,
+    );
+    const currentPermissions = new Set([
+      ...existingByPermission.keys(),
+      ...keycloakPermissions.map((permission) => permission.permission),
+    ]);
+    const permissionsToAdd = permissions.filter(
+      (permission) => !currentPermissions.has(permission),
+    );
+    const dbGrantsToRemove = existingDbGrants.filter(
+      (grant) => !desiredPermissions.has(grant.permission),
+    );
+    const keycloakPermissionsToRemove = keycloakPermissions.filter(
+      (permission) =>
+        !desiredPermissions.has(permission.permission) &&
+        !existingByPermission.has(permission.permission),
+    );
+
+    for (const permission of permissionsToAdd) {
+      await this.assertActorCanAssignPermission(actorId, permission);
     }
 
-    for (const grant of existingDbGrants) {
-      if (desiredPermissions.has(grant.permission)) {
-        continue;
-      }
+    for (const grant of dbGrantsToRemove) {
+      await this.assertActorCanRevokePermission(actorId, grant.permission);
+    }
 
-      await this.assertActorCanAssignPermission(actorId, grant.permission);
+    for (const permission of keycloakPermissionsToRemove) {
+      await this.assertActorCanRevokePermission(actorId, permission.permission);
+    }
+
+    for (const grant of dbGrantsToRemove) {
       await this.keycloakService.removeGroupClientRoles(
         grant.keycloakGroupId,
         [grant.roleName],
@@ -147,17 +155,31 @@ export class KeycloakPermissionsGroupRolesService {
       });
     }
 
-    for (const permission of keycloakPermissions) {
-      if (desiredPermissions.has(permission.permission)) {
-        continue;
-      }
-
-      await this.assertActorCanAssignPermission(actorId, permission.permission);
+    for (const permission of keycloakPermissionsToRemove) {
       await this.keycloakService.removeGroupClientRoles(
         group.keycloakGroupId,
         [permission.roleName],
         permission.clientId,
       );
+    }
+
+    for (const permission of permissionsToAdd) {
+      const parsedPermission = parsePermissionOrThrow(permission);
+      const grant = await this.prisma.keycloakGroupPermissionGrant.create({
+        data: {
+          groupKey,
+          keycloakGroupId: group.keycloakGroupId,
+          permission,
+          clientId: parsedPermission.clientId,
+          roleName: parsedPermission.roleName,
+          createdById: actorId,
+          updatedById: actorId,
+        },
+        select: GROUP_ROLE_GRANT_SELECT,
+      });
+      await this.sync.syncGroupRoleGrantAfterWrite(grant, {
+        throwOnFailure: false,
+      });
     }
 
     return this.listPermissionGroupRoleGrants(groupKey);
@@ -177,5 +199,46 @@ export class KeycloakPermissionsGroupRolesService {
         'Você não pode conceder uma permissão que não possui.',
       );
     }
+  }
+
+  private async assertActorCanRevokePermission(
+    actorId: string,
+    permission: string,
+  ): Promise<void> {
+    if (
+      !(await this.accountPermissionService.canRevokePermission(
+        actorId,
+        permission,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Você não pode revogar uma permissão que não possui.',
+      );
+    }
+  }
+
+  private assertDesiredClientsAvailable(
+    permissions: readonly string[],
+    unavailableClientIds: readonly string[],
+  ): void {
+    const unavailableClientSet = new Set(unavailableClientIds);
+    if (unavailableClientSet.size === 0) {
+      return;
+    }
+
+    const requestedUnavailableClientIds = [
+      ...new Set(
+        permissions
+          .map((permission) => parsePermissionOrThrow(permission).clientId)
+          .filter((clientId) => unavailableClientSet.has(clientId)),
+      ),
+    ];
+    if (requestedUnavailableClientIds.length === 0) {
+      return;
+    }
+
+    throw new ServiceUnavailableException(
+      `Permissões do grupo indisponíveis para: ${requestedUnavailableClientIds.join(', ')}.`,
+    );
   }
 }

@@ -63,6 +63,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
   userRoles = signal<UserRoles | null>(null);
   errorMessage = signal<string>('');
   errorAction = signal<RoleSelectionErrorAction>('retry');
+  updateErrorMessage = signal<string>('');
   successMessage = signal<string>('');
   initialSelectedIds = signal<Set<string>>(new Set());
 
@@ -203,6 +204,8 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.apiService.getSelectableDiscordRoles().subscribe({
       next: (roles: DiscordRole[]) => {
+        this.errorMessage.set('');
+        this.updateErrorMessage.set('');
         this.availableRoles.set(roles);
         this.setupRoleForm(roles);
         // Initialize selected roles with user's current roles
@@ -210,6 +213,13 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error loading available Discord roles:', error);
+        this.availableRoles.set([]);
+        this.userRoles.set(null);
+        this.initialSelectedIds.set(new Set());
+        this.errorAction.set('retry');
+        this.errorMessage.set(
+          'Não foi possível carregar os cargos disponíveis. Tente novamente.',
+        );
         this.snackBar.open(
           'Não foi possível carregar os cargos disponíveis.',
           'Fechar',
@@ -298,14 +308,12 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
   saveChanges(): void {
     if (!this.hasChanges()) return;
 
-    // Check cooldown
     if (this.isOnCooldown()) {
-      this.errorMessage.set(this.cooldownMessage());
-      setTimeout(() => this.errorMessage.set(''), 3000);
       return;
     }
 
     this.isSaving.set(true);
+    this.updateErrorMessage.set('');
     // Disable form during save
     this.roleForm.disable();
 
@@ -357,9 +365,9 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
             }
           }
 
-          this.errorMessage.set(errorMessage);
+          this.updateErrorMessage.set(errorMessage);
           // Clear error message after 5 seconds
-          setTimeout(() => this.errorMessage.set(''), 5000);
+          setTimeout(() => this.updateErrorMessage.set(''), 5000);
 
           // Re-enable form
           this.roleForm.enable();
@@ -406,6 +414,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
 
   retryLoading(): void {
     this.errorMessage.set('');
+    this.updateErrorMessage.set('');
     this.loadAvailableRoles();
   }
 }

@@ -1,14 +1,23 @@
 import {
   ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
+  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerPermission,
+  AccountManagerKeycloakRole,
+  KEYCLOAK_PERMISSION_CLIENTS,
+  isPermissionGroupKey,
   parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { getPermissionGroupDefinition } from '../../keycloak-permissions/keycloak-permissions.helpers';
+import { KeycloakService } from './keycloak.service';
 
 @Injectable()
 export class AccountPermissionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly keycloakService: KeycloakService,
+  ) {}
 
   async hasAnyActivePermission(
     userId: string,
@@ -68,6 +77,21 @@ export class AccountPermissionService {
     );
   }
 
+  async hasAccountManagerSuperAdminAccess(
+    userId: string,
+    now = new Date(),
+  ): Promise<boolean> {
+    return (
+      (await this.hasAccountManagerSuperAdminGrant(userId, now)) ||
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(userId))
+    );
+  }
+
+  async hasKeycloakSuperAdminBootstrapAccess(userId: string): Promise<boolean> {
+    const userRoles = await this.keycloakService.getUserRoles(userId);
+    return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
+  }
+
   async hasAccountManagerAdminAccess(
     userId: string,
     now = new Date(),
@@ -83,13 +107,16 @@ export class AccountPermissionService {
     userId: string,
     now = new Date(),
   ): Promise<boolean> {
-    return this.hasAnyActivePermission(
-      userId,
-      [
-        AccountManagerPermission.DiscordManagementRead,
-        AccountManagerPermission.DiscordManagementUpdate,
-      ],
-      now,
+    return (
+      (await this.hasAccountManagerSuperAdminAccess(userId, now)) ||
+      (await this.hasAnyActivePermission(
+        userId,
+        [
+          AccountManagerPermission.DiscordManagementRead,
+          AccountManagerPermission.DiscordManagementUpdate,
+        ],
+        now,
+      ))
     );
   }
 
@@ -98,6 +125,18 @@ export class AccountPermissionService {
     permission: string,
     now = new Date(),
   ): Promise<boolean> {
+    const parsedPermission = parseKeycloakPermissionId(permission);
+    if (!parsedPermission) {
+      return false;
+    }
+
+    if (
+      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
+    ) {
+      return true;
+    }
+
     if (
       !(await this.hasAnyActivePermission(
         actorId,
@@ -108,8 +147,43 @@ export class AccountPermissionService {
       return false;
     }
 
+    if (
+      await this.hasClientSuperAdminPermission(
+        actorId,
+        parsedPermission.clientId,
+        now,
+      )
+    ) {
+      return true;
+    }
+
+    return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
+  }
+
+  async canRevokePermission(
+    actorId: string,
+    permission: string,
+    now = new Date(),
+  ): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
     if (!parsedPermission) {
+      return false;
+    }
+
+    if (
+      parsedPermission.clientId === ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+      (await this.hasKeycloakSuperAdminBootstrapFallbackAccess(actorId))
+    ) {
+      return true;
+    }
+
+    if (
+      !(await this.hasAnyActivePermission(
+        actorId,
+        [AccountManagerPermission.PermissionGrantRevoke],
+        now,
+      ))
+    ) {
       return false;
     }
 
@@ -151,7 +225,29 @@ export class AccountPermissionService {
       return true;
     }
 
-    return this.hasAnyGroupPermissionGrant(userId, permissions, now);
+    if (await this.hasAnyGroupPermissionGrant(userId, permissions, now)) {
+      return true;
+    }
+
+    try {
+      return await this.hasAnyKeycloakGroupPermissionGrant(
+        userId,
+        permissions,
+        now,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async hasKeycloakSuperAdminBootstrapFallbackAccess(
+    userId: string,
+  ): Promise<boolean> {
+    try {
+      return await this.hasKeycloakSuperAdminBootstrapAccess(userId);
+    } catch {
+      return false;
+    }
   }
 
   private async hasAnyDirectPermissionGrant(
@@ -163,14 +259,89 @@ export class AccountPermissionService {
       where: {
         userId,
         deletedAt: null,
+        OR: [
+          { studentEntityMembershipId: null },
+          {
+            studentEntityMembership: {
+              is: {
+                deletedAt: null,
+                mandateStart: { lte: now },
+                OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
+              },
+            },
+          },
+        ],
         permission: { in: [...permissions] },
-        OR: [{ validFrom: null }, { validFrom: { lte: now } }],
-        AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: now } }] }],
+        AND: [
+          { OR: [{ validFrom: null }, { validFrom: { lte: now } }] },
+          { OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+        ],
       },
       select: { id: true },
     });
 
     return !!grant;
+  }
+
+  private async hasAnyKeycloakGroupPermissionGrant(
+    userId: string,
+    permissions: readonly string[],
+    now: Date,
+  ): Promise<boolean> {
+    const memberships = await this.prisma.studentEntityMembership.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        mandateStart: { lte: now },
+        OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
+      },
+      select: { entity: true },
+    });
+
+    if (memberships.length === 0) {
+      return false;
+    }
+
+    const permissionsByClient = new Map<string, Set<string>>();
+    for (const permission of permissions) {
+      const parsedPermission = parseKeycloakPermissionId(permission);
+      if (!parsedPermission) {
+        continue;
+      }
+
+      const clientRoles =
+        permissionsByClient.get(parsedPermission.clientId) ?? new Set<string>();
+      clientRoles.add(parsedPermission.roleName);
+      permissionsByClient.set(parsedPermission.clientId, clientRoles);
+    }
+
+    if (permissionsByClient.size === 0) {
+      return false;
+    }
+
+    for (const membership of memberships) {
+      if (!isPermissionGroupKey(membership.entity)) {
+        continue;
+      }
+
+      const group = getPermissionGroupDefinition(membership.entity);
+      for (const client of KEYCLOAK_PERMISSION_CLIENTS) {
+        const expectedRoles = permissionsByClient.get(client.clientId);
+        if (!expectedRoles || expectedRoles.size === 0) {
+          continue;
+        }
+
+        const groupRoles = await this.keycloakService.getGroupClientRoles(
+          group.keycloakGroupId,
+          client.clientId,
+        );
+        if (groupRoles.some((roleName) => expectedRoles.has(roleName))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private async hasAnyGroupPermissionGrant(
@@ -189,7 +360,11 @@ export class AccountPermissionService {
     });
 
     const groupKeys = [
-      ...new Set(memberships.map((membership) => membership.entity)),
+      ...new Set(
+        memberships
+          .map((membership) => membership.entity)
+          .filter(isPermissionGroupKey),
+      ),
     ];
     if (groupKeys.length === 0) {
       return false;

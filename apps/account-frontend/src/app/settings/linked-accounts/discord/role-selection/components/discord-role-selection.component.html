@@ -108,6 +108,13 @@
             </div>
           }
 
+          @if (updateErrorMessage()) {
+            <div class="status-panel error-panel inline-error" role="alert">
+              <mat-icon>error</mat-icon>
+              <span>{{ updateErrorMessage() }}</span>
+            </div>
+          }
+
           @if (successMessage()) {
             <div class="status-panel success-panel" role="status">
               <mat-icon>check_circle</mat-icon>

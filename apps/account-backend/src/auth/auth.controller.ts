@@ -51,6 +51,12 @@ import { AccountPermissionService } from './services/account-permission.service'
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
 import { TotpService } from '../totp/totp.service';
+import {
+  redirectAfterSessionSave,
+  saveSession,
+} from './session-redirect.utils';
+
+const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
 
 export interface AuthSession {
   user?: SessionUser;
@@ -260,33 +266,6 @@ export class AuthController {
     } catch {
       return null;
     }
-  }
-
-  private saveSession(session: AuthSession): Promise<void> {
-    const saveSessionCallback = session.save;
-    if (!saveSessionCallback) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      saveSessionCallback.call(session, (error?: Error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      });
-    });
-  }
-
-  private async redirectAfterSessionSave(
-    session: AuthSession,
-    response: Response,
-    redirectUrl: string,
-  ): Promise<void> {
-    await this.saveSession(session);
-    response.redirect(redirectUrl);
   }
 
   private async createSessionFromKeycloakUser(
@@ -536,7 +515,7 @@ export class AuthController {
       ...(prompt ? { prompt } : {}),
       codeChallenge: pkce.challenge,
     });
-    await this.redirectAfterSessionSave(session, response, authUrl);
+    await redirectAfterSessionSave(session, response, authUrl);
   }
 
   @ApiOperation({
@@ -591,7 +570,7 @@ export class AuthController {
       prompt: 'none',
       codeChallenge: pkce.challenge,
     });
-    await this.redirectAfterSessionSave(session, res, authUrl);
+    await redirectAfterSessionSave(session, res, authUrl);
   }
 
   @ApiOperation({
@@ -659,7 +638,7 @@ export class AuthController {
         delete session.redirectTo;
       }
 
-      await this.saveSession(session);
+      await saveSession(session);
 
       return {
         success: true,
@@ -749,18 +728,14 @@ export class AuthController {
         if (wasSilentLogin) {
           const fallbackUrl = new URL(returnUrl || this.appConfig.frontendUrl);
           fallbackUrl.searchParams.set('sso', 'none');
-          await this.redirectAfterSessionSave(
-            session,
-            res,
-            fallbackUrl.toString(),
-          );
+          await redirectAfterSessionSave(session, res, fallbackUrl.toString());
           return;
         }
 
         this.logger.warn('OAuth callback returned an error', {
           error: oauthError,
         });
-        await this.redirectAfterSessionSave(
+        await redirectAfterSessionSave(
           session,
           res,
           `${this.appConfig.frontendUrl}login?error=auth_failed`,
@@ -875,7 +850,7 @@ export class AuthController {
             returnUrl,
           });
           delete session.redirectTo;
-          await this.redirectAfterSessionSave(session, res, returnUrl);
+          await redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -890,7 +865,7 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        await this.redirectAfterSessionSave(session, res, frontendUrl);
+        await redirectAfterSessionSave(session, res, frontendUrl);
         return;
       } catch (error) {
         // For connection errors, assume the user needs onboarding to be safe
@@ -913,7 +888,7 @@ export class AuthController {
           this.applyKeycloakSessionLifetime(session, tokens);
 
           // Redirect to onboarding to be safe - the onboarding page will show an error
-          await this.redirectAfterSessionSave(
+          await redirectAfterSessionSave(
             session,
             res,
             `${this.appConfig.frontendUrl}onboarding`,
@@ -949,7 +924,7 @@ export class AuthController {
             },
           );
           delete session.redirectTo;
-          await this.redirectAfterSessionSave(session, res, returnUrl);
+          await redirectAfterSessionSave(session, res, returnUrl);
           return;
         }
 
@@ -964,7 +939,7 @@ export class AuthController {
         if (!needsOnboarding) {
           delete session.redirectTo;
         }
-        await this.redirectAfterSessionSave(session, res, frontendUrl);
+        await redirectAfterSessionSave(session, res, frontendUrl);
         return;
       }
     } catch (error) {
@@ -972,7 +947,7 @@ export class AuthController {
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
-      await this.redirectAfterSessionSave(
+      await redirectAfterSessionSave(
         session,
         res,
         `${this.appConfig.frontendUrl}login?error=auth_failed`,
@@ -1418,7 +1393,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Check admin status',
     description:
-      'Check if the current user has admin privileges by verifying Keycloak roles',
+      'Check if the current user has Account Manager admin privileges from database-backed permission grants, including the Keycloak bootstrap super-admin fallback.',
   })
   @ApiResponse({
     status: 200,
@@ -1433,8 +1408,26 @@ export class AuthController {
         adminGroups: {
           type: 'array',
           items: { type: 'string' },
-          example: ['super-admin'],
-          description: 'List of admin roles the user has',
+          uniqueItems: true,
+          oneOf: [
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [AccountManagerPermission.SuperAdmin],
+            },
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [DATABASE_BACKED_ADMIN_MARKER],
+            },
+            {
+              type: 'array',
+              items: { type: 'string' },
+              example: [],
+            },
+          ],
+          description:
+            'Account Manager admin permission marker returned for the user. The controller returns either the super-admin marker, the database-backed admin marker, or an empty array.',
         },
       },
     },
@@ -1456,19 +1449,19 @@ export class AuthController {
         };
       }
 
-      const hasDbSuperAdminGrant =
-        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+      const hasSuperAdminAccess =
+        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
           userId,
         );
       const isAdmin =
-        hasDbSuperAdminGrant ||
+        hasSuperAdminAccess ||
         (await this.accountPermissionService.hasAccountManagerAdminAccess(
           userId,
         ));
-      const adminGroups = hasDbSuperAdminGrant
+      const adminGroups = hasSuperAdminAccess
         ? [AccountManagerPermission.SuperAdmin]
         : isAdmin
-          ? ['db-backed-admin']
+          ? [DATABASE_BACKED_ADMIN_MARKER]
           : [];
 
       this.logger.debug('Admin status check for user', {

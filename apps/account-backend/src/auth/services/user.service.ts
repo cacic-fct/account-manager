@@ -549,17 +549,17 @@ export class UserService {
     let adminGroups: string[] = [];
 
     try {
-      const hasDbSuperAdminGrant =
-        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+      const hasSuperAdminAccess =
+        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
           user.keycloakId,
         );
       isAdmin =
-        hasDbSuperAdminGrant ||
+        hasSuperAdminAccess ||
         (await this.accountPermissionService.hasAccountManagerAdminAccess(
           user.keycloakId,
         ));
 
-      if (hasDbSuperAdminGrant) {
+      if (hasSuperAdminAccess) {
         adminGroups = [AccountManagerPermission.SuperAdmin];
       } else if (isAdmin) {
         adminGroups = ['db-backed-admin'];
