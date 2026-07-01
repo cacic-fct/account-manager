@@ -18,6 +18,7 @@ import { DiscordRoleService } from '../discord/services/discord-role.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   getPermissionGroupDefinition,
+  isDbManagedRole,
   isGrantActive,
   isGroupRoleGrantActive,
   isMembershipActive,
@@ -328,7 +329,7 @@ export class KeycloakPermissionsMembershipsService {
     actorId: string,
     membership: MembershipRecord,
   ): Promise<void> {
-    for (const grant of membership.permissionGrants) {
+    for (const grant of this.getDbManagedLinkedPermissionGrants(membership)) {
       if (
         !(await this.accountPermissionService.canRevokePermission(
           actorId,
@@ -374,7 +375,7 @@ export class KeycloakPermissionsMembershipsService {
     actorId: string | undefined,
     now: Date,
   ): Promise<void> {
-    for (const grant of membership.permissionGrants) {
+    for (const grant of this.getDbManagedLinkedPermissionGrants(membership)) {
       if (isGrantActive(grant, now)) {
         await this.keycloakService.removeUserClientRoles(
           grant.userId,
@@ -393,6 +394,14 @@ export class KeycloakPermissionsMembershipsService {
         },
       });
     }
+  }
+
+  private getDbManagedLinkedPermissionGrants(
+    membership: MembershipRecord,
+  ): MembershipRecord['permissionGrants'] {
+    return membership.permissionGrants.filter(
+      (grant) => !grant.deletedAt && isDbManagedRole(grant.roleName),
+    );
   }
 
   private async shortenLinkedPermissionGrants(

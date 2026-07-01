@@ -1,4 +1,5 @@
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
+import { KeycloakClientRoleNotFoundException } from '../../exceptions/keycloak-client-role-not-found.exception';
 import {
   KeycloakClient,
   KeycloakGroup,
@@ -93,9 +94,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
 
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error(
-              `Keycloak client role ${clientId}:${roleName} was not found`,
-            );
+            throw new KeycloakClientRoleNotFoundException(clientId, roleName);
           }
 
           const details = await this.readTokenError(response);

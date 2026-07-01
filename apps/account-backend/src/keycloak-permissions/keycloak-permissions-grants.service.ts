@@ -12,6 +12,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -347,9 +348,10 @@ export class KeycloakPermissionsGrantsService {
     error: unknown,
     grant: GrantRecord,
   ): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes(
-      `Keycloak client role ${grant.clientId}:${grant.roleName} was not found`,
+    return (
+      error instanceof KeycloakClientRoleNotFoundException &&
+      error.clientId === grant.clientId &&
+      error.roleName === grant.roleName
     );
   }
 

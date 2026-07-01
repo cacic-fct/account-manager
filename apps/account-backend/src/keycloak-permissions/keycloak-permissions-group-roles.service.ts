@@ -8,6 +8,7 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -144,9 +145,9 @@ export class KeycloakPermissionsGroupRolesService {
     }
 
     for (const grant of dbGrantsToRemove) {
-      await this.keycloakService.removeGroupClientRoles(
+      await this.removeGroupClientRoleIfPresent(
         grant.keycloakGroupId,
-        [grant.roleName],
+        grant.roleName,
         grant.clientId,
       );
       await this.prisma.keycloakGroupPermissionGrant.update({
@@ -161,9 +162,9 @@ export class KeycloakPermissionsGroupRolesService {
     }
 
     for (const permission of keycloakPermissionsToRemove) {
-      await this.keycloakService.removeGroupClientRoles(
+      await this.removeGroupClientRoleIfPresent(
         group.keycloakGroupId,
-        [permission.roleName],
+        permission.roleName,
         permission.clientId,
       );
     }
@@ -245,5 +246,29 @@ export class KeycloakPermissionsGroupRolesService {
     throw new ServiceUnavailableException(
       `Permissões do grupo indisponíveis para: ${requestedUnavailableClientIds.join(', ')}.`,
     );
+  }
+
+  private async removeGroupClientRoleIfPresent(
+    keycloakGroupId: string,
+    roleName: string,
+    clientId: string,
+  ): Promise<void> {
+    try {
+      await this.keycloakService.removeGroupClientRoles(
+        keycloakGroupId,
+        [roleName],
+        clientId,
+      );
+    } catch (error) {
+      if (
+        error instanceof KeycloakClientRoleNotFoundException &&
+        error.clientId === clientId &&
+        error.roleName === roleName
+      ) {
+        return;
+      }
+
+      throw error;
+    }
   }
 }

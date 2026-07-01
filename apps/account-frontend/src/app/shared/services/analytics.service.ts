@@ -94,6 +94,10 @@ export class AnalyticsService {
     script.src = 'https://browser.sentry-cdn.com/7.x.x/bundle.min.js';
     script.onload = () => {
       this.sentryScriptLoading = false;
+      if (!this.privacyService.isErrorDebuggingEnabled()) {
+        return;
+      }
+
       window.Sentry?.init({
         dsn,
         environment: this.sentryEnvironment,
