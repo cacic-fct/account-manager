@@ -37,9 +37,18 @@ export class KeycloakPermissionsCatalogService {
     return (await this.loadCatalog()).definitions;
   }
 
-  private loadCatalog(): Promise<KeycloakPermissionCatalogSnapshot> {
+  private async loadCatalog(): Promise<KeycloakPermissionCatalogSnapshot> {
     this.catalogPromise ??= this.fetchCatalog();
-    return this.catalogPromise;
+    try {
+      const catalog = await this.catalogPromise;
+      if (catalog.unavailableClientIds.length > 0) {
+        this.catalogPromise = undefined;
+      }
+      return catalog;
+    } catch (error) {
+      this.catalogPromise = undefined;
+      throw error;
+    }
   }
 
   private async fetchCatalog(): Promise<KeycloakPermissionCatalogSnapshot> {

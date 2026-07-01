@@ -163,7 +163,10 @@ export class KeycloakPermissionsGrantsService {
       !!validity.validUntil &&
       (!existingGrant.validUntil ||
         validity.validUntil.getTime() < existingGrant.validUntil.getTime());
-    if (isGrantingNewActiveAccess || isKeepingActiveAccessWithValidityChange) {
+    if (
+      isGrantingNewActiveAccess ||
+      (isKeepingActiveAccessWithValidityChange && !isShorteningActiveAccess)
+    ) {
       await this.assertActorCanAssignPermission(actorId, nextPermission);
     }
     const duplicateGrant = await this.findNonDeletedDirectGrant(

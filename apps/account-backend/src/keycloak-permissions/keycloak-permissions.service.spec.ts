@@ -527,6 +527,55 @@ describe('KeycloakPermissionsService', () => {
     ).resolves.toEqual(expect.objectContaining({ id: grant.id }));
   });
 
+  it('reloads the permission catalog after a transient client outage', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'events#publish',
+    );
+    const grant = createGrant({ permission });
+    let eventManagerAttempts = 0;
+    keycloakService.listClientRoles.mockImplementation((clientId) => {
+      if (clientId === 'cacic-event-manager') {
+        eventManagerAttempts += 1;
+        if (eventManagerAttempts === 1) {
+          return Promise.reject(new Error('Event Manager down'));
+        }
+
+        return Promise.resolve([
+          { id: 'role-events-publish', name: 'events#publish' },
+        ]);
+      }
+
+      if (clientId === 'cacic-account-manager') {
+        return Promise.resolve([
+          { id: 'role-grant-read', name: 'permission-grant#read' },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(grant);
+
+    await expect(
+      service.createGrant({ userId: 'user-1', permission }, 'admin-1'),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Catálogo de permissões indisponível para: cacic-event-manager.',
+      },
+    });
+
+    await expect(
+      service.createGrant({ userId: 'user-1', permission }, 'admin-1'),
+    ).resolves.toEqual(expect.objectContaining({ id: grant.id }));
+    expect(eventManagerAttempts).toBe(2);
+  });
+
   it('shows Keycloak-only group roles as active grants', async () => {
     const { keycloakService, service } = createContext();
     keycloakService.getGroupClientRoles.mockImplementation(
@@ -1262,10 +1311,7 @@ describe('KeycloakPermissionsService', () => {
       },
     });
 
-    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
-      'admin-1',
-      existingGrant.permission,
-    );
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
     expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
       'admin-1',
       existingGrant.permission,

@@ -38,6 +38,7 @@ export class AnalyticsService {
   private platformId = inject(PLATFORM_ID);
   private destroyRef = inject(DestroyRef);
   private initialized = false;
+  private sentryScriptLoading = false;
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly sentryDsn = environment.sentryDsn;
   private readonly sentryEnvironment =
@@ -84,13 +85,15 @@ export class AnalyticsService {
 
   private initializeSentry(): void {
     const dsn = this.sentryDsn;
-    if (!dsn || window.Sentry) {
+    if (!dsn || window.Sentry || this.sentryScriptLoading) {
       return;
     }
 
+    this.sentryScriptLoading = true;
     const script = document.createElement('script');
     script.src = 'https://browser.sentry-cdn.com/7.x.x/bundle.min.js';
     script.onload = () => {
+      this.sentryScriptLoading = false;
       window.Sentry?.init({
         dsn,
         environment: this.sentryEnvironment,
@@ -98,6 +101,9 @@ export class AnalyticsService {
         beforeSend: (event) =>
           this.privacyService.isErrorDebuggingEnabled() ? event : null,
       });
+    };
+    script.onerror = () => {
+      this.sentryScriptLoading = false;
     };
     document.head.appendChild(script);
   }
@@ -107,10 +113,15 @@ export class AnalyticsService {
       return;
     }
 
+    const errorDebuggingEnabled =
+      this.privacyService.isErrorDebuggingEnabled();
+    if (errorDebuggingEnabled && !window.Sentry) {
+      this.initializeSentry();
+    }
+
     const sentryClient = window.Sentry?.getCurrentHub().getClient();
     if (sentryClient) {
-      sentryClient.getOptions().enabled =
-        this.privacyService.isErrorDebuggingEnabled();
+      sentryClient.getOptions().enabled = errorDebuggingEnabled;
     }
   }
 
