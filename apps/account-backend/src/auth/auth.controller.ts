@@ -944,6 +944,7 @@ export class AuthController {
       }
     } catch (error) {
       delete session.redirectTo;
+      delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
