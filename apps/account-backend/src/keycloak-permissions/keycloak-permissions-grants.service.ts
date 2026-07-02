@@ -105,21 +105,32 @@ export class KeycloakPermissionsGrantsService {
     }
 
     const mappedUser = mapKeycloakUser(user);
-    const grant = await this.prisma.keycloakPermissionGrant.create({
-      data: {
-        userId,
-        userEmail: mappedUser.email,
-        userDisplayName: mappedUser.displayName,
-        permission,
-        clientId: parsedPermission.clientId,
-        roleName: parsedPermission.roleName,
-        validFrom: validity.validFrom,
-        validUntil: validity.validUntil,
-        createdById: actorId,
-        updatedById: actorId,
-      },
-      select: GRANT_SELECT,
-    });
+    let grant: GrantRecord;
+    try {
+      grant = await this.prisma.keycloakPermissionGrant.create({
+        data: {
+          userId,
+          userEmail: mappedUser.email,
+          userDisplayName: mappedUser.displayName,
+          permission,
+          clientId: parsedPermission.clientId,
+          roleName: parsedPermission.roleName,
+          validFrom: validity.validFrom,
+          validUntil: validity.validUntil,
+          createdById: actorId,
+          updatedById: actorId,
+        },
+        select: GRANT_SELECT,
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Essa permissão já foi concedida para essa pessoa. Atualize ou remova a concessão atual antes de criar outra.',
+        );
+      }
+
+      throw error;
+    }
 
     await this.sync.syncGrantAfterWrite(grant, {
       throwOnFailure: false,
@@ -352,6 +363,15 @@ export class KeycloakPermissionsGrantsService {
       error instanceof KeycloakClientRoleNotFoundException &&
       error.clientId === grant.clientId &&
       error.roleName === grant.roleName
+    );
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002'
     );
   }
 

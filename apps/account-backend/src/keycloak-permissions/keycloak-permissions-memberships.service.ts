@@ -123,20 +123,31 @@ export class KeycloakPermissionsMembershipsService {
     await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
 
     const mappedUser = mapKeycloakUser(user);
-    const membership = await this.prisma.studentEntityMembership.create({
-      data: {
-        entity: groupKey,
-        keycloakGroupPath: group.keycloakGroupPath,
-        userId,
-        userEmail: mappedUser.email,
-        userDisplayName: mappedUser.displayName,
-        mandateStart: validity.mandateStart,
-        mandateEnd: validity.mandateEnd,
-        createdById: actorId,
-        updatedById: actorId,
-      },
-      select: MEMBERSHIP_SELECT,
-    });
+    let membership: MembershipRecord;
+    try {
+      membership = await this.prisma.studentEntityMembership.create({
+        data: {
+          entity: groupKey,
+          keycloakGroupPath: group.keycloakGroupPath,
+          userId,
+          userEmail: mappedUser.email,
+          userDisplayName: mappedUser.displayName,
+          mandateStart: validity.mandateStart,
+          mandateEnd: validity.mandateEnd,
+          createdById: actorId,
+          updatedById: actorId,
+        },
+        select: MEMBERSHIP_SELECT,
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'Essa pessoa já possui um vínculo ativo nesse grupo.',
+        );
+      }
+
+      throw error;
+    }
 
     await this.sync.syncMembershipAfterWrite(membership, {
       throwOnFailure: false,
@@ -453,5 +464,14 @@ export class KeycloakPermissionsMembershipsService {
     }
 
     return membership;
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2002'
+    );
   }
 }

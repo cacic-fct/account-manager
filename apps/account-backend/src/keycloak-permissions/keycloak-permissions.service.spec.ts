@@ -960,6 +960,34 @@ describe('KeycloakPermissionsService', () => {
     });
   });
 
+  it('maps raced duplicate membership creates to conflict responses', async () => {
+    const { discordRoleService, keycloakService, prisma, service } =
+      createContext();
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(null);
+    prisma.studentEntityMembership.create.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      service.createPermissionGroupMembership(
+        {
+          userId: 'user-1',
+          groupKey: PermissionGroupKey.Cacic,
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Essa pessoa já possui um vínculo ativo nesse grupo.',
+      },
+    });
+
+    expect(keycloakService.addUserToGroupId).not.toHaveBeenCalled();
+    expect(
+      discordRoleService.reconcilePermissionGroupAffiliationRoles,
+    ).not.toHaveBeenCalled();
+  });
+
   it('checks target group permissions before creating a membership', async () => {
     const { accountPermissionService, prisma, service } = createContext();
     const permission = AccountManagerPermission.PermissionGrantRead;
@@ -1293,6 +1321,33 @@ describe('KeycloakPermissionsService', () => {
       clientId: 'cacic-event-manager',
       roleName: 'events#publish',
     });
+  });
+
+  it('maps raced duplicate direct grant creates to conflict responses', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'events#publish',
+    );
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(null);
+    prisma.keycloakPermissionGrant.create.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Essa permissão já foi concedida para essa pessoa. Atualize ou remova a concessão atual antes de criar outra.',
+      },
+    });
+
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
   });
 
   it('rejects duplicate non-deleted scheduled direct grants before create', async () => {

@@ -4,6 +4,7 @@ import { AuthController, AuthSession } from './auth.controller';
 import { AccountPermissionService } from './services/account-permission.service';
 import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
+import { TotpService } from '../totp/totp.service';
 
 type KeycloakServiceMock = Pick<
   jest.Mocked<KeycloakService>,
@@ -38,6 +39,7 @@ const createController = () => {
     }),
   };
   const accountPermissionService = {} as AccountPermissionService;
+  const totpService = {} as TotpService;
 
   return {
     controller: new AuthController(
@@ -45,6 +47,7 @@ const createController = () => {
       userService as unknown as UserService,
       configService as unknown as ConfigService,
       accountPermissionService,
+      totpService,
     ),
     keycloakService,
   };
