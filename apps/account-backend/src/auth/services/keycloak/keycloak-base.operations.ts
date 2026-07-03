@@ -12,6 +12,7 @@ export abstract class KeycloakBaseOperations {
   protected readonly adminClientSecret?: string;
   protected readonly loginIdpHint?: string;
   protected readonly clientUuidCache = new Map<string, string>();
+  private readonly realmHealthCheckTimeoutMs = 5_000;
 
   constructor() {
     this.keycloakUrl = this.readEnvWithDevelopmentFallback(
@@ -97,6 +98,38 @@ export abstract class KeycloakBaseOperations {
 
   protected isProduction(): boolean {
     return process.env.NODE_ENV === 'production';
+  }
+
+  async isRealmReachable(): Promise<boolean> {
+    const configurationUrl = `${this.keycloakUrl}/realms/${this.realm}/.well-known/openid-configuration`;
+    const abortController = new AbortController();
+    const timeout = setTimeout(
+      () => abortController.abort(),
+      this.realmHealthCheckTimeoutMs,
+    );
+
+    try {
+      const response = await fetch(configurationUrl, {
+        signal: abortController.signal,
+      });
+      return response.ok;
+    } catch (error) {
+      if (this.isConnectionError(error)) {
+        this.logger.warn('Keycloak realm health check failed', {
+          configurationUrl,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+
+      this.logger.warn('Keycloak realm health check returned an error', {
+        configurationUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   protected resolveClientAuthMethod(): KeycloakClientAuthMethod {

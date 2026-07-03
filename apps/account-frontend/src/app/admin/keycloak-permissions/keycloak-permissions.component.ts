@@ -6,16 +6,21 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ReactiveFormsModule, Validators, FormBuilder } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
-  AssignableKeycloakPermission,
   KeycloakPermissionDefinition,
   KeycloakPermissionGrant,
   KeycloakPermissionUser,
-  StudentEntityDefinition,
-  StudentEntityKey,
-  StudentEntityMembership,
+  PermissionGroupDefinition,
+  PermissionGroupKey,
+  PermissionGroupMembership,
+  PermissionGroupRoleGrant,
 } from '@cacic/shared-types';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -29,13 +34,27 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { forkJoin } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
+import {
+  activeGroupPermissions,
+  availableDirectPermissions,
+  formatMembership,
+  formatValidity,
+  getGroupLabel,
+  getPermissionClientLabel,
+  getPermissionLabel,
+  getStatusLabel,
+  groupPermissionsByClient,
+} from './keycloak-permissions.view-model';
+import { KeycloakPermissionsPersonPickerComponent } from './keycloak-permissions-person-picker.component';
 
 @Component({
-  selector: 'app-keycloak-permissions',
+  selector: 'app-permissions',
   imports: [
     RouterLink,
     ReactiveFormsModule,
@@ -49,93 +68,111 @@ import { ConfirmationDialogComponent } from '../../shared/components/confirmatio
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatTabsModule,
     MatToolbarModule,
     MatTooltipModule,
+    KeycloakPermissionsPersonPickerComponent,
   ],
   templateUrl: './keycloak-permissions.component.html',
   styleUrl: './keycloak-permissions.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class KeycloakPermissionsComponent implements OnInit {
+export class PermissionsComponent implements OnInit {
   private apiService = inject(ApiService);
   private dialog = inject(MatDialog);
   private formBuilder = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
 
   protected catalog = signal<KeycloakPermissionDefinition[]>([]);
-  protected studentEntities = signal<StudentEntityDefinition[]>([]);
-  protected selectedEntity = signal<StudentEntityKey>('CACIC');
-  protected entityMemberships = signal<StudentEntityMembership[]>([]);
+  protected groups = signal<PermissionGroupDefinition[]>([]);
+  protected selectedGroupKey = signal<PermissionGroupKey | null>(null);
+  protected groupRoleGrants = signal<PermissionGroupRoleGrant[]>([]);
+  protected groupMemberships = signal<PermissionGroupMembership[]>([]);
   protected users = signal<KeycloakPermissionUser[]>([]);
   protected selectedUser = signal<KeycloakPermissionUser | null>(null);
-  protected grants = signal<KeycloakPermissionGrant[]>([]);
-  protected memberships = signal<StudentEntityMembership[]>([]);
+  protected directGrants = signal<KeycloakPermissionGrant[]>([]);
+  protected userMemberships = signal<PermissionGroupMembership[]>([]);
   protected loadingCatalog = signal(true);
-  protected loadingMemberships = signal(false);
+  protected loadingGroup = signal(false);
   protected searching = signal(false);
-  protected loadingGrants = signal(false);
-  protected saving = signal(false);
+  protected loadingUserAccess = signal(false);
+  protected savingGroupRoles = signal(false);
   protected savingMembership = signal(false);
+  protected savingGrant = signal(false);
   protected syncing = signal(false);
-  protected deletingGrantId = signal<string | null>(null);
-  protected deletingMembershipId = signal<string | null>(null);
+  protected deletingId = signal<string | null>(null);
 
   protected searchForm = this.formBuilder.nonNullable.group({
     query: ['', [Validators.required, Validators.minLength(2)]],
   });
 
-  protected grantForm = this.formBuilder.nonNullable.group({
-    permission: ['', Validators.required],
-    validFrom: [''],
-    validUntil: [''],
-    indefinite: [true],
-  });
-
-  protected membershipForm = this.formBuilder.nonNullable.group({
-    mandateStart: [this.toDateTimeLocal(new Date()), Validators.required],
-    mandateEnd: [this.toDateTimeLocal(this.defaultMandateEnd()), Validators.required],
+  protected groupRolesForm = this.formBuilder.nonNullable.group({
     permissions: [[] as string[]],
   });
 
-  protected selectedEntityDefinition = computed(() =>
-    this.studentEntities().find(
-      (entity) => entity.key === this.selectedEntity(),
-    ),
+  protected membershipForm = this.formBuilder.nonNullable.group({
+    validFrom: [this.toDateTimeLocal(new Date()), Validators.required],
+    validUntil: [{ value: '', disabled: true }],
+    indefinite: [true],
+  });
+
+  protected directGrantForm = this.formBuilder.nonNullable.group({
+    permission: ['', Validators.required],
+    validFrom: [''],
+    validUntil: [{ value: '', disabled: true }],
+    indefinite: [true],
+  });
+
+  protected catalogByClient = computed(() =>
+    groupPermissionsByClient(this.catalog()),
   );
 
-  protected selectedEntityMembership = computed(() => {
-    const user = this.selectedUser();
-    if (!user) {
+  protected selectedGroup = computed(() => {
+    const selectedKey = this.selectedGroupKey();
+    if (!selectedKey) {
       return null;
     }
 
     return (
-      this.memberships().find(
-        (membership) =>
-          membership.userId === user.id &&
-          membership.entity === this.selectedEntity(),
-      ) ?? null
+      this.groups().find((group) => group.key === selectedKey) ?? null
     );
   });
 
-  protected availablePermissions = computed(() => {
-    const grantedPermissions = new Set(
-      this.grants().map((grant) => grant.permission),
-    );
+  protected selectedGroupPermissions = computed(
+    () => activeGroupPermissions(this.groupRoleGrants()),
+  );
 
-    return this.catalog().filter(
-      (definition) => !grantedPermissions.has(definition.permission),
-    );
-  });
+  protected availableDirectPermissions = computed(() =>
+    availableDirectPermissions(this.catalog(), this.directGrants()),
+  );
+
+  protected availableDirectPermissionIds = computed(
+    () =>
+      new Set(
+        this.availableDirectPermissions().map(
+          (permission) => permission.permission,
+        ),
+      ),
+  );
+
+  protected hasAvailableDirectPermissions = computed(
+    () => this.availableDirectPermissions().length > 0,
+  );
 
   ngOnInit(): void {
     this.loadCatalog();
   }
 
-  protected selectEntity(entity: StudentEntityKey): void {
-    this.selectedEntity.set(entity);
-    this.syncMembershipForm();
-    this.loadEntityMemberships(entity);
+  protected selectGroup(groupKey: PermissionGroupKey): void {
+    if (this.selectedGroupKey() === groupKey) {
+      return;
+    }
+
+    this.selectedGroupKey.set(groupKey);
+    this.groupRoleGrants.set([]);
+    this.groupMemberships.set([]);
+    this.groupRolesForm.controls.permissions.setValue([]);
+    this.loadGroup(groupKey);
   }
 
   protected searchUsers(): void {
@@ -152,7 +189,7 @@ export class KeycloakPermissionsComponent implements OnInit {
         this.searching.set(false);
       },
       error: () => {
-        this.snackBar.open('Erro ao buscar usuários no Keycloak.', 'Fechar', {
+        this.snackBar.open('Erro ao buscar pessoas no Keycloak.', 'Fechar', {
           duration: 5000,
         });
         this.searching.set(false);
@@ -160,19 +197,76 @@ export class KeycloakPermissionsComponent implements OnInit {
     });
   }
 
+  protected setMembershipIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.membershipForm.controls.validUntil,
+      checked,
+    );
+  }
+
+  protected setDirectGrantIndefinite(checked: boolean): void {
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      checked,
+    );
+  }
+
   protected selectUser(user: KeycloakPermissionUser): void {
     this.selectedUser.set(user);
-    this.grants.set([]);
-    this.memberships.set([]);
-    this.resetGrantForm();
-    this.resetMembershipForm();
-    this.loadGrants(user.id);
-    this.loadUserMemberships(user.id);
+    this.directGrants.set([]);
+    this.userMemberships.set([]);
+    this.resetDirectGrantForm();
+    this.loadUserAccess(user.id);
+  }
+
+  protected saveGroupRoles(): void {
+    const group = this.selectedGroup();
+    if (!group) {
+      return;
+    }
+
+    const permissions = this.groupRolesForm.controls.permissions.value;
+    const groupKey = group.key;
+    this.savingGroupRoles.set(true);
+    this.apiService
+      .updatePermissionGroupRoleGrants(groupKey, { permissions })
+      .subscribe({
+        next: (grants) => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
+          this.groupRoleGrants.set(grants);
+          this.groupRolesForm.controls.permissions.setValue(
+            grants.map((grant) => grant.permission),
+          );
+          this.snackBar.open('Permissões do grupo salvas.', 'Fechar', {
+            duration: 4000,
+          });
+          this.savingGroupRoles.set(false);
+        },
+        error: () => {
+          if (this.selectedGroupKey() !== groupKey) {
+            this.savingGroupRoles.set(false);
+            return;
+          }
+
+          this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
+            duration: 5000,
+          });
+          this.savingGroupRoles.set(false);
+        },
+      });
   }
 
   protected saveMembership(): void {
+    const group = this.selectedGroup();
     const user = this.selectedUser();
-    if (!user) {
+    if (!group || !user) {
+      this.snackBar.open('Selecione um grupo e uma pessoa.', 'Fechar', {
+        duration: 4000,
+      });
       return;
     }
 
@@ -181,72 +275,78 @@ export class KeycloakPermissionsComponent implements OnInit {
       return;
     }
 
-    const formValue = this.membershipForm.getRawValue();
-    const payload = {
-      mandateStart: this.toIsoOrNull(formValue.mandateStart) ?? '',
-      mandateEnd: this.toIsoOrNull(formValue.mandateEnd) ?? '',
-      permissions: formValue.permissions as AssignableKeycloakPermission[],
-    };
-    const currentMembership = this.selectedEntityMembership();
-    const request = currentMembership
-      ? this.apiService.updateStudentEntityMembership(
-          currentMembership.id,
-          payload,
-        )
-      : this.apiService.createStudentEntityMembership({
-          userId: user.id,
-          entity: this.selectedEntity(),
-          ...payload,
-        });
-
-    this.savingMembership.set(true);
-    request.subscribe({
-      next: () => {
-        this.snackBar.open('Mandato salvo.', 'Fechar', {
-          duration: 4000,
-        });
-        this.savingMembership.set(false);
-        this.loadUserMemberships(user.id);
-        this.loadEntityMemberships(this.selectedEntity());
-        this.loadGrants(user.id);
-      },
-      error: () => {
-        this.snackBar.open('Erro ao salvar mandato.', 'Fechar', {
-          duration: 5000,
-        });
-        this.savingMembership.set(false);
-      },
-    });
-  }
-
-  protected createGrant(): void {
-    const user = this.selectedUser();
-    if (!user) {
-      return;
-    }
-
-    if (this.grantForm.invalid) {
-      this.grantForm.markAllAsTouched();
-      return;
-    }
-
-    const formValue = this.grantForm.getRawValue();
-    const validUntil = formValue.indefinite
+    const value = this.membershipForm.getRawValue();
+    const validUntil = value.indefinite
       ? null
-      : this.toIsoOrNull(formValue.validUntil);
-    if (!formValue.indefinite && !validUntil) {
-      this.snackBar.open('Informe a data final ou marque como indefinida.', 'Fechar', {
+      : this.toIsoOrNull(value.validUntil);
+    if (!value.indefinite && !validUntil) {
+      this.membershipForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.membershipForm.controls.validUntil.markAsTouched();
+      this.snackBar.open('Informe o fim do vínculo ou marque como indefinido.', 'Fechar', {
         duration: 5000,
       });
       return;
     }
 
-    this.saving.set(true);
+    this.savingMembership.set(true);
+    this.apiService
+      .createPermissionGroupMembership({
+        userId: user.id,
+        groupKey: group.key,
+        validFrom: this.toIsoOrNull(value.validFrom) ?? new Date().toISOString(),
+        validUntil,
+      })
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Pessoa vinculada ao grupo.', 'Fechar', {
+            duration: 4000,
+          });
+          this.savingMembership.set(false);
+          this.loadGroup(group.key);
+          this.loadUserAccess(user.id);
+        },
+        error: () => {
+          this.snackBar.open('Erro ao criar vínculo.', 'Fechar', {
+            duration: 5000,
+          });
+          this.savingMembership.set(false);
+        },
+      });
+  }
+
+  protected createDirectGrant(): void {
+    const user = this.selectedUser();
+    if (!user) {
+      this.snackBar.open('Selecione uma pessoa.', 'Fechar', {
+        duration: 4000,
+      });
+      return;
+    }
+
+    if (this.directGrantForm.invalid) {
+      this.directGrantForm.markAllAsTouched();
+      return;
+    }
+
+    const value = this.directGrantForm.getRawValue();
+    const validUntil = value.indefinite
+      ? null
+      : this.toIsoOrNull(value.validUntil);
+    if (!value.indefinite && !validUntil) {
+      this.directGrantForm.controls.validUntil.setErrors({ invalidDate: true });
+      this.directGrantForm.controls.validUntil.markAsTouched();
+      this.snackBar.open('Informe o fim da permissão ou marque como indefinida.', 'Fechar', {
+        duration: 5000,
+      });
+      return;
+    }
+
+    this.savingGrant.set(true);
     this.apiService
       .createKeycloakPermissionGrant({
         userId: user.id,
-        permission: formValue.permission as AssignableKeycloakPermission,
-        validFrom: this.toIsoOrNull(formValue.validFrom),
+        permission: value.permission,
+        validFrom: this.toIsoOrNull(value.validFrom),
         validUntil,
       })
       .subscribe({
@@ -254,15 +354,15 @@ export class KeycloakPermissionsComponent implements OnInit {
           this.snackBar.open('Permissão concedida.', 'Fechar', {
             duration: 4000,
           });
-          this.saving.set(false);
-          this.resetGrantForm();
-          this.loadGrants(user.id);
+          this.savingGrant.set(false);
+          this.resetDirectGrantForm();
+          this.loadUserAccess(user.id);
         },
         error: () => {
           this.snackBar.open('Erro ao conceder permissão.', 'Fechar', {
             duration: 5000,
           });
-          this.saving.set(false);
+          this.savingGrant.set(false);
         },
       });
   }
@@ -286,14 +386,14 @@ export class KeycloakPermissionsComponent implements OnInit {
   }
 
   protected confirmDeleteMembership(
-    membership: StudentEntityMembership,
+    membership: PermissionGroupMembership,
   ): void {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
       width: '460px',
       data: {
-        title: 'Encerrar mandato',
-        message: `Encerrar o mandato de ${membership.userDisplayName || membership.userEmail || membership.userId} em ${this.getEntityLabel(membership.entity)}?`,
-        confirmText: 'Encerrar',
+        title: 'Remover vínculo',
+        message: `Remover ${membership.userDisplayName || membership.userEmail || membership.userId} de ${this.getGroupLabel(membership.groupKey)}?`,
+        confirmText: 'Remover',
         cancelText: 'Cancelar',
       },
     });
@@ -323,83 +423,64 @@ export class KeycloakPermissionsComponent implements OnInit {
     });
   }
 
-  protected refreshGrants(): void {
+  protected refreshCurrent(): void {
+    const group = this.selectedGroup();
+    if (group) {
+      this.loadGroup(group.key);
+    }
+
     const user = this.selectedUser();
     if (user) {
-      this.loadGrants(user.id);
-      this.loadUserMemberships(user.id);
+      this.loadUserAccess(user.id);
     }
-    this.loadEntityMemberships(this.selectedEntity());
+  }
+
+  protected isGroupPermissionSelected(permission: string): boolean {
+    return this.selectedGroupPermissions().has(permission);
   }
 
   protected getPermissionLabel(permission: string): string {
-    return (
-      this.catalog().find((definition) => definition.permission === permission)
-        ?.label ?? permission
-    );
+    return getPermissionLabel(this.catalog(), permission);
   }
 
-  protected getApplicationLabel(application: string): string {
-    const labels: Record<string, string> = {
-      'account-manager': 'Account Manager',
-      'event-manager': 'Event Manager',
-      discord: 'Discord',
-    };
-
-    return labels[application] ?? application;
+  protected getPermissionClientLabel(permission: string): string {
+    return getPermissionClientLabel(this.catalog(), permission);
   }
 
-  protected getEntityLabel(entity: string): string {
-    return (
-      this.studentEntities().find((definition) => definition.key === entity)
-        ?.label ?? entity
-    );
+  protected getGroupLabel(groupKey: string): string {
+    return getGroupLabel(this.groups(), groupKey);
   }
 
   protected getStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-      active: 'Ativa',
-      scheduled: 'Agendada',
-      expired: 'Expirada',
-    };
-
-    return labels[status] ?? status;
+    return getStatusLabel(status);
   }
 
-  protected formatDate(value: string | null | undefined): string {
-    if (!value) {
-      return '-';
-    }
-
-    return new Date(value).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  protected formatValidity(item: {
+    validFrom?: string | null;
+    validUntil?: string | null;
+  }): string {
+    return formatValidity(item);
   }
 
-  protected formatValidity(grant: KeycloakPermissionGrant): string {
-    const from = grant.validFrom ? this.formatDate(grant.validFrom) : 'agora';
-    const until = grant.validUntil
-      ? this.formatDate(grant.validUntil)
-      : 'indefinida';
-
-    return `${from} até ${until}`;
-  }
-
-  protected formatMandate(membership: StudentEntityMembership): string {
-    return `${this.formatDate(membership.mandateStart)} até ${this.formatDate(membership.mandateEnd)}`;
+  protected formatMembership(membership: PermissionGroupMembership): string {
+    return formatMembership(membership);
   }
 
   private loadCatalog(): void {
     this.loadingCatalog.set(true);
-    this.apiService.getKeycloakPermissionCatalog().subscribe({
-      next: (catalog) => {
+    forkJoin({
+      catalog: this.apiService.getKeycloakPermissionCatalog(),
+      groups: this.apiService.getPermissionGroupCatalog(),
+    }).subscribe({
+      next: ({ catalog, groups }) => {
         this.catalog.set(catalog);
-        this.loadStudentEntities();
+        this.groups.set(groups);
         this.loadingCatalog.set(false);
+        const firstGroup = groups[0];
+        if (firstGroup) {
+          this.selectedGroupKey.set(firstGroup.key);
+          this.loadGroup(firstGroup.key);
+        }
       },
       error: () => {
         this.snackBar.open('Erro ao carregar catálogo de permissões.', 'Fechar', {
@@ -410,165 +491,161 @@ export class KeycloakPermissionsComponent implements OnInit {
     });
   }
 
-  private loadStudentEntities(): void {
-    this.apiService.getStudentEntityCatalog().subscribe({
-      next: (entities) => {
-        this.studentEntities.set(entities);
-        const selectedEntity = entities.find(
-          (entity) => entity.key === this.selectedEntity(),
-        );
-        if (!selectedEntity && entities[0]) {
-          this.selectedEntity.set(entities[0].key);
+  private loadGroup(groupKey: PermissionGroupKey): void {
+    this.loadingGroup.set(true);
+    forkJoin({
+      roleGrants: this.apiService.getPermissionGroupRoleGrants(groupKey),
+      memberships: this.apiService.getPermissionGroupMemberships(groupKey),
+    }).subscribe({
+      next: ({ roleGrants, memberships }) => {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
         }
-        this.loadEntityMemberships(this.selectedEntity());
+
+        this.groupRoleGrants.set(roleGrants);
+        this.groupMemberships.set(memberships);
+        this.groupRolesForm.controls.permissions.setValue(
+          roleGrants
+            .filter((grant) => grant.status !== 'expired')
+            .map((grant) => grant.permission),
+        );
+        this.loadingGroup.set(false);
       },
       error: () => {
-        this.snackBar.open('Erro ao carregar entidades estudantis.', 'Fechar', {
+        if (this.selectedGroupKey() !== groupKey) {
+          return;
+        }
+
+        this.snackBar.open('Erro ao carregar grupo.', 'Fechar', {
           duration: 5000,
         });
+        this.loadingGroup.set(false);
       },
     });
   }
 
-  private loadGrants(userId: string): void {
-    this.loadingGrants.set(true);
-    this.apiService.getKeycloakPermissionGrants(userId).subscribe({
-      next: (grants) => {
-        this.grants.set(grants);
-        this.loadingGrants.set(false);
-      },
-      error: () => {
-        this.snackBar.open('Erro ao carregar permissões do usuário.', 'Fechar', {
-          duration: 5000,
-        });
-        this.loadingGrants.set(false);
-      },
-    });
-  }
+  private loadUserAccess(userId: string): void {
+    this.loadingUserAccess.set(true);
+    forkJoin({
+      grants: this.apiService.getKeycloakPermissionGrants(userId),
+      memberships: this.apiService.getUserPermissionGroupMemberships(userId),
+    }).subscribe({
+      next: ({ grants, memberships }) => {
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
 
-  private loadUserMemberships(userId: string): void {
-    this.apiService.getUserStudentEntityMemberships(userId).subscribe({
-      next: (memberships) => {
-        this.memberships.set(memberships);
-        this.syncMembershipForm();
+        this.directGrants.set(grants);
+        this.userMemberships.set(memberships);
+        this.loadingUserAccess.set(false);
       },
       error: () => {
-        this.snackBar.open('Erro ao carregar mandatos do usuário.', 'Fechar', {
-          duration: 5000,
-        });
-      },
-    });
-  }
+        if (this.selectedUser()?.id !== userId) {
+          return;
+        }
 
-  private loadEntityMemberships(entity: StudentEntityKey): void {
-    this.loadingMemberships.set(true);
-    this.apiService.getStudentEntityMemberships(entity).subscribe({
-      next: (memberships) => {
-        this.entityMemberships.set(memberships);
-        this.loadingMemberships.set(false);
-      },
-      error: () => {
-        this.snackBar.open('Erro ao carregar membros da entidade.', 'Fechar', {
+        this.snackBar.open('Erro ao carregar permissões da pessoa.', 'Fechar', {
           duration: 5000,
         });
-        this.loadingMemberships.set(false);
+        this.loadingUserAccess.set(false);
       },
     });
   }
 
   private deleteGrant(grantId: string): void {
-    const user = this.selectedUser();
-    this.deletingGrantId.set(grantId);
+    this.deletingId.set(grantId);
     this.apiService.deleteKeycloakPermissionGrant(grantId).subscribe({
       next: () => {
-        this.snackBar.open('Permissão removida.', 'Fechar', {
-          duration: 4000,
-        });
-        this.deletingGrantId.set(null);
+        const user = this.selectedUser();
         if (user) {
-          this.loadGrants(user.id);
+          this.loadUserAccess(user.id);
         }
+        this.deletingId.set(null);
       },
       error: () => {
         this.snackBar.open('Erro ao remover permissão.', 'Fechar', {
           duration: 5000,
         });
-        this.deletingGrantId.set(null);
+        this.deletingId.set(null);
       },
     });
   }
 
   private deleteMembership(membershipId: string): void {
-    const user = this.selectedUser();
-    this.deletingMembershipId.set(membershipId);
-    this.apiService.deleteStudentEntityMembership(membershipId).subscribe({
+    this.deletingId.set(membershipId);
+    this.apiService.deletePermissionGroupMembership(membershipId).subscribe({
       next: () => {
-        this.snackBar.open('Mandato encerrado.', 'Fechar', {
-          duration: 4000,
-        });
-        this.deletingMembershipId.set(null);
-        this.loadEntityMemberships(this.selectedEntity());
-        if (user) {
-          this.loadUserMemberships(user.id);
-          this.loadGrants(user.id);
+        const group = this.selectedGroup();
+        if (group) {
+          this.loadGroup(group.key);
         }
+        const user = this.selectedUser();
+        if (user) {
+          this.loadUserAccess(user.id);
+        }
+        this.deletingId.set(null);
       },
       error: () => {
-        this.snackBar.open('Erro ao encerrar mandato.', 'Fechar', {
+        this.snackBar.open('Erro ao remover vínculo.', 'Fechar', {
           duration: 5000,
         });
-        this.deletingMembershipId.set(null);
+        this.deletingId.set(null);
       },
     });
   }
 
-  private resetGrantForm(): void {
-    this.grantForm.reset({
+  private resetDirectGrantForm(): void {
+    this.directGrantForm.reset({
       permission: '',
       validFrom: '',
       validUntil: '',
       indefinite: true,
     });
+    this.updateOptionalEndDateControl(
+      this.directGrantForm.controls.validUntil,
+      true,
+    );
   }
 
-  private resetMembershipForm(): void {
-    this.membershipForm.reset({
-      mandateStart: this.toDateTimeLocal(new Date()),
-      mandateEnd: this.toDateTimeLocal(this.defaultMandateEnd()),
-      permissions: [],
-    });
-  }
-
-  private syncMembershipForm(): void {
-    const membership = this.selectedEntityMembership();
-    if (!membership) {
-      this.resetMembershipForm();
-      return;
+  private updateOptionalEndDateControl(
+    control: FormControl<string>,
+    indefinite: boolean,
+  ): void {
+    if (indefinite) {
+      control.reset('');
+      control.clearValidators();
+      control.disable();
+    } else {
+      control.enable();
+      control.setValidators(Validators.required);
     }
 
-    this.membershipForm.reset({
-      mandateStart: this.toDateTimeLocal(new Date(membership.mandateStart)),
-      mandateEnd: this.toDateTimeLocal(new Date(membership.mandateEnd)),
-      permissions: membership.permissionGrants.map((grant) => grant.permission),
-    });
-  }
-
-  private toIsoOrNull(value: string): string | null {
-    if (!value.trim()) {
-      return null;
-    }
-
-    return new Date(value).toISOString();
+    control.updateValueAndValidity();
   }
 
   private toDateTimeLocal(date: Date): string {
-    const offsetMs = date.getTimezoneOffset() * 60 * 1000;
-    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
-  private defaultMandateEnd(): Date {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() + 1);
-    return date;
+  private toIsoOrNull(value: string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date.toISOString();
   }
+
 }
+
+export { PermissionsComponent as KeycloakPermissionsComponent };

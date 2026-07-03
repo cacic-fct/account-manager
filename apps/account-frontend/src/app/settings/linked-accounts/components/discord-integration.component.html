@@ -58,7 +58,7 @@
         <div class="linked-section">
           <!-- Quick Status Overview -->
           <div class="status-overview">
-            @if (discordStatus()?.eligibleForRole === "student") {
+            @if (discordStatus()?.eligibleForRole === 'student') {
               <div class="status-item primary">
                 <mat-icon>school</mat-icon>
                 <div class="status-text">
@@ -68,7 +68,7 @@
                   >
                 </div>
               </div>
-            } @else if (discordStatus()?.eligibleForRole === "unesp") {
+            } @else if (discordStatus()?.eligibleForRole === 'unesp') {
               <div class="status-item secondary">
                 <mat-icon>school</mat-icon>
                 <div class="status-text">
@@ -202,6 +202,17 @@
         >
           <mat-icon>groups</mat-icon>
           Acesso ao servidor
+        </button>
+      }
+      @if (discordStatus()?.isLinked) {
+        <button
+          mat-button
+          color="primary"
+          routerLink="/settings/linked-accounts/discord/role-selection"
+          class="server-access-button"
+        >
+          <mat-icon>notifications</mat-icon>
+          Configuração de notificações
         </button>
       }
     }

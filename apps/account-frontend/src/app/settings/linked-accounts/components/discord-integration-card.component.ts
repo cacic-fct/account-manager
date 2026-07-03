@@ -54,8 +54,8 @@ import {
           @if (!isLoading()) {
             <button
               mat-icon-button
-              matTooltip="Configurações de notificações"
-              (click)="openNotificationSettings()"
+              matTooltip="Configuração de notificações"
+              routerLink="/settings/linked-accounts/discord/role-selection"
               [disabled]="!discordStatus()?.isLinked"
             >
               <mat-icon>notifications</mat-icon>
@@ -218,10 +218,6 @@ export class DiscordIntegrationCardComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
     });
-  }
-  openNotificationSettings(): void {
-    // TODO: Implement notification settings navigation
-    console.log('Open notification settings');
   }
 
   openDiscordServer(): void {

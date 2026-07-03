@@ -9,6 +9,7 @@ import {
   UserRolesDto,
   RoleSelectionResponseDto,
 } from '../dto/discord-roles.dto';
+import { PERMISSION_GROUP_DISCORD_ROLE_IDS } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DISCORD_AUTOMATED_ROLE_IDS } from '../constants/discord-managed-roles';
 
@@ -28,6 +29,7 @@ export class DiscordRoleManagementService {
 
   private readonly BLACKLISTED_ROLE_IDS: string[] = [
     ...DISCORD_AUTOMATED_ROLE_IDS,
+    ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
     '1389425145088839811',
     '533902992219570187',
     '872223819799089192',
@@ -140,7 +142,7 @@ export class DiscordRoleManagementService {
         isEnabledForSelection: true,
         isBlacklisted: false,
         hasPermissions: false,
-        roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
+        roleId: { notIn: this.getAutomatedRoleIds() },
       },
       orderBy: { rolePosition: 'desc' },
     });
@@ -186,7 +188,7 @@ export class DiscordRoleManagementService {
           isBlacklisted: false,
           hasPermissions: false,
           NOT: {
-            roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+            roleId: { in: this.getAutomatedRoleIds() },
           },
         },
         data: { isEnabledForSelection: true },
@@ -287,7 +289,7 @@ export class DiscordRoleManagementService {
         isBlacklisted: false,
         hasPermissions: false,
         NOT: {
-          roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+          roleId: { in: this.getAutomatedRoleIds() },
         },
       },
     });
@@ -307,7 +309,7 @@ export class DiscordRoleManagementService {
         isEnabledForSelection: true,
         isBlacklisted: false,
         hasPermissions: false,
-        roleId: { notIn: DISCORD_AUTOMATED_ROLE_IDS },
+        roleId: { notIn: this.getAutomatedRoleIds() },
       },
     });
 
@@ -322,10 +324,11 @@ export class DiscordRoleManagementService {
     const rolesToAdd = dto.selectedRoleIds.filter(
       (roleId) => !currentSelectableRoleIds.includes(roleId),
     );
+    const reason = 'CACiC self-service role selection';
 
     for (const roleId of rolesToRemove) {
       try {
-        await member.roles.remove(roleId);
+        await member.roles.remove(roleId, reason);
       } catch (error) {
         this.logger.warn(
           `Failed to remove role ${roleId} from user ${userId}:`,
@@ -336,7 +339,7 @@ export class DiscordRoleManagementService {
 
     for (const roleId of rolesToAdd) {
       try {
-        await member.roles.add(roleId);
+        await member.roles.add(roleId, reason);
       } catch (error) {
         this.logger.warn(
           `Failed to add role ${roleId} to user ${userId}:`,
@@ -383,7 +386,7 @@ export class DiscordRoleManagementService {
 
   private isRoleSettingBlacklisted(role: DiscordRoleSetting): boolean {
     return (
-      role.isBlacklisted || DISCORD_AUTOMATED_ROLE_IDS.includes(role.roleId)
+      role.isBlacklisted || this.getAutomatedRoleIds().includes(role.roleId)
     );
   }
 
@@ -413,8 +416,15 @@ export class DiscordRoleManagementService {
     hasPermissions: roleSetting.hasPermissions,
     isBlacklisted:
       roleSetting.isBlacklisted ||
-      DISCORD_AUTOMATED_ROLE_IDS.includes(roleSetting.roleId),
+      this.getAutomatedRoleIds().includes(roleSetting.roleId),
     isEnabled: roleSetting.isEnabledForSelection,
-    isManaged: DISCORD_AUTOMATED_ROLE_IDS.includes(roleSetting.roleId),
+    isManaged: this.getAutomatedRoleIds().includes(roleSetting.roleId),
   });
+
+  private getAutomatedRoleIds(): string[] {
+    return [
+      ...DISCORD_AUTOMATED_ROLE_IDS,
+      ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
+    ];
+  }
 }

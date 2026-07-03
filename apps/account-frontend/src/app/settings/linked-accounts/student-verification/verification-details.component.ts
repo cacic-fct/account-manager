@@ -1,4 +1,11 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -22,17 +29,7 @@ import {
 } from '../../../shared/services/student-verification/student-verification.service';
 import { environment } from '../../../../environments/environment';
 import { UniversityValidationDialogComponent } from '../components/university-validation-dialog/university-validation-dialog.component';
-
-type BannerType = 'success' | 'error' | 'warning' | 'info';
-
-interface BannerConfig {
-  type: BannerType;
-  title: string;
-  message: string;
-  icon: string;
-  visible: boolean;
-  dismissible?: boolean;
-}
+import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 
 @Component({
   selector: 'app-student-verification-details',
@@ -47,10 +44,11 @@ interface BannerConfig {
     MatCheckboxModule,
     MatChipsModule,
     MatProgressBarModule,
-    MatToolbarModule
-],
+    MatToolbarModule,
+  ],
   templateUrl: './verification-details.component.html',
   styleUrl: './verification-details.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
   private verificationService = inject(StudentVerificationService);
@@ -70,68 +68,19 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
 
   isDevelopment = !environment.production;
 
-  // Banner system
-  currentBanner = signal<BannerConfig | null>(null);
-  private bannerTimeout?: number;
+  private banners = new TransientBannerController();
+  currentBanner = this.banners.currentBanner;
 
   ngOnInit(): void {
     this.loadVerificationStatus();
   }
 
   ngOnDestroy(): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-    }
-  }
-
-  private showBanner(
-    type: BannerType,
-    title: string,
-    message: string,
-    dismissible = true,
-    autoHide = false,
-  ): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-    }
-
-    this.currentBanner.set({
-      type,
-      title,
-      message,
-      icon: this.getBannerIcon(type),
-      visible: true,
-      dismissible,
-    });
-
-    if (autoHide) {
-      this.bannerTimeout = window.setTimeout(() => {
-        this.dismissBanner();
-      }, 5000);
-    }
-  }
-
-  private getBannerIcon(type: BannerType): string {
-    switch (type) {
-      case 'success':
-        return 'check_circle';
-      case 'error':
-        return 'error';
-      case 'warning':
-        return 'warning';
-      case 'info':
-        return 'info';
-      default:
-        return 'info';
-    }
+    this.banners.destroy();
   }
 
   dismissBanner(): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-      this.bannerTimeout = undefined;
-    }
-    this.currentBanner.set(null);
+    this.banners.dismiss();
   }
 
   loadVerificationStatus(): void {
@@ -159,8 +108,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       // Auto-upload when file is selected
       this.startValidation();
     } else if (file) {
-      this.showBanner(
-        'error',
+      this.banners.showError(
         'Arquivo inválido',
         'Por favor, selecione um arquivo PDF válido.',
       );
@@ -191,8 +139,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       // Auto-upload when file is dropped
       this.startValidation();
     } else if (file) {
-      this.showBanner(
-        'error',
+      this.banners.showError(
         'Arquivo inválido',
         'Por favor, selecione um arquivo PDF válido.',
       );
@@ -213,8 +160,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     const file = this.selectedFile();
 
     if (!file) {
-      this.showBanner(
-        'error',
+      this.banners.showError(
         'Arquivo não selecionado',
         'Por favor, selecione um arquivo PDF.',
       );
@@ -240,8 +186,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result?.success) {
-        this.showBanner(
-          'success',
+        this.banners.showSuccess(
           'Documento validado',
           'Documento verificado com sucesso pela universidade!',
         );
@@ -278,20 +223,17 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     this.selectedFile.set(null);
 
     if (response.status === 'approved') {
-      this.showBanner(
-        'success',
+      this.banners.showSuccess(
         'Documento aprovado!',
         'Sua verificação como estudante foi aprovada.',
       );
     } else if (response.status === 'pending') {
-      this.showBanner(
-        'info',
+      this.banners.showInfo(
         'Documento enviado',
         'Seu documento foi enviado e está em análise.',
       );
     } else {
-      this.showBanner(
-        'error',
+      this.banners.showError(
         'Documento rejeitado',
         response.message || 'Documento rejeitado automaticamente.',
       );
@@ -320,7 +262,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
         break;
     }
 
-    this.showBanner('error', title, message);
+    this.banners.showError(title, message);
   }
 
   private handleUploadError(error: HttpErrorResponse): void {
@@ -337,7 +279,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       errorMessage = 'Arquivo muito grande. Máximo 10MB.';
     }
 
-    this.showBanner('error', 'Erro no upload', errorMessage);
+    this.banners.showError('Erro no upload', errorMessage);
   }
 
   getStatusColor(status: string): 'primary' | 'accent' | 'warn' {

@@ -1,0 +1,120 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button type="button" routerLink="/settings" aria-label="Voltar">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Permissões</span>
+  <span class="spacer"></span>
+  <button
+    mat-icon-button
+    type="button"
+    matTooltip="Atualizar"
+    aria-label="Atualizar"
+    [disabled]="loading()"
+    (click)="refresh()"
+  >
+    <mat-icon>refresh</mat-icon>
+  </button>
+</mat-toolbar>
+
+<div class="page-container">
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="42"></mat-spinner>
+      <p>Carregando permissões.</p>
+    </div>
+  } @else if (!hasAccess()) {
+    <div class="empty-state">
+      <mat-icon>key_off</mat-icon>
+      <h2>Nenhuma permissão ativa</h2>
+    </div>
+  } @else {
+    <section class="access-grid">
+      <mat-card class="tool-card">
+        <mat-card-header>
+          <mat-card-title>Grupos</mat-card-title>
+          <mat-card-subtitle>Keycloak, Discord e permissões herdadas</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (memberships().length === 0) {
+            <div class="empty-state compact">
+              <mat-icon>group_off</mat-icon>
+              <p>Sem vínculos de grupo.</p>
+            </div>
+          } @else {
+            <div class="record-list">
+              @for (membership of memberships(); track membership.id) {
+                <div class="record-row">
+                  <span>
+                    <strong>{{ getGroupLabel(membership) }}</strong>
+                    <small>{{ membership.keycloakGroupPath }}</small>
+                    <small>{{ formatMembership(membership) }}</small>
+                  </span>
+                  <span class="row-actions">
+                    <mat-chip>{{ getStatusLabel(membership.status) }}</mat-chip>
+                    @if (deletingId() === membership.id) {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        color="warn"
+                        matTooltip="Remover vínculo"
+                        aria-label="Remover vínculo"
+                        (click)="confirmRemoveMembership(membership)"
+                      >
+                        <mat-icon>logout</mat-icon>
+                      </button>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="tool-card">
+        <mat-card-header>
+          <mat-card-title>Permissões diretas</mat-card-title>
+          <mat-card-subtitle>Pessoas avulsas</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (grants().length === 0) {
+            <div class="empty-state compact">
+              <mat-icon>vpn_key_off</mat-icon>
+              <p>Sem permissões diretas.</p>
+            </div>
+          } @else {
+            <div class="record-list">
+              @for (grant of grants(); track grant.id) {
+                <div class="record-row">
+                  <span>
+                    <strong>{{ getPermissionLabel(grant) }}</strong>
+                    <small>{{ formatGrant(grant) }}</small>
+                  </span>
+                  <span class="row-actions">
+                    <mat-chip>{{ getStatusLabel(grant.status) }}</mat-chip>
+                    @if (deletingId() === grant.id) {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        color="warn"
+                        matTooltip="Remover permissão"
+                        aria-label="Remover permissão"
+                        (click)="confirmRemoveGrant(grant)"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+</div>

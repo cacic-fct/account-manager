@@ -94,6 +94,13 @@ export class DiscordEventsService {
       this.didRolesChange(oldMember, newMember) &&
       this.hasNoAssignableRoles(newMember)
     ) {
+      if (this.discordRoleService.hasRecentManagedRoleMutation(newMember.id)) {
+        this.logger.debug(
+          `Skipping Discord role-state sync for ${newMember.id}; update follows a managed role mutation`,
+        );
+        return;
+      }
+
       await this.discordRoleService.syncGuildMemberRoleState(
         newMember,
         'discord-member-roles-cleared',

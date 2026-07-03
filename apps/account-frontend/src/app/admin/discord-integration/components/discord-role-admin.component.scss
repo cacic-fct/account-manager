@@ -151,53 +151,6 @@ mat-card-subtitle {
   }
 }
 
-.role-info {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  margin-left: 8px;
-}
-
-.role-swatch {
-  width: 18px;
-  height: 18px;
-  border: 1px solid color-mix(in srgb, var(--mat-sys-on-surface) 24%, transparent);
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28);
-}
-
-.role-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.role-name {
-  overflow: hidden;
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-title-small);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &.blacklisted {
-    color: var(--mat-sys-on-surface-variant);
-  }
-}
-
-.role-meta {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-medium);
-}
-
-.blacklisted-icon {
-  width: 18px;
-  height: 18px;
-  color: var(--mat-sys-error);
-  font-size: 18px;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -233,11 +186,4 @@ mat-divider {
     width: 100%;
   }
 
-  .role-info {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .blacklisted-icon {
-    grid-column: 2;
-  }
 }

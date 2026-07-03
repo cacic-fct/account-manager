@@ -38,12 +38,16 @@
       >
         @if (isCreatingRequest()) {
           <mat-spinner diameter="18"></mat-spinner>
-          Preparando solicitação
         } @else if (!canCreateNewRequest()) {
           <mat-icon>schedule</mat-icon>
-          Solicitação recente
         } @else {
           <mat-icon>download</mat-icon>
+        }
+        @if (isCreatingRequest()) {
+          Preparando solicitação
+        } @else if (!canCreateNewRequest()) {
+          Solicitação recente
+        } @else {
           Solicitar dados
         }
       </button>
@@ -183,9 +187,12 @@
       >
         @if (isDeletingAccount()) {
           <mat-spinner diameter="18"></mat-spinner>
-          Processando exclusão
         } @else {
           <mat-icon>delete_forever</mat-icon>
+        }
+        @if (isDeletingAccount()) {
+          Processando exclusão
+        } @else {
           Solicitar exclusão
         }
       </button>

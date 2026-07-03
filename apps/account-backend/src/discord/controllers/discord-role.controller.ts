@@ -15,9 +15,10 @@ import { DiscordRoleManagementService } from '../services/discord-role-managemen
 import { DiscordBotService } from '../discord-bot.service';
 import { DiscordClientService } from '../services/discord-client.service';
 import { CooldownService } from '../../common/services/cooldown.service';
-import { Auth, DiscordAdmin } from '../../auth/guards/auth.decorator';
+import { AccountPermissions, Auth } from '../../auth/guards/auth.decorator';
 import { AuthSession } from '../../auth/auth.controller';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import {
   SelectableRolesDto,
   UpdateRoleSelectionDto,
@@ -56,7 +57,7 @@ export class DiscordRoleController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
   @Get('admin')
   async getSelectableRolesForAdmin(): Promise<SelectableRolesDto> {
     return await this.roleManagementService.getSelectableRolesForAdmin();
@@ -92,7 +93,7 @@ export class DiscordRoleController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Put('admin/selection')
   async updateRoleSelection(
@@ -127,7 +128,7 @@ export class DiscordRoleController {
     status: 403,
     description: 'Forbidden - Discord admin permission required',
   })
-  @DiscordAdmin()
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/sync')
   async syncRolesFromDiscord(): Promise<{ message: string }> {

@@ -1,10 +1,10 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 @Component({
-  standalone: true,
   selector: 'app-cacic-logo',
   templateUrl: './cacic-logo.component.html',
   styleUrls: ['./cacic-logo.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CacicLogoComponent {
   fillColor = input<string>('#000');

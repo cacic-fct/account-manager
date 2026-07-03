@@ -26,6 +26,13 @@
         "command": "bun run ng test --watch=false --configuration coverage"
       }
     },
+    "eslint:lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-frontend",
+        "command": "bun run eslint \"src/**/*.ts\" \"src/**/*.html\" --no-error-on-unmatched-pattern"
+      }
+    },
     "watch": {
       "executor": "nx:run-commands",
       "continuous": true,

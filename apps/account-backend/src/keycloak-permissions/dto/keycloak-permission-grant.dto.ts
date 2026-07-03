@@ -1,33 +1,30 @@
 import {
-  AssignableKeycloakPermission,
-  KEYCLOAK_PERMISSION_CATALOG,
-  STUDENT_ENTITY_CATALOG,
+  PERMISSION_GROUP_CATALOG,
+  PermissionGroupMembershipCreateRequest,
+  PermissionGroupMembershipUpdateRequest,
+  PermissionGroupRoleGrantUpdateRequest,
+  PermissionGroupKey,
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
-  StudentEntityMembershipCreateRequest,
-  StudentEntityMembershipUpdateRequest,
 } from '@cacic/shared-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
+  IsArray,
   IsIn,
   IsISO8601,
-  IsArray,
   IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
 
-const assignablePermissions = KEYCLOAK_PERMISSION_CATALOG.map(
-  (definition) => definition.permission,
-);
-const studentEntities = STUDENT_ENTITY_CATALOG.map(
+const permissionGroups = PERMISSION_GROUP_CATALOG.map(
   (definition) => definition.key,
 );
 
 export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrantCreateRequest {
   @ApiProperty({
-    description: 'Keycloak user id that will receive the permission.',
+    description: 'Keycloak user id that will receive the direct role grant.',
     example: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
   })
   @IsString()
@@ -35,12 +32,12 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
   userId!: string;
 
   @ApiProperty({
-    enum: assignablePermissions,
-    description: 'Allowed Account Manager Keycloak client role to grant.',
-    example: AssignableKeycloakPermission.AccountManagerAccess,
+    description: 'Canonical client role id in the form clientId:roleName.',
+    example: 'cacic-account-manager:permission-grant#read',
   })
-  @IsIn(assignablePermissions)
-  permission!: AssignableKeycloakPermission;
+  @IsString()
+  @MinLength(3)
+  permission!: string;
 
   @ApiPropertyOptional({
     description:
@@ -65,6 +62,15 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
 
 export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrantUpdateRequest {
   @ApiPropertyOptional({
+    description: 'Canonical client role id in the form clientId:roleName.',
+    example: 'cacic-account-manager:permission-grant#read',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  permission?: string;
+
+  @ApiPropertyOptional({
     description:
       'Optional ISO-8601 start timestamp. If omitted, the grant is active immediately.',
     example: '2026-06-21T12:00:00.000Z',
@@ -85,9 +91,25 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
   validUntil?: string | null;
 }
 
-export class StudentEntityMembershipCreateDto implements StudentEntityMembershipCreateRequest {
+export class PermissionGroupRoleGrantUpdateDto implements PermissionGroupRoleGrantUpdateRequest {
   @ApiProperty({
-    description: 'Keycloak user id that will receive the mandate membership.',
+    isArray: true,
+    description:
+      'Canonical client role ids that should remain enabled for the group.',
+    example: [
+      'cacic-account-manager:permission-grant#read',
+      'cacic-event-manager:event#read',
+    ],
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  permissions!: string[];
+}
+
+export class PermissionGroupMembershipCreateDto implements PermissionGroupMembershipCreateRequest {
+  @ApiProperty({
+    description: 'Keycloak user id that will join the managed group.',
     example: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
   })
   @IsString()
@@ -95,64 +117,46 @@ export class StudentEntityMembershipCreateDto implements StudentEntityMembership
   userId!: string;
 
   @ApiProperty({
-    enum: studentEntities,
-    description: 'Student entity managed by CACiC.',
-    example: 'CACIC',
+    enum: permissionGroups,
+    description: 'Managed permission group.',
+    example: PermissionGroupKey.Cacic,
   })
-  @IsIn(studentEntities)
-  entity!: StudentEntityMembershipCreateRequest['entity'];
+  @IsIn(permissionGroups)
+  groupKey!: PermissionGroupMembershipCreateRequest['groupKey'];
 
   @ApiProperty({
-    description: 'Mandate start timestamp.',
+    description: 'Membership start timestamp.',
     example: '2026-01-01T00:00:00.000Z',
   })
   @IsISO8601()
-  mandateStart!: string;
+  validFrom!: string;
 
-  @ApiProperty({
-    description: 'Mandate end timestamp.',
-    example: '2026-12-31T23:59:59.000Z',
-  })
-  @IsISO8601()
-  mandateEnd!: string;
-
-  @ApiProperty({
-    enum: assignablePermissions,
-    isArray: true,
+  @ApiPropertyOptional({
     description:
-      'Specific Account Manager client roles granted to this member.',
-    example: [AssignableKeycloakPermission.AccountManagerAccess],
+      'Optional membership end timestamp. If omitted, the membership is indefinite.',
+    example: '2026-12-31T23:59:59.000Z',
+    nullable: true,
   })
-  @IsArray()
-  @ArrayUnique()
-  @IsIn(assignablePermissions, { each: true })
-  permissions!: StudentEntityMembershipCreateRequest['permissions'];
+  @IsOptional()
+  @IsISO8601()
+  validUntil?: string | null;
 }
 
-export class StudentEntityMembershipUpdateDto implements StudentEntityMembershipUpdateRequest {
+export class PermissionGroupMembershipUpdateDto implements PermissionGroupMembershipUpdateRequest {
   @ApiProperty({
-    description: 'Mandate start timestamp.',
+    description: 'Membership start timestamp.',
     example: '2026-01-01T00:00:00.000Z',
   })
   @IsISO8601()
-  mandateStart!: string;
+  validFrom!: string;
 
-  @ApiProperty({
-    description: 'Mandate end timestamp.',
-    example: '2026-12-31T23:59:59.000Z',
-  })
-  @IsISO8601()
-  mandateEnd!: string;
-
-  @ApiProperty({
-    enum: assignablePermissions,
-    isArray: true,
+  @ApiPropertyOptional({
     description:
-      'Specific Account Manager client roles granted to this member.',
-    example: [AssignableKeycloakPermission.AccountManagerAccess],
+      'Optional membership end timestamp. If omitted, the membership is indefinite.',
+    example: '2026-12-31T23:59:59.000Z',
+    nullable: true,
   })
-  @IsArray()
-  @ArrayUnique()
-  @IsIn(assignablePermissions, { each: true })
-  permissions!: StudentEntityMembershipUpdateRequest['permissions'];
+  @IsOptional()
+  @IsISO8601()
+  validUntil?: string | null;
 }

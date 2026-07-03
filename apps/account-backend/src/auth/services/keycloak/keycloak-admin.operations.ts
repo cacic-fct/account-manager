@@ -1,4 +1,5 @@
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
+import { KeycloakClientRoleNotFoundException } from '../../exceptions/keycloak-client-role-not-found.exception';
 import {
   KeycloakClient,
   KeycloakGroup,
@@ -93,9 +94,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
 
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error(
-              `Keycloak client role ${clientId}:${roleName} was not found`,
-            );
+            throw new KeycloakClientRoleNotFoundException(clientId, roleName);
           }
 
           const details = await this.readTokenError(response);
@@ -121,6 +120,38 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     );
 
     return roles;
+  }
+
+  async listClientRoles(clientId: string): Promise<KeycloakRole[]> {
+    const adminToken = await this.getAdminToken();
+    const clientUuid = await this.getClientUuid(clientId, adminToken);
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles?briefRepresentation=false`;
+
+    const response = await fetch(rolesUrl, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const details = await this.readTokenError(response);
+
+      this.logger.error('Failed to list Keycloak client roles', {
+        status: response.status,
+        statusText: response.statusText,
+        clientId,
+        rolesUrl,
+        contentType: details.contentType,
+        responseHeaders: details.headers,
+        bodyPreview: details.bodyPreview,
+      });
+
+      throw new Error(
+        `Failed to list client roles ${clientId}: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as KeycloakRole[];
   }
 
   protected async getClientUuid(

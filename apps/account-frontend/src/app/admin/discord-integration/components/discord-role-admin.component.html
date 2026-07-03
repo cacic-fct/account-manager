@@ -81,31 +81,16 @@
                     [formControlName]="i"
                     (click)="handleRoleClick($event, i, 'rolesWithPermissions')"
                   >
-                    <div class="role-info">
-                      <span
-                        class="role-swatch"
-                        [style.background-color]="getRoleColor(role)"
-                        [attr.aria-label]="'Cor do cargo ' + role.name"
-                      ></span>
-                      <span class="role-copy">
-                        <span
-                          class="role-name"
-                          [class.blacklisted]="role.isBlacklisted"
-                        >
-                          {{ role.name }}
-                        </span>
-                        <span class="role-meta">
-                          {{
-                            role.isBlacklisted
-                              ? "Bloqueado"
-                              : "Permissões sensíveis"
-                          }}
-                        </span>
-                      </span>
-                      @if (!isRoleSelectable(role)) {
-                        <mat-icon class="blacklisted-icon" inline>block</mat-icon>
-                      }
-                    </div>
+                    <app-discord-role-option
+                      [role]="role"
+                      [meta]="
+                        role.isBlacklisted
+                          ? 'Bloqueado'
+                          : 'Permissões sensíveis'
+                      "
+                      [muted]="role.isBlacklisted"
+                      [icon]="!isRoleSelectable(role) ? 'block' : ''"
+                    />
                   </mat-checkbox>
                 </div>
               }
@@ -139,31 +124,16 @@
                       handleRoleClick($event, i, 'rolesWithoutPermissions')
                     "
                   >
-                    <div class="role-info">
-                      <span
-                        class="role-swatch"
-                        [style.background-color]="getRoleColor(role)"
-                        [attr.aria-label]="'Cor do cargo ' + role.name"
-                      ></span>
-                      <span class="role-copy">
-                        <span
-                          class="role-name"
-                          [class.blacklisted]="role.isBlacklisted"
-                        >
-                          {{ role.name }}
-                        </span>
-                        <span class="role-meta">
-                          {{
-                            role.isBlacklisted
-                              ? "Bloqueado"
-                              : "Sem permissões sensíveis"
-                          }}
-                        </span>
-                      </span>
-                      @if (!isRoleSelectable(role)) {
-                        <mat-icon class="blacklisted-icon" inline>block</mat-icon>
-                      }
-                    </div>
+                    <app-discord-role-option
+                      [role]="role"
+                      [meta]="
+                        role.isBlacklisted
+                          ? 'Bloqueado'
+                          : 'Sem permissões sensíveis'
+                      "
+                      [muted]="role.isBlacklisted"
+                      [icon]="!isRoleSelectable(role) ? 'block' : ''"
+                    />
                   </mat-checkbox>
                 </div>
               }

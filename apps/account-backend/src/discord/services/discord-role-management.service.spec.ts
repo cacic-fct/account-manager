@@ -1,9 +1,15 @@
 import { HttpStatus } from '@nestjs/common';
 import type { DiscordLink, DiscordRoleSetting } from '@prisma/client';
 import type { Client } from 'discord.js';
+import { PERMISSION_GROUP_DISCORD_ROLE_IDS } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DISCORD_AUTOMATED_ROLE_IDS } from '../constants/discord-managed-roles';
 import { DiscordRoleManagementService } from './discord-role-management.service';
+
+const AUTOMATED_ROLE_IDS = [
+  ...DISCORD_AUTOMATED_ROLE_IDS,
+  ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
+];
 
 type PrismaMock = {
   discordRoleSetting: {
@@ -279,7 +285,7 @@ describe('DiscordRoleManagementService', () => {
         isBlacklisted: false,
         hasPermissions: false,
         NOT: {
-          roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+          roleId: { in: AUTOMATED_ROLE_IDS },
         },
       },
       data: { isEnabledForSelection: true },
@@ -324,7 +330,7 @@ describe('DiscordRoleManagementService', () => {
         isBlacklisted: false,
         hasPermissions: false,
         NOT: {
-          roleId: { in: DISCORD_AUTOMATED_ROLE_IDS },
+          roleId: { in: AUTOMATED_ROLE_IDS },
         },
       },
     });
@@ -436,10 +442,10 @@ describe('DiscordRoleManagementService', () => {
       ]);
 
     const remove = jest
-      .fn<Promise<void>, [string]>()
+      .fn<Promise<void>, [string, string | undefined]>()
       .mockRejectedValue(new Error('cannot remove'));
     const add = jest
-      .fn<Promise<void>, [string]>()
+      .fn<Promise<void>, [string, string | undefined]>()
       .mockRejectedValue(new Error('cannot add'));
     let hasRole: (roleId: string) => boolean = (roleId: string) =>
       roleId === 'role-old';
@@ -482,8 +488,14 @@ describe('DiscordRoleManagementService', () => {
       message: 'Roles updated successfully',
       updatedRoles: [expect.objectContaining({ id: 'role-new' })],
     });
-    expect(remove).toHaveBeenCalledWith('role-old');
-    expect(add).toHaveBeenCalledWith('role-new');
+    expect(remove).toHaveBeenCalledWith(
+      'role-old',
+      'CACiC self-service role selection',
+    );
+    expect(add).toHaveBeenCalledWith(
+      'role-new',
+      'CACiC self-service role selection',
+    );
     expect(fetch).toHaveBeenCalledWith(true);
   });
 });
