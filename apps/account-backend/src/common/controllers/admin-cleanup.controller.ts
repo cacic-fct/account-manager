@@ -1,7 +1,8 @@
 import { Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Admin } from '../../auth/guards/auth.decorator';
+import { AccountPermissions } from '../../auth/guards/auth.decorator';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { LgpdService } from '../../lgpd/lgpd.service';
 
 @ApiTags('Admin Cleanup')
@@ -25,7 +26,7 @@ export class AdminCleanupController {
       },
     },
   })
-  @Admin()
+  @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('lgpd-expired-files')
   async cleanupExpiredLgpdFiles(): Promise<{

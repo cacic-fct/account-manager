@@ -15,12 +15,8 @@ import {
 } from '../enums/unesp-role.enum';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { isUnespEmail } from '@cacic/shared-utils';
-import { hasRequiredKeycloakRoles } from '../guards/keycloak-role.guard';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { EventManagerProfileSyncService } from './event-manager-profile-sync.service';
-import {
-  ACCOUNT_MANAGER_ADMIN_ROLES,
-  ACCOUNT_MANAGER_SUPER_ADMIN_ROLE,
-} from '../constants/admin-permissions';
 import { AccountPermissionService } from './account-permission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -553,30 +549,21 @@ export class UserService {
     let adminGroups: string[] = [];
 
     try {
-      const userRoles = await this.keycloakService.getUserRoles(
-        user.keycloakId,
-      );
-      adminGroups = userRoles.filter((role) =>
-        ACCOUNT_MANAGER_ADMIN_ROLES.includes(
-          role as (typeof ACCOUNT_MANAGER_ADMIN_ROLES)[number],
-        ),
-      );
-      const hasKeycloakAdminRole = hasRequiredKeycloakRoles(
-        userRoles,
-        ACCOUNT_MANAGER_ADMIN_ROLES,
-      );
-      const hasDbSuperAdminGrant =
-        await this.accountPermissionService.hasAccountManagerSuperAdminGrant(
+      const hasSuperAdminAccess =
+        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
           user.keycloakId,
         );
+      isAdmin =
+        hasSuperAdminAccess ||
+        (await this.accountPermissionService.hasAccountManagerAdminAccess(
+          user.keycloakId,
+        ));
 
-      if (hasDbSuperAdminGrant) {
-        adminGroups = [
-          ...new Set([...adminGroups, ACCOUNT_MANAGER_SUPER_ADMIN_ROLE]),
-        ];
+      if (hasSuperAdminAccess) {
+        adminGroups = [AccountManagerPermission.SuperAdmin];
+      } else if (isAdmin) {
+        adminGroups = ['db-backed-admin'];
       }
-
-      isAdmin = hasKeycloakAdminRole || hasDbSuperAdminGrant;
     } catch (error) {
       this.logger.error('Error checking admin status for user DTO', error);
     }

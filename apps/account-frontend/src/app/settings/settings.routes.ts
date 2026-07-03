@@ -28,4 +28,11 @@ export const settingsRoutes: Routes = [
     loadChildren: () =>
       import('./security/security.routes').then((m) => m.securityRoutes),
   },
+  {
+    path: 'permissions',
+    loadComponent: () =>
+      import('./permissions/permissions-self-service.component').then(
+        (m) => m.PermissionsSelfServiceComponent,
+      ),
+  },
 ];

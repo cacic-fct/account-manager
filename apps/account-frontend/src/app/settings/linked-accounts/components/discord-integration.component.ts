@@ -1,4 +1,11 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -17,17 +24,7 @@ import {
 } from '../../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../../shared/components/confirmation-dialog.component';
 import { getDiscordAvatarUrl } from '@cacic/shared-utils';
-
-type BannerType = 'success' | 'error' | 'warning' | 'info';
-
-interface BannerConfig {
-  type: BannerType;
-  title: string;
-  message: string;
-  icon: string;
-  visible: boolean;
-  dismissible?: boolean;
-}
+import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 
 @Component({
   selector: 'app-discord-integration',
@@ -39,10 +36,11 @@ interface BannerConfig {
     MatProgressSpinnerModule,
     MatChipsModule,
     MatDividerModule,
-    MatTooltipModule
-],
+    MatTooltipModule,
+  ],
   templateUrl: './discord-integration.component.html',
   styleUrl: './discord-integration.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   private apiService = inject(ApiService);
@@ -56,61 +54,11 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   hasLoadError = signal(false);
   discordStatus = signal<DiscordLinkStatus | null>(null);
 
-  // Banner system
-  currentBanner = signal<BannerConfig | null>(null);
-  private bannerTimeout?: number;
-
-  private showBanner(
-    type: BannerType,
-    title: string,
-    message: string,
-    dismissible = true,
-    autoHide = false,
-  ): void {
-    // Clear any existing timeout
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-    }
-
-    this.currentBanner.set({
-      type,
-      title,
-      message,
-      icon: this.getBannerIcon(type),
-      visible: true,
-      dismissible,
-    });
-
-    // Auto-hide banner after 5 seconds for success/info messages
-    if (autoHide) {
-      this.bannerTimeout = window.setTimeout(() => {
-        this.dismissBanner();
-      }, 5000);
-    }
-  }
-
-  private getBannerIcon(type: BannerType): string {
-    switch (type) {
-      case 'success':
-        return 'check_circle';
-      case 'error':
-        return 'error';
-      case 'warning':
-        return 'warning';
-      case 'info':
-        return 'info';
-      default:
-        return 'info';
-    }
-  }
+  private banners = new TransientBannerController();
+  currentBanner = this.banners.currentBanner;
 
   dismissBanner(): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-      this.bannerTimeout = undefined;
-    }
-
-    this.currentBanner.set(null);
+    this.banners.dismiss();
 
     // After dismissing any banner, check if we should show status-based banner
     // This ensures "no accounts" banner appears when errors are dismissed
@@ -120,30 +68,28 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   private showSuccessBanner(title: string, message: string): void {
-    this.showBanner('success', title, message, true, true); // Auto-hide success banners
+    this.banners.showSuccess(title, message);
   }
 
   private showErrorBanner(title: string, message: string): void {
-    this.showBanner('error', title, message);
+    this.banners.showError(title, message);
   }
 
   private showWarningBanner(title: string, message: string): void {
-    this.showBanner('warning', title, message);
+    this.banners.showWarning(title, message);
   }
 
   private showInfoBanner(title: string, message: string): void {
-    this.showBanner('info', title, message);
+    this.banners.showInfo(title, message);
   }
 
   private showNoAccountsBanner(): void {
-    this.currentBanner.set({
-      type: 'info',
-      title: 'Nenhuma conta vinculada',
-      message: 'Conecte sua conta do Discord para acessar o servidor do CACiC.',
-      icon: 'link_off',
-      visible: true,
-      dismissible: false,
-    });
+    this.banners.show(
+      'info',
+      'Nenhuma conta vinculada',
+      'Conecte sua conta do Discord para acessar o servidor do CACiC.',
+      { dismissible: false, icon: 'link_off' },
+    );
   }
 
   private updateBannerBasedOnStatus(): void {
@@ -174,9 +120,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.bannerTimeout) {
-      clearTimeout(this.bannerTimeout);
-    }
+    this.banners.destroy();
   }
 
   private checkForOAuthCallback(): void {

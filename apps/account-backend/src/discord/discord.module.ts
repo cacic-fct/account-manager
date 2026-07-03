@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { DiscordController } from './discord.controller';
 import { DiscordRoleController } from './controllers/discord-role.controller';
 import { DiscordOAuthModule } from './oauth/discord-oauth.module';
-import { DiscordLinksModule } from './links/discord-links.module';
 import { DiscordAdminModule } from './admin/discord-admin.module';
 import { DiscordServicesModule } from './services/discord-services.module';
 import { AuthModule } from '../auth/auth.module';
@@ -14,7 +13,6 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
     DiscordServicesModule,
     DiscordOAuthModule,
-    DiscordLinksModule,
     DiscordAdminModule,
   ],
   controllers: [DiscordController, DiscordRoleController],

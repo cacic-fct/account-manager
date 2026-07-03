@@ -988,7 +988,7 @@ export class LgpdService {
     }
 
     if (fileDeletionFailures.length > 0) {
-      throw new Error(
+      this.logger.warn(
         `Failed to delete ${fileDeletionFailures.length} S3 file(s): ${fileDeletionFailures.join('; ')}`,
       );
     }

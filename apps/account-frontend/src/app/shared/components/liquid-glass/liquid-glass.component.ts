@@ -1,8 +1,6 @@
 import {
   Component,
-  Input,
   OnInit,
-  OnDestroy,
   ElementRef,
   ViewChild,
   ChangeDetectionStrategy,
@@ -11,7 +9,10 @@ import {
   effect,
   inject,
   DestroyRef,
+  input,
+  PLATFORM_ID,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
 import {
@@ -49,7 +50,7 @@ export interface LiquidGlassProps {
     <div
       [class]="
         'bg-black transition-all duration-150 ease-in-out pointer-events-none ' +
-        (overLight ? 'opacity-20' : 'opacity-0')
+        (overLight() ? 'opacity-20' : 'opacity-0')
       "
       [style]="overLightStyle1()"
     ></div>
@@ -57,33 +58,33 @@ export interface LiquidGlassProps {
     <div
       [class]="
         'bg-black transition-all duration-150 ease-in-out pointer-events-none mix-blend-overlay ' +
-        (overLight ? 'opacity-100' : 'opacity-0')
+        (overLight() ? 'opacity-100' : 'opacity-0')
       "
       [style]="overLightStyle2()"
     ></div>
 
     <app-glass-container
       #glassRef
-      [className]="className"
+      [className]="className()"
       [containerStyleValue]="baseStyle()"
-      [cornerRadius]="cornerRadius"
+      [cornerRadius]="cornerRadius()"
       [displacementScale]="
-        overLight ? displacementScale * 0.5 : displacementScale
+        overLight() ? displacementScale() * 0.5 : displacementScale()
       "
-      [blurAmount]="blurAmount"
-      [saturation]="saturation"
-      [aberrationIntensity]="aberrationIntensity"
-      [glassSize]="glassSize"
-      [padding]="padding"
-      [mouseOffset]="internalMouseOffset"
+      [blurAmount]="blurAmount()"
+      [saturation]="saturation()"
+      [aberrationIntensity]="aberrationIntensity()"
+      [glassSize]="glassSize()"
+      [padding]="padding()"
+      [mouseOffset]="internalMouseOffset()"
       [onMouseEnter]="handleMouseEnter"
       [onMouseLeave]="handleMouseLeave"
       [onMouseDown]="handleMouseDown"
       [onMouseUp]="handleMouseUp"
-      [active]="isActive"
-      [overLight]="overLight"
-      [onClick]="onClick"
-      [mode]="mode"
+      [active]="isActive()"
+      [overLight]="overLight()"
+      [onClick]="onClick()"
+      [mode]="mode()"
       [shaderMapUrl]="shaderMapUrl()"
     >
       <ng-content></ng-content>
@@ -96,34 +97,36 @@ export interface LiquidGlassProps {
     <span [style]="borderLayer2Style()"></span>
 
     <!-- Hover effects -->
-    @if (onClick) {
+    @if (onClick()) {
       <div [style]="hoverEffect1Style()"></div>
       <div [style]="hoverEffect2Style()"></div>
       <div [style]="hoverEffect3Style()"></div>
     }
   `,
 })
-export class LiquidGlassComponent implements OnInit, OnDestroy {
+export class LiquidGlassComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
-  @ViewChild('glassRef', { static: true })
+  @ViewChild('glassRef', { static: true, read: ElementRef })
   glassRef!: ElementRef<HTMLDivElement>;
 
-  @Input() displacementScale = 70;
-  @Input() blurAmount = 0.0625;
-  @Input() saturation = 140;
-  @Input() aberrationIntensity = 2;
-  @Input() elasticity = 0.15;
-  @Input() cornerRadius = 999;
-  @Input() globalMousePos?: { x: number; y: number };
-  @Input() mouseOffset?: MouseOffset;
-  @Input() mouseContainer?: ElementRef<HTMLElement> | null;
-  @Input() className = '';
-  @Input() padding = '24px 32px';
-  @Input() overLight = false;
-  @Input() style: Record<string, string | number> = {};
-  @Input() mode: DisplacementMode = 'standard';
-  @Input() onClick?: () => void;
+  displacementScale = input(70);
+  blurAmount = input(0.0625);
+  saturation = input(140);
+  aberrationIntensity = input(2);
+  elasticity = input(0.15);
+  cornerRadius = input(999);
+  globalMousePos = input<{ x: number; y: number } | undefined>();
+  mouseOffset = input<MouseOffset | undefined>();
+  mouseContainer = input<ElementRef<HTMLElement> | null | undefined>();
+  className = input('');
+  padding = input('24px 32px');
+  overLight = input(false);
+  style = input<Record<string, string | number>>({});
+  mode = input<DisplacementMode>('standard');
+  onClick = input<(() => void) | undefined>();
 
   // Internal state
   isHovered = signal(false);
@@ -135,16 +138,16 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
 
   // Computed values
   computedGlobalMousePos = computed(
-    () => this.globalMousePos || this.internalGlobalMousePos(),
+    () => this.globalMousePos() || this.internalGlobalMousePos(),
   );
   computedMouseOffset = computed(
-    () => this.mouseOffset || this.internalMouseOffset(),
+    () => this.mouseOffset() || this.internalMouseOffset(),
   );
 
   constructor() {
     // Generate shader displacement map when in shader mode
     effect(() => {
-      if (this.mode === 'shader') {
+      if (this.isBrowser && this.mode() === 'shader') {
         const url = this.generateShaderDisplacementMap(
           this.glassSize().width,
           this.glassSize().height,
@@ -160,11 +163,11 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
     this.setupResizeListener();
   }
 
-  ngOnDestroy() {
-    // Cleanup handled by DestroyRef
-  }
-
   private generateShaderDisplacementMap(width: number, height: number): string {
+    if (!this.isBrowser) {
+      return '';
+    }
+
     const generator = new ShaderDisplacementGenerator({
       width,
       height,
@@ -178,13 +181,17 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
   }
 
   private setupMouseTracking() {
-    if (this.globalMousePos && this.mouseOffset) {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    if (this.globalMousePos() && this.mouseOffset()) {
       // External mouse tracking is provided, don't set up internal tracking
       return;
     }
 
     const container =
-      this.mouseContainer?.nativeElement || this.glassRef?.nativeElement;
+      this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
     if (!container) {
       return;
     }
@@ -196,7 +203,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
 
   private handleMouseMove(e: MouseEvent) {
     const container =
-      this.mouseContainer?.nativeElement || this.glassRef?.nativeElement;
+      this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
     if (!container) {
       return;
     }
@@ -217,12 +224,20 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
   }
 
   private setupResizeListener() {
+    if (!this.isBrowser) {
+      return;
+    }
+
     fromEvent(window, 'resize')
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.updateGlassSize());
   }
 
   private updateGlassSize() {
+    if (!this.isBrowser) {
+      return;
+    }
+
     if (this.glassRef?.nativeElement) {
       const rect = this.glassRef.nativeElement.getBoundingClientRect();
       this.glassSize.set({ width: rect.width, height: rect.height });
@@ -278,7 +293,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
 
     // Calculate stretch factors with fade-in
     const stretchIntensity =
-      Math.min(centerDistance / 300, 1) * this.elasticity * fadeInFactor;
+      Math.min(centerDistance / 300, 1) * this.elasticity() * fadeInFactor;
 
     // X-axis scaling: stretch horizontally when moving left/right, compress when moving up/down
     const scaleX =
@@ -342,9 +357,15 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
 
     return {
       x:
-        (globalMousePos.x - pillCenterX) * this.elasticity * 0.1 * fadeInFactor,
+        (globalMousePos.x - pillCenterX) *
+        this.elasticity() *
+        0.1 *
+        fadeInFactor,
       y:
-        (globalMousePos.y - pillCenterY) * this.elasticity * 0.1 * fadeInFactor,
+        (globalMousePos.y - pillCenterY) *
+        this.elasticity() *
+        0.1 *
+        fadeInFactor,
     };
   }
 
@@ -352,20 +373,21 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
   transformStyle(): string {
     const translation = this.calculateElasticTranslation();
     const scale =
-      this.isActive() && Boolean(this.onClick)
+      this.isActive() && Boolean(this.onClick())
         ? 'scale(0.96)'
         : this.calculateDirectionalScale();
     return `translate(calc(-50% + ${translation.x}px), calc(-50% + ${translation.y}px)) ${scale}`;
   }
 
   baseStyle() {
+    const style = this.style();
     return {
-      ...this.style,
+      ...style,
       transform: this.transformStyle(),
       transition: 'all ease-out 0.2s',
-      position: this.style['position'] || 'relative',
-      top: this.style['top'] || '50%',
-      left: this.style['left'] || '50%',
+      position: style['position'] || 'relative',
+      top: style['top'] || '50%',
+      left: style['left'] || '50%',
     };
   }
 
@@ -377,7 +399,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       left: baseStyle.left,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       transform: baseStyle.transform,
       transition: baseStyle.transition,
     };
@@ -396,7 +418,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       left: baseStyle.left,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       transform: baseStyle.transform,
       transition: baseStyle.transition,
       pointerEvents: 'none',
@@ -428,7 +450,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       left: baseStyle.left,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       transform: baseStyle.transform,
       transition: baseStyle.transition,
       pointerEvents: 'none',
@@ -458,7 +480,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       left: baseStyle.left,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 1 + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       transform: baseStyle.transform,
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
@@ -477,7 +499,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       left: baseStyle.left,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 1 + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       transform: baseStyle.transform,
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
@@ -494,7 +516,7 @@ export class LiquidGlassComponent implements OnInit, OnDestroy {
       ...baseStyle,
       height: this.glassSize().height + 'px',
       width: this.glassSize().width + 1 + 'px',
-      borderRadius: `${this.cornerRadius}px`,
+      borderRadius: `${this.cornerRadius()}px`,
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
       opacity: this.isHovered() ? 0.4 : this.isActive() ? 0.8 : 0,

@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { KeycloakClientRoleNotFoundException } from '../exceptions/keycloak-client-role-not-found.exception';
 import { KeycloakService } from './keycloak.service';
 
 type FetchMock = jest.Mock<Promise<Response>, Parameters<typeof fetch>>;
@@ -118,6 +119,41 @@ describe('KeycloakService client roles', () => {
           clientRole: true,
         },
       ]),
+    });
+  });
+
+  it('throws a structured error when a client role lookup returns 404', async () => {
+    const fetchMock: FetchMock = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            id: 'client-uuid',
+            clientId: 'cacic-account-manager',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, { status: 404 }));
+    global.fetch = fetchMock;
+
+    const service = new KeycloakService();
+    let error: unknown;
+
+    try {
+      await service.removeUserClientRoles('user-1', ['missing-role']);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(KeycloakClientRoleNotFoundException);
+    expect(error).toMatchObject({
+      code: 'KEYCLOAK_CLIENT_ROLE_NOT_FOUND',
+      clientId: 'cacic-account-manager',
+      roleName: 'missing-role',
     });
   });
 

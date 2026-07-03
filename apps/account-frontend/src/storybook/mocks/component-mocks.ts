@@ -1,14 +1,21 @@
 import { fakerPT_BR as faker } from '@faker-js/faker';
 import {
-  AssignableKeycloakPermission,
-  KEYCLOAK_PERMISSION_CATALOG,
-  STUDENT_ENTITY_CATALOG,
-  StudentEntityKey,
+  ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG,
+  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
+  AccountManagerPermission,
+  KEYCLOAK_PERMISSION_CLIENTS,
+  PERMISSION_GROUP_CATALOG,
+  PermissionGroupKey,
   UnespRole,
+  buildKeycloakPermissionId,
+  parseKeycloakPermissionId,
   type Application,
+  type KeycloakPermissionDefinition,
   type KeycloakPermissionGrant,
   type KeycloakPermissionUser,
-  type StudentEntityMembership,
+  type PermissionGroupDefinition,
+  type PermissionGroupMembership,
+  type PermissionGroupRoleGrant,
   type User,
 } from '@cacic/shared-types';
 import type {
@@ -30,6 +37,22 @@ const addDays = (date: Date, days: number): Date => {
   return nextDate;
 };
 
+const accountManagerRoleLabels: Record<string, string> = {
+  access: 'Acesso',
+  'super-admin': 'Super-admin',
+  'discord-management#read': 'Ler Discord',
+  'discord-management#update': 'Gerenciar Discord',
+  'student-verification#read': 'Ler validações estudantis',
+  'student-verification#review': 'Revisar validações estudantis',
+  'student-verification#download': 'Baixar documentos de validação',
+  'account-deletion#read': 'Ler fila de exclusão',
+  'account-deletion#update': 'Gerenciar fila de exclusão',
+  'permission-grant#read': 'Ler permissões',
+  'permission-grant#assign': 'Atribuir permissões',
+  'permission-grant#revoke': 'Revogar permissões',
+  'permission-grant#sync': 'Sincronizar permissões',
+};
+
 const createPermissionUser = (index: number): KeycloakPermissionUser => {
   const firstName = faker.person.firstName();
   const lastName = faker.person.lastName();
@@ -49,9 +72,47 @@ const createPermissionUser = (index: number): KeycloakPermissionUser => {
   };
 };
 
-export const mockKeycloakPermissionCatalog = KEYCLOAK_PERMISSION_CATALOG;
+const getClientLabel = (clientId: string): string =>
+  KEYCLOAK_PERMISSION_CLIENTS.find(
+    (definition) => definition.clientId === clientId,
+  )?.label ?? clientId;
 
-export const mockStudentEntityCatalog = STUDENT_ENTITY_CATALOG;
+const createPermissionDefinition = (
+  clientId: string,
+  roleName: string,
+  label?: string,
+): KeycloakPermissionDefinition => ({
+  permission: buildKeycloakPermissionId(clientId, roleName),
+  clientId,
+  clientLabel: getClientLabel(clientId),
+  roleName,
+  label: label ?? accountManagerRoleLabels[roleName] ?? roleName,
+  source: 'keycloak',
+});
+
+export const mockKeycloakPermissionCatalog: KeycloakPermissionDefinition[] = [
+  ...ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG.map((roleName) =>
+    createPermissionDefinition(ACCOUNT_MANAGER_PERMISSION_CLIENT_ID, roleName),
+  ),
+  createPermissionDefinition('cacic-event-manager', 'events#read', 'Ler eventos'),
+  createPermissionDefinition(
+    'cacic-event-manager',
+    'events#publish',
+    'Publicar eventos',
+  ),
+  createPermissionDefinition('cacic-voto', 'elections#read', 'Ler eleições'),
+  createPermissionDefinition(
+    'cacic-voto',
+    'elections#manage',
+    'Gerenciar eleições',
+  ),
+];
+
+export const mockPermissionGroupCatalog: PermissionGroupDefinition[] = [
+  ...PERMISSION_GROUP_CATALOG,
+];
+
+export const mockStudentEntityCatalog = mockPermissionGroupCatalog;
 
 export const mockKeycloakPermissionUsers = Array.from({ length: 8 }, (_, index) =>
   createPermissionUser(index),
@@ -59,61 +120,63 @@ export const mockKeycloakPermissionUsers = Array.from({ length: 8 }, (_, index) 
 
 export const createMockKeycloakPermissionGrant = (
   user: KeycloakPermissionUser,
-  permission: AssignableKeycloakPermission,
+  permission: string,
   index: number,
   options: {
-    membershipId?: string;
+    source?: 'direct' | 'group';
     validFrom?: Date | null;
     validUntil?: Date | null;
   } = {},
-): KeycloakPermissionGrant => ({
-  id: `grant-${user.id}-${index + 1}`,
-  userId: user.id,
-  userEmail: user.email,
-  userDisplayName: user.displayName,
-  studentEntityMembershipId: options.membershipId,
-  permission,
-  validFrom: options.validFrom?.toISOString() ?? null,
-  validUntil: options.validUntil?.toISOString() ?? null,
-  status:
-    options.validFrom && options.validFrom > mockNow ? 'scheduled' : 'active',
-  createdAt: addDays(mockNow, -21).toISOString(),
-  createdById: 'storybook-admin',
-  updatedAt: addDays(mockNow, -2).toISOString(),
-  updatedById: 'storybook-admin',
-  lastSyncedAt: addDays(mockNow, -1).toISOString(),
-});
-
-export const createMockStudentEntityMembership = (
-  user: KeycloakPermissionUser,
-  entity: StudentEntityKey,
-  index: number,
-  permissions: AssignableKeycloakPermission[],
-): StudentEntityMembership => {
-  const definition =
-    mockStudentEntityCatalog.find((candidate) => candidate.key === entity) ??
-    mockStudentEntityCatalog[0];
-  const membershipId = `membership-${entity.toLowerCase()}-${index + 1}`;
-  const mandateStart = addDays(mockNow, -45 - index * 7);
-  const mandateEnd = addDays(mockNow, 285 - index * 11);
+): KeycloakPermissionGrant => {
+  const parsedPermission =
+    parseKeycloakPermissionId(permission) ??
+    parseKeycloakPermissionId(AccountManagerPermission.PermissionGrantRead);
 
   return {
-    id: membershipId,
-    entity,
-    keycloakGroupPath: definition.keycloakGroupPath,
+    id: `grant-${user.id}-${index + 1}`,
     userId: user.id,
     userEmail: user.email,
     userDisplayName: user.displayName,
-    mandateStart: mandateStart.toISOString(),
-    mandateEnd: mandateEnd.toISOString(),
+    clientId: parsedPermission?.clientId ?? ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
+    roleName: parsedPermission?.roleName ?? 'permission-grant#read',
+    permission,
+    source: options.source ?? 'direct',
+    validFrom: options.validFrom?.toISOString() ?? null,
+    validUntil: options.validUntil?.toISOString() ?? null,
+    status:
+      options.validFrom && options.validFrom > mockNow ? 'scheduled' : 'active',
+    createdAt: addDays(mockNow, -21).toISOString(),
+    createdById: 'storybook-admin',
+    updatedAt: addDays(mockNow, -2).toISOString(),
+    updatedById: 'storybook-admin',
+    lastSyncedAt: addDays(mockNow, -1).toISOString(),
+  };
+};
+
+export const createMockStudentEntityMembership = (
+  user: KeycloakPermissionUser,
+  groupKey: PermissionGroupKey,
+  index: number,
+): PermissionGroupMembership => {
+  const definition =
+    mockPermissionGroupCatalog.find((candidate) => candidate.key === groupKey) ??
+    mockPermissionGroupCatalog[0];
+  const membershipId = `membership-${groupKey.toLowerCase()}-${index + 1}`;
+  const validFrom = addDays(mockNow, -45 - index * 7);
+  const validUntil = addDays(mockNow, 285 - index * 11);
+
+  return {
+    id: membershipId,
+    groupKey,
+    keycloakGroupId: definition.keycloakGroupId,
+    keycloakGroupPath: definition.keycloakGroupPath,
+    discordRoleId: definition.discordRoleId,
+    userId: user.id,
+    userEmail: user.email,
+    userDisplayName: user.displayName,
+    validFrom: validFrom.toISOString(),
+    validUntil: validUntil.toISOString(),
     status: 'active',
-    permissionGrants: permissions.map((permission, permissionIndex) =>
-      createMockKeycloakPermissionGrant(user, permission, permissionIndex, {
-        membershipId,
-        validFrom: mandateStart,
-        validUntil: mandateEnd,
-      }),
-    ),
     createdAt: addDays(mockNow, -50).toISOString(),
     createdById: 'storybook-admin',
     updatedAt: addDays(mockNow, -3).toISOString(),
@@ -122,49 +185,85 @@ export const createMockStudentEntityMembership = (
   };
 };
 
-export const mockStudentEntityMemberships: StudentEntityMembership[] = [
+export const mockStudentEntityMemberships: PermissionGroupMembership[] = [
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[0],
-    StudentEntityKey.Cacic,
+    PermissionGroupKey.Cacic,
     0,
-    [
-      AssignableKeycloakPermission.AccountManagerAccess,
-    ],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[1],
-    StudentEntityKey.Cacic,
+    PermissionGroupKey.Cacic,
     1,
-    [AssignableKeycloakPermission.AccountManagerAccess],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[2],
-    StudentEntityKey.Cacic,
+    PermissionGroupKey.Cacic,
     2,
-    [
-      AssignableKeycloakPermission.AccountManagerSuperAdmin,
-    ],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[3],
-    StudentEntityKey.Ejcomp,
+    PermissionGroupKey.Ejcomp,
     3,
-    [AssignableKeycloakPermission.AccountManagerAccess],
   ),
   createMockStudentEntityMembership(
     mockKeycloakPermissionUsers[4],
-    StudentEntityKey.Ejcomp,
+    PermissionGroupKey.Secompp,
     4,
-    [
-      AssignableKeycloakPermission.AccountManagerAccess,
-    ],
+  ),
+];
+
+export const createMockPermissionGroupRoleGrant = (
+  groupKey: PermissionGroupKey,
+  permission: string,
+  index: number,
+  source: 'database' | 'keycloak' = 'database',
+): PermissionGroupRoleGrant => {
+  const parsedPermission =
+    parseKeycloakPermissionId(permission) ??
+    parseKeycloakPermissionId(AccountManagerPermission.PermissionGrantRead);
+
+  return {
+    id: `group-grant-${groupKey.toLowerCase()}-${index + 1}`,
+    groupKey,
+    clientId: parsedPermission?.clientId ?? ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
+    roleName: parsedPermission?.roleName ?? 'permission-grant#read',
+    permission,
+    source,
+    validFrom: null,
+    validUntil: null,
+    status: 'active',
+    createdAt: addDays(mockNow, -20).toISOString(),
+    createdById: 'storybook-admin',
+    updatedAt: addDays(mockNow, -2).toISOString(),
+    updatedById: 'storybook-admin',
+    lastSyncedAt: addDays(mockNow, -1).toISOString(),
+  };
+};
+
+export const mockPermissionGroupRoleGrants: PermissionGroupRoleGrant[] = [
+  createMockPermissionGroupRoleGrant(
+    PermissionGroupKey.Cacic,
+    AccountManagerPermission.PermissionGrantRead,
+    0,
+  ),
+  createMockPermissionGroupRoleGrant(
+    PermissionGroupKey.Cacic,
+    AccountManagerPermission.StudentVerificationReview,
+    1,
+    'keycloak',
+  ),
+  createMockPermissionGroupRoleGrant(
+    PermissionGroupKey.Secompp,
+    buildKeycloakPermissionId('cacic-event-manager', 'events#publish'),
+    2,
   ),
 ];
 
 export const mockDirectKeycloakPermissionGrant =
   createMockKeycloakPermissionGrant(
     mockKeycloakPermissionUsers[0],
-    AssignableKeycloakPermission.AccountManagerSuperAdmin,
+    AccountManagerPermission.PermissionGrantRead,
     8,
   );
 

@@ -7,11 +7,15 @@ import type {
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
   KeycloakPermissionUser,
-  StudentEntityDefinition,
-  StudentEntityKey,
-  StudentEntityMembership,
-  StudentEntityMembershipCreateRequest,
-  StudentEntityMembershipUpdateRequest,
+  PermissionGroupDefinition,
+  PermissionGroupKey,
+  PermissionGroupMembership,
+  PermissionGroupMembershipCreateRequest,
+  PermissionGroupMembershipUpdateRequest,
+  PermissionGroupRoleGrant,
+  PermissionGroupRoleGrantUpdateRequest,
+  PermissionSelfRemovalResult,
+  PermissionSelfServiceAccess,
 } from '@cacic/shared-types';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 
@@ -31,9 +35,37 @@ export class KeycloakPermissionsApiService {
     );
   }
 
-  getStudentEntityCatalog(): Observable<StudentEntityDefinition[]> {
-    return this.http.get<StudentEntityDefinition[]>(
-      `${this.baseUrl}/admin/permissions/student-entities/catalog`,
+  getPermissionGroupCatalog(): Observable<PermissionGroupDefinition[]> {
+    return this.http.get<PermissionGroupDefinition[]>(
+      `${this.baseUrl}/admin/permissions/groups/catalog`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  getPermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+  ): Observable<PermissionGroupRoleGrant[]> {
+    const encodedGroupKey = encodeURIComponent(groupKey);
+
+    return this.http.get<PermissionGroupRoleGrant[]>(
+      `${this.baseUrl}/admin/permissions/groups/${encodedGroupKey}/role-grants`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  updatePermissionGroupRoleGrants(
+    groupKey: PermissionGroupKey,
+    dto: PermissionGroupRoleGrantUpdateRequest,
+  ): Observable<PermissionGroupRoleGrant[]> {
+    const encodedGroupKey = encodeURIComponent(groupKey);
+
+    return this.http.put<PermissionGroupRoleGrant[]>(
+      `${this.baseUrl}/admin/permissions/groups/${encodedGroupKey}/role-grants`,
+      dto,
       {
         withCredentials: true,
       },
@@ -63,24 +95,24 @@ export class KeycloakPermissionsApiService {
     );
   }
 
-  getUserStudentEntityMemberships(
+  getUserPermissionGroupMemberships(
     userId: string,
-  ): Observable<StudentEntityMembership[]> {
-    return this.http.get<StudentEntityMembership[]>(
-      `${this.baseUrl}/admin/permissions/users/${userId}/student-entity-memberships`,
+  ): Observable<PermissionGroupMembership[]> {
+    return this.http.get<PermissionGroupMembership[]>(
+      `${this.baseUrl}/admin/permissions/users/${userId}/group-memberships`,
       {
         withCredentials: true,
       },
     );
   }
 
-  getStudentEntityMemberships(
-    entity?: StudentEntityKey,
-  ): Observable<StudentEntityMembership[]> {
-    return this.http.get<StudentEntityMembership[]>(
-      `${this.baseUrl}/admin/permissions/student-entities/memberships`,
+  getPermissionGroupMemberships(
+    groupKey?: PermissionGroupKey,
+  ): Observable<PermissionGroupMembership[]> {
+    return this.http.get<PermissionGroupMembership[]>(
+      `${this.baseUrl}/admin/permissions/groups/memberships`,
       {
-        ...(entity ? { params: { entity } } : {}),
+        ...(groupKey ? { params: { groupKey } } : {}),
         withCredentials: true,
       },
     );
@@ -98,11 +130,11 @@ export class KeycloakPermissionsApiService {
     );
   }
 
-  createStudentEntityMembership(
-    dto: StudentEntityMembershipCreateRequest,
-  ): Observable<StudentEntityMembership> {
-    return this.http.post<StudentEntityMembership>(
-      `${this.baseUrl}/admin/permissions/student-entities/memberships`,
+  createPermissionGroupMembership(
+    dto: PermissionGroupMembershipCreateRequest,
+  ): Observable<PermissionGroupMembership> {
+    return this.http.post<PermissionGroupMembership>(
+      `${this.baseUrl}/admin/permissions/groups/memberships`,
       dto,
       {
         withCredentials: true,
@@ -123,12 +155,12 @@ export class KeycloakPermissionsApiService {
     );
   }
 
-  updateStudentEntityMembership(
+  updatePermissionGroupMembership(
     id: string,
-    dto: StudentEntityMembershipUpdateRequest,
-  ): Observable<StudentEntityMembership> {
-    return this.http.put<StudentEntityMembership>(
-      `${this.baseUrl}/admin/permissions/student-entities/memberships/${id}`,
+    dto: PermissionGroupMembershipUpdateRequest,
+  ): Observable<PermissionGroupMembership> {
+    return this.http.put<PermissionGroupMembership>(
+      `${this.baseUrl}/admin/permissions/groups/memberships/${id}`,
       dto,
       {
         withCredentials: true,
@@ -147,11 +179,11 @@ export class KeycloakPermissionsApiService {
     );
   }
 
-  deleteStudentEntityMembership(
+  deletePermissionGroupMembership(
     id: string,
   ): Observable<{ deleted: true; id: string }> {
     return this.http.delete<{ deleted: true; id: string }>(
-      `${this.baseUrl}/admin/permissions/student-entities/memberships/${id}`,
+      `${this.baseUrl}/admin/permissions/groups/memberships/${id}`,
       {
         withCredentials: true,
       },
@@ -162,6 +194,35 @@ export class KeycloakPermissionsApiService {
     return this.http.post<{ queued: true }>(
       `${this.baseUrl}/admin/permissions/sync`,
       {},
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  getSelfServiceAccess(): Observable<PermissionSelfServiceAccess> {
+    return this.http.get<PermissionSelfServiceAccess>(
+      `${this.baseUrl}/permissions/me`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  selfRemoveMembership(
+    id: string,
+  ): Observable<PermissionSelfRemovalResult> {
+    return this.http.delete<PermissionSelfRemovalResult>(
+      `${this.baseUrl}/permissions/me/groups/${id}`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  selfRemoveGrant(id: string): Observable<PermissionSelfRemovalResult> {
+    return this.http.delete<PermissionSelfRemovalResult>(
+      `${this.baseUrl}/permissions/me/grants/${id}`,
       {
         withCredentials: true,
       },

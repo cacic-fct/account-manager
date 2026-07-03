@@ -26,6 +26,7 @@ import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { AccountLinkingService } from './account-linking.service';
+import { redirectAfterSessionSave } from '../session-redirect.utils';
 import {
   AccountLinkingStartUrlDto,
   AccountMergeRequestDto,
@@ -104,7 +105,7 @@ export class AccountLinkingController {
         codeChallenge: pkce.challenge,
       });
 
-      await this.redirectAfterSessionSave(session, res, url);
+      await redirectAfterSessionSave(session, res, url);
     } catch (error) {
       this.logger.error('Google account-linking resume failed', error);
       delete session.accountLinkingState;
@@ -291,33 +292,6 @@ export class AccountLinkingController {
 
   private googleCallbackUrl(): string {
     return `${this.appConfig.apiBaseUrl}/auth/account-linking/google/callback`;
-  }
-
-  private saveSession(session: AuthSession): Promise<void> {
-    const saveSessionCallback = session.save;
-    if (!saveSessionCallback) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      saveSessionCallback.call(session, (error?: Error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      });
-    });
-  }
-
-  private async redirectAfterSessionSave(
-    session: AuthSession,
-    response: Response,
-    redirectUrl: string,
-  ): Promise<void> {
-    await this.saveSession(session);
-    response.redirect(redirectUrl);
   }
 
   private async switchSessionToUser(

@@ -1,12 +1,24 @@
-import { AssignableKeycloakPermission } from '@cacic/shared-types';
+import {
+  AccountManagerPermission,
+  PermissionGroupKey,
+  buildKeycloakPermissionId,
+} from '@cacic/shared-types';
 import { BadRequestException } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../prisma/prisma.service';
+import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
+import { AccountPermissionService } from '../auth/services/account-permission.service';
 import {
   KeycloakService,
   KeycloakUserData,
 } from '../auth/services/keycloak.service';
+import { DiscordRoleService } from '../discord/services/discord-role.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
+import { KeycloakPermissionsGrantsService } from './keycloak-permissions-grants.service';
+import { KeycloakPermissionsGroupRolesService } from './keycloak-permissions-group-roles.service';
+import { KeycloakPermissionsMembershipsService } from './keycloak-permissions-memberships.service';
 import { KeycloakPermissionsService } from './keycloak-permissions.service';
+import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.service';
 import { SyncPermissionGrantsJob } from './keycloak-permissions.queue';
 
 type GrantRecord = {
@@ -16,6 +28,26 @@ type GrantRecord = {
   userDisplayName: string | null;
   studentEntityMembershipId: string | null;
   permission: string;
+  clientId: string;
+  roleName: string;
+  validFrom: Date | null;
+  validUntil: Date | null;
+  createdAt: Date;
+  createdById: string | null;
+  updatedAt: Date;
+  updatedById: string | null;
+  deletedAt: Date | null;
+  lastSyncedAt: Date | null;
+  lastSyncError: string | null;
+};
+
+type GroupRoleGrantRecord = {
+  id: string;
+  groupKey: string;
+  keycloakGroupId: string;
+  permission: string;
+  clientId: string;
+  roleName: string;
   validFrom: Date | null;
   validUntil: Date | null;
   createdAt: Date;
@@ -35,7 +67,7 @@ type MembershipRecord = {
   userEmail: string | null;
   userDisplayName: string | null;
   mandateStart: Date;
-  mandateEnd: Date;
+  mandateEnd: Date | null;
   createdAt: Date;
   createdById: string | null;
   updatedAt: Date;
@@ -49,20 +81,47 @@ type MembershipRecord = {
 type PrismaMock = {
   keycloakPermissionGrant: {
     findMany: jest.Mock<Promise<GrantRecord[]>, [unknown]>;
-    findFirst: jest.Mock<Promise<GrantRecord | null>, [unknown]>;
-    findUnique: jest.Mock<Promise<GrantRecord | null>, [unknown]>;
+    findFirst: jest.Mock<
+      Promise<GrantRecord | { id: string } | null>,
+      [unknown]
+    >;
     create: jest.Mock<Promise<GrantRecord>, [unknown]>;
     update: jest.Mock<Promise<GrantRecord>, [unknown]>;
   };
+  keycloakGroupPermissionGrant: {
+    findMany: jest.Mock<Promise<GroupRoleGrantRecord[]>, [unknown]>;
+    findFirst: jest.Mock<Promise<{ id: string } | null>, [unknown]>;
+    create: jest.Mock<Promise<GroupRoleGrantRecord>, [unknown]>;
+    update: jest.Mock<Promise<GroupRoleGrantRecord>, [unknown]>;
+  };
   studentEntityMembership: {
     findMany: jest.Mock<Promise<MembershipRecord[]>, [unknown]>;
-    findFirst: jest.Mock<Promise<MembershipRecord | null>, [unknown]>;
+    findFirst: jest.Mock<
+      Promise<MembershipRecord | { id: string } | null>,
+      [unknown]
+    >;
     create: jest.Mock<Promise<MembershipRecord>, [unknown]>;
     update: jest.Mock<Promise<MembershipRecord>, [unknown]>;
   };
 };
 
 type KeycloakMock = {
+  listClientRoles: jest.Mock<
+    ReturnType<KeycloakService['listClientRoles']>,
+    Parameters<KeycloakService['listClientRoles']>
+  >;
+  getGroupClientRoles: jest.Mock<
+    ReturnType<KeycloakService['getGroupClientRoles']>,
+    Parameters<KeycloakService['getGroupClientRoles']>
+  >;
+  addGroupClientRoles: jest.Mock<
+    ReturnType<KeycloakService['addGroupClientRoles']>,
+    Parameters<KeycloakService['addGroupClientRoles']>
+  >;
+  removeGroupClientRoles: jest.Mock<
+    ReturnType<KeycloakService['removeGroupClientRoles']>,
+    Parameters<KeycloakService['removeGroupClientRoles']>
+  >;
   getUserBasicInfo: jest.Mock<
     ReturnType<KeycloakService['getUserBasicInfo']>,
     Parameters<KeycloakService['getUserBasicInfo']>
@@ -75,17 +134,35 @@ type KeycloakMock = {
     ReturnType<KeycloakService['removeUserClientRoles']>,
     Parameters<KeycloakService['removeUserClientRoles']>
   >;
-  addUserToGroupPath: jest.Mock<
-    ReturnType<KeycloakService['addUserToGroupPath']>,
-    Parameters<KeycloakService['addUserToGroupPath']>
+  addUserToGroupId: jest.Mock<
+    ReturnType<KeycloakService['addUserToGroupId']>,
+    Parameters<KeycloakService['addUserToGroupId']>
   >;
-  removeUserFromGroupPath: jest.Mock<
-    ReturnType<KeycloakService['removeUserFromGroupPath']>,
-    Parameters<KeycloakService['removeUserFromGroupPath']>
+  removeUserFromGroupId: jest.Mock<
+    ReturnType<KeycloakService['removeUserFromGroupId']>,
+    Parameters<KeycloakService['removeUserFromGroupId']>
   >;
   searchUsers: jest.Mock<
     ReturnType<KeycloakService['searchUsers']>,
     Parameters<KeycloakService['searchUsers']>
+  >;
+};
+
+type AccountPermissionMock = {
+  canAssignPermission: jest.Mock<
+    ReturnType<AccountPermissionService['canAssignPermission']>,
+    Parameters<AccountPermissionService['canAssignPermission']>
+  >;
+  canRevokePermission: jest.Mock<
+    ReturnType<AccountPermissionService['canRevokePermission']>,
+    Parameters<AccountPermissionService['canRevokePermission']>
+  >;
+};
+
+type DiscordRoleMock = {
+  reconcilePermissionGroupAffiliationRoles: jest.Mock<
+    ReturnType<DiscordRoleService['reconcilePermissionGroupAffiliationRoles']>,
+    Parameters<DiscordRoleService['reconcilePermissionGroupAffiliationRoles']>
   >;
 };
 
@@ -97,6 +174,8 @@ type QueueMock = {
 };
 
 const createdAt = new Date('2026-06-21T12:00:00.000Z');
+const cacicGroupId = '5470bc10-d4f5-47c7-90cc-a4dd62ecd163';
+const cacicGroupPath = '/Entidades estudantis/CACiC';
 
 const getMockArg = <T>(
   mock: { mock: { calls: [unknown][] } },
@@ -109,47 +188,6 @@ const getMockArg = <T>(
 
   return call[0] as T;
 };
-
-const createGrant = (overrides: Partial<GrantRecord> = {}): GrantRecord => ({
-  id: 'grant-1',
-  userId: 'user-1',
-  userEmail: 'alice@example.com',
-  userDisplayName: 'Alice Example',
-  studentEntityMembershipId: null,
-  permission: AssignableKeycloakPermission.AccountManagerAccess,
-  validFrom: null,
-  validUntil: null,
-  createdAt,
-  createdById: 'admin-1',
-  updatedAt: createdAt,
-  updatedById: 'admin-1',
-  deletedAt: null,
-  lastSyncedAt: null,
-  lastSyncError: null,
-  ...overrides,
-});
-
-const createMembership = (
-  overrides: Partial<MembershipRecord> = {},
-): MembershipRecord => ({
-  id: 'membership-1',
-  entity: 'CACIC',
-  keycloakGroupPath: '/student-entities/cacic',
-  userId: 'user-1',
-  userEmail: 'alice@example.com',
-  userDisplayName: 'Alice Example',
-  mandateStart: new Date(Date.now() - 60 * 1000),
-  mandateEnd: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-  createdAt,
-  createdById: 'admin-1',
-  updatedAt: createdAt,
-  updatedById: 'admin-1',
-  deletedAt: null,
-  lastSyncedAt: null,
-  lastSyncError: null,
-  permissionGrants: [],
-  ...overrides,
-});
 
 const createUser = (
   overrides: Partial<KeycloakUserData> = {},
@@ -167,28 +205,133 @@ const createUser = (
   ...overrides,
 });
 
+const createGrant = (overrides: Partial<GrantRecord> = {}): GrantRecord => {
+  const permission =
+    overrides.permission ?? AccountManagerPermission.PermissionGrantRead;
+  const [clientId, roleName] = permission.split(':');
+
+  return {
+    id: 'grant-1',
+    userId: 'user-1',
+    userEmail: 'alice@example.com',
+    userDisplayName: 'Alice Example',
+    studentEntityMembershipId: null,
+    permission,
+    clientId: overrides.clientId ?? clientId ?? 'cacic-account-manager',
+    roleName: overrides.roleName ?? roleName ?? 'permission-grant#read',
+    validFrom: null,
+    validUntil: null,
+    createdAt,
+    createdById: 'admin-1',
+    updatedAt: createdAt,
+    updatedById: 'admin-1',
+    deletedAt: null,
+    lastSyncedAt: null,
+    lastSyncError: null,
+    ...overrides,
+  };
+};
+
+const createGroupRoleGrant = (
+  overrides: Partial<GroupRoleGrantRecord> = {},
+): GroupRoleGrantRecord => {
+  const permission =
+    overrides.permission ?? AccountManagerPermission.PermissionGrantRead;
+  const [clientId, roleName] = permission.split(':');
+
+  return {
+    id: 'group-grant-1',
+    groupKey: PermissionGroupKey.Cacic,
+    keycloakGroupId: cacicGroupId,
+    permission,
+    clientId: overrides.clientId ?? clientId ?? 'cacic-account-manager',
+    roleName: overrides.roleName ?? roleName ?? 'permission-grant#read',
+    validFrom: null,
+    validUntil: null,
+    createdAt,
+    createdById: 'admin-1',
+    updatedAt: createdAt,
+    updatedById: 'admin-1',
+    deletedAt: null,
+    lastSyncedAt: null,
+    lastSyncError: null,
+    ...overrides,
+  };
+};
+
+const createMembership = (
+  overrides: Partial<MembershipRecord> = {},
+): MembershipRecord => ({
+  id: 'membership-1',
+  entity: PermissionGroupKey.Cacic,
+  keycloakGroupPath: cacicGroupPath,
+  userId: 'user-1',
+  userEmail: 'alice@example.com',
+  userDisplayName: 'Alice Example',
+  mandateStart: new Date(Date.now() - 60 * 1000),
+  mandateEnd: null,
+  createdAt,
+  createdById: 'admin-1',
+  updatedAt: createdAt,
+  updatedById: 'admin-1',
+  deletedAt: null,
+  lastSyncedAt: null,
+  lastSyncError: null,
+  permissionGrants: [],
+  ...overrides,
+});
+
 const createContext = () => {
   const prisma: PrismaMock = {
     keycloakPermissionGrant: {
       findMany: jest.fn<Promise<GrantRecord[]>, [unknown]>(),
-      findFirst: jest.fn<Promise<GrantRecord | null>, [unknown]>(),
-      findUnique: jest.fn<Promise<GrantRecord | null>, [unknown]>(),
+      findFirst: jest.fn<
+        Promise<GrantRecord | { id: string } | null>,
+        [unknown]
+      >(),
       create: jest.fn<Promise<GrantRecord>, [unknown]>(),
       update: jest.fn<Promise<GrantRecord>, [unknown]>(),
     },
+    keycloakGroupPermissionGrant: {
+      findMany: jest.fn<Promise<GroupRoleGrantRecord[]>, [unknown]>(),
+      findFirst: jest.fn<Promise<{ id: string } | null>, [unknown]>(),
+      create: jest.fn<Promise<GroupRoleGrantRecord>, [unknown]>(),
+      update: jest.fn<Promise<GroupRoleGrantRecord>, [unknown]>(),
+    },
     studentEntityMembership: {
       findMany: jest.fn<Promise<MembershipRecord[]>, [unknown]>(),
-      findFirst: jest.fn<Promise<MembershipRecord | null>, [unknown]>(),
+      findFirst: jest.fn<
+        Promise<MembershipRecord | { id: string } | null>,
+        [unknown]
+      >(),
       create: jest.fn<Promise<MembershipRecord>, [unknown]>(),
       update: jest.fn<Promise<MembershipRecord>, [unknown]>(),
     },
   };
-  prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
   prisma.keycloakPermissionGrant.findMany.mockResolvedValue([]);
-  prisma.studentEntityMembership.findFirst.mockResolvedValue(null);
+  prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
+  prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([]);
+  prisma.keycloakGroupPermissionGrant.findFirst.mockResolvedValue(null);
   prisma.studentEntityMembership.findMany.mockResolvedValue([]);
+  prisma.studentEntityMembership.findFirst.mockResolvedValue(null);
 
   const keycloakService: KeycloakMock = {
+    listClientRoles: jest.fn<
+      ReturnType<KeycloakService['listClientRoles']>,
+      Parameters<KeycloakService['listClientRoles']>
+    >(),
+    getGroupClientRoles: jest.fn<
+      ReturnType<KeycloakService['getGroupClientRoles']>,
+      Parameters<KeycloakService['getGroupClientRoles']>
+    >(),
+    addGroupClientRoles: jest.fn<
+      ReturnType<KeycloakService['addGroupClientRoles']>,
+      Parameters<KeycloakService['addGroupClientRoles']>
+    >(),
+    removeGroupClientRoles: jest.fn<
+      ReturnType<KeycloakService['removeGroupClientRoles']>,
+      Parameters<KeycloakService['removeGroupClientRoles']>
+    >(),
     getUserBasicInfo: jest.fn<
       ReturnType<KeycloakService['getUserBasicInfo']>,
       Parameters<KeycloakService['getUserBasicInfo']>
@@ -201,25 +344,77 @@ const createContext = () => {
       ReturnType<KeycloakService['removeUserClientRoles']>,
       Parameters<KeycloakService['removeUserClientRoles']>
     >(),
-    addUserToGroupPath: jest.fn<
-      ReturnType<KeycloakService['addUserToGroupPath']>,
-      Parameters<KeycloakService['addUserToGroupPath']>
+    addUserToGroupId: jest.fn<
+      ReturnType<KeycloakService['addUserToGroupId']>,
+      Parameters<KeycloakService['addUserToGroupId']>
     >(),
-    removeUserFromGroupPath: jest.fn<
-      ReturnType<KeycloakService['removeUserFromGroupPath']>,
-      Parameters<KeycloakService['removeUserFromGroupPath']>
+    removeUserFromGroupId: jest.fn<
+      ReturnType<KeycloakService['removeUserFromGroupId']>,
+      Parameters<KeycloakService['removeUserFromGroupId']>
     >(),
     searchUsers: jest.fn<
       ReturnType<KeycloakService['searchUsers']>,
       Parameters<KeycloakService['searchUsers']>
     >(),
   };
+
+  keycloakService.listClientRoles.mockImplementation((clientId) => {
+    if (clientId === 'cacic-account-manager') {
+      return Promise.resolve([
+        { id: 'role-access', name: 'access' },
+        { id: 'role-grant-read', name: 'permission-grant#read' },
+        { id: 'role-hidden', name: 'uma_protection' },
+      ]);
+    }
+
+    if (clientId === 'cacic-event-manager') {
+      return Promise.resolve([
+        { id: 'role-events-publish', name: 'events#publish' },
+      ]);
+    }
+
+    return Promise.resolve([
+      { id: 'role-elections-read', name: 'elections#read' },
+    ]);
+  });
+  keycloakService.getGroupClientRoles.mockResolvedValue([]);
+  keycloakService.addGroupClientRoles.mockResolvedValue(undefined);
+  keycloakService.removeGroupClientRoles.mockResolvedValue(undefined);
   keycloakService.getUserBasicInfo.mockResolvedValue(createUser());
   keycloakService.addUserClientRoles.mockResolvedValue(undefined);
   keycloakService.removeUserClientRoles.mockResolvedValue(undefined);
-  keycloakService.addUserToGroupPath.mockResolvedValue(undefined);
-  keycloakService.removeUserFromGroupPath.mockResolvedValue(undefined);
+  keycloakService.addUserToGroupId.mockResolvedValue(undefined);
+  keycloakService.removeUserFromGroupId.mockResolvedValue(undefined);
   keycloakService.searchUsers.mockResolvedValue([]);
+
+  const accountPermissionService: AccountPermissionMock = {
+    canAssignPermission: jest.fn<
+      ReturnType<AccountPermissionService['canAssignPermission']>,
+      Parameters<AccountPermissionService['canAssignPermission']>
+    >(),
+    canRevokePermission: jest.fn<
+      ReturnType<AccountPermissionService['canRevokePermission']>,
+      Parameters<AccountPermissionService['canRevokePermission']>
+    >(),
+  };
+  accountPermissionService.canAssignPermission.mockResolvedValue(true);
+  accountPermissionService.canRevokePermission.mockResolvedValue(true);
+
+  const discordRoleService: DiscordRoleMock = {
+    reconcilePermissionGroupAffiliationRoles: jest.fn<
+      ReturnType<
+        DiscordRoleService['reconcilePermissionGroupAffiliationRoles']
+      >,
+      Parameters<DiscordRoleService['reconcilePermissionGroupAffiliationRoles']>
+    >(),
+  };
+  discordRoleService.reconcilePermissionGroupAffiliationRoles.mockResolvedValue(
+    {
+      links: 1,
+      rolesAdded: 1,
+      rolesRemoved: 0,
+    },
+  );
 
   const queue: QueueMock = {
     add: jest.fn<
@@ -228,314 +423,1217 @@ const createContext = () => {
     >(),
   };
 
-  const service = new KeycloakPermissionsService(
+  const catalog = new KeycloakPermissionsCatalogService(
+    keycloakService as unknown as KeycloakService,
+  );
+  const sync = new KeycloakPermissionsSyncService(
     prisma as unknown as PrismaService,
     keycloakService as unknown as KeycloakService,
+    discordRoleService as unknown as DiscordRoleService,
+  );
+  const groupRoles = new KeycloakPermissionsGroupRolesService(
+    prisma as unknown as PrismaService,
+    keycloakService as unknown as KeycloakService,
+    accountPermissionService as unknown as AccountPermissionService,
+    catalog,
+    sync,
+  );
+  const memberships = new KeycloakPermissionsMembershipsService(
+    prisma as unknown as PrismaService,
+    keycloakService as unknown as KeycloakService,
+    discordRoleService as unknown as DiscordRoleService,
+    accountPermissionService as unknown as AccountPermissionService,
+    catalog,
+    sync,
+  );
+  const grants = new KeycloakPermissionsGrantsService(
+    prisma as unknown as PrismaService,
+    keycloakService as unknown as KeycloakService,
+    accountPermissionService as unknown as AccountPermissionService,
+    catalog,
+    sync,
+  );
+  const service = new KeycloakPermissionsService(
+    catalog,
+    groupRoles,
+    memberships,
+    grants,
+    sync,
     queue as unknown as Queue<SyncPermissionGrantsJob>,
   );
 
   return {
-    service,
-    prisma,
+    accountPermissionService,
+    discordRoleService,
     keycloakService,
+    prisma,
     queue,
+    service,
   };
 };
 
 describe('KeycloakPermissionsService', () => {
-  it('creates an immediate grant and assigns the direct Keycloak client role', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const grant = createGrant();
-    const syncedGrant = createGrant({
-      lastSyncedAt: new Date('2026-06-21T12:01:00.000Z'),
-    });
-    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
-    prisma.keycloakPermissionGrant.update.mockResolvedValue(syncedGrant);
-    prisma.keycloakPermissionGrant.findUnique.mockResolvedValue(syncedGrant);
+  it('loads role definitions from configured Keycloak clients and hides non-db-managed roles', async () => {
+    const { keycloakService, service } = createContext();
 
-    const result = await service.createGrant(
-      {
-        userId: 'user-1',
-        permission: AssignableKeycloakPermission.AccountManagerAccess,
+    const catalog = await service.listCatalog();
+
+    expect(keycloakService.listClientRoles).toHaveBeenCalledWith(
+      'cacic-account-manager',
+    );
+    expect(keycloakService.listClientRoles).toHaveBeenCalledWith(
+      'cacic-event-manager',
+    );
+    expect(catalog.map((definition) => definition.permission)).toContain(
+      AccountManagerPermission.PermissionGrantRead,
+    );
+    expect(catalog.map((definition) => definition.permission)).not.toContain(
+      AccountManagerPermission.Access,
+    );
+    expect(catalog.map((definition) => definition.permission)).not.toContain(
+      AccountManagerPermission.SuperAdmin,
+    );
+    expect(catalog.map((definition) => definition.permission)).toContain(
+      buildKeycloakPermissionId('cacic-event-manager', 'events#publish'),
+    );
+    expect(catalog.some((definition) => definition.roleName === 'access')).toBe(
+      false,
+    );
+    expect(
+      catalog.some((definition) => definition.roleName === 'super-admin'),
+    ).toBe(false);
+    expect(
+      catalog.some((definition) => definition.roleName === 'uma_protection'),
+    ).toBe(false);
+  });
+
+  it('allows known account-manager permission writes when another client catalog is unavailable', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    keycloakService.listClientRoles.mockImplementation((clientId) => {
+      if (clientId === 'cacic-event-manager') {
+        return Promise.reject(new Error('Event Manager down'));
+      }
+
+      if (clientId === 'cacic-account-manager') {
+        return Promise.resolve([
+          { id: 'role-grant-read', name: 'permission-grant#read' },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(grant);
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission: AccountManagerPermission.PermissionGrantRead,
+        },
+        'admin-1',
+      ),
+    ).resolves.toEqual(expect.objectContaining({ id: grant.id }));
+  });
+
+  it('reloads the permission catalog after a transient client outage', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'events#publish',
+    );
+    const grant = createGrant({ permission });
+    let eventManagerAttempts = 0;
+    keycloakService.listClientRoles.mockImplementation((clientId) => {
+      if (clientId === 'cacic-event-manager') {
+        eventManagerAttempts += 1;
+        if (eventManagerAttempts === 1) {
+          return Promise.reject(new Error('Event Manager down'));
+        }
+
+        return Promise.resolve([
+          { id: 'role-events-publish', name: 'events#publish' },
+        ]);
+      }
+
+      if (clientId === 'cacic-account-manager') {
+        return Promise.resolve([
+          { id: 'role-grant-read', name: 'permission-grant#read' },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(grant);
+
+    await expect(
+      service.createGrant({ userId: 'user-1', permission }, 'admin-1'),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Catálogo de permissões indisponível para: cacic-event-manager.',
       },
+    });
+
+    await expect(
+      service.createGrant({ userId: 'user-1', permission }, 'admin-1'),
+    ).resolves.toEqual(expect.objectContaining({ id: grant.id }));
+    expect(eventManagerAttempts).toBe(2);
+  });
+
+  it('shows Keycloak-only group roles as active grants', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? [
+                'access',
+                'super-admin',
+                'permission-grant#read',
+                'uma_protection',
+              ]
+            : [],
+        ),
+    );
+
+    const grants = await service.listPermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+    );
+
+    expect(grants).toEqual([
+      expect.objectContaining({
+        groupKey: PermissionGroupKey.Cacic,
+        permission: AccountManagerPermission.PermissionGrantRead,
+        source: 'keycloak',
+        status: 'active',
+      }),
+    ]);
+  });
+
+  it('updates group role grants and removes stale Keycloak mappings', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const stalePermission = AccountManagerPermission.StudentVerificationReview;
+    const createdGrant = createGroupRoleGrant({ permission });
+
+    prisma.keycloakGroupPermissionGrant.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([createdGrant]);
+    prisma.keycloakGroupPermissionGrant.create.mockResolvedValue(createdGrant);
+    prisma.keycloakGroupPermissionGrant.update.mockResolvedValue(createdGrant);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? ['student-verification#review']
+            : [],
+        ),
+    );
+
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [permission] },
       'admin-1',
     );
 
-    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith('user-1', [
-      AssignableKeycloakPermission.AccountManagerAccess,
-    ]);
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      stalePermission,
+    );
+    expect(keycloakService.addGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['permission-grant#read'],
+      'cacic-account-manager',
+    );
+    expect(keycloakService.removeGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['student-verification#review'],
+      'cacic-account-manager',
+    );
+    expect(
+      keycloakService.removeGroupClientRoles.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      keycloakService.addGroupClientRoles.mock.invocationCallOrder[0],
+    );
+
     const createArgs = getMockArg<{
       data: {
-        userId: string;
+        groupKey: PermissionGroupKey;
+        keycloakGroupId: string;
         permission: string;
-        userEmail: string;
-        userDisplayName: string;
+        clientId: string;
+        roleName: string;
         createdById: string;
-        updatedById: string;
       };
-    }>(prisma.keycloakPermissionGrant.create);
+    }>(prisma.keycloakGroupPermissionGrant.create);
     expect(createArgs.data).toMatchObject({
-      userId: 'user-1',
-      permission: AssignableKeycloakPermission.AccountManagerAccess,
-      userEmail: 'alice@example.com',
-      userDisplayName: 'Alice Example',
+      groupKey: PermissionGroupKey.Cacic,
+      keycloakGroupId: cacicGroupId,
+      permission,
+      clientId: 'cacic-account-manager',
+      roleName: 'permission-grant#read',
       createdById: 'admin-1',
-      updatedById: 'admin-1',
     });
-    expect(result.status).toBe('active');
   });
 
-  it('returns a created grant with sync drift when immediate Keycloak assignment fails', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const grant = createGrant();
-    const failedGrant = createGrant({
-      lastSyncError: 'Keycloak unavailable',
+  it('marks removed DB group grants deleted when the Keycloak role is already gone', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const staleGrant = createGroupRoleGrant({
+      permission: AccountManagerPermission.StudentVerificationReview,
+      clientId: 'cacic-account-manager',
+      roleName: 'student-verification#review',
     });
-    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
-    prisma.keycloakPermissionGrant.update.mockResolvedValue(failedGrant);
-    prisma.keycloakPermissionGrant.findUnique.mockResolvedValue(failedGrant);
-    keycloakService.addUserClientRoles.mockRejectedValue(
-      new Error('Keycloak unavailable'),
+    prisma.keycloakGroupPermissionGrant.findMany
+      .mockResolvedValueOnce([staleGrant])
+      .mockResolvedValueOnce([]);
+    prisma.keycloakGroupPermissionGrant.update.mockResolvedValue({
+      ...staleGrant,
+      deletedAt: new Date(),
+    });
+    keycloakService.removeGroupClientRoles.mockRejectedValueOnce(
+      new KeycloakClientRoleNotFoundException(
+        staleGrant.clientId,
+        staleGrant.roleName,
+      ),
     );
 
-    const result = await service.createGrant(
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [] },
+      'admin-1',
+    );
+
+    const updateArgs = getMockArg<{
+      where: { id: string };
+      data: { deletedAt: Date; updatedById: string; lastSyncError: null };
+    }>(prisma.keycloakGroupPermissionGrant.update);
+    expect(updateArgs.where).toEqual({ id: staleGrant.id });
+    expect(updateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(updateArgs.data.updatedById).toBe('admin-1');
+    expect(updateArgs.data.lastSyncError).toBeNull();
+  });
+
+  it('ignores missing Keycloak-only group role removals and continues additions', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const createdGrant = createGroupRoleGrant({ permission });
+    prisma.keycloakGroupPermissionGrant.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([createdGrant]);
+    prisma.keycloakGroupPermissionGrant.create.mockResolvedValue(createdGrant);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? ['student-verification#review']
+            : [],
+        ),
+    );
+    keycloakService.removeGroupClientRoles.mockRejectedValueOnce(
+      new KeycloakClientRoleNotFoundException(
+        'cacic-account-manager',
+        'student-verification#review',
+      ),
+    );
+
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [permission] },
+      'admin-1',
+    );
+
+    expect(prisma.keycloakGroupPermissionGrant.create).toHaveBeenCalled();
+    expect(keycloakService.addGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['permission-grant#read'],
+      'cacic-account-manager',
+    );
+  });
+
+  it('does not require assignment or create duplicate grants for unchanged Keycloak-only group roles', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager' ? ['permission-grant#read'] : [],
+        ),
+    );
+
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [permission] },
+      'admin-1',
+    );
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+    expect(prisma.keycloakGroupPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
+    expect(keycloakService.removeGroupClientRoles).not.toHaveBeenCalled();
+  });
+
+  it('preflights group role removals before creating new grants', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const stalePermission = AccountManagerPermission.StudentVerificationReview;
+    accountPermissionService.canRevokePermission.mockResolvedValue(false);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        Promise.resolve(
+          clientId === 'cacic-account-manager'
+            ? ['student-verification#review']
+            : [],
+        ),
+    );
+
+    await expect(
+      service.updatePermissionGroupRoleGrants(
+        PermissionGroupKey.Cacic,
+        { permissions: [permission] },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode revogar uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      stalePermission,
+    );
+    expect(prisma.keycloakGroupPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
+  });
+
+  it('updates available group role clients when another managed client is unavailable', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const stalePermission = AccountManagerPermission.StudentVerificationReview;
+    const createdGrant = createGroupRoleGrant({ permission });
+
+    prisma.keycloakGroupPermissionGrant.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([createdGrant]);
+    prisma.keycloakGroupPermissionGrant.create.mockResolvedValue(createdGrant);
+    prisma.keycloakGroupPermissionGrant.update.mockResolvedValue(createdGrant);
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) => {
+        if (clientId === 'cacic-account-manager') {
+          return Promise.resolve(['student-verification#review']);
+        }
+
+        if (clientId === 'cacic-event-manager') {
+          return Promise.reject(new Error('Event Manager down'));
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+
+    await service.updatePermissionGroupRoleGrants(
+      PermissionGroupKey.Cacic,
+      { permissions: [permission] },
+      'admin-1',
+    );
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      stalePermission,
+    );
+    expect(keycloakService.addGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['permission-grant#read'],
+      'cacic-account-manager',
+    );
+    expect(keycloakService.removeGroupClientRoles).toHaveBeenCalledWith(
+      cacicGroupId,
+      ['student-verification#review'],
+      'cacic-account-manager',
+    );
+  });
+
+  it('rejects desired group role changes for unavailable clients', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const eventPermission = 'cacic-event-manager:events#publish';
+    keycloakService.getGroupClientRoles.mockImplementation(
+      (_groupId, clientId) =>
+        clientId === 'cacic-event-manager'
+          ? Promise.reject(new Error('Event Manager down'))
+          : Promise.resolve([]),
+    );
+
+    await expect(
+      service.updatePermissionGroupRoleGrants(
+        PermissionGroupKey.Cacic,
+        { permissions: [eventPermission] },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Permissões do grupo indisponíveis para: cacic-event-manager.',
+      },
+    });
+
+    expect(prisma.keycloakGroupPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addGroupClientRoles).not.toHaveBeenCalled();
+    expect(keycloakService.removeGroupClientRoles).not.toHaveBeenCalled();
+  });
+
+  it('creates a permission group membership and reconciles Keycloak plus Discord side effects', async () => {
+    const { discordRoleService, keycloakService, prisma, service } =
+      createContext();
+    const membership = createMembership();
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(membership);
+    prisma.studentEntityMembership.create.mockResolvedValue(membership);
+    prisma.studentEntityMembership.update.mockResolvedValue(membership);
+
+    const result = await service.createPermissionGroupMembership(
       {
         userId: 'user-1',
-        permission: AssignableKeycloakPermission.AccountManagerAccess,
+        groupKey: PermissionGroupKey.Cacic,
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: null,
       },
       'admin-1',
     );
 
-    expect(result.lastSyncError).toBe('Keycloak unavailable');
-    const updateArgs = getMockArg<{
-      where: { id: string };
-      data: { lastSyncError: string };
-    }>(prisma.keycloakPermissionGrant.update);
-    expect(updateArgs.where).toEqual({ id: 'grant-1' });
-    expect(updateArgs.data.lastSyncError).toBe('Keycloak unavailable');
-  });
-
-  it('keeps a future grant scheduled until the sync window activates it', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const validFrom = new Date(Date.now() + 60 * 60 * 1000);
-    const grant = createGrant({ validFrom });
-    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
-    prisma.keycloakPermissionGrant.findUnique.mockResolvedValue(grant);
-
-    const result = await service.createGrant({
-      userId: 'user-1',
-      permission: AssignableKeycloakPermission.AccountManagerSuperAdmin,
-      validFrom: validFrom.toISOString(),
-    });
-
-    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
-    expect(result.status).toBe('scheduled');
-  });
-
-  it('removes expired grants from Keycloak during synchronization', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const expiredGrant = createGrant({
-      validUntil: new Date(Date.now() - 60 * 1000),
-    });
-    prisma.keycloakPermissionGrant.findMany.mockResolvedValue([expiredGrant]);
-    prisma.keycloakPermissionGrant.update.mockResolvedValue(
-      createGrant({ deletedAt: new Date() }),
+    expect(keycloakService.addUserToGroupId).toHaveBeenCalledWith(
+      'user-1',
+      cacicGroupId,
+      cacicGroupPath,
+    );
+    expect(
+      discordRoleService.reconcilePermissionGroupAffiliationRoles,
+    ).toHaveBeenCalledWith('user-1', 'permission-group-membership-created');
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'membership-1',
+        groupKey: PermissionGroupKey.Cacic,
+        keycloakGroupId: cacicGroupId,
+        status: 'active',
+      }),
     );
 
-    const result = await service.synchronizePermissionGrants();
+    const createArgs = getMockArg<{
+      data: {
+        entity: PermissionGroupKey;
+        keycloakGroupPath: string;
+        userEmail: string;
+        userDisplayName: string;
+      };
+    }>(prisma.studentEntityMembership.create);
+    expect(createArgs.data).toMatchObject({
+      entity: PermissionGroupKey.Cacic,
+      keycloakGroupPath: cacicGroupPath,
+      userEmail: 'alice@example.com',
+      userDisplayName: 'Alice Example',
+    });
+  });
+
+  it('maps raced duplicate membership creates to conflict responses', async () => {
+    const { discordRoleService, keycloakService, prisma, service } =
+      createContext();
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(null);
+    prisma.studentEntityMembership.create.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      service.createPermissionGroupMembership(
+        {
+          userId: 'user-1',
+          groupKey: PermissionGroupKey.Cacic,
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Essa pessoa já possui um vínculo ativo nesse grupo.',
+      },
+    });
+
+    expect(keycloakService.addUserToGroupId).not.toHaveBeenCalled();
+    expect(
+      discordRoleService.reconcilePermissionGroupAffiliationRoles,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('checks target group permissions before creating a membership', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership();
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(membership);
+    prisma.studentEntityMembership.create.mockResolvedValue(membership);
+    prisma.studentEntityMembership.update.mockResolvedValue(membership);
+
+    await service.createPermissionGroupMembership(
+      {
+        userId: 'user-1',
+        groupKey: PermissionGroupKey.Cacic,
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: null,
+      },
+      'admin-1',
+    );
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+  });
+
+  it('does not deactivate membership-linked grants when memberships stay active', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const legacyGrant = createGrant({
+      id: 'legacy-grant-1',
+      studentEntityMembershipId: 'membership-1',
+    });
+    const membership = createMembership({
+      permissionGrants: [legacyGrant],
+    });
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(membership)
+      .mockResolvedValueOnce(membership);
+    prisma.studentEntityMembership.update.mockResolvedValue(membership);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...legacyGrant,
+      deletedAt: new Date(),
+    });
+
+    await service.updatePermissionGroupMembership(
+      'membership-1',
+      {
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: null,
+      },
+      'admin-1',
+    );
+
+    expect(keycloakService.removeUserClientRoles).not.toHaveBeenCalled();
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+  });
+
+  it('rejects active membership extensions when the actor cannot assign group permissions', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership();
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects future membership access when the actor cannot assign group permissions', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership({
+      mandateStart: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValueOnce([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('requires revoke permission before shortening active membership access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const permission = AccountManagerPermission.PermissionGrantRead;
+    const groupGrant = createGroupRoleGrant({ permission });
+    const membership = createMembership();
+    accountPermissionService.canRevokePermission.mockResolvedValue(false);
+    prisma.keycloakGroupPermissionGrant.findMany.mockResolvedValue([
+      groupGrant,
+    ]);
+    prisma.studentEntityMembership.findFirst.mockResolvedValueOnce(membership);
+
+    await expect(
+      service.updatePermissionGroupMembership(
+        'membership-1',
+        {
+          validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 60 * 1000).toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Você não pode remover pessoas de um grupo que concede permissões que você não pode revogar.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      permission,
+    );
+    expect(prisma.studentEntityMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('deactivates legacy membership-linked grants when memberships become inactive', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const legacyGrant = createGrant({
+      id: 'legacy-grant-1',
+      studentEntityMembershipId: 'membership-1',
+    });
+    const membership = createMembership({
+      permissionGrants: [legacyGrant],
+    });
+    const inactiveMembership = createMembership({
+      mandateEnd: new Date(Date.now() - 1000),
+      permissionGrants: [legacyGrant],
+    });
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(membership)
+      .mockResolvedValueOnce(inactiveMembership);
+    prisma.studentEntityMembership.update.mockResolvedValue(inactiveMembership);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...legacyGrant,
+      deletedAt: new Date(),
+    });
+
+    await service.updatePermissionGroupMembership(
+      'membership-1',
+      {
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: new Date(Date.now() - 1000).toISOString(),
+      },
+      'admin-1',
+    );
 
     expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
       'user-1',
-      [AssignableKeycloakPermission.AccountManagerAccess],
+      ['permission-grant#read'],
+      'cacic-account-manager',
     );
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledTimes(1);
     const updateArgs = getMockArg<{
       where: { id: string };
-      data: { updatedById: string };
-    }>(prisma.keycloakPermissionGrant.update);
-    expect(updateArgs.where).toEqual({ id: 'grant-1' });
-    expect(updateArgs.data.updatedById).toBe(
-      'system:keycloak-permissions-sync',
-    );
-    expect(result).toEqual({ activated: 0, expired: 1, failed: 0 });
-  });
-
-  it('ignores legacy realm-role grants during synchronization', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const legacyGrant = createGrant({
-      permission: 'account-manager#super-admin',
-      validUntil: new Date(Date.now() - 60 * 1000),
-    });
-    prisma.keycloakPermissionGrant.findMany.mockResolvedValue([legacyGrant]);
-
-    const result = await service.synchronizePermissionGrants();
-
-    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
-    expect(keycloakService.removeUserClientRoles).not.toHaveBeenCalled();
-    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ activated: 0, expired: 0, failed: 0 });
-  });
-
-  it('creates a student entity membership, syncs its Keycloak group, and links scoped grants', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const mandateStart = new Date(Date.now() - 60 * 1000);
-    const mandateEnd = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-    const membership = createMembership({ mandateStart, mandateEnd });
-    const linkedGrant = createGrant({
-      id: 'grant-entity-1',
-      studentEntityMembershipId: membership.id,
-      validFrom: mandateStart,
-      validUntil: mandateEnd,
-    });
-    const finalMembership = createMembership({
-      mandateStart,
-      mandateEnd,
-      lastSyncedAt: new Date('2026-06-21T12:02:00.000Z'),
-      permissionGrants: [linkedGrant],
-    });
-
-    prisma.studentEntityMembership.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(finalMembership);
-    prisma.studentEntityMembership.create.mockResolvedValue(membership);
-    prisma.studentEntityMembership.update.mockResolvedValue(finalMembership);
-    prisma.keycloakPermissionGrant.create.mockResolvedValue(linkedGrant);
-    prisma.keycloakPermissionGrant.update.mockResolvedValue(linkedGrant);
-
-    const result = await service.createStudentEntityMembership(
-      {
-        entity: 'CACIC',
-        userId: 'user-1',
-        mandateStart: mandateStart.toISOString(),
-        mandateEnd: mandateEnd.toISOString(),
-        permissions: [AssignableKeycloakPermission.AccountManagerAccess],
-      },
-      'admin-1',
-    );
-
-    expect(keycloakService.addUserToGroupPath).toHaveBeenCalledWith(
-      'user-1',
-      '/student-entities/cacic',
-    );
-    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith('user-1', [
-      AssignableKeycloakPermission.AccountManagerAccess,
-    ]);
-    const createArgs = getMockArg<{
       data: {
-        studentEntityMembershipId: string;
-        validFrom: Date;
-        validUntil: Date;
+        deletedAt: Date;
+        updatedById: string;
+        lastSyncError: null;
       };
-    }>(prisma.keycloakPermissionGrant.create);
-    expect(createArgs.data.studentEntityMembershipId).toBe('membership-1');
-    expect(createArgs.data.validFrom).toBe(mandateStart);
-    expect(createArgs.data.validUntil).toBe(mandateEnd);
-    expect(result.entity).toBe('CACIC');
-    expect(result.permissionGrants).toHaveLength(1);
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(updateArgs.where).toEqual({ id: 'legacy-grant-1' });
+    expect(updateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(updateArgs.data.updatedById).toBe('admin-1');
+    expect(updateArgs.data.lastSyncError).toBeNull();
   });
 
-  it('returns a created student entity membership with sync drift when Keycloak group sync fails', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const mandateStart = new Date(Date.now() - 60 * 1000);
-    const mandateEnd = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-    const membership = createMembership({ mandateStart, mandateEnd });
-    const failedMembership = createMembership({
-      mandateStart,
-      mandateEnd,
-      lastSyncError: 'Keycloak group unavailable',
+  it('skips hidden or deleted membership-linked grants when memberships become inactive', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const legacyGrant = createGrant({
+      id: 'legacy-grant-1',
+      studentEntityMembershipId: 'membership-1',
+    });
+    const hiddenGrant = createGrant({
+      id: 'hidden-grant-1',
+      permission: 'cacic-account-manager:access',
+      roleName: 'access',
+      studentEntityMembershipId: 'membership-1',
+    });
+    const deletedGrant = createGrant({
+      id: 'deleted-grant-1',
+      deletedAt: new Date(Date.now() - 1000),
+      studentEntityMembershipId: 'membership-1',
+    });
+    const membership = createMembership({
+      permissionGrants: [legacyGrant, hiddenGrant, deletedGrant],
+    });
+    const inactiveMembership = createMembership({
+      mandateEnd: new Date(Date.now() - 1000),
+      permissionGrants: [legacyGrant, hiddenGrant, deletedGrant],
+    });
+    prisma.studentEntityMembership.findFirst
+      .mockResolvedValueOnce(membership)
+      .mockResolvedValueOnce(inactiveMembership);
+    prisma.studentEntityMembership.update.mockResolvedValue(inactiveMembership);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...legacyGrant,
+      deletedAt: new Date(),
     });
 
-    prisma.studentEntityMembership.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(failedMembership);
-    prisma.studentEntityMembership.create.mockResolvedValue(membership);
-    prisma.studentEntityMembership.update.mockResolvedValue(failedMembership);
-    keycloakService.addUserToGroupPath.mockRejectedValue(
-      new Error('Keycloak group unavailable'),
-    );
-
-    const result = await service.createStudentEntityMembership(
+    await service.updatePermissionGroupMembership(
+      'membership-1',
       {
-        entity: 'CACIC',
-        userId: 'user-1',
-        mandateStart: mandateStart.toISOString(),
-        mandateEnd: mandateEnd.toISOString(),
-        permissions: [],
+        validFrom: new Date(Date.now() - 60 * 1000).toISOString(),
+        validUntil: new Date(Date.now() - 1000).toISOString(),
       },
       'admin-1',
     );
 
-    expect(result.lastSyncError).toBe('Keycloak group unavailable');
-    const updateArgs = getMockArg<{
-      where: { id: string };
-      data: { lastSyncError: string };
-    }>(prisma.studentEntityMembership.update);
-    expect(updateArgs.where).toEqual({ id: 'membership-1' });
-    expect(updateArgs.data.lastSyncError).toBe('Keycloak group unavailable');
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      legacyGrant.permission,
+    );
+    expect(
+      accountPermissionService.canRevokePermission,
+    ).not.toHaveBeenCalledWith('admin-1', hiddenGrant.permission);
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledTimes(1);
+    expect(prisma.keycloakPermissionGrant.update).toHaveBeenCalledTimes(1);
+    expect(
+      getMockArg<{ where: { id: string } }>(
+        prisma.keycloakPermissionGrant.update,
+      ).where,
+    ).toEqual({ id: legacyGrant.id });
   });
 
-  it('removes expired memberships from Keycloak and expires linked grants', async () => {
-    const { service, prisma, keycloakService } = createContext();
-    const mandateStart = new Date(Date.now() - 120 * 60 * 1000);
-    const mandateEnd = new Date(Date.now() - 60 * 1000);
-    const linkedGrant = createGrant({
-      id: 'grant-entity-1',
-      studentEntityMembershipId: 'membership-1',
-      validFrom: mandateStart,
-      validUntil: mandateEnd,
-    });
-    const expiredMembership = createMembership({
-      mandateStart,
-      mandateEnd,
-      permissionGrants: [linkedGrant],
-    });
+  it('creates a direct grant and assigns only the parsed client role in Keycloak', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'events#publish',
+    );
+    const grant = createGrant({ permission });
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.create.mockResolvedValue(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(grant);
 
-    prisma.studentEntityMembership.findMany.mockResolvedValue([
-      expiredMembership,
-    ]);
-    prisma.keycloakPermissionGrant.update.mockResolvedValue(
-      createGrant({
-        id: 'grant-entity-1',
-        studentEntityMembershipId: 'membership-1',
-        deletedAt: new Date(),
+    const result = await service.createGrant(
+      {
+        userId: 'user-1',
+        permission,
+      },
+      'admin-1',
+    );
+
+    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith(
+      'user-1',
+      ['events#publish'],
+      'cacic-event-manager',
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        permission,
+        clientId: 'cacic-event-manager',
+        roleName: 'events#publish',
       }),
     );
-    prisma.studentEntityMembership.update.mockResolvedValue(
-      createMembership({ deletedAt: new Date() }),
-    );
 
-    const result = await service.synchronizeStudentEntityMemberships();
-
-    expect(keycloakService.removeUserFromGroupPath).toHaveBeenCalledWith(
-      'user-1',
-      '/student-entities/cacic',
-    );
-    const grantUpdateArgs = getMockArg<{
-      where: { id: string };
-      data: { updatedById: string };
-    }>(prisma.keycloakPermissionGrant.update);
-    const membershipUpdateArgs = getMockArg<{
-      where: { id: string };
-      data: { updatedById: string };
-    }>(prisma.studentEntityMembership.update);
-    expect(grantUpdateArgs.where).toEqual({ id: 'grant-entity-1' });
-    expect(grantUpdateArgs.data.updatedById).toBe(
-      'system:keycloak-permissions-sync',
-    );
-    expect(membershipUpdateArgs.where).toEqual({ id: 'membership-1' });
-    expect(membershipUpdateArgs.data.updatedById).toBe(
-      'system:keycloak-permissions-sync',
-    );
-    expect(result).toEqual({ activated: 0, expired: 1, failed: 0 });
+    const createArgs = getMockArg<{
+      data: {
+        permission: string;
+        clientId: string;
+        roleName: string;
+      };
+    }>(prisma.keycloakPermissionGrant.create);
+    expect(createArgs.data).toMatchObject({
+      permission,
+      clientId: 'cacic-event-manager',
+      roleName: 'events#publish',
+    });
   });
 
-  it('rejects unknown permission strings', async () => {
+  it('maps raced duplicate direct grant creates to conflict responses', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const permission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'events#publish',
+    );
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(null);
+    prisma.keycloakPermissionGrant.create.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Essa permissão já foi concedida para essa pessoa. Atualize ou remova a concessão atual antes de criar outra.',
+      },
+    });
+
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate non-deleted scheduled direct grants before create', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validFrom: new Date(Date.now() + 60 * 60 * 1000),
+      validUntil: null,
+    });
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission: existingGrant.permission,
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'Essa permissão já foi concedida para essa pessoa. Atualize ou remova a concessão atual antes de criar outra.',
+      },
+    });
+
+    expect(prisma.keycloakPermissionGrant.create).not.toHaveBeenCalled();
+    expect(keycloakService.addUserClientRoles).not.toHaveBeenCalled();
+  });
+
+  it('allows revoke-only actors to expire an active direct grant', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const validUntil = new Date(Date.now() - 60 * 1000);
+    const existingGrant = createGrant();
+    const expiredGrant = createGrant({
+      validUntil,
+      updatedById: 'admin-1',
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    accountPermissionService.canRevokePermission.mockResolvedValue(true);
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce(existingGrant)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(expiredGrant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue(expiredGrant);
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: validUntil.toISOString(),
+        },
+        'admin-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: existingGrant.id,
+        validUntil: validUntil.toISOString(),
+      }),
+    );
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
+      existingGrant.userId,
+      [existingGrant.roleName],
+      existingGrant.clientId,
+    );
+  });
+
+  it('requires assign permission to keep an active direct grant active with a validity change', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const validUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const existingGrant = createGrant({
+      validUntil: new Date(Date.now() + 60 * 1000),
+    });
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: validUntil.toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode conceder uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('requires assign permission before scheduling future direct grant access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validFrom: new Date(Date.now() + 60 * 60 * 1000),
+      permission: AccountManagerPermission.PermissionGrantRead,
+    });
+    const nextPermission = AccountManagerPermission.DiscordManagementUpdate;
+    accountPermissionService.canAssignPermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          permission: nextPermission,
+          validFrom: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          validUntil: null,
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode conceder uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).toHaveBeenCalledWith(
+      'admin-1',
+      nextPermission,
+    );
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('requires revoke permission before shortening active direct grant access', async () => {
+    const { accountPermissionService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      validUntil: null,
+    });
+    accountPermissionService.canRevokePermission.mockResolvedValue(false);
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(
+      existingGrant,
+    );
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        {
+          validUntil: new Date(Date.now() + 60 * 1000).toISOString(),
+        },
+        'admin-1',
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Você não pode revogar uma permissão que não possui.',
+      },
+    });
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).toHaveBeenCalledWith(
+      'admin-1',
+      existingGrant.permission,
+    );
+    expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
+  });
+
+  it('marks direct grants deleted after removing the external Keycloak role', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...grant,
+      deletedAt: new Date(),
+    });
+
+    await service.deleteGrant(grant.id, 'admin-1');
+
+    const deleteUpdateArgs = getMockArg<{
+      data: { deletedAt: Date; lastSyncedAt: Date; lastSyncError: null };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(deleteUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncError).toBeNull();
+    expect(
+      keycloakService.removeUserClientRoles.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      prisma.keycloakPermissionGrant.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('keeps direct grants visible for retry when Keycloak role removal fails', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    keycloakService.removeUserClientRoles.mockRejectedValueOnce(
+      new Error('Keycloak down'),
+    );
+
+    await expect(service.deleteGrant(grant.id, 'admin-1')).rejects.toThrow(
+      'Keycloak down',
+    );
+
+    const failureUpdateArgs = getMockArg<{
+      data: { deletedAt?: Date; lastSyncError: string };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(failureUpdateArgs.data.deletedAt).toBeUndefined();
+    expect(failureUpdateArgs.data.lastSyncError).toBe('Keycloak down');
+  });
+
+  it('marks direct grants deleted when the external Keycloak role is already gone', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
+    keycloakService.removeUserClientRoles.mockRejectedValueOnce(
+      new KeycloakClientRoleNotFoundException(grant.clientId, grant.roleName),
+    );
+
+    await expect(
+      service.deleteGrant(grant.id, 'admin-1'),
+    ).resolves.toBeUndefined();
+
+    const deleteUpdateArgs = getMockArg<{
+      data: {
+        deletedAt: Date;
+        updatedById: string;
+        lastSyncedAt: Date;
+        lastSyncError: null;
+      };
+    }>(prisma.keycloakPermissionGrant.update);
+    expect(deleteUpdateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.updatedById).toBe('admin-1');
+    expect(deleteUpdateArgs.data.lastSyncedAt).toBeInstanceOf(Date);
+    expect(deleteUpdateArgs.data.lastSyncError).toBeNull();
+  });
+
+  it('rejects hidden Keycloak roles', async () => {
     const { service } = createContext();
 
     await expect(
-      service.createGrant({
-        userId: 'user-1',
-        permission: 'realm-admin' as AssignableKeycloakPermission,
-      }),
+      service.createGrant(
+        {
+          userId: 'user-1',
+          permission: buildKeycloakPermissionId(
+            'cacic-account-manager',
+            'uma_protection',
+          ),
+        },
+        'admin-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lets users remove their own direct grants without assign permissions', async () => {
+    const { accountPermissionService, keycloakService, prisma, service } =
+      createContext();
+    const grant = createGrant();
+    prisma.keycloakPermissionGrant.findFirst
+      .mockResolvedValueOnce({ id: grant.id })
+      .mockResolvedValueOnce(grant);
+    prisma.keycloakPermissionGrant.update.mockResolvedValue({
+      ...grant,
+      deletedAt: new Date(),
+    });
+
+    await expect(service.selfRemoveGrant('user-1', grant.id)).resolves.toEqual({
+      removed: true,
+      id: grant.id,
+    });
+
+    expect(accountPermissionService.canAssignPermission).not.toHaveBeenCalled();
+    expect(accountPermissionService.canRevokePermission).not.toHaveBeenCalled();
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
+      'user-1',
+      ['permission-grant#read'],
+      'cacic-account-manager',
+    );
   });
 });

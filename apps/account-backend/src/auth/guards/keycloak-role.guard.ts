@@ -1,6 +1,8 @@
 import {
+  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerKeycloakRole,
-  isAssignableKeycloakPermission,
+  buildKeycloakPermissionId,
+  parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import {
   CanActivate,
@@ -70,6 +72,8 @@ export class KeycloakRoleGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
+    let keycloakError: unknown;
+
     try {
       const userRoles = await this.keycloakService.getUserRoles(userId);
       if (userRoles.includes(AccountManagerKeycloakRole.SuperAdmin)) {
@@ -85,7 +89,15 @@ export class KeycloakRoleGuard implements CanActivate {
       if (hasRequiredRoles) {
         return true;
       }
+    } catch (error) {
+      keycloakError = error;
+      this.logger.warn(
+        'Keycloak role verification failed; checking database-backed permissions',
+        error,
+      );
+    }
 
+    try {
       const hasDbSuperAdmin =
         await this.accountPermissionService.hasAnyActivePermission(userId, [
           AccountManagerKeycloakRole.SuperAdmin,
@@ -95,12 +107,15 @@ export class KeycloakRoleGuard implements CanActivate {
         return true;
       }
 
-      const dbBackedPermissions = [
-        ...new Set(config.roles.filter(isAssignableKeycloakPermission)),
-      ];
+      const dbBackedPermissions = this.getDbBackedAccountManagerPermissions(
+        config.roles,
+      );
+      const canFullyMapRolesToDbPermissions =
+        dbBackedPermissions.length === config.roles.length;
       const hasDbPermission =
-        dbBackedPermissions.length > 0 && config.mode === 'all'
-          ? (
+        config.mode === 'all'
+          ? canFullyMapRolesToDbPermissions &&
+            (
               await Promise.all(
                 dbBackedPermissions.map((permission) =>
                   this.accountPermissionService.hasAnyActivePermission(userId, [
@@ -115,18 +130,63 @@ export class KeycloakRoleGuard implements CanActivate {
               dbBackedPermissions,
             ));
 
-      if (!hasDbPermission) {
-        throw new ForbiddenException('Required permission missing');
+      if (hasDbPermission) {
+        return true;
       }
-
-      return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
       }
 
-      this.logger.error('Keycloak role verification failed', error);
+      this.logger.error(
+        'Database-backed permission verification failed',
+        error,
+      );
+      throw new ForbiddenException('Unable to verify permissions');
+    }
+
+    if (keycloakError) {
       throw new ForbiddenException('Unable to verify Keycloak roles');
     }
+
+    throw new ForbiddenException('Required permission missing');
+  }
+
+  private getDbBackedAccountManagerPermissions(
+    roles: readonly string[],
+  ): string[] {
+    const accountManagerRoleNames = new Set<string>(
+      Object.values(AccountManagerKeycloakRole),
+    );
+
+    return [
+      ...new Set(
+        roles.flatMap((role) => {
+          const parsedPermission = parseKeycloakPermissionId(role);
+          if (parsedPermission) {
+            return parsedPermission.clientId ===
+              ACCOUNT_MANAGER_PERMISSION_CLIENT_ID &&
+              accountManagerRoleNames.has(parsedPermission.roleName)
+              ? [
+                  buildKeycloakPermissionId(
+                    parsedPermission.clientId,
+                    parsedPermission.roleName,
+                  ),
+                ]
+              : [];
+          }
+
+          const roleName = role.trim();
+          return accountManagerRoleNames.has(roleName)
+            ? [
+                buildKeycloakPermissionId(
+                  ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
+                  roleName,
+                ),
+              ]
+            : [];
+        }),
+      ),
+    ];
   }
 }

@@ -1,7 +1,0 @@
-export * from './enums/unesp-role.enum';
-export * from './interfaces/user.interface';
-export * from './interfaces/account-linking.interface';
-export * from './interfaces/discord.interface';
-export * from './interfaces/privacy.interface';
-export * from './interfaces/lgpd.interface';
-//# sourceMappingURL=index.d.ts.map

@@ -31,10 +31,11 @@ import {
 } from './dto/student-verification.dto';
 import { SessionUser } from '../auth/interfaces/auth.interface';
 import {
+  AccountPermissions,
   Auth,
-  StudentVerificationAdmin,
   UniversityValidation,
 } from '../auth/guards/auth.decorator';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { FileValidationService } from '../auth/services/file-validation.service';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
 
@@ -205,7 +206,7 @@ export class StudentVerificationController {
     );
   }
 
-  @StudentVerificationAdmin()
+  @AccountPermissions([AccountManagerPermission.StudentVerificationRead])
   @SkipCsrf()
   @Get('admin/pending')
   @ApiOperation({
@@ -230,7 +231,7 @@ export class StudentVerificationController {
     return this.studentVerificationService.getAllPendingDocuments();
   }
 
-  @StudentVerificationAdmin()
+  @AccountPermissions([AccountManagerPermission.StudentVerificationReview])
   @UseGuards(CsrfGuard)
   @Patch('admin/:documentId/verify')
   @ApiOperation({
@@ -275,7 +276,7 @@ export class StudentVerificationController {
     );
   }
 
-  @StudentVerificationAdmin()
+  @AccountPermissions([AccountManagerPermission.StudentVerificationDownload])
   @Get('admin/:documentId/download')
   @ApiOperation({
     summary: 'Download verification document (Admin only)',

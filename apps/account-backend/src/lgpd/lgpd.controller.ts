@@ -22,7 +22,8 @@ import {
   DeleteAccountResponseDto,
 } from './dto/delete-account.dto';
 import { SessionUser } from '../auth/interfaces/auth.interface';
-import { Admin, Auth } from '../auth/guards/auth.decorator';
+import { AccountPermissions, Auth } from '../auth/guards/auth.decorator';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 
@@ -286,7 +287,7 @@ export class LgpdController {
   @ApiOperation({
     summary: 'List pending account deletion requests',
   })
-  @Admin()
+  @AccountPermissions([AccountManagerPermission.AccountDeletionRead])
   @SkipCsrf()
   @Get('admin/delete-account-requests')
   async getPendingAccountDeletionRequests(): Promise<
@@ -298,7 +299,7 @@ export class LgpdController {
   @ApiOperation({
     summary: 'Undo account deletion request',
   })
-  @Admin()
+  @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/undo')
   async undoAccountDeletionRequest(
@@ -310,7 +311,7 @@ export class LgpdController {
   @ApiOperation({
     summary: 'Schedule account deletion immediately',
   })
-  @Admin()
+  @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/delete-now')
   async deleteAccountNow(

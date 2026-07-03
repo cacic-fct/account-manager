@@ -12,6 +12,7 @@ import { EventManagerProfileSyncService } from './services/event-manager-profile
 import { FileValidationService } from './services/file-validation.service';
 import { RateLimitService } from './services/rate-limit.service';
 import { AccountPermissionService } from './services/account-permission.service';
+import { AccountPermissionGuard } from './guards/account-permission.guard';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
 import { DiscordAdminGuard } from './guards/discord-admin.guard';
@@ -39,6 +40,7 @@ import { TotpService } from '../totp/totp.service';
     RateLimitService,
     AccountPermissionService,
     TotpService,
+    AccountPermissionGuard,
     AuthGuard,
     CurrentUserGuard,
     DiscordAdminGuard,
@@ -53,6 +55,7 @@ import { TotpService } from '../totp/totp.service';
     FileValidationService,
     RateLimitService,
     AccountPermissionService,
+    AccountPermissionGuard,
     AuthGuard,
     CurrentUserGuard,
     DiscordAdminGuard,

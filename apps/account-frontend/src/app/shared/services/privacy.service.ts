@@ -1,4 +1,11 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import {
+  Injectable,
+  Injector,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { ApiService } from './api.service';
 import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
 import { Observable, from, of } from 'rxjs';
@@ -26,6 +33,7 @@ export interface PrivacyPreferences {
 export class PrivacyService {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);
+  private injector = inject(Injector);
   private logger = inject(LoggerService);
 
   private _settings = signal<PrivacySetting | null>(null);
@@ -151,20 +159,15 @@ export class PrivacyService {
    */
   onPreferencesChange(
     callback: (preferences: PrivacyPreferences) => void,
-  ): void {
-    // Use effect to watch for changes
-    let lastPrefs = this.preferences();
+  ): () => void {
+    const preferencesEffect = effect(
+      () => {
+        callback(this.preferences());
+      },
+      { injector: this.injector },
+    );
 
-    const checkForChanges = () => {
-      const currentPrefs = this.preferences();
-      if (JSON.stringify(currentPrefs) !== JSON.stringify(lastPrefs)) {
-        lastPrefs = currentPrefs;
-        callback(currentPrefs);
-      }
-      requestAnimationFrame(checkForChanges);
-    };
-
-    checkForChanges();
+    return () => preferencesEffect.destroy();
   }
 
   /**
