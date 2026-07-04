@@ -2,15 +2,15 @@ name: cacic-account
 
 services:
   cacic-db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
-      - /media/zfs-docker/cacic-account/postgres_data:/var/lib/postgresql/data
+      - /media/zfs-docker/cacic-account/postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     volumes:
       - /media/zfs-docker/cacic-account/redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,7 +49,7 @@ services:
     depends_on:
       cacic-db:
         condition: service_healthy
-    restart: "no"
+    restart: 'no'
     networks:
       - postgres_network
 
@@ -79,15 +79,15 @@ services:
       - redis_network
       - traefik
     labels:
-      - "traefik.enable=true"
-      - "traefik.scope=public"
-      - "traefik.docker.network=traefik"
-      - "traefik.http.routers.backend-le.entrypoints=web,websecure"
-      - "traefik.http.routers.backend-le.rule=Host(`account.cacic.dev.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend-le.tls=true"
-      - "traefik.http.routers.backend-le.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.backend-le.service=backend-le-svc"
-      - "traefik.http.services.backend-le-svc.loadbalancer.server.port=3000"
+      - 'traefik.enable=true'
+      - 'traefik.scope=public'
+      - 'traefik.docker.network=traefik'
+      - 'traefik.http.routers.backend-le.entrypoints=web,websecure'
+      - 'traefik.http.routers.backend-le.rule=Host(`account.cacic.dev.br`) && PathPrefix(`/api`)'
+      - 'traefik.http.routers.backend-le.tls=true'
+      - 'traefik.http.routers.backend-le.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.backend-le.service=backend-le-svc'
+      - 'traefik.http.services.backend-le-svc.loadbalancer.server.port=3000'
 
   cacic-account-manager-frontend:
     build:
@@ -97,38 +97,38 @@ services:
     networks:
       - traefik
     labels:
-      - "traefik.enable=true"
-      - "traefik.scope=public"
-      - "traefik.docker.network=traefik"
+      - 'traefik.enable=true'
+      - 'traefik.scope=public'
+      - 'traefik.docker.network=traefik'
 
-      - "traefik.http.routers.frontend-le.entrypoints=web,websecure"
-      - "traefik.http.routers.frontend-le.rule=Host(`account.cacic.dev.br`) && PathPrefix(`/app/`)"
-      - "traefik.http.routers.frontend-le.tls=true"
-      - "traefik.http.routers.frontend-le.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend-le.service=frontend-le-svc"
-      - "traefik.http.services.frontend-le-svc.loadbalancer.server.port=4000"
+      - 'traefik.http.routers.frontend-le.entrypoints=web,websecure'
+      - 'traefik.http.routers.frontend-le.rule=Host(`account.cacic.dev.br`) && PathPrefix(`/app/`)'
+      - 'traefik.http.routers.frontend-le.tls=true'
+      - 'traefik.http.routers.frontend-le.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.frontend-le.service=frontend-le-svc'
+      - 'traefik.http.services.frontend-le-svc.loadbalancer.server.port=4000'
 
       # Redirect / to /app/
-      - "traefik.http.routers.acc-frontend-root.entrypoints=web,websecure"
-      - "traefik.http.routers.acc-frontend-root.rule=Host(`account.cacic.dev.br`) && Path(`/`)"
-      - "traefik.http.routers.acc-frontend-root.tls=true"
-      - "traefik.http.routers.acc-frontend-root.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.acc-frontend-root.middlewares=acc-frontend-redirect-root"
-      - "traefik.http.routers.acc-frontend-root.service=frontend-le-svc"
-      - "traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.regex=^https?://([^/]+)/$$"
-      - "traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.replacement=https://$${1}/app/"
-      - "traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.permanent=true"
+      - 'traefik.http.routers.acc-frontend-root.entrypoints=web,websecure'
+      - 'traefik.http.routers.acc-frontend-root.rule=Host(`account.cacic.dev.br`) && Path(`/`)'
+      - 'traefik.http.routers.acc-frontend-root.tls=true'
+      - 'traefik.http.routers.acc-frontend-root.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.acc-frontend-root.middlewares=acc-frontend-redirect-root'
+      - 'traefik.http.routers.acc-frontend-root.service=frontend-le-svc'
+      - 'traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.regex=^https?://([^/]+)/$$'
+      - 'traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.replacement=https://$${1}/app/'
+      - 'traefik.http.middlewares.acc-frontend-redirect-root.redirectregex.permanent=true'
 
       # Redirect /app to /app/
-      - "traefik.http.routers.acc-frontend-app.entrypoints=web,websecure"
-      - "traefik.http.routers.acc-frontend-app.rule=Host(`account.cacic.dev.br`) && Path(`/app`)"
-      - "traefik.http.routers.acc-frontend-app.tls=true"
-      - "traefik.http.routers.acc-frontend-app.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.acc-frontend-app.middlewares=acc-frontend-redirect-app"
-      - "traefik.http.routers.acc-frontend-app.service=frontend-le-svc"
-      - "traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.regex=^https?://([^/]+)/app$$"
-      - "traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.replacement=https://$${1}/app/"
-      - "traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.permanent=true"
+      - 'traefik.http.routers.acc-frontend-app.entrypoints=web,websecure'
+      - 'traefik.http.routers.acc-frontend-app.rule=Host(`account.cacic.dev.br`) && Path(`/app`)'
+      - 'traefik.http.routers.acc-frontend-app.tls=true'
+      - 'traefik.http.routers.acc-frontend-app.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.acc-frontend-app.middlewares=acc-frontend-redirect-app'
+      - 'traefik.http.routers.acc-frontend-app.service=frontend-le-svc'
+      - 'traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.regex=^https?://([^/]+)/app$$'
+      - 'traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.replacement=https://$${1}/app/'
+      - 'traefik.http.middlewares.acc-frontend-redirect-app.redirectregex.permanent=true'
 
 networks:
   postgres_network:
