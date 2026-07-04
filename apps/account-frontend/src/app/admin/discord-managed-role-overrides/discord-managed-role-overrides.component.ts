@@ -1,12 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   DiscordManagedRoleDefinition,
@@ -19,7 +12,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -33,25 +25,6 @@ import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
-const jsonObjectValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
-  const value = String(control.value ?? '').trim();
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { jsonObject: true };
-    }
-  } catch {
-    return { json: true };
-  }
-
-  return null;
-};
-
 @Component({
   selector: 'app-discord-managed-role-overrides',
   imports: [
@@ -60,7 +33,6 @@ const jsonObjectValidator: ValidatorFn = (control: AbstractControl): ValidationE
     MatButtonModule,
     MatCardModule,
     MatChipsModule,
-    MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -97,7 +69,6 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   protected overrideForm = this.formBuilder.nonNullable.group({
     roleCategory: ['', Validators.required],
     reason: [''],
-    dataJson: ['{}', jsonObjectValidator],
   });
 
   protected selectedRole = computed(() => {
@@ -163,7 +134,6 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     this.overrideForm.reset({
       roleCategory: this.catalog()[0]?.category ?? '',
       reason: '',
-      dataJson: '{}',
     });
   }
 
@@ -183,12 +153,10 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     }
 
     const formValue = this.overrideForm.getRawValue();
-    const data = this.parseDataJson(formValue.dataJson);
     const roleCategory = formValue.roleCategory as DiscordManagedRoleCategory;
     const request = {
       roleCategory,
       reason: formValue.reason.trim() || undefined,
-      ...(data ? { data } : {}),
     } satisfies Omit<DiscordManagedRoleOverrideCreateRequest, 'userId'>;
 
     this.saving.set(true);
@@ -214,13 +182,13 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
           displayName: override.userDisplayName ?? override.userId,
         });
         this.patchForm(override);
-        this.snackBar.open('Override de cargo salvo.', 'Fechar', {
+        this.snackBar.open('Exceção de cargo salva.', 'Fechar', {
           duration: 4000,
         });
         this.saving.set(false);
       },
       error: () => {
-        this.snackBar.open('Erro ao salvar override de cargo.', 'Fechar', {
+        this.snackBar.open('Erro ao salvar exceção de cargo.', 'Fechar', {
           duration: 5000,
         });
         this.saving.set(false);
@@ -245,8 +213,8 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   protected confirmDeleteOverride(override: DiscordManagedRoleOverride): void {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
       data: {
-        title: 'Remover override',
-        message: `Remover override de ${
+        title: 'Remover exceção',
+        message: `Remover exceção de ${
           override.userDisplayName || override.userEmail || override.userId
         }? A próxima sincronização volta a usar os critérios automáticos.`,
         confirmText: 'Remover',
@@ -262,13 +230,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   }
 
   protected getOverrideSummary(override: DiscordManagedRoleOverride): string {
-    return [
-      override.userEmail,
-      override.reason,
-      Object.keys(override.data ?? {}).length ? `${Object.keys(override.data ?? {}).length} dado(s)` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    return [override.userEmail, override.reason].filter(Boolean).join(' · ');
   }
 
   protected formatDate(value: string): string {
@@ -293,7 +255,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.snackBar.open('Erro ao carregar overrides do Discord.', 'Fechar', {
+        this.snackBar.open('Erro ao carregar exceções do Discord.', 'Fechar', {
           duration: 5000,
         });
         this.loading.set(false);
@@ -305,17 +267,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     this.overrideForm.reset({
       roleCategory: override?.roleCategory ?? this.catalog()[0]?.category ?? '',
       reason: override?.reason ?? '',
-      dataJson: JSON.stringify(override?.data ?? {}, null, 2),
     });
-  }
-
-  private parseDataJson(value: string): Record<string, unknown> | undefined {
-    const normalized = value.trim();
-    if (!normalized) {
-      return undefined;
-    }
-
-    return JSON.parse(normalized) as Record<string, unknown>;
   }
 
   private upsertOverride(override: DiscordManagedRoleOverride): void {
@@ -331,13 +283,13 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
         if (this.editingOverride()?.id === override.id) {
           this.startNewOverride();
         }
-        this.snackBar.open('Override removido.', 'Fechar', {
+        this.snackBar.open('Exceção removida.', 'Fechar', {
           duration: 4000,
         });
         this.deletingId.set(null);
       },
       error: () => {
-        this.snackBar.open('Erro ao remover override.', 'Fechar', {
+        this.snackBar.open('Erro ao remover exceção.', 'Fechar', {
           duration: 5000,
         });
         this.deletingId.set(null);

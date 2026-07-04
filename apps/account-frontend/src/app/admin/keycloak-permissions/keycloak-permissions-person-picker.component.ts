@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -16,6 +17,7 @@ export type PermissionPersonSearchForm = FormGroup<{
   imports: [
     ReactiveFormsModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -24,8 +26,10 @@ export type PermissionPersonSearchForm = FormGroup<{
   template: `
     <section class="person-picker" [attr.aria-label]="ariaLabel()">
       <div class="section-heading">
-        <h3>Selecionar pessoa</h3>
-        @if (selectedUser(); as user) {
+        <h3>{{ multiple() ? 'Selecionar pessoas' : 'Selecionar pessoa' }}</h3>
+        @if (multiple() && selectedUsers().length > 0) {
+          <span>{{ selectedUsers().length }} pessoa(s) selecionada(s)</span>
+        } @else if (selectedUser(); as user) {
           <span>{{ user.displayName }} selecionada</span>
         } @else {
           <span>{{ emptyHint() }}</span>
@@ -63,10 +67,17 @@ export type PermissionPersonSearchForm = FormGroup<{
             <button
               type="button"
               class="user-result"
-              [class.selected]="selectedUser()?.id === user.id"
-              [attr.aria-pressed]="selectedUser()?.id === user.id"
-              (click)="userSelected.emit(user)">
+              [class.selected]="isUserSelected(user)"
+              [attr.aria-pressed]="isUserSelected(user)"
+              (click)="selectUser(user)">
               <span class="user-main">
+                @if (multiple()) {
+                  <mat-checkbox
+                    [checked]="isUserSelected(user)"
+                    tabindex="-1"
+                    aria-hidden="true"
+                    (click)="$event.preventDefault()" />
+                }
                 <mat-icon>person</mat-icon>
                 <span>
                   <strong>{{ user.displayName }}</strong>
@@ -93,11 +104,31 @@ export type PermissionPersonSearchForm = FormGroup<{
 export class KeycloakPermissionsPersonPickerComponent {
   ariaLabel = input.required<string>();
   emptyHint = input.required<string>();
+  multiple = input(false);
   searchForm = input.required<PermissionPersonSearchForm>();
   searching = input.required<boolean>();
   selectedUser = input.required<KeycloakPermissionUser | null>();
+  selectedUsers = input<KeycloakPermissionUser[]>([]);
   users = input.required<KeycloakPermissionUser[]>();
 
   search = output<void>();
   userSelected = output<KeycloakPermissionUser>();
+  userToggled = output<KeycloakPermissionUser>();
+
+  protected isUserSelected(user: KeycloakPermissionUser): boolean {
+    if (this.multiple()) {
+      return this.selectedUsers().some((selectedUser) => selectedUser.id === user.id);
+    }
+
+    return this.selectedUser()?.id === user.id;
+  }
+
+  protected selectUser(user: KeycloakPermissionUser): void {
+    if (this.multiple()) {
+      this.userToggled.emit(user);
+      return;
+    }
+
+    this.userSelected.emit(user);
+  }
 }

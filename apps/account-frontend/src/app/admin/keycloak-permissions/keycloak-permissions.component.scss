@@ -43,6 +43,7 @@
 
 .user-results,
 .group-list,
+.selected-people,
 .record-list {
   display: flex;
   flex-direction: column;
@@ -112,7 +113,12 @@
 }
 
 .selected-person {
+  justify-content: space-between;
   padding: 12px;
+}
+
+.selected-person > span {
+  flex: 1 1 auto;
 }
 
 .group-copy {

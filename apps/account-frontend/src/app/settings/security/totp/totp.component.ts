@@ -184,7 +184,7 @@ export class TotpComponent {
           console.error('Erro ao carregar status TOTP:', error);
           this.isLoading.set(false);
           this.hasLoadError.set(true);
-          this.snackBar.open('Erro ao carregar segurança off-line', 'Fechar', {
+          this.snackBar.open('Erro ao carregar código off-line', 'Fechar', {
             duration: 5000,
             panelClass: ['error-snackbar'],
           });

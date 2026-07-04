@@ -2,7 +2,7 @@
   <button mat-icon-button type="button" routerLink="/admin" aria-label="Voltar">
     <mat-icon>arrow_back</mat-icon>
   </button>
-  <span>Overrides de cargos Discord</span>
+  <span>Exceções de cargos Discord</span>
   <span class="spacer"></span>
   <button
     mat-icon-button
@@ -19,56 +19,17 @@
   @if (loading()) {
     <div class="loading-state" aria-live="polite">
       <mat-spinner diameter="42"></mat-spinner>
-      <p>Carregando overrides do Discord.</p>
+      <p>Carregando exceções do Discord.</p>
     </div>
   } @else {
-    <section class="tab-grid override-grid">
-      <mat-card class="tool-card group-list-card">
-        <mat-card-header>
-          <mat-card-title>Cargos gerenciados</mat-card-title>
-          <mat-card-subtitle>Lista fixa do backend</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="group-list">
-            @for (role of catalog(); track role.category) {
-              <button
-                type="button"
-                class="group-option"
-                [class.selected]="selectedRole()?.category === role.category"
-                [attr.aria-pressed]="selectedRole()?.category === role.category"
-                (click)="overrideForm.controls.roleCategory.setValue(role.category)">
-                <span class="group-icon">
-                  <mat-icon>
-                    @switch (role.category) {
-                      @case ('student') {
-                        school
-                      }
-                      @case ('unesp') {
-                        account_balance
-                      }
-                      @default {
-                        person
-                      }
-                    }
-                  </mat-icon>
-                </span>
-                <span class="group-copy">
-                  <strong>{{ role.label }}</strong>
-                  <small>{{ role.roleName }} · {{ role.roleId }}</small>
-                </span>
-              </button>
-            }
-          </div>
-        </mat-card-content>
-      </mat-card>
-
+    <section class="tab-grid">
       <mat-card class="tool-card override-editor-card">
         <mat-card-header>
           <mat-card-title>
             @if (isEditing()) {
-              Editar override
+              Editar exceção
             } @else {
-              Novo override
+              Nova exceção
             }
           </mat-card-title>
           @if (selectedUser(); as user) {
@@ -80,7 +41,7 @@
 
         <mat-card-content>
           <app-keycloak-permissions-person-picker
-            ariaLabel="Selecionar pessoa para override de cargo Discord"
+            ariaLabel="Selecionar pessoa para exceção de cargo Discord"
             emptyHint="Busque por ID Keycloak, nome, CPF ou e-mail"
             [searchForm]="searchForm"
             [searching]="searching()"
@@ -100,7 +61,7 @@
           } @else {
             <div class="empty-state compact">
               <mat-icon>person_search</mat-icon>
-              <p>Busque e selecione uma pessoa para adicionar um override.</p>
+              <p>Busque e selecione uma pessoa para criar uma exceção.</p>
             </div>
           }
 
@@ -135,17 +96,6 @@
               <mat-hint>Visível para auditoria administrativa.</mat-hint>
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Dados do override</mat-label>
-              <textarea matInput formControlName="dataJson" rows="6" spellcheck="false"></textarea>
-              <mat-hint>JSON opcional com ticket, origem ou observações estruturadas.</mat-hint>
-              @if (overrideForm.controls.dataJson.hasError('json')) {
-                <mat-error>Informe um JSON válido.</mat-error>
-              } @else if (overrideForm.controls.dataJson.hasError('jsonObject')) {
-                <mat-error>O JSON precisa ser um objeto.</mat-error>
-              }
-            </mat-form-field>
-
             <div class="form-actions">
               <button mat-button type="button" (click)="startNewOverride()">
                 <mat-icon>add</mat-icon>
@@ -164,9 +114,9 @@
                 @if (saving()) {
                   Salvando
                 } @else if (isEditing()) {
-                  Salvar override
+                  Salvar exceção
                 } @else {
-                  Adicionar override
+                  Adicionar exceção
                 }
               </button>
             </div>
@@ -176,14 +126,14 @@
 
       <mat-card class="tool-card override-list-card">
         <mat-card-header>
-          <mat-card-title>Usuários com override</mat-card-title>
+          <mat-card-title>Exceções ativas</mat-card-title>
           <mat-card-subtitle>{{ overrides().length }} registro(s)</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
           @if (overrides().length === 0) {
             <div class="empty-state compact">
               <mat-icon>playlist_remove</mat-icon>
-              <p>Nenhum usuário com override de cargo.</p>
+              <p>Nenhuma exceção de cargo ativa.</p>
             </div>
           } @else {
             <div class="record-list">
@@ -194,13 +144,15 @@
                     class="record-select"
                     (click)="selectOverride(override)"
                     [attr.aria-label]="
-                      'Editar override de ' + (override.userDisplayName || override.userEmail || override.userId)
+                      'Editar exceção de ' + (override.userDisplayName || override.userEmail || override.userId)
                     ">
                     <span class="record-main">
                       <strong>
                         {{ override.userDisplayName || override.userEmail || override.userId }}
                       </strong>
-                      <small>{{ getOverrideSummary(override) }}</small>
+                      @if (getOverrideSummary(override); as summary) {
+                        <small>{{ summary }}</small>
+                      }
                     </span>
                   </button>
                   <span class="row-actions">
@@ -212,9 +164,9 @@
                         mat-icon-button
                         type="button"
                         color="warn"
-                        matTooltip="Remover override"
+                        matTooltip="Remover exceção"
                         [attr.aria-label]="
-                          'Remover override de ' + (override.userDisplayName || override.userEmail || override.userId)
+                          'Remover exceção de ' + (override.userDisplayName || override.userEmail || override.userId)
                         "
                         (click)="confirmDeleteOverride(override)">
                         <mat-icon>delete</mat-icon>
@@ -225,13 +177,6 @@
               }
             </div>
           }
-
-          <mat-divider></mat-divider>
-
-          <div class="section-heading">
-            <h3>Sincronização</h3>
-            <span>Alterações disparam resync imediato da pessoa.</span>
-          </div>
         </mat-card-content>
       </mat-card>
     </section>

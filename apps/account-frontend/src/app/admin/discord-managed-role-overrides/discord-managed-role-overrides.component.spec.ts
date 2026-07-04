@@ -16,7 +16,6 @@ type OverrideHarness = DiscordManagedRoleOverridesComponent & {
     controls: {
       roleCategory: { setValue: (value: string) => void };
       reason: { setValue: (value: string) => void };
-      dataJson: { setValue: (value: string) => void };
     };
   };
   searchUsers: () => void;
@@ -57,7 +56,6 @@ const mockOverride: DiscordManagedRoleOverride = {
   roleLabel: 'Aluno da Computação',
   roleId: '533901504537427968',
   roleName: 'Aluno da Computação',
-  data: { ticket: 'CACIC-42' },
   reason: 'Conferido manualmente.',
   createdAt: '2026-07-03T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z',
@@ -114,11 +112,11 @@ describe('DiscordManagedRoleOverridesComponent', () => {
   it('loads the hardcoded managed role catalog and override list', () => {
     expect(apiService.getDiscordManagedRoleCatalog).toHaveBeenCalled();
     expect(apiService.getDiscordManagedRoleOverrides).toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('Cargos gerenciados');
+    expect(fixture.nativeElement.textContent).toContain('Nova exceção');
     expect(fixture.nativeElement.textContent).toContain('Aluno da Computação');
   });
 
-  it('creates an override for a searched Keycloak user with JSON data', () => {
+  it('creates an override for a searched Keycloak user with a reason', () => {
     const component = fixture.componentInstance as unknown as OverrideHarness;
 
     component.searchForm.controls.query.setValue('student');
@@ -126,7 +124,6 @@ describe('DiscordManagedRoleOverridesComponent', () => {
     component.selectUser(mockUser);
     component.overrideForm.controls.roleCategory.setValue('student');
     component.overrideForm.controls.reason.setValue('Conferido manualmente.');
-    component.overrideForm.controls.dataJson.setValue('{ "ticket": "CACIC-42" }');
     component.saveOverride();
 
     expect(apiService.searchKeycloakPermissionUsers).toHaveBeenCalledWith('student');
@@ -134,7 +131,6 @@ describe('DiscordManagedRoleOverridesComponent', () => {
       userId: mockUser.id,
       roleCategory: 'student',
       reason: 'Conferido manualmente.',
-      data: { ticket: 'CACIC-42' },
     });
   });
 
@@ -144,7 +140,7 @@ describe('DiscordManagedRoleOverridesComponent', () => {
     component.selectOverride(mockOverride);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Editar override');
+    expect(fixture.nativeElement.textContent).toContain('Editar exceção');
     expect(fixture.nativeElement.textContent).toContain(mockUser.displayName);
   });
 });

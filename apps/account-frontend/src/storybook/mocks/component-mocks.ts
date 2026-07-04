@@ -10,6 +10,8 @@ import {
   buildKeycloakPermissionId,
   parseKeycloakPermissionId,
   type Application,
+  type DiscordManagedRoleDefinition,
+  type DiscordManagedRoleOverride,
   type KeycloakPermissionDefinition,
   type KeycloakPermissionGrant,
   type KeycloakPermissionUser,
@@ -413,6 +415,74 @@ export const mockAdminSelectableRoles: SelectableRoles = {
   rolesWithoutPermissions: [mockAdminRoleAluno, mockAdminRoleEventos, mockAdminRoleSemCor],
   selectableRoles: [mockAdminRoleDiretoria, mockAdminRoleAluno, mockAdminRoleEventos],
 };
+
+export const mockDiscordManagedRoleCatalog: DiscordManagedRoleDefinition[] = [
+  {
+    category: 'student',
+    roleId: mockAdminRoleAluno.id,
+    roleName: mockAdminRoleAluno.name,
+    label: 'Aluno da Computação',
+    description: 'Força o cargo usado por estudantes com vínculo validado.',
+  },
+  {
+    category: 'unesp',
+    roleId: mockAdminRoleEventos.id,
+    roleName: mockAdminRoleEventos.name,
+    label: 'Comunidade Unesp',
+    description: 'Força o cargo de comunidade Unesp pessoas sem endereço @unesp.br.',
+  },
+  {
+    category: 'visitor',
+    roleId: mockAdminRoleSemCor.id,
+    roleName: 'Visitante',
+    label: 'Visitante',
+    description: 'Força o cargo mínimo para pessoas sem vínculo acadêmico validado.',
+  },
+];
+
+export const createMockDiscordManagedRoleOverride = (
+  user: KeycloakPermissionUser,
+  roleCategory: DiscordManagedRoleDefinition['category'],
+  index: number,
+  reason?: string,
+): DiscordManagedRoleOverride => {
+  const role = mockDiscordManagedRoleCatalog.find((candidate) => candidate.category === roleCategory);
+
+  return {
+    id: `discord-managed-role-override-${index + 1}`,
+    userId: user.id,
+    userEmail: user.email,
+    userDisplayName: user.displayName,
+    roleCategory,
+    roleLabel: role?.label ?? roleCategory,
+    roleId: role?.roleId ?? `managed-role-${roleCategory}`,
+    roleName: role?.roleName ?? roleCategory,
+    reason,
+    createdAt: addDays(mockNow, -12 - index).toISOString(),
+    createdById: 'storybook-admin',
+    updatedAt: addDays(mockNow, -2 - index).toISOString(),
+    updatedById: 'storybook-admin',
+  };
+};
+
+export const mockDiscordManagedRoleOverrides: DiscordManagedRoleOverride[] = [
+  createMockDiscordManagedRoleOverride(
+    mockKeycloakPermissionUsers[0],
+    'student',
+    0,
+    'Validação acadêmica conferida manualmente pela secretaria.',
+  ),
+  createMockDiscordManagedRoleOverride(
+    mockKeycloakPermissionUsers[1],
+    'unesp',
+    1,
+    'Servidor externo participante de projeto de extensão.',
+  ),
+  {
+    ...createMockDiscordManagedRoleOverride(mockKeycloakPermissionUsers[2], 'visitor', 2),
+    userEmail: undefined,
+  },
+];
 
 export const mockServerSettings: ServerSetting[] = [
   {

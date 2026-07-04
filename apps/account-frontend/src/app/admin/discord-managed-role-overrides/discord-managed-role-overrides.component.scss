@@ -16,26 +16,23 @@
 
 .tab-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(420px, 0.95fr) minmax(360px, 1.05fr);
   gap: 20px;
   padding-top: 20px;
 }
 
 .tool-card,
-.group-copy,
 .record-main,
 .record-select {
   min-width: 0;
 }
 
-.group-list-card,
 .override-list-card {
   align-self: start;
 }
 
 .person-picker,
 .override-form,
-.group-list,
 .record-list {
   display: flex;
   flex-direction: column;
@@ -58,7 +55,6 @@
   white-space: nowrap;
 }
 
-.group-option,
 .record-row,
 .selected-person,
 .role-explain {
@@ -68,58 +64,24 @@
   color: var(--mat-sys-on-surface);
 }
 
-.group-option {
-  display: flex;
-  width: 100%;
-  min-height: 68px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.group-option:hover {
-  border-color: var(--mat-sys-outline);
-  background: var(--mat-sys-surface-container-low);
-}
-
-.group-option.selected,
 .record-row.selected {
   border-color: var(--mat-sys-primary);
   background: var(--mat-sys-primary-container);
   color: var(--mat-sys-on-primary-container);
 }
 
-.group-icon {
-  display: grid;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
-}
-
-.group-copy,
 .record-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.group-copy small,
 .record-main small,
-.role-explain small,
-.section-heading span {
+.role-explain small {
   color: var(--mat-sys-on-surface-variant);
   font-size: 0.86rem;
 }
 
-.group-copy strong,
-.group-copy small,
 .record-main strong,
 .record-main small {
   display: block;
@@ -158,22 +120,19 @@
   text-align: left;
 }
 
-.group-option:focus-visible,
 .record-select:focus-visible {
   outline: 3px solid var(--mat-sys-primary);
   outline-offset: 2px;
 }
 
 .form-actions,
-.row-actions,
-.section-heading {
+.row-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.form-actions,
-.section-heading {
+.form-actions {
   justify-content: space-between;
 }
 
@@ -202,26 +161,7 @@ mat-card-subtitle {
   overflow-wrap: anywhere;
 }
 
-mat-divider {
-  margin: 20px 0;
-}
-
-textarea[formControlName='dataJson'] {
-  font-family: monospace;
-  font-size: 0.9rem;
-}
-
 @media (max-width: 1220px) {
-  .tab-grid {
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  }
-
-  .override-list-card {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 1040px) {
   .tab-grid {
     grid-template-columns: 1fr;
   }
@@ -238,9 +178,7 @@ textarea[formControlName='dataJson'] {
   }
 
   .form-actions,
-  .section-heading,
-  .record-row,
-  .group-option {
+  .record-row {
     align-items: stretch;
     flex-direction: column;
   }

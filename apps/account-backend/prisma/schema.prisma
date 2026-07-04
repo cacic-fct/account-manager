@@ -331,7 +331,6 @@ model DiscordManagedRoleOverride {
   userEmail       String?  @map("user_email")
   userDisplayName String?  @map("user_display_name")
   roleCategory    String   @map("role_category")
-  data            Json?
   reason          String?
   createdAt       DateTime @default(now()) @map("created_at")
   createdById     String?  @map("created_by_id")

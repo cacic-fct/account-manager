@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { DiscordManagedRoleOverride as OverrideRecord } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import type {
   DiscordManagedRoleCategory,
   DiscordManagedRoleDefinition,
@@ -82,7 +81,6 @@ export class DiscordManagedRoleOverridesService {
         userEmail: user.email,
         userDisplayName: user.displayName,
         roleCategory: dto.roleCategory,
-        data: this.toJsonInput(dto.data),
         reason: this.normalizeOptionalText(dto.reason),
         createdById: actorUserId,
         updatedById: actorUserId,
@@ -91,7 +89,6 @@ export class DiscordManagedRoleOverridesService {
         userEmail: user.email,
         userDisplayName: user.displayName,
         roleCategory: dto.roleCategory,
-        data: this.toJsonInput(dto.data),
         reason: this.normalizeOptionalText(dto.reason),
         updatedById: actorUserId,
       },
@@ -110,7 +107,6 @@ export class DiscordManagedRoleOverridesService {
       where: { id },
       data: {
         ...(dto.roleCategory ? { roleCategory: dto.roleCategory } : {}),
-        ...(dto.data === undefined ? {} : { data: this.toJsonInput(dto.data) }),
         ...(dto.reason === undefined ? {} : { reason: this.normalizeOptionalText(dto.reason) }),
         updatedById: actorUserId,
       },
@@ -171,7 +167,6 @@ export class DiscordManagedRoleOverridesService {
       roleLabel: MANAGED_ROLE_DESCRIPTIONS[category].label,
       roleId: role.roleId,
       roleName: role.roleName,
-      data: this.toRecord(override.data),
       reason: override.reason ?? undefined,
       createdAt: override.createdAt.toISOString(),
       createdById: override.createdById ?? undefined,
@@ -182,18 +177,6 @@ export class DiscordManagedRoleOverridesService {
 
   private isManagedRoleCategory(value: string): value is DiscordManagedRoleCategory {
     return value === 'student' || value === 'unesp' || value === 'visitor';
-  }
-
-  private toJsonInput(value: Record<string, unknown> | undefined): Prisma.InputJsonValue | undefined {
-    return value === undefined ? undefined : (value as Prisma.InputJsonValue);
-  }
-
-  private toRecord(value: Prisma.JsonValue): Record<string, unknown> | undefined {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return undefined;
-    }
-
-    return value;
   }
 
   private normalizeOptionalText(value: string | undefined): string | undefined {

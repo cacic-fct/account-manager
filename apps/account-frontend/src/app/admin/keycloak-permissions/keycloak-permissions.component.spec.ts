@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { PermissionGroupKey } from '@cacic/shared-types';
+import { AccountManagerPermission, PermissionGroupKey, buildKeycloakPermissionId } from '@cacic/shared-types';
 import { ApiService } from '../../shared/services/api.service';
 import {
   mockDirectKeycloakPermissionGrant,
@@ -17,9 +17,17 @@ import {
 import { PermissionsComponent } from './keycloak-permissions.component';
 
 type PermissionsComponentHarness = PermissionsComponent & {
+  directGrantForm: { controls: { permission: { setValue: (value: string) => void } } };
+  groupRolesForm: { controls: { permissions: { value: string[] } } };
   searchForm: { controls: { query: { setValue: (value: string) => void } } };
+  batchApplyUserCount: () => number;
+  createDirectGrant: () => void;
+  saveGroupRoles: () => void;
+  saveMembership: () => void;
   searchUsers: () => void;
+  selectGroup: (groupKey: PermissionGroupKey) => void;
   selectUser: (user: (typeof mockKeycloakPermissionUsers)[number]) => void;
+  toggleBatchUser: (user: (typeof mockKeycloakPermissionUsers)[number]) => void;
 };
 
 describe('PermissionsComponent', () => {
@@ -112,5 +120,109 @@ describe('PermissionsComponent', () => {
     expect(apiService.getKeycloakPermissionGrants).toHaveBeenCalledWith(user.id);
     expect(apiService.getUserPermissionGroupMemberships).toHaveBeenCalledWith(user.id);
     expect(fixture.nativeElement.textContent).toContain(user.displayName);
+  });
+
+  it('creates group memberships for every selected person', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const users = mockKeycloakPermissionUsers.slice(0, 2);
+
+    users.forEach((user) => component.toggleBatchUser(user));
+    component.saveMembership();
+
+    expect(component.batchApplyUserCount()).toBe(2);
+    expect(apiService.createPermissionGroupMembership).toHaveBeenCalledTimes(2);
+    expect(apiService.createPermissionGroupMembership).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        userId: users[0].id,
+        groupKey: PermissionGroupKey.Cacic,
+        validUntil: null,
+      }),
+    );
+    expect(apiService.createPermissionGroupMembership).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        userId: users[1].id,
+        groupKey: PermissionGroupKey.Cacic,
+        validUntil: null,
+      }),
+    );
+  });
+
+  it('creates direct grants for every selected person', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const users = mockKeycloakPermissionUsers.slice(0, 2);
+    const permission = mockKeycloakPermissionCatalog[0].permission;
+
+    users.forEach((user) => component.toggleBatchUser(user));
+    component.directGrantForm.controls.permission.setValue(permission);
+    component.createDirectGrant();
+
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledTimes(2);
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenNthCalledWith(1, {
+      userId: users[0].id,
+      permission,
+      validFrom: null,
+      validUntil: null,
+    });
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenNthCalledWith(2, {
+      userId: users[1].id,
+      permission,
+      validFrom: null,
+      validUntil: null,
+    });
+  });
+
+  it('does not autoselect Keycloak template permissions for groups managed by CACiC', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const templatePermission = buildKeycloakPermissionId('cacic-event-manager', 'events#read');
+    const ejcompGrants = [
+      {
+        id: 'keycloak:EJCOMP:cacic-event-manager:events#read',
+        groupKey: PermissionGroupKey.Ejcomp,
+        clientId: 'cacic-event-manager',
+        roleName: 'events#read',
+        permission: templatePermission,
+        source: 'keycloak' as const,
+        validFrom: null,
+        validUntil: null,
+        status: 'active' as const,
+      },
+      {
+        id: 'group-grant-ejcomp-1',
+        groupKey: PermissionGroupKey.Ejcomp,
+        clientId: 'cacic-account-manager',
+        roleName: 'permission-grant#read',
+        permission: AccountManagerPermission.PermissionGrantRead,
+        source: 'database' as const,
+        validFrom: null,
+        validUntil: null,
+        status: 'active' as const,
+      },
+    ];
+
+    apiService.getPermissionGroupRoleGrants.mockImplementation((groupKey: PermissionGroupKey) => {
+      if (groupKey === PermissionGroupKey.Ejcomp) {
+        return of(ejcompGrants);
+      }
+
+      return of(mockPermissionGroupRoleGrants.filter((grant) => grant.groupKey === groupKey));
+    });
+    apiService.updatePermissionGroupRoleGrants.mockReturnValue(of(ejcompGrants));
+
+    component.selectGroup(PermissionGroupKey.Ejcomp);
+
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([
+      AccountManagerPermission.PermissionGrantRead,
+    ]);
+
+    component.saveGroupRoles();
+
+    expect(apiService.updatePermissionGroupRoleGrants).toHaveBeenCalledWith(PermissionGroupKey.Ejcomp, {
+      permissions: [AccountManagerPermission.PermissionGrantRead],
+    });
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([
+      AccountManagerPermission.PermissionGrantRead,
+    ]);
   });
 });

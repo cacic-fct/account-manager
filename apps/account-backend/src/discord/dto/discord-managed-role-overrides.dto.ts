@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import type {
   DiscordManagedRoleCategory,
   DiscordManagedRoleDefinition,
@@ -77,12 +77,6 @@ export class DiscordManagedRoleOverrideDto implements DiscordManagedRoleOverride
   roleName!: string;
 
   @ApiPropertyOptional({
-    description: 'Structured metadata explaining the exception',
-    example: { ticket: 'CACIC-42', source: 'manual-check' },
-  })
-  data?: Record<string, unknown>;
-
-  @ApiPropertyOptional({
     description: 'Admin-visible reason for the override',
     example: 'Aluno confirmado manualmente pela secretaria.',
   })
@@ -118,14 +112,6 @@ export class DiscordManagedRoleOverrideCreateDto {
   roleCategory!: DiscordManagedRoleCategory;
 
   @ApiPropertyOptional({
-    description: 'Structured metadata for the override',
-    example: { ticket: 'CACIC-42', source: 'manual-check' },
-  })
-  @IsOptional()
-  @IsObject()
-  data?: Record<string, unknown>;
-
-  @ApiPropertyOptional({
     description: 'Admin-visible reason for the override',
     example: 'Aluno confirmado manualmente.',
   })
@@ -143,14 +129,6 @@ export class DiscordManagedRoleOverrideUpdateDto {
   @IsOptional()
   @IsIn(DISCORD_MANAGED_ROLE_CATEGORIES)
   roleCategory?: DiscordManagedRoleCategory;
-
-  @ApiPropertyOptional({
-    description: 'Structured metadata for the override',
-    example: { ticket: 'CACIC-42', source: 'manual-check' },
-  })
-  @IsOptional()
-  @IsObject()
-  data?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description: 'Admin-visible reason for the override',

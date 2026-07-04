@@ -2,8 +2,11 @@ import { delay, http, HttpResponse } from 'msw';
 
 import {
   createMockKeycloakPermissionGrant,
+  createMockDiscordManagedRoleOverride,
   createMockPermissionGroupRoleGrant,
   createMockStudentEntityMembership,
+  mockDiscordManagedRoleCatalog,
+  mockDiscordManagedRoleOverrides,
   mockDiscordStatusLinked,
   mockDiscordStatusNotLinked,
   mockDirectKeycloakPermissionGrant,
@@ -23,8 +26,11 @@ import {
 } from './component-mocks';
 import {
   PermissionGroupKey,
+  type DiscordManagedRoleCategory,
   type KeycloakPermissionUser,
   type KeycloakPermissionGrantCreateRequest,
+  type DiscordManagedRoleOverrideCreateRequest,
+  type DiscordManagedRoleOverrideUpdateRequest,
   type PermissionGroupMembershipCreateRequest,
   type PermissionGroupMembershipUpdateRequest,
   type PermissionGroupRoleGrantUpdateRequest,
@@ -48,7 +54,22 @@ const defaultKeycloakPermissionsStoryState: KeycloakPermissionsStoryState = {
   responseDelayMs: 0,
 };
 
+export type DiscordManagedRoleOverridesStoryState = {
+  overrideMode: 'balanced' | 'empty' | 'dense';
+  searchMode: 'matches' | 'empty' | 'error';
+  failureMode: 'none' | 'catalog' | 'save' | 'delete';
+  responseDelayMs: number;
+};
+
+const defaultDiscordManagedRoleOverridesStoryState: DiscordManagedRoleOverridesStoryState = {
+  overrideMode: 'balanced',
+  searchMode: 'matches',
+  failureMode: 'none',
+  responseDelayMs: 0,
+};
+
 let keycloakPermissionsStoryState = defaultKeycloakPermissionsStoryState;
+let discordManagedRoleOverridesStoryState = defaultDiscordManagedRoleOverridesStoryState;
 
 export const setKeycloakPermissionsStoryState = (state: Partial<KeycloakPermissionsStoryState>): void => {
   keycloakPermissionsStoryState = {
@@ -57,9 +78,24 @@ export const setKeycloakPermissionsStoryState = (state: Partial<KeycloakPermissi
   };
 };
 
+export const setDiscordManagedRoleOverridesStoryState = (
+  state: Partial<DiscordManagedRoleOverridesStoryState>,
+): void => {
+  discordManagedRoleOverridesStoryState = {
+    ...defaultDiscordManagedRoleOverridesStoryState,
+    ...state,
+  };
+};
+
 const delayForStory = async (): Promise<void> => {
   if (keycloakPermissionsStoryState.responseDelayMs > 0) {
     await delay(keycloakPermissionsStoryState.responseDelayMs);
+  }
+};
+
+const delayForDiscordManagedRoleOverridesStory = async (): Promise<void> => {
+  if (discordManagedRoleOverridesStoryState.responseDelayMs > 0) {
+    await delay(discordManagedRoleOverridesStoryState.responseDelayMs);
   }
 };
 
@@ -103,6 +139,24 @@ const searchPermissionUsers = (users: KeycloakPermissionUser[], query: string) =
       .filter(Boolean)
       .some((value) => value?.toLowerCase().includes(normalizedQuery)),
   );
+};
+
+const getDiscordManagedRoleOverrides = () => {
+  if (discordManagedRoleOverridesStoryState.overrideMode === 'empty') {
+    return [];
+  }
+
+  if (discordManagedRoleOverridesStoryState.overrideMode !== 'dense') {
+    return mockDiscordManagedRoleOverrides;
+  }
+
+  const extraOverrides = mockKeycloakPermissionUsers.slice(3).map((user, index) => {
+    const categories: DiscordManagedRoleCategory[] = ['student', 'unesp', 'visitor'];
+    const category = categories[index % categories.length] ?? 'visitor';
+    return createMockDiscordManagedRoleOverride(user, category, index + mockDiscordManagedRoleOverrides.length);
+  });
+
+  return [...mockDiscordManagedRoleOverrides, ...extraOverrides];
 };
 
 export const authHandlers = {
@@ -202,6 +256,83 @@ export const discordHandlers = {
     return HttpResponse.json({ message: 'Cargos sincronizados com sucesso' });
   }),
 };
+
+export const discordManagedRoleOverrideHandlers = [
+  http.get(`${API_BASE}/discord/roles/admin/managed-role-overrides/catalog`, async () => {
+    await delayForDiscordManagedRoleOverridesStory();
+    if (discordManagedRoleOverridesStoryState.failureMode === 'catalog') {
+      return HttpResponse.json({ message: 'Falha ao carregar catalogo de cargos gerenciados' }, { status: 500 });
+    }
+
+    return HttpResponse.json(mockDiscordManagedRoleCatalog);
+  }),
+  http.get(`${API_BASE}/discord/roles/admin/managed-role-overrides`, async () => {
+    await delayForDiscordManagedRoleOverridesStory();
+    return HttpResponse.json(getDiscordManagedRoleOverrides());
+  }),
+  http.get(`${API_BASE}/admin/permissions/users`, async ({ request }) => {
+    await delayForDiscordManagedRoleOverridesStory();
+    if (discordManagedRoleOverridesStoryState.searchMode === 'error') {
+      return HttpResponse.json({ message: 'Falha ao buscar usuarios' }, { status: 500 });
+    }
+
+    if (discordManagedRoleOverridesStoryState.searchMode === 'empty') {
+      return HttpResponse.json([]);
+    }
+
+    const query = new URL(request.url).searchParams.get('query') ?? '';
+    return HttpResponse.json(searchPermissionUsers(mockKeycloakPermissionUsers, query));
+  }),
+  http.post(`${API_BASE}/discord/roles/admin/managed-role-overrides`, async ({ request }) => {
+    await delayForDiscordManagedRoleOverridesStory();
+    if (discordManagedRoleOverridesStoryState.failureMode === 'save') {
+      return HttpResponse.json({ message: 'Falha ao criar excecao de cargo' }, { status: 500 });
+    }
+
+    const body = (await request.json()) as DiscordManagedRoleOverrideCreateRequest;
+    const user =
+      mockKeycloakPermissionUsers.find((candidate) => candidate.id === body.userId) ?? mockKeycloakPermissionUsers[0];
+
+    return HttpResponse.json(
+      createMockDiscordManagedRoleOverride(user, body.roleCategory, getDiscordManagedRoleOverrides().length + 1, body.reason),
+    );
+  }),
+  http.put(`${API_BASE}/discord/roles/admin/managed-role-overrides/:id`, async ({ params, request }) => {
+    await delayForDiscordManagedRoleOverridesStory();
+    if (discordManagedRoleOverridesStoryState.failureMode === 'save') {
+      return HttpResponse.json({ message: 'Falha ao salvar excecao de cargo' }, { status: 500 });
+    }
+
+    const body = (await request.json()) as DiscordManagedRoleOverrideUpdateRequest;
+    const existingOverride =
+      getDiscordManagedRoleOverrides().find((override) => override.id === params['id']) ??
+      mockDiscordManagedRoleOverrides[0];
+    const user =
+      mockKeycloakPermissionUsers.find((candidate) => candidate.id === existingOverride.userId) ??
+      mockKeycloakPermissionUsers[0];
+
+    return HttpResponse.json(
+      createMockDiscordManagedRoleOverride(
+        user,
+        body.roleCategory ?? existingOverride.roleCategory,
+        getDiscordManagedRoleOverrides().length + 2,
+        body.reason ?? existingOverride.reason,
+      ),
+    );
+  }),
+  http.delete(`${API_BASE}/discord/roles/admin/managed-role-overrides/:id`, async ({ params }) => {
+    await delayForDiscordManagedRoleOverridesStory();
+    if (discordManagedRoleOverridesStoryState.failureMode === 'delete') {
+      return HttpResponse.json({ message: 'Falha ao remover excecao de cargo' }, { status: 500 });
+    }
+
+    const existingOverride =
+      getDiscordManagedRoleOverrides().find((override) => override.id === params['id']) ??
+      mockDiscordManagedRoleOverrides[0];
+
+    return HttpResponse.json({ deleted: true, id: String(params['id']), userId: existingOverride.userId });
+  }),
+];
 
 export const keycloakPermissionHandlers = [
   http.get(`${API_BASE}/admin/permissions/catalog`, async () => {

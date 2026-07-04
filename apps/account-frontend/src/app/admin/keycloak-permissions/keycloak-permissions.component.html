@@ -127,33 +127,49 @@
                 <app-keycloak-permissions-person-picker
                   ariaLabel="Selecionar pessoa para o vínculo"
                   emptyHint="Busque por nome, CPF ou e-mail"
+                  [multiple]="true"
                   [searchForm]="searchForm"
                   [searching]="searching()"
                   [selectedUser]="selectedUser()"
+                  [selectedUsers]="selectedUsers()"
                   [users]="users()"
                   (search)="searchUsers()"
-                  (userSelected)="selectUser($event)" />
+                  (userToggled)="toggleBatchUser($event)" />
 
                 <form class="membership-form" [formGroup]="membershipForm" (ngSubmit)="saveMembership()">
                   <div class="section-heading">
                     <h3>Prazo do vínculo</h3>
-                    @if (group.discordRoleId) {
+                    @if (batchApplyUserCount() > 0) {
+                      <span>{{ selectedPeopleLabel() }}</span>
+                    } @else if (group.discordRoleId) {
                       <span>Adiciona o cargo Discord {{ group.discordRoleId }}</span>
                     }
                   </div>
 
-                  @if (selectedUser(); as user) {
-                    <div class="selected-person">
-                      <mat-icon>person_add</mat-icon>
-                      <span>
-                        <strong>{{ user.displayName }}</strong>
-                        <small>{{ user.email }}</small>
-                      </span>
+                  @if (batchApplyUsers().length > 0) {
+                    <div class="selected-people" aria-label="Pessoas selecionadas para vínculo">
+                      @for (user of batchApplyUsers(); track user.id) {
+                        <div class="selected-person">
+                          <mat-icon>person_add</mat-icon>
+                          <span>
+                            <strong>{{ user.displayName }}</strong>
+                            <small>{{ user.email }}</small>
+                          </span>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            matTooltip="Remover da seleção"
+                            [attr.aria-label]="'Remover ' + user.displayName + ' da seleção'"
+                            (click)="removeBatchUser(user.id)">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+                      }
                     </div>
                   } @else {
                     <div class="empty-state compact">
                       <mat-icon>person_search</mat-icon>
-                      <p>Busque e selecione uma pessoa para criar vínculo.</p>
+                      <p>Busque e selecione uma ou mais pessoas para criar vínculo.</p>
                     </div>
                   }
 
@@ -188,7 +204,7 @@
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingMembership() || !selectedUser()">
+                      [disabled]="savingMembership() || batchApplyUserCount() === 0">
                       @if (savingMembership()) {
                         <mat-spinner diameter="20"></mat-spinner>
                       } @else {
@@ -196,6 +212,8 @@
                       }
                       @if (savingMembership()) {
                         Vinculando
+                      } @else if (batchApplyUserCount() > 1) {
+                        Vincular pessoas
                       } @else {
                         Vincular pessoa
                       }
@@ -268,19 +286,41 @@
               <app-keycloak-permissions-person-picker
                 ariaLabel="Selecionar pessoa para permissão direta"
                 emptyHint="Busque antes de conceder uma permissão direta"
+                [multiple]="true"
                 [searchForm]="searchForm"
                 [searching]="searching()"
                 [selectedUser]="selectedUser()"
+                [selectedUsers]="selectedUsers()"
                 [users]="users()"
                 (search)="searchUsers()"
-                (userSelected)="selectUser($event)" />
+                (userToggled)="toggleBatchUser($event)" />
 
-              @if (!selectedUser()) {
+              @if (batchApplyUserCount() === 0) {
                 <div class="empty-state compact">
                   <mat-icon>person_search</mat-icon>
-                  <p>Selecione uma pessoa para conceder uma permissão direta.</p>
+                  <p>Selecione uma ou mais pessoas para conceder uma permissão direta.</p>
                 </div>
               } @else {
+                <div class="selected-people" aria-label="Pessoas selecionadas para permissão direta">
+                  @for (user of batchApplyUsers(); track user.id) {
+                    <div class="selected-person">
+                      <mat-icon>person_add</mat-icon>
+                      <span>
+                        <strong>{{ user.displayName }}</strong>
+                        <small>{{ user.email }}</small>
+                      </span>
+                      <button
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Remover da seleção"
+                        [attr.aria-label]="'Remover ' + user.displayName + ' da seleção'"
+                        (click)="removeBatchUser(user.id)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
+                  }
+                </div>
+
                 <form class="direct-grant-form" [formGroup]="directGrantForm" (ngSubmit)="createDirectGrant()">
                   <mat-form-field appearance="outline">
                     <mat-label>Permissão</mat-label>
@@ -338,6 +378,8 @@
                       }
                       @if (savingGrant()) {
                         Concedendo
+                      } @else if (batchApplyUserCount() > 1) {
+                        Conceder para pessoas
                       } @else {
                         Conceder
                       }

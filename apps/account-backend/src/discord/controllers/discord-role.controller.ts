@@ -211,7 +211,7 @@ export class DiscordRoleController {
 
   @ApiOperation({
     summary: 'Update a Discord managed role override',
-    description: 'Updates the forced role category or metadata and immediately resyncs linked Discord accounts.',
+    description: 'Updates the forced role category or reason and immediately resyncs linked Discord accounts.',
   })
   @ApiBody({ type: DiscordManagedRoleOverrideUpdateDto })
   @ApiResponse({

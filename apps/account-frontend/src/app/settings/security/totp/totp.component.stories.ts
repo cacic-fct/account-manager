@@ -41,7 +41,7 @@ const handlers = [
     await waitForStory();
 
     if (storyState.mode === 'error') {
-      return HttpResponse.json({ message: 'Erro ao carregar segurança off-line' }, { status: 500 });
+      return HttpResponse.json({ message: 'Erro ao carregar código off-line' }, { status: 500 });
     }
 
     return HttpResponse.json({

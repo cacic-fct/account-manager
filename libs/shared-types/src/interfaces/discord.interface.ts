@@ -52,7 +52,6 @@ export interface DiscordManagedRoleOverride {
   roleLabel: string;
   roleId: string;
   roleName: string;
-  data?: Record<string, unknown>;
   reason?: string;
   createdAt: string;
   createdById?: string;
@@ -63,7 +62,6 @@ export interface DiscordManagedRoleOverride {
 export interface DiscordManagedRoleOverrideCreateRequest {
   userId: string;
   roleCategory: DiscordManagedRoleCategory;
-  data?: Record<string, unknown>;
   reason?: string;
 }
 
