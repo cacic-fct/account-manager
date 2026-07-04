@@ -19,8 +19,7 @@ export const API_GLOBAL_PREFIX = 'api';
 
 export const createAppConfig = (configService: ConfigService): AppConfig => {
   const parsePort = (value: string | number | undefined, fallback: number) => {
-    const parsed =
-      typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
 
     return Number.isNaN(parsed) ? fallback : parsed;
   };
@@ -32,10 +31,7 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
 
   // Redis configuration
   const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
-  const redisPort = parsePort(
-    configService.get<string | number>('REDIS_PORT'),
-    6379,
-  );
+  const redisPort = parsePort(configService.get<string | number>('REDIS_PORT'), 6379);
   const redisPassword = configService.get<string>('REDIS_PASSWORD');
 
   // Validate required environment variables
@@ -61,17 +57,11 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
       ?.split(',')
       .map((origin) => origin.trim())
       .filter((origin) => origin.length > 0) ?? [];
-  const corsOrigins =
-    parsedCorsOrigins.length > 0 ? parsedCorsOrigins : [frontendUrl];
+  const corsOrigins = parsedCorsOrigins.length > 0 ? parsedCorsOrigins : [frontendUrl];
 
-  const allowedRedirectUrlsEnv = configService.get<string>(
-    'ALLOWED_REDIRECT_URLS',
-    '',
-  );
+  const allowedRedirectUrlsEnv = configService.get<string>('ALLOWED_REDIRECT_URLS', '');
   const allowedRedirectUrls = (
-    allowedRedirectUrlsEnv
-      ? allowedRedirectUrlsEnv.split(',').map((url) => url.trim())
-      : [frontendUrl]
+    allowedRedirectUrlsEnv ? allowedRedirectUrlsEnv.split(',').map((url) => url.trim()) : [frontendUrl]
   ).filter((url) => url.length > 0);
 
   return {
@@ -109,9 +99,7 @@ function normalizePublicUrl(name: string, value: string): string {
   try {
     url = new URL(value);
   } catch {
-    throw new Error(
-      `${name} environment variable must be a valid absolute URL`,
-    );
+    throw new Error(`${name} environment variable must be a valid absolute URL`);
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
@@ -119,9 +107,7 @@ function normalizePublicUrl(name: string, value: string): string {
   }
 
   if (url.search || url.hash) {
-    throw new Error(
-      `${name} environment variable must not include query or hash`,
-    );
+    throw new Error(`${name} environment variable must not include query or hash`);
   }
 
   return trimTrailingSlash(url.toString());

@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 
 import { DiscordIntegrationCardComponent } from './discord-integration-card.component';
-import {
-  authHandlers,
-  discordHandlers,
-} from '../../../../storybook/mocks/msw-handlers';
+import { authHandlers, discordHandlers } from '../../../../storybook/mocks/msw-handlers';
 
 const meta: Meta<DiscordIntegrationCardComponent> = {
   title: 'Settings/LinkedAccounts/DiscordIntegrationCard',

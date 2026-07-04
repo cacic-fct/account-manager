@@ -11,8 +11,7 @@ describe('RoleSelectionComponent', () => {
     await TestBed.configureTestingModule({
       imports: [RoleSelectionComponent],
       providers: [provideRouter([])],
-    })
-    .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(RoleSelectionComponent);
     component = fixture.componentInstance;

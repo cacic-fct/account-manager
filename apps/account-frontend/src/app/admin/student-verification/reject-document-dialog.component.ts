@@ -16,10 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
       </div>
 
       <div class="dialog-content">
-        <p>
-          Por favor, forneça um motivo para a rejeição do documento. Este motivo
-          será exibido para o estudante.
-        </p>
+        <p>Por favor, forneça um motivo para a rejeição do documento. Este motivo será exibido para o estudante.</p>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Motivo da rejeição</mat-label>
@@ -28,23 +25,14 @@ import { MatIconModule } from '@angular/material/icon';
             [(ngModel)]="reason"
             placeholder="Ex: Documento ilegível, informações incompletas, fora da validade..."
             rows="4"
-            required
-          ></textarea>
-          <mat-hint
-            >Seja específico para ajudar o estudante a corrigir o
-            problema</mat-hint
-          >
+            required></textarea>
+          <mat-hint>Seja específico para ajudar o estudante a corrigir o problema</mat-hint>
         </mat-form-field>
       </div>
 
       <div class="dialog-actions">
         <button mat-button (click)="cancel()">Cancelar</button>
-        <button
-          mat-raised-button
-          color="warn"
-          (click)="reject()"
-          [disabled]="!reason || reason.trim().length === 0"
-        >
+        <button mat-raised-button color="warn" (click)="reject()" [disabled]="!reason || reason.trim().length === 0">
           <mat-icon>close</mat-icon>
           Rejeitar Documento
         </button>
@@ -99,14 +87,7 @@ import { MatIconModule } from '@angular/material/icon';
       }
     `,
   ],
-  imports: [
-    MatDialogModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    FormsModule,
-  ],
+  imports: [MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, FormsModule],
 })
 export class RejectDocumentDialogComponent {
   private dialogRef = inject(MatDialogRef<RejectDocumentDialogComponent>);

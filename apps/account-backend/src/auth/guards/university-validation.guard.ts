@@ -30,9 +30,7 @@ export class UniversityValidationGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { session: AuthSession }>();
+    const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const session: AuthSession = request.session;
 
     // First check if user is authenticated
@@ -41,24 +39,19 @@ export class UniversityValidationGuard implements CanActivate {
     }
 
     try {
-      if (
-        await this.isUndergraduateVerificationDisabled(session.user.keycloakId)
-      ) {
-        throw new ForbiddenException(
-          'Undergraduate Unesp role verification is currently disabled.',
-        );
+      if (await this.isUndergraduateVerificationDisabled(session.user.keycloakId)) {
+        throw new ForbiddenException('Undergraduate Unesp role verification is currently disabled.');
       }
 
-      const approvedDocument =
-        await this.prisma.studentVerificationDocument.findFirst({
-          where: {
-            userId: session.user.keycloakId,
-            status: 'approved',
-          },
-          orderBy: {
-            verificationDate: 'desc',
-          },
-        });
+      const approvedDocument = await this.prisma.studentVerificationDocument.findFirst({
+        where: {
+          userId: session.user.keycloakId,
+          status: 'approved',
+        },
+        orderBy: {
+          verificationDate: 'desc',
+        },
+      });
 
       this.logger.debug('Checking university validation status', {
         userId: session.user.keycloakId,
@@ -66,9 +59,7 @@ export class UniversityValidationGuard implements CanActivate {
       });
 
       if (approvedDocument) {
-        this.logger.warn(
-          `Access denied: University role already verified for user ${session.user.keycloakId}`,
-        );
+        this.logger.warn(`Access denied: University role already verified for user ${session.user.keycloakId}`);
         throw new ForbiddenException(
           'University role verification already completed. Access to validation endpoints is not allowed.',
         );
@@ -87,9 +78,7 @@ export class UniversityValidationGuard implements CanActivate {
 
       // Log the error but don't expose internal details
       this.logger.error('Error checking university validation status', error);
-      throw new ForbiddenException(
-        'Unable to verify university validation status',
-      );
+      throw new ForbiddenException('Unable to verify university validation status');
     }
   }
 
@@ -112,12 +101,8 @@ export class UniversityValidationGuard implements CanActivate {
     }
   }
 
-  private async isUndergraduateVerificationDisabled(
-    userId: string,
-  ): Promise<boolean> {
-    if (
-      !(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())
-    ) {
+  private async isUndergraduateVerificationDisabled(userId: string): Promise<boolean> {
+    if (!(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())) {
       return false;
     }
 

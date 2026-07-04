@@ -1,9 +1,4 @@
-import {
-  EnvironmentProviders,
-  InjectionToken,
-  Provider,
-  makeEnvironmentProviders,
-} from '@angular/core';
+import { EnvironmentProviders, InjectionToken, Provider, makeEnvironmentProviders } from '@angular/core';
 import type { CacicPrivacyPreferences } from './account-privacy.types.js';
 
 export interface CacicAccountPrivacyConfig {
@@ -34,15 +29,15 @@ export const DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG: CacicAccountPrivacyConfig = {
   requireCookieBannerAcceptance: true,
 };
 
-export const CACIC_ACCOUNT_PRIVACY_CONFIG =
-  new InjectionToken<CacicAccountPrivacyConfig>('CACIC_ACCOUNT_PRIVACY_CONFIG', {
+export const CACIC_ACCOUNT_PRIVACY_CONFIG = new InjectionToken<CacicAccountPrivacyConfig>(
+  'CACIC_ACCOUNT_PRIVACY_CONFIG',
+  {
     providedIn: 'root',
     factory: () => DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG,
-  });
+  },
+);
 
-export function provideCacicAccountPrivacy(
-  config: CacicAccountPrivacyProviderConfig = {},
-): EnvironmentProviders {
+export function provideCacicAccountPrivacy(config: CacicAccountPrivacyProviderConfig = {}): EnvironmentProviders {
   const providers: Provider[] = [
     {
       provide: CACIC_ACCOUNT_PRIVACY_CONFIG,
@@ -53,15 +48,11 @@ export function provideCacicAccountPrivacy(
   return makeEnvironmentProviders(providers);
 }
 
-function mergeConfig(
-  config: CacicAccountPrivacyProviderConfig,
-): CacicAccountPrivacyConfig {
+function mergeConfig(config: CacicAccountPrivacyProviderConfig): CacicAccountPrivacyConfig {
   return {
     ...DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG,
     ...config,
-    apiBaseUrl: normalizeApiBaseUrl(
-      config.apiBaseUrl ?? DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG.apiBaseUrl,
-    ),
+    apiBaseUrl: normalizeApiBaseUrl(config.apiBaseUrl ?? DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG.apiBaseUrl),
     initialPreferences: {
       ...DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG.initialPreferences,
       ...config.initialPreferences,

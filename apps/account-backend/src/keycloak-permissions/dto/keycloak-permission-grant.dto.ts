@@ -8,19 +8,9 @@ import {
   KeycloakPermissionGrantUpdateRequest,
 } from '@cacic/shared-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  ArrayUnique,
-  IsArray,
-  IsIn,
-  IsISO8601,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { ArrayUnique, IsArray, IsIn, IsISO8601, IsOptional, IsString, MinLength } from 'class-validator';
 
-const permissionGroups = PERMISSION_GROUP_CATALOG.map(
-  (definition) => definition.key,
-);
+const permissionGroups = PERMISSION_GROUP_CATALOG.map((definition) => definition.key);
 
 export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrantCreateRequest {
   @ApiProperty({
@@ -40,8 +30,7 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
   permission!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Optional ISO-8601 start timestamp. If omitted, the grant is active immediately.',
+    description: 'Optional ISO-8601 start timestamp. If omitted, the grant is active immediately.',
     example: '2026-06-21T12:00:00.000Z',
     nullable: true,
   })
@@ -50,8 +39,7 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
   validFrom?: string | null;
 
   @ApiPropertyOptional({
-    description:
-      'Optional ISO-8601 end timestamp. If omitted, the grant is indefinite.',
+    description: 'Optional ISO-8601 end timestamp. If omitted, the grant is indefinite.',
     example: '2026-07-21T12:00:00.000Z',
     nullable: true,
   })
@@ -71,8 +59,7 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
   permission?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Optional ISO-8601 start timestamp. If omitted, the grant is active immediately.',
+    description: 'Optional ISO-8601 start timestamp. If omitted, the grant is active immediately.',
     example: '2026-06-21T12:00:00.000Z',
     nullable: true,
   })
@@ -81,8 +68,7 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
   validFrom?: string | null;
 
   @ApiPropertyOptional({
-    description:
-      'Optional ISO-8601 end timestamp. If omitted, the grant is indefinite.',
+    description: 'Optional ISO-8601 end timestamp. If omitted, the grant is indefinite.',
     example: '2026-07-21T12:00:00.000Z',
     nullable: true,
   })
@@ -94,12 +80,8 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
 export class PermissionGroupRoleGrantUpdateDto implements PermissionGroupRoleGrantUpdateRequest {
   @ApiProperty({
     isArray: true,
-    description:
-      'Canonical client role ids that should remain enabled for the group.',
-    example: [
-      'cacic-account-manager:permission-grant#read',
-      'cacic-event-manager:event#read',
-    ],
+    description: 'Canonical client role ids that should remain enabled for the group.',
+    example: ['cacic-account-manager:permission-grant#read', 'cacic-event-manager:event#read'],
   })
   @IsArray()
   @ArrayUnique()
@@ -132,8 +114,7 @@ export class PermissionGroupMembershipCreateDto implements PermissionGroupMember
   validFrom!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Optional membership end timestamp. If omitted, the membership is indefinite.',
+    description: 'Optional membership end timestamp. If omitted, the membership is indefinite.',
     example: '2026-12-31T23:59:59.000Z',
     nullable: true,
   })
@@ -151,8 +132,7 @@ export class PermissionGroupMembershipUpdateDto implements PermissionGroupMember
   validFrom!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Optional membership end timestamp. If omitted, the membership is indefinite.',
+    description: 'Optional membership end timestamp. If omitted, the membership is indefinite.',
     example: '2026-12-31T23:59:59.000Z',
     nullable: true,
   })

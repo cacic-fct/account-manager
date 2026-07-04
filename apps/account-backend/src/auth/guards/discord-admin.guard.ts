@@ -14,14 +14,10 @@ import { AccountPermissionService } from '../services/account-permission.service
 export class DiscordAdminGuard implements CanActivate {
   private readonly logger = new Logger(DiscordAdminGuard.name);
 
-  constructor(
-    private readonly accountPermissionService: AccountPermissionService,
-  ) {}
+  constructor(private readonly accountPermissionService: AccountPermissionService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { session: AuthSession }>();
+    const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const userId = request.session?.user?.keycloakId;
 
     if (!userId) {
@@ -29,8 +25,7 @@ export class DiscordAdminGuard implements CanActivate {
     }
 
     try {
-      const hasDiscordAdminAccess =
-        await this.accountPermissionService.hasDiscordAdminAccess(userId);
+      const hasDiscordAdminAccess = await this.accountPermissionService.hasDiscordAdminAccess(userId);
       if (hasDiscordAdminAccess) {
         return true;
       }

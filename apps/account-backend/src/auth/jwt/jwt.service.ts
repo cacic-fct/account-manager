@@ -37,33 +37,19 @@ export class JwtService {
   private readonly clockSkewToleranceSeconds!: number;
   private readonly requireServiceAccountToken!: boolean;
   private readonly allowedM2MClients!: string[];
-  private readonly tokenCache = new Map<
-    string,
-    { accessToken: string; expiresAt: number }
-  >();
+  private readonly tokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
 
   constructor(private configService: ConfigService) {
-    this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback(
-      'KEYCLOAK_URL',
-      'http://localhost:8080',
-    );
-    this.realm = this.readConfigWithDevelopmentFallback(
-      'KEYCLOAK_REALM',
-      'cacic-sso',
-    );
+    this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
+    this.realm = this.readConfigWithDevelopmentFallback('KEYCLOAK_REALM', 'cacic-sso');
     this.expectedAudience = this.readConfigWithDevelopmentFallback(
       'KEYCLOAK_M2M_AUDIENCE',
       'cacic-account-manager-audience',
     );
-    this.clockSkewToleranceSeconds =
-      this.configService.get<number>('JWT_CLOCK_SKEW_TOLERANCE') ?? 30;
+    this.clockSkewToleranceSeconds = this.configService.get<number>('JWT_CLOCK_SKEW_TOLERANCE') ?? 30;
     this.requireServiceAccountToken =
-      this.configService.get<string>('KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT') !==
-      'false';
-    this.allowedM2MClients = this.readRequiredListConfig(
-      'KEYCLOAK_M2M_ALLOWED_CLIENTS',
-      'cacic-event-manager-m2m',
-    );
+      this.configService.get<string>('KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT') !== 'false';
+    this.allowedM2MClients = this.readRequiredListConfig('KEYCLOAK_M2M_ALLOWED_CLIENTS', 'cacic-event-manager-m2m');
 
     const jwksUri = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/certs`;
 
@@ -161,13 +147,9 @@ export class JwtService {
 
     // Validate audience (aud claim)
     if (payload.aud) {
-      const audiences = Array.isArray(payload.aud)
-        ? payload.aud
-        : [payload.aud];
+      const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
       if (!audiences.includes(this.expectedAudience)) {
-        this.logger.warn(
-          `Token audience mismatch. Expected: ${this.expectedAudience}, Got: ${audiences.join(', ')}`,
-        );
+        this.logger.warn(`Token audience mismatch. Expected: ${this.expectedAudience}, Got: ${audiences.join(', ')}`);
         throw new UnauthorizedException('Invalid token audience');
       }
     } else {
@@ -178,9 +160,7 @@ export class JwtService {
     // Validate authorized party (azp) for client credentials flow
     if (!payload.azp && !payload.client_id) {
       this.logger.warn('Token missing authorized party (azp) or client_id');
-      throw new UnauthorizedException(
-        'Token missing authorized party or client_id',
-      );
+      throw new UnauthorizedException('Token missing authorized party or client_id');
     }
   }
 
@@ -201,22 +181,11 @@ export class JwtService {
   }
 
   hasRequiredRole(payload: JwtPayload, requiredRole: string): boolean {
-    return this.hasRequiredClientRole(
-      payload,
-      this.expectedAudience,
-      requiredRole,
-    );
+    return this.hasRequiredClientRole(payload, this.expectedAudience, requiredRole);
   }
 
-  hasRequiredClientRole(
-    payload: JwtPayload,
-    clientId: string,
-    requiredRole: string,
-  ): boolean {
-    return (
-      payload.resource_access?.[clientId]?.roles?.includes(requiredRole) ??
-      false
-    );
+  hasRequiredClientRole(payload: JwtPayload, clientId: string, requiredRole: string): boolean {
+    return payload.resource_access?.[clientId]?.roles?.includes(requiredRole) ?? false;
   }
 
   /**
@@ -236,9 +205,7 @@ export class JwtService {
     }
 
     const clientId = this.getClientId(payload);
-    return (
-      !!clientId && payload.preferred_username === `service-account-${clientId}`
-    );
+    return !!clientId && payload.preferred_username === `service-account-${clientId}`;
   }
 
   isAllowedM2MClient(payload: JwtPayload): boolean {
@@ -254,17 +221,10 @@ export class JwtService {
     } = {},
   ): Promise<string> {
     const clientId =
-      options.clientId ||
-      this.readConfigWithDevelopmentFallback(
-        'KEYCLOAK_M2M_CLIENT_ID',
-        'cacic-account-manager-m2m',
-      );
+      options.clientId || this.readConfigWithDevelopmentFallback('KEYCLOAK_M2M_CLIENT_ID', 'cacic-account-manager-m2m');
     const clientSecret =
       options.clientSecret ||
-      this.readConfigWithDevelopmentFallback(
-        'KEYCLOAK_M2M_CLIENT_SECRET',
-        'cacic-account-manager-m2m-dev-secret',
-      );
+      this.readConfigWithDevelopmentFallback('KEYCLOAK_M2M_CLIENT_SECRET', 'cacic-account-manager-m2m-dev-secret');
 
     if (!clientId || !clientSecret) {
       throw new Error(
@@ -311,22 +271,13 @@ export class JwtService {
       throw new UnauthorizedException('Unable to obtain M2M token');
     }
 
-    const tokenResponse =
-      (await response.json()) as ClientCredentialsTokenResponse;
-    if (
-      typeof tokenResponse.access_token !== 'string' ||
-      !tokenResponse.access_token
-    ) {
-      throw new UnauthorizedException(
-        'M2M token response missing access token',
-      );
+    const tokenResponse = (await response.json()) as ClientCredentialsTokenResponse;
+    if (typeof tokenResponse.access_token !== 'string' || !tokenResponse.access_token) {
+      throw new UnauthorizedException('M2M token response missing access token');
     }
 
     const expiresInSeconds =
-      typeof tokenResponse.expires_in === 'number' &&
-      tokenResponse.expires_in > 0
-        ? tokenResponse.expires_in
-        : 300;
+      typeof tokenResponse.expires_in === 'number' && tokenResponse.expires_in > 0 ? tokenResponse.expires_in : 300;
     const ttlMs = Math.max(expiresInSeconds - 30, 1) * 1000;
     this.tokenCache.set(cacheKey, {
       accessToken: tokenResponse.access_token,
@@ -345,10 +296,7 @@ export class JwtService {
     return value;
   }
 
-  private readConfigWithDevelopmentFallback(
-    name: string,
-    developmentFallback: string,
-  ): string {
+  private readConfigWithDevelopmentFallback(name: string, developmentFallback: string): string {
     const value = this.configService.get<string>(name)?.trim();
     if (value) {
       return value;
@@ -364,10 +312,7 @@ export class JwtService {
     return developmentFallback;
   }
 
-  private readRequiredListConfig(
-    name: string,
-    developmentFallback?: string,
-  ): string[] {
+  private readRequiredListConfig(name: string, developmentFallback?: string): string[] {
     const value = developmentFallback
       ? this.readConfigWithDevelopmentFallback(name, developmentFallback)
       : this.readRequiredConfig(name);

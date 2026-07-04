@@ -2,12 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { LgpdService } from './lgpd.service';
-import {
-  AccountDeletionJob,
-  LGPD_JOBS,
-  LGPD_QUEUE,
-  ProcessDataRequestJob,
-} from './lgpd.queue';
+import { AccountDeletionJob, LGPD_JOBS, LGPD_QUEUE, ProcessDataRequestJob } from './lgpd.queue';
 
 @Processor(LGPD_QUEUE)
 export class LgpdProcessor extends WorkerHost {
@@ -17,9 +12,7 @@ export class LgpdProcessor extends WorkerHost {
     super();
   }
 
-  async process(
-    job: Job<ProcessDataRequestJob | AccountDeletionJob>,
-  ): Promise<void> {
+  async process(job: Job<ProcessDataRequestJob | AccountDeletionJob>): Promise<void> {
     switch (job.name) {
       case LGPD_JOBS.PROCESS_DATA_REQUEST:
         await this.lgpdService.processRequest(job.data.requestId);

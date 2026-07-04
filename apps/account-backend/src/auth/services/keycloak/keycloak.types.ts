@@ -52,10 +52,7 @@ export interface KeycloakErrorResponse {
   errors?: KeycloakValidationError[];
 }
 
-export type KeycloakClientAuthMethod =
-  | 'client_secret_basic'
-  | 'client_secret_post'
-  | 'none';
+export type KeycloakClientAuthMethod = 'client_secret_basic' | 'client_secret_post' | 'none';
 
 export interface KeycloakTokenError {
   error?: string;

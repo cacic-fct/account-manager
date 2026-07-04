@@ -40,10 +40,7 @@ describe('KeycloakService client roles', () => {
   });
 
   it('reads user roles from the configured Keycloak client role mappings', async () => {
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
       .mockResolvedValueOnce(
@@ -54,17 +51,12 @@ describe('KeycloakService client roles', () => {
           },
         ]),
       )
-      .mockResolvedValueOnce(
-        jsonResponse([{ name: 'access' }, { name: 'super-admin' }]),
-      );
+      .mockResolvedValueOnce(jsonResponse([{ name: 'access' }, { name: 'super-admin' }]));
     global.fetch = fetchMock;
 
     const service = new KeycloakService();
 
-    await expect(service.getUserRoles('user-1')).resolves.toEqual([
-      'access',
-      'super-admin',
-    ]);
+    await expect(service.getUserRoles('user-1')).resolves.toEqual(['access', 'super-admin']);
 
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       'https://sso.example.test/admin/realms/cacic/clients?clientId=cacic-account-manager',
@@ -75,10 +67,7 @@ describe('KeycloakService client roles', () => {
   });
 
   it('assigns roles through the configured Keycloak client role mappings', async () => {
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
       .mockResolvedValueOnce(
@@ -123,10 +112,7 @@ describe('KeycloakService client roles', () => {
   });
 
   it('throws a structured error when a client role lookup returns 404', async () => {
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
       .mockResolvedValueOnce(
@@ -159,10 +145,7 @@ describe('KeycloakService client roles', () => {
 
   it('uses client_secret_basic by default for confidential login clients', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         access_token: 'access-token',
@@ -174,15 +157,10 @@ describe('KeycloakService client roles', () => {
 
     const service = new KeycloakService();
 
-    await service.exchangeCodeForTokens(
-      'authorization-code',
-      'https://account.example.test/api/auth/callback',
-    );
+    await service.exchangeCodeForTokens('authorization-code', 'https://account.example.test/api/auth/callback');
 
     const tokenRequest = fetchMock.mock.calls[0];
-    expect(tokenRequest?.[0]).toBe(
-      'https://sso.example.test/realms/cacic/protocol/openid-connect/token',
-    );
+    expect(tokenRequest?.[0]).toBe('https://sso.example.test/realms/cacic/protocol/openid-connect/token');
 
     const requestInit = tokenRequest?.[1];
     expect(requestInit?.method).toBe('POST');
@@ -197,27 +175,20 @@ describe('KeycloakService client roles', () => {
     expect(requestParams.has('client_id')).toBe(false);
     expect(requestParams.has('client_secret')).toBe(false);
     expect(requestParams.get('code')).toBe('authorization-code');
-    expect(requestParams.get('redirect_uri')).toBe(
-      'https://account.example.test/api/auth/callback',
-    );
+    expect(requestParams.get('redirect_uri')).toBe('https://account.example.test/api/auth/callback');
 
     const headers = requestInit?.headers as Record<string, string>;
     const authorization = headers['Authorization'];
     expect(authorization).toMatch(/^Basic /);
-    expect(
-      Buffer.from(authorization.slice('Basic '.length), 'base64').toString(
-        'utf8',
-      ),
-    ).toBe('cacic-account-manager:account-client-secret');
+    expect(Buffer.from(authorization.slice('Basic '.length), 'base64').toString('utf8')).toBe(
+      'cacic-account-manager:account-client-secret',
+    );
   });
 
   it('includes the client secret in the form when client_secret_post is configured', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
     process.env.KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD = 'client_secret_post';
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         access_token: 'access-token',
@@ -229,10 +200,7 @@ describe('KeycloakService client roles', () => {
 
     const service = new KeycloakService();
 
-    await service.exchangeCodeForTokens(
-      'authorization-code',
-      'https://account.example.test/api/auth/callback',
-    );
+    await service.exchangeCodeForTokens('authorization-code', 'https://account.example.test/api/auth/callback');
 
     const tokenRequest = fetchMock.mock.calls[0];
     const requestBody = tokenRequest?.[1]?.body;
@@ -243,18 +211,13 @@ describe('KeycloakService client roles', () => {
     const requestParams = new URLSearchParams(requestBody);
     expect(requestParams.get('client_id')).toBe('cacic-account-manager');
     expect(requestParams.get('code')).toBe('authorization-code');
-    expect(requestParams.get('redirect_uri')).toBe(
-      'https://account.example.test/api/auth/callback',
-    );
+    expect(requestParams.get('redirect_uri')).toBe('https://account.example.test/api/auth/callback');
     expect(requestParams.get('client_secret')).toBe('account-client-secret');
   });
 
   it('adds PKCE parameters to authorization and token requests', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         access_token: 'access-token',
@@ -266,13 +229,9 @@ describe('KeycloakService client roles', () => {
 
     const service = new KeycloakService();
     const authUrl = new URL(
-      service.getAuthUrl(
-        'https://account.example.test/api/auth/callback',
-        'state-1',
-        {
-          codeChallenge: 'challenge-1',
-        },
-      ),
+      service.getAuthUrl('https://account.example.test/api/auth/callback', 'state-1', {
+        codeChallenge: 'challenge-1',
+      }),
     );
 
     expect(authUrl.searchParams.get('code_challenge')).toBe('challenge-1');
@@ -295,12 +254,7 @@ describe('KeycloakService client roles', () => {
 
   it('does not force a Keycloak IdP hint in non-production by default', () => {
     const service = new KeycloakService();
-    const authUrl = new URL(
-      service.getAuthUrl(
-        'https://account.example.test/api/auth/callback',
-        'state-1',
-      ),
-    );
+    const authUrl = new URL(service.getAuthUrl('https://account.example.test/api/auth/callback', 'state-1'));
 
     expect(authUrl.searchParams.has('kc_idp_hint')).toBe(false);
   });
@@ -308,12 +262,7 @@ describe('KeycloakService client roles', () => {
   it('uses the configured Keycloak IdP hint in non-production', () => {
     process.env.KEYCLOAK_LOGIN_IDP_HINT = 'google';
     const service = new KeycloakService();
-    const authUrl = new URL(
-      service.getAuthUrl(
-        'https://account.example.test/api/auth/callback',
-        'state-1',
-      ),
-    );
+    const authUrl = new URL(service.getAuthUrl('https://account.example.test/api/auth/callback', 'state-1'));
 
     expect(authUrl.searchParams.get('kc_idp_hint')).toBe('google');
   });
@@ -323,21 +272,13 @@ describe('KeycloakService client roles', () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
     process.env.KEYCLOAK_ADMIN_CLIENT_SECRET = 'admin-secret';
     const service = new KeycloakService();
-    const authUrl = new URL(
-      service.getAuthUrl(
-        'https://account.example.test/api/auth/callback',
-        'state-1',
-      ),
-    );
+    const authUrl = new URL(service.getAuthUrl('https://account.example.test/api/auth/callback', 'state-1'));
 
     expect(authUrl.searchParams.get('kc_idp_hint')).toBe('google');
   });
 
   it('exchanges password credentials with direct access grants and local dev defaults', async () => {
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         access_token: 'access-token',
@@ -352,9 +293,7 @@ describe('KeycloakService client roles', () => {
     await service.exchangePasswordForTokens('aluno@unesp.br', '1');
 
     const tokenRequest = fetchMock.mock.calls[0];
-    expect(tokenRequest?.[0]).toBe(
-      'https://sso.example.test/realms/cacic/protocol/openid-connect/token',
-    );
+    expect(tokenRequest?.[0]).toBe('https://sso.example.test/realms/cacic/protocol/openid-connect/token');
 
     const requestInit = tokenRequest?.[1];
     expect(requestInit?.method).toBe('POST');
@@ -368,31 +307,22 @@ describe('KeycloakService client roles', () => {
     expect(requestParams.get('grant_type')).toBe('password');
     expect(requestParams.get('username')).toBe('aluno@unesp.br');
     expect(requestParams.get('password')).toBe('1');
-    expect(requestParams.get('scope')).toBe(
-      'openid profile email phone identity-document academic-profile',
-    );
+    expect(requestParams.get('scope')).toBe('openid profile email phone identity-document academic-profile');
     expect(requestParams.has('client_id')).toBe(false);
     expect(requestParams.has('client_secret')).toBe(false);
 
     const headers = requestInit?.headers as Record<string, string>;
     const authorization = headers['Authorization'];
     expect(authorization).toMatch(/^Basic /);
-    expect(
-      Buffer.from(authorization.slice('Basic '.length), 'base64').toString(
-        'utf8',
-      ),
-    ).toBe('cacic-account-manager:cacic-account-manager-dev-secret');
+    expect(Buffer.from(authorization.slice('Basic '.length), 'base64').toString('utf8')).toBe(
+      'cacic-account-manager:cacic-account-manager-dev-secret',
+    );
   });
 
   it('logs Cloudflare-facing token endpoint diagnostics when code exchange fails', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'account-client-secret';
-    const warnSpy = jest
-      .spyOn(Logger.prototype, 'warn')
-      .mockImplementation(() => undefined);
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       new Response('<html>cloudflare challenge</html>', {
         status: 403,
@@ -412,10 +342,7 @@ describe('KeycloakService client roles', () => {
     const service = new KeycloakService();
 
     await expect(
-      service.exchangeCodeForTokens(
-        'authorization-code',
-        'https://account.example.test/api/auth/callback',
-      ),
+      service.exchangeCodeForTokens('authorization-code', 'https://account.example.test/api/auth/callback'),
     ).rejects.toThrow('Failed to exchange code for tokens');
 
     expect(warnSpy).toHaveBeenCalledWith(
@@ -441,19 +368,14 @@ describe('KeycloakService client roles', () => {
     delete process.env.KEYCLOAK_CLIENT_SECRET;
     delete process.env.KEYCLOAK_CLIENT_AUTH_METHOD;
 
-    expect(() => new KeycloakService()).toThrow(
-      'KEYCLOAK_CLIENT_SECRET must be configured in production',
-    );
+    expect(() => new KeycloakService()).toThrow('KEYCLOAK_CLIENT_SECRET must be configured in production');
   });
 
   it('allows an explicitly public login client without sending a secret', async () => {
     process.env.NODE_ENV = 'production';
     process.env.KEYCLOAK_CLIENT_AUTH_METHOD = 'none';
     delete process.env.KEYCLOAK_CLIENT_SECRET;
-    const fetchMock: FetchMock = jest.fn<
-      Promise<Response>,
-      Parameters<typeof fetch>
-    >();
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         access_token: 'access-token',
@@ -465,10 +387,7 @@ describe('KeycloakService client roles', () => {
 
     const service = new KeycloakService();
 
-    await service.exchangeCodeForTokens(
-      'authorization-code',
-      'https://account.example.test/api/auth/callback',
-    );
+    await service.exchangeCodeForTokens('authorization-code', 'https://account.example.test/api/auth/callback');
 
     const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
     if (typeof requestBody !== 'string') {

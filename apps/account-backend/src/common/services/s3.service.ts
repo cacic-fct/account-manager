@@ -53,9 +53,7 @@ export class S3Service {
       responseChecksumValidation: 'WHEN_REQUIRED',
     });
 
-    this.logger.log(
-      `S3Service initialized with endpoint: ${endpoint}, bucket: ${bucketName}`,
-    );
+    this.logger.log(`S3Service initialized with endpoint: ${endpoint}, bucket: ${bucketName}`);
   }
 
   /**
@@ -101,23 +99,14 @@ export class S3Service {
       };
     } catch (error: unknown) {
       this.logger.error(`Failed to upload file ${key}:`, error);
-      throw new Error(
-        `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private createCountingStream(
-    body: Readable,
-    countBytes: (byteLength: number) => void,
-  ): Readable {
+  private createCountingStream(body: Readable, countBytes: (byteLength: number) => void): Readable {
     const countingStream = new Transform({
       transform(chunk: Buffer | string, encoding, callback) {
-        countBytes(
-          typeof chunk === 'string'
-            ? Buffer.byteLength(chunk, encoding)
-            : chunk.byteLength,
-        );
+        countBytes(typeof chunk === 'string' ? Buffer.byteLength(chunk, encoding) : chunk.byteLength);
         callback(null, chunk);
       },
     });
@@ -160,9 +149,7 @@ export class S3Service {
       };
     } catch (error: unknown) {
       this.logger.error(`Failed to download file ${key}:`, error);
-      throw new Error(
-        `Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -181,9 +168,7 @@ export class S3Service {
       this.logger.log(`File deleted successfully: ${key}`);
     } catch (error: unknown) {
       this.logger.error(`Failed to delete file ${key}:`, error);
-      throw new Error(
-        `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -202,10 +187,7 @@ export class S3Service {
     } catch (error: unknown) {
       // Check if this is an S3 NotFound error
       const isNotFound =
-        (error &&
-          typeof error === 'object' &&
-          'name' in error &&
-          error.name === 'NotFound') ||
+        (error && typeof error === 'object' && 'name' in error && error.name === 'NotFound') ||
         (error &&
           typeof error === 'object' &&
           '$metadata' in error &&
@@ -246,9 +228,7 @@ export class S3Service {
       };
     } catch (error: unknown) {
       this.logger.error(`Failed to get metadata for file ${key}:`, error);
-      throw new Error(
-        `Failed to get file metadata: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to get file metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -290,9 +270,7 @@ export class S3Service {
         }));
     } catch (error: unknown) {
       this.logger.error(`Failed to list files with prefix ${prefix}:`, error);
-      throw new Error(
-        `Failed to list files: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to list files: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

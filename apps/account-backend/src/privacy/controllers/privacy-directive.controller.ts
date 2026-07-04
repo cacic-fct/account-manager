@@ -1,28 +1,16 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  BadRequestException,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { M2M_PRIVACY_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../../auth/jwt/m2m.guard';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
-import {
-  PrivacyDirective,
-  PrivacyDirectiveDataMap,
-  PrivacyDirectiveUiMap,
-} from '../constants/privacy-directives';
+import { PrivacyDirective, PrivacyDirectiveDataMap, PrivacyDirectiveUiMap } from '../constants/privacy-directives';
 
 @ApiTags('Privacy Directives')
 @Controller('privacy-directives')
 @UseGuards(M2MGuard)
 @M2MProtected()
 export class PrivacyDirectiveController {
-  constructor(
-    private readonly privacyDirectiveService: PrivacyDirectiveService,
-  ) {}
+  constructor(private readonly privacyDirectiveService: PrivacyDirectiveService) {}
 
   @Get('')
   @ApiOperation({
@@ -171,15 +159,12 @@ export class PrivacyDirectiveController {
       },
     },
   })
-  async getUiDirectives(
-    @Query('userId') userId?: string,
-  ): Promise<PrivacyDirectiveUiMap> {
+  async getUiDirectives(@Query('userId') userId?: string): Promise<PrivacyDirectiveUiMap> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }
 
-    const { ui } =
-      await this.privacyDirectiveService.getDirectivesAsJson(userId);
+    const { ui } = await this.privacyDirectiveService.getDirectivesAsJson(userId);
     return ui;
   }
 
@@ -212,15 +197,12 @@ export class PrivacyDirectiveController {
       },
     },
   })
-  async getDataDirectives(
-    @Query('userId') userId?: string,
-  ): Promise<PrivacyDirectiveDataMap> {
+  async getDataDirectives(@Query('userId') userId?: string): Promise<PrivacyDirectiveDataMap> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }
 
-    const { data } =
-      await this.privacyDirectiveService.getDirectivesAsJson(userId);
+    const { data } = await this.privacyDirectiveService.getDirectivesAsJson(userId);
     return data;
   }
 }

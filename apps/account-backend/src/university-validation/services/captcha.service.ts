@@ -180,10 +180,7 @@ export class CaptchaService {
   /**
    * Save successful captcha input to training dataset in S3
    */
-  async saveCaptchaTrainingData(
-    captchaImageBase64: string,
-    userInput: string,
-  ): Promise<void> {
+  async saveCaptchaTrainingData(captchaImageBase64: string, userInput: string): Promise<void> {
     try {
       const timestamp = new Date().toISOString();
       const sanitizedTimestamp = timestamp.replace(/[:.]/g, '-');
@@ -198,11 +195,7 @@ export class CaptchaService {
 
       // Upload JSON metadata to S3
       const jsonKey = `captcha-training-data/${baseFilename}.json`;
-      await this.s3Service.uploadFile(
-        jsonKey,
-        Buffer.from(JSON.stringify(trainingData, null, 2)),
-        'application/json',
-      );
+      await this.s3Service.uploadFile(jsonKey, Buffer.from(JSON.stringify(trainingData, null, 2)), 'application/json');
 
       // Upload image file to S3
       const imageKey = `captcha-training-data/${baseFilename}.jpg`;
@@ -266,8 +259,7 @@ export class CaptchaService {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
           'Accept-Encoding': 'gzip, deflate, br',
           Connection: 'keep-alive',
@@ -333,8 +325,7 @@ export class CaptchaService {
         }
       }
 
-      const initialCookies: string =
-        await sessionData.cookieJar.getCookieString(documentUrl);
+      const initialCookies: string = await sessionData.cookieJar.getCookieString(documentUrl);
 
       this.logger.debug('Initial cookies established:', {
         cookieCount: setCookieHeaders?.length || 0,
@@ -345,8 +336,7 @@ export class CaptchaService {
       this.logger.debug('Step 2: Fetching captcha image...');
 
       // Get cookies before captcha request
-      const cookiesBeforeCaptcha: string =
-        await sessionData.cookieJar.getCookieString(documentUrl);
+      const cookiesBeforeCaptcha: string = await sessionData.cookieJar.getCookieString(documentUrl);
 
       this.logger.debug('Cookies before captcha request:', {
         cookies: cookiesBeforeCaptcha,
@@ -393,8 +383,7 @@ export class CaptchaService {
       });
 
       // Extract session token (JSESSIONID)
-      const cookiesAfterCaptcha: string =
-        await sessionData.cookieJar.getCookieString(documentUrl);
+      const cookiesAfterCaptcha: string = await sessionData.cookieJar.getCookieString(documentUrl);
       const sessionToken = this.extractJSESSIONID(cookiesAfterCaptcha);
 
       if (!sessionToken) {
@@ -411,9 +400,7 @@ export class CaptchaService {
         sessionId,
         hasPageHtml: !!sessionData.pageHtml,
         hasHiddenInputs: !!sessionData.hiddenInputs,
-        hiddenInputsCount: sessionData.hiddenInputs
-          ? Object.keys(sessionData.hiddenInputs).length
-          : 0,
+        hiddenInputsCount: sessionData.hiddenInputs ? Object.keys(sessionData.hiddenInputs).length : 0,
         hasSessionToken: !!sessionData.sessionToken,
       });
 
@@ -428,12 +415,9 @@ export class CaptchaService {
     } catch (error) {
       this.logger.error('Error getting captcha:', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        code:
-          error instanceof AxiosError ? (error.code ?? 'UNKNOWN') : 'UNKNOWN',
-        status:
-          error instanceof AxiosError ? error.response?.status : undefined,
-        statusText:
-          error instanceof AxiosError ? error.response?.statusText : undefined,
+        code: error instanceof AxiosError ? (error.code ?? 'UNKNOWN') : 'UNKNOWN',
+        status: error instanceof AxiosError ? error.response?.status : undefined,
+        statusText: error instanceof AxiosError ? error.response?.statusText : undefined,
         url: error instanceof AxiosError ? error.config?.url : undefined,
       });
 

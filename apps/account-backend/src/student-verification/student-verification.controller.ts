@@ -14,27 +14,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-  ApiBody,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Response } from 'express';
 import { StudentVerificationService } from './student-verification.service';
-import {
-  UploadResponseDto,
-  VerificationStatusDto,
-  UpdateVerificationStatusDto,
-} from './dto/student-verification.dto';
+import { UploadResponseDto, VerificationStatusDto, UpdateVerificationStatusDto } from './dto/student-verification.dto';
 import { SessionUser } from '../auth/interfaces/auth.interface';
-import {
-  AccountPermissions,
-  Auth,
-  UniversityValidation,
-} from '../auth/guards/auth.decorator';
+import { AccountPermissions, Auth, UniversityValidation } from '../auth/guards/auth.decorator';
 import { AccountManagerPermission } from '@cacic/shared-types';
 import { FileValidationService } from '../auth/services/file-validation.service';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
@@ -67,9 +52,7 @@ const studentVerificationUploadOptions = {
     if (!allowedMimeTypes.has(file.mimetype)) {
       callback(
         new BadRequestException(
-          `Tipo de arquivo não permitido. Tipos aceitos: ${Array.from(
-            allowedMimeTypes,
-          ).join(', ')}`,
+          `Tipo de arquivo não permitido. Tipos aceitos: ${Array.from(allowedMimeTypes).join(', ')}`,
         ),
         false,
       );
@@ -93,9 +76,7 @@ export class StudentVerificationController {
   @UniversityValidation()
   @UseGuards(CsrfGuard)
   @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('document', studentVerificationUploadOptions),
-  )
+  @UseInterceptors(FileInterceptor('document', studentVerificationUploadOptions))
   @ApiOperation({
     summary: 'Upload document for student verification',
     description:
@@ -168,9 +149,7 @@ export class StudentVerificationController {
     }
 
     // Only allow manual fallback from frontend in development mode
-    const isManualFallback =
-      process.env.NODE_ENV === 'development' &&
-      (body?.isManualFallback || false);
+    const isManualFallback = process.env.NODE_ENV === 'development' && (body?.isManualFallback || false);
 
     // Validate file using the security service
     this.fileValidationService.validateFile(file, isManualFallback);
@@ -198,9 +177,7 @@ export class StudentVerificationController {
     status: 401,
     description: 'Unauthorized - Authentication required',
   })
-  async getVerificationStatus(
-    @Session() session: AuthSession,
-  ): Promise<VerificationStatusDto> {
+  async getVerificationStatus(@Session() session: AuthSession): Promise<VerificationStatusDto> {
     return this.studentVerificationService.getVerificationStatus(
       session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
     );
@@ -211,8 +188,7 @@ export class StudentVerificationController {
   @Get('admin/pending')
   @ApiOperation({
     summary: 'Get all pending verification documents (Admin only)',
-    description:
-      'Retrieve all documents pending verification. Requires admin privileges.',
+    description: 'Retrieve all documents pending verification. Requires admin privileges.',
   })
   @ApiResponse({
     status: 200,
@@ -236,8 +212,7 @@ export class StudentVerificationController {
   @Patch('admin/:documentId/verify')
   @ApiOperation({
     summary: 'Update document verification status (Admin only)',
-    description:
-      'Update the verification status of a document. Requires admin privileges.',
+    description: 'Update the verification status of a document. Requires admin privileges.',
   })
   @ApiParam({
     name: 'documentId',
@@ -280,8 +255,7 @@ export class StudentVerificationController {
   @Get('admin/:documentId/download')
   @ApiOperation({
     summary: 'Download verification document (Admin only)',
-    description:
-      'Download a verification document file. Requires admin privileges.',
+    description: 'Download a verification document file. Requires admin privileges.',
   })
   @ApiParam({
     name: 'documentId',
@@ -314,19 +288,12 @@ export class StudentVerificationController {
     status: 404,
     description: 'Document not found',
   })
-  async downloadDocument(
-    @Param('documentId') documentId: string,
-    @Res() res: Response,
-  ) {
-    const document =
-      await this.studentVerificationService.getDocumentFile(documentId);
+  async downloadDocument(@Param('documentId') documentId: string, @Res() res: Response) {
+    const document = await this.studentVerificationService.getDocumentFile(documentId);
 
     // Properly encode filename for UTF-8 support (handles accents)
     const encodedFilename = encodeURIComponent(document.originalFileName);
-    const asciiFilename = document.originalFileName.replace(
-      /[^\u0020-\u007E]/g,
-      '',
-    ); // ASCII fallback
+    const asciiFilename = document.originalFileName.replace(/[^\u0020-\u007E]/g, ''); // ASCII fallback
 
     res.setHeader('Content-Type', document.mimeType);
     res.setHeader(
@@ -339,9 +306,7 @@ export class StudentVerificationController {
 
     document.stream.on('error', (error) => {
       this.logger.error(
-        `Error streaming file for document ${documentId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Error streaming file for document ${documentId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       if (!res.headersSent) {

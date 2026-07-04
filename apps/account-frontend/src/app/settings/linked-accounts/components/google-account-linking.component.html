@@ -45,7 +45,7 @@
         @if (isProcessing(request)) {
           <div class="processing-state">
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            @if (request.status === "pending_merge") {
+            @if (request.status === 'pending_merge') {
               <span>
                 Confirmações externas:
                 {{ request.notificationSummary.completed }} concluída(s),
@@ -63,10 +63,7 @@
                 <strong>{{ score.displayName || score.email }}</strong>
                 <span>{{ score.email }}</span>
                 <div class="score-value">{{ score.score }} pts</div>
-                <mat-progress-bar
-                  mode="determinate"
-                  [value]="progressValue(score.score)"
-                ></mat-progress-bar>
+                <mat-progress-bar mode="determinate" [value]="progressValue(score.score)"></mat-progress-bar>
               </div>
             }
 
@@ -76,22 +73,16 @@
                 <strong>{{ score.displayName || score.email }}</strong>
                 <span>{{ score.email }}</span>
                 <div class="score-value">{{ score.score }} pts</div>
-                <mat-progress-bar
-                  mode="determinate"
-                  [value]="progressValue(score.score)"
-                ></mat-progress-bar>
+                <mat-progress-bar mode="determinate" [value]="progressValue(score.score)"></mat-progress-bar>
               </div>
             }
           </div>
         }
 
-        @if (request.status === "pending") {
+        @if (request.status === 'pending') {
           <mat-form-field appearance="outline">
             <mat-label>E-mail principal</mat-label>
-            <mat-select
-              [ngModel]="selectedPrimaryEmail()"
-              (ngModelChange)="selectedPrimaryEmail.set($event)"
-            >
+            <mat-select [ngModel]="selectedPrimaryEmail()" (ngModelChange)="selectedPrimaryEmail.set($event)">
               @for (email of request.primaryEmailOptions; track email) {
                 <mat-option [value]="email">{{ email }}</mat-option>
               }
@@ -111,10 +102,7 @@
                 <mat-icon matListItemIcon>analytics</mat-icon>
                 <div matListItemTitle>{{ score.email }}</div>
                 <div matListItemLine>
-                  @for (
-                    item of score.contributions;
-                    track item.source + item.label
-                  ) {
+                  @for (item of score.contributions; track item.source + item.label) {
                     <span>{{ item.label }} +{{ item.points }}</span>
                   }
                 </div>
@@ -128,17 +116,14 @@
 
   <mat-card-actions align="end">
     @if (mergeRequest(); as request) {
-      @if (request.status === "pending") {
-        <button mat-button type="button" (click)="cancelMerge()">
-          Cancelar
-        </button>
+      @if (request.status === 'pending') {
+        <button mat-button type="button" (click)="cancelMerge()">Cancelar</button>
         <button
           mat-flat-button
           color="primary"
           type="button"
           (click)="confirmMerge()"
-          [disabled]="isConfirming() || !selectedPrimaryEmail()"
-        >
+          [disabled]="isConfirming() || !selectedPrimaryEmail()">
           @if (isConfirming()) {
             <mat-spinner diameter="18"></mat-spinner>
           } @else {
@@ -146,25 +131,14 @@
           }
           Continuar
         </button>
-      } @else if (request.status === "completed") {
-        <button
-          mat-flat-button
-          color="primary"
-          type="button"
-          (click)="startLinking()"
-        >
+      } @else if (request.status === 'completed') {
+        <button mat-flat-button color="primary" type="button" (click)="startLinking()">
           <mat-icon>add_link</mat-icon>
           Vincular outra conta
         </button>
       }
     } @else {
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        (click)="startLinking()"
-        [disabled]="isLoading()"
-      >
+      <button mat-flat-button color="primary" type="button" (click)="startLinking()" [disabled]="isLoading()">
         @if (isLoading()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else {

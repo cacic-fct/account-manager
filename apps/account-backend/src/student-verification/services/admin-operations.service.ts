@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import type { Prisma, StudentVerificationDocument } from '@prisma/client';
 import { UpdateVerificationStatusDto } from '../dto/student-verification.dto';
 import { KeycloakService } from '../../auth/services/keycloak.service';
@@ -26,9 +21,7 @@ export class AdminOperationsService {
     private documentManagementService: DocumentManagementService,
   ) {}
 
-  async getAllPendingDocuments(): Promise<
-    (StudentVerificationDocument & { email?: string; fullName?: string })[]
-  > {
+  async getAllPendingDocuments(): Promise<(StudentVerificationDocument & { email?: string; fullName?: string })[]> {
     const documents = await this.prisma.studentVerificationDocument.findMany({
       where: { status: 'pending' },
       orderBy: { createdAt: 'asc' },
@@ -37,12 +30,8 @@ export class AdminOperationsService {
     const documentsWithUserInfo = await Promise.all(
       documents.map(async (document) => {
         try {
-          const userAttributes = await this.keycloakService.getUserAttributes(
-            document.userId,
-          );
-          const userBasicInfo = await this.keycloakService.getUserBasicInfo(
-            document.userId,
-          );
+          const userAttributes = await this.keycloakService.getUserAttributes(document.userId);
+          const userBasicInfo = await this.keycloakService.getUserBasicInfo(document.userId);
 
           const email = userAttributes.email?.[0] || userBasicInfo?.email;
           const fullName = userAttributes.fullName?.[0];
@@ -71,10 +60,7 @@ export class AdminOperationsService {
     return documentsWithUserInfo;
   }
 
-  private async lockDocumentTransition(
-    tx: Prisma.TransactionClient,
-    documentId: string,
-  ): Promise<void> {
+  private async lockDocumentTransition(tx: Prisma.TransactionClient, documentId: string): Promise<void> {
     await tx.$queryRaw`
       SELECT pg_advisory_xact_lock(
         hashtext(${this.verificationLockScope}),
@@ -83,10 +69,7 @@ export class AdminOperationsService {
     `;
   }
 
-  private async lockUserTransition(
-    tx: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<void> {
+  private async lockUserTransition(tx: Prisma.TransactionClient, userId: string): Promise<void> {
     await tx.$queryRaw`
       SELECT pg_advisory_xact_lock(
         hashtext(${this.verificationUserLockScope}),
@@ -95,9 +78,7 @@ export class AdminOperationsService {
     `;
   }
 
-  private normalizeRejectionReason(
-    updateDto: UpdateVerificationStatusDto,
-  ): string | null {
+  private normalizeRejectionReason(updateDto: UpdateVerificationStatusDto): string | null {
     if (updateDto.status !== 'rejected') {
       return null;
     }
@@ -105,9 +86,7 @@ export class AdminOperationsService {
     const rejectionReason = updateDto.rejectionReason?.trim();
 
     if (!rejectionReason) {
-      throw new BadRequestException(
-        'Informe o motivo da rejeição do documento.',
-      );
+      throw new BadRequestException('Informe o motivo da rejeição do documento.');
     }
 
     return rejectionReason;
@@ -126,18 +105,13 @@ export class AdminOperationsService {
     }
 
     if (document.status !== 'pending') {
-      throw new BadRequestException(
-        'Apenas documentos pendentes podem ser verificados.',
-      );
+      throw new BadRequestException('Apenas documentos pendentes podem ser verificados.');
     }
 
     return document;
   }
 
-  private async hasApprovedDocumentForUser(
-    tx: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<boolean> {
+  private async hasApprovedDocumentForUser(tx: Prisma.TransactionClient, userId: string): Promise<boolean> {
     const approvedDocument = await tx.studentVerificationDocument.findFirst({
       where: {
         userId,
@@ -193,19 +167,10 @@ export class AdminOperationsService {
     return this.prisma.$transaction(async (tx) => {
       await this.lockDocumentTransition(tx, documentId);
 
-      const document = await this.getPendingDocumentFromTransaction(
-        tx,
-        documentId,
-      );
+      const document = await this.getPendingDocumentFromTransaction(tx, documentId);
       await this.lockUserTransition(tx, document.userId);
 
-      return this.persistVerificationTransitionInTransaction(
-        tx,
-        document,
-        updateDto,
-        verifiedBy,
-        rejectionReason,
-      );
+      return this.persistVerificationTransitionInTransaction(tx, document, updateDto, verifiedBy, rejectionReason);
     }, this.transactionOptions);
   }
 
@@ -217,9 +182,7 @@ export class AdminOperationsService {
       this.logger.log(`Set unespRoleVerified=true for user ${userId}`);
     } catch (error) {
       this.logger.error(
-        `Failed to set unespRoleVerified for user ${userId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Failed to set unespRoleVerified for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw new BadRequestException(
@@ -233,9 +196,7 @@ export class AdminOperationsService {
       await this.keycloakService.updateUserAttributes(userId, {
         unespRoleVerified: 'false',
       });
-      this.logger.warn(
-        `Rolled back unespRoleVerified=true for user ${userId} after database approval failed.`,
-      );
+      this.logger.warn(`Rolled back unespRoleVerified=true for user ${userId} after database approval failed.`);
     } catch (error) {
       this.logger.error(
         `Failed to roll back unespRoleVerified for user ${userId}: ${
@@ -246,16 +207,11 @@ export class AdminOperationsService {
     }
   }
 
-  private async undoKeycloakApprovalIfNoApprovedDocument(
-    userId: string,
-  ): Promise<void> {
+  private async undoKeycloakApprovalIfNoApprovedDocument(userId: string): Promise<void> {
     try {
       await this.prisma.$transaction(async (tx) => {
         await this.lockUserTransition(tx, userId);
-        const hasApprovedDocument = await this.hasApprovedDocumentForUser(
-          tx,
-          userId,
-        );
+        const hasApprovedDocument = await this.hasApprovedDocumentForUser(tx, userId);
 
         if (hasApprovedDocument) {
           this.logger.warn(
@@ -290,15 +246,11 @@ export class AdminOperationsService {
       return await this.prisma.$transaction(async (tx) => {
         await this.lockDocumentTransition(tx, documentId);
 
-        const document = await this.getPendingDocumentFromTransaction(
-          tx,
-          documentId,
-        );
+        const document = await this.getPendingDocumentFromTransaction(tx, documentId);
         approvalUserId = document.userId;
 
         await this.lockUserTransition(tx, document.userId);
-        hadApprovedDocumentBeforeApproval =
-          await this.hasApprovedDocumentForUser(tx, document.userId);
+        hadApprovedDocumentBeforeApproval = await this.hasApprovedDocumentForUser(tx, document.userId);
 
         await this.markUserAsVerifiedInKeycloak(document.userId);
         keycloakApprovalApplied = true;
@@ -320,12 +272,7 @@ export class AdminOperationsService {
         }
       }, this.transactionOptions);
     } catch (error) {
-      if (
-        approvalUserId &&
-        keycloakApprovalApplied &&
-        !hadApprovedDocumentBeforeApproval &&
-        !rollbackHandled
-      ) {
+      if (approvalUserId && keycloakApprovalApplied && !hadApprovedDocumentBeforeApproval && !rollbackHandled) {
         await this.undoKeycloakApprovalIfNoApprovedDocument(approvalUserId);
       }
 
@@ -339,12 +286,7 @@ export class AdminOperationsService {
     verifiedBy: string,
     rejectionReason: string | null,
   ): Promise<StudentVerificationDocument> {
-    return this.persistVerificationTransition(
-      documentId,
-      updateDto,
-      verifiedBy,
-      rejectionReason,
-    );
+    return this.persistVerificationTransition(documentId, updateDto, verifiedBy, rejectionReason);
   }
 
   async updateVerificationStatus(
@@ -357,25 +299,13 @@ export class AdminOperationsService {
     let updatedDocument: StudentVerificationDocument;
 
     if (updateDto.status === 'approved') {
-      updatedDocument = await this.approveVerificationTransition(
-        documentId,
-        updateDto,
-        verifiedBy,
-        rejectionReason,
-      );
+      updatedDocument = await this.approveVerificationTransition(documentId, updateDto, verifiedBy, rejectionReason);
     } else {
-      updatedDocument = await this.rejectVerificationTransition(
-        documentId,
-        updateDto,
-        verifiedBy,
-        rejectionReason,
-      );
+      updatedDocument = await this.rejectVerificationTransition(documentId, updateDto, verifiedBy, rejectionReason);
     }
 
     if (updateDto.status === 'approved') {
-      await this.documentManagementService.cleanupApprovedDocument(
-        updatedDocument,
-      );
+      await this.documentManagementService.cleanupApprovedDocument(updatedDocument);
       this.logger.log(
         `Approved document ${updatedDocument.id} for user ${updatedDocument.userId}. Cleanup completed by ${verifiedBy}.`,
       );

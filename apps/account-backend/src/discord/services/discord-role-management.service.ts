@@ -89,9 +89,7 @@ export class DiscordRoleManagementService {
         });
       }
 
-      this.logger.log(
-        `Synced ${roles.size} roles from Discord guild ${guild.name}`,
-      );
+      this.logger.log(`Synced ${roles.size} roles from Discord guild ${guild.name}`);
     } catch (error) {
       this.logger.error('Error syncing roles from Discord:', error);
       throw error;
@@ -104,9 +102,7 @@ export class DiscordRoleManagementService {
     });
 
     if (allRoles.length === 0) {
-      this.logger.warn(
-        'No Discord roles found in database. Please sync roles from Discord server first.',
-      );
+      this.logger.warn('No Discord roles found in database. Please sync roles from Discord server first.');
       return {
         rolesWithPermissions: [],
         rolesWithoutPermissions: [],
@@ -114,19 +110,12 @@ export class DiscordRoleManagementService {
       };
     }
 
-    const rolesWithPermissions = allRoles
-      .filter((role) => role.hasPermissions)
-      .map(this.mapToRoleDto);
+    const rolesWithPermissions = allRoles.filter((role) => role.hasPermissions).map(this.mapToRoleDto);
 
-    const rolesWithoutPermissions = allRoles
-      .filter((role) => !role.hasPermissions)
-      .map(this.mapToRoleDto);
+    const rolesWithoutPermissions = allRoles.filter((role) => !role.hasPermissions).map(this.mapToRoleDto);
 
     const selectableRoles = allRoles
-      .filter(
-        (role) =>
-          role.isEnabledForSelection && this.isRoleSettingSelectable(role),
-      )
+      .filter((role) => role.isEnabledForSelection && this.isRoleSettingSelectable(role))
       .map(this.mapToRoleDto);
 
     return {
@@ -151,9 +140,7 @@ export class DiscordRoleManagementService {
   }
 
   async updateRoleSelection(dto: UpdateRoleSelectionDto): Promise<void> {
-    this.logger.log(
-      `Updating role selection with IDs: ${JSON.stringify(dto.enabledRoleIds)}`,
-    );
+    this.logger.log(`Updating role selection with IDs: ${JSON.stringify(dto.enabledRoleIds)}`);
 
     const allRoles = await this.prisma.discordRoleSetting.findMany();
     this.logger.log(`Found ${allRoles.length} existing role settings`);
@@ -171,10 +158,7 @@ export class DiscordRoleManagementService {
     });
 
     if (invalidRoleNames.length > 0) {
-      throw new HttpException(
-        `Some roles are not selectable: ${invalidRoleNames.join(', ')}`,
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException(`Some roles are not selectable: ${invalidRoleNames.join(', ')}`, HttpStatus.BAD_REQUEST);
     }
 
     await this.prisma.discordRoleSetting.updateMany({
@@ -195,45 +179,30 @@ export class DiscordRoleManagementService {
       });
     }
 
-    this.logger.log(
-      `Updated role selection: ${enabledRoleIds.length} roles enabled`,
-    );
+    this.logger.log(`Updated role selection: ${enabledRoleIds.length} roles enabled`);
   }
 
-  async getUserRoles(
-    userId: string,
-    client: Client,
-    guildId: string,
-  ): Promise<UserRolesDto> {
+  async getUserRoles(userId: string, client: Client, guildId: string): Promise<UserRolesDto> {
     try {
       const discordLink = await this.prisma.discordLink.findFirst({
         where: { userId, deleted: false, isVerified: true },
       });
 
       if (!discordLink) {
-        throw new HttpException(
-          'Discord account not linked',
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new HttpException('Discord account not linked', HttpStatus.BAD_REQUEST);
       }
 
       const guild = await client.guilds.fetch(guildId);
 
       if (!guild) {
-        throw new HttpException(
-          'Discord guild not found',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+        throw new HttpException('Discord guild not found', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
       let member: GuildMember;
       try {
         member = await guild.members.fetch(discordLink.discordId);
       } catch {
-        throw new HttpException(
-          'User not found in Discord server. Please rejoin the server.',
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new HttpException('User not found in Discord server. Please rejoin the server.', HttpStatus.BAD_REQUEST);
       }
 
       const roleIds = Array.from(member.roles.cache.keys());
@@ -254,14 +223,8 @@ export class DiscordRoleManagementService {
         throw error;
       }
 
-      this.logger.error(
-        `Error getting user roles for userId ${userId}:`,
-        error,
-      );
-      throw new HttpException(
-        'Failed to fetch user Discord roles',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.error(`Error getting user roles for userId ${userId}:`, error);
+      throw new HttpException('Failed to fetch user Discord roles', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -276,10 +239,7 @@ export class DiscordRoleManagementService {
     });
 
     if (!discordLink) {
-      throw new HttpException(
-        'Discord account not linked',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('Discord account not linked', HttpStatus.BAD_REQUEST);
     }
 
     const selectableRoles = await this.prisma.discordRoleSetting.findMany({
@@ -295,10 +255,7 @@ export class DiscordRoleManagementService {
     });
 
     if (selectableRoles.length !== dto.selectedRoleIds.length) {
-      throw new HttpException(
-        'Some roles are not selectable',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('Some roles are not selectable', HttpStatus.BAD_REQUEST);
     }
 
     const guild = await client.guilds.fetch(guildId);
@@ -317,23 +274,16 @@ export class DiscordRoleManagementService {
       .filter((role) => allSelectableRoles.some((r) => r.roleId === role.id))
       .map((role) => role.id);
 
-    const rolesToRemove = currentSelectableRoleIds.filter(
-      (roleId) => !dto.selectedRoleIds.includes(roleId),
-    );
+    const rolesToRemove = currentSelectableRoleIds.filter((roleId) => !dto.selectedRoleIds.includes(roleId));
 
-    const rolesToAdd = dto.selectedRoleIds.filter(
-      (roleId) => !currentSelectableRoleIds.includes(roleId),
-    );
+    const rolesToAdd = dto.selectedRoleIds.filter((roleId) => !currentSelectableRoleIds.includes(roleId));
     const reason = `CACiC self-service role selection by account ${userId}`;
 
     for (const roleId of rolesToRemove) {
       try {
         await member.roles.remove(roleId, reason);
       } catch (error) {
-        this.logger.warn(
-          `Failed to remove role ${roleId} from user ${userId}:`,
-          error,
-        );
+        this.logger.warn(`Failed to remove role ${roleId} from user ${userId}:`, error);
       }
     }
 
@@ -341,21 +291,14 @@ export class DiscordRoleManagementService {
       try {
         await member.roles.add(roleId, reason);
       } catch (error) {
-        this.logger.warn(
-          `Failed to add role ${roleId} to user ${userId}:`,
-          error,
-        );
+        this.logger.warn(`Failed to add role ${roleId} to user ${userId}:`, error);
       }
     }
 
     await member.fetch(true);
-    const updatedRoles = selectableRoles.filter((role) =>
-      member.roles.cache.has(role.roleId),
-    );
+    const updatedRoles = selectableRoles.filter((role) => member.roles.cache.has(role.roleId));
 
-    this.logger.log(
-      `Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`,
-    );
+    this.logger.log(`Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`);
 
     return {
       message: 'Roles updated successfully',
@@ -379,15 +322,11 @@ export class DiscordRoleManagementService {
     }
 
     const roleName = role.name.toLowerCase();
-    return this.BLACKLISTED_ROLE_NAMES.some((blacklistedName) =>
-      roleName.includes(blacklistedName.toLowerCase()),
-    );
+    return this.BLACKLISTED_ROLE_NAMES.some((blacklistedName) => roleName.includes(blacklistedName.toLowerCase()));
   }
 
   private isRoleSettingBlacklisted(role: DiscordRoleSetting): boolean {
-    return (
-      role.isBlacklisted || this.getAutomatedRoleIds().includes(role.roleId)
-    );
+    return role.isBlacklisted || this.getAutomatedRoleIds().includes(role.roleId);
   }
 
   private isRoleSettingSelectable(role: DiscordRoleSetting): boolean {
@@ -414,17 +353,12 @@ export class DiscordRoleManagementService {
     color: roleSetting.roleColor || '#000000',
     position: roleSetting.rolePosition,
     hasPermissions: roleSetting.hasPermissions,
-    isBlacklisted:
-      roleSetting.isBlacklisted ||
-      this.getAutomatedRoleIds().includes(roleSetting.roleId),
+    isBlacklisted: roleSetting.isBlacklisted || this.getAutomatedRoleIds().includes(roleSetting.roleId),
     isEnabled: roleSetting.isEnabledForSelection,
     isManaged: this.getAutomatedRoleIds().includes(roleSetting.roleId),
   });
 
   private getAutomatedRoleIds(): string[] {
-    return [
-      ...DISCORD_AUTOMATED_ROLE_IDS,
-      ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
-    ];
+    return [...DISCORD_AUTOMATED_ROLE_IDS, ...PERMISSION_GROUP_DISCORD_ROLE_IDS];
   }
 }

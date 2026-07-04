@@ -33,8 +33,7 @@ export class LoggerService {
     console.error(`[ERROR] ${message}`, ...args);
 
     // Track error with context
-    const error =
-      args.find((arg) => arg instanceof Error) || new Error(message);
+    const error = args.find((arg) => arg instanceof Error) || new Error(message);
     const context = args.filter((arg) => !(arg instanceof Error));
     this.errorTracking.trackError(message, error, { context });
   }

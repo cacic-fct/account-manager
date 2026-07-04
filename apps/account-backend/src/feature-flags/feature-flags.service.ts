@@ -2,13 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GLOBAL_FEATURE_FLAGS } from './feature-flags.constants';
 
-const DEFAULT_UNLEASH_FRONTEND_URL =
-  'https://unleash.cacic.dev.br/api/frontend';
+const DEFAULT_UNLEASH_FRONTEND_URL = 'https://unleash.cacic.dev.br/api/frontend';
 const DEFAULT_UNLEASH_CLIENT_KEYS = {
-  development:
-    'default:development.rUPorLb0LVO4VIBLZ5RX4TKvsvGuABYmpkmzpWa7QHXwqSZ20v0ppRGYCWAO',
-  production:
-    'default:production.h8sn3hzUSF07msdHkuXubAVRxSgtAdGsBCXiXXhcs8I4boeXozEue0Tx0lwq',
+  development: 'default:development.rUPorLb0LVO4VIBLZ5RX4TKvsvGuABYmpkmzpWa7QHXwqSZ20v0ppRGYCWAO',
+  production: 'default:production.h8sn3hzUSF07msdHkuXubAVRxSgtAdGsBCXiXXhcs8I4boeXozEue0Tx0lwq',
 } as const;
 
 interface CachedBooleanFlag {
@@ -24,21 +21,12 @@ export class FeatureFlagService {
   private readonly timeoutMs!: number;
 
   constructor(private readonly configService: ConfigService) {
-    this.cacheTtlMs = this.parsePositiveInteger(
-      this.configService.get<string>('UNLEASH_CACHE_TTL_MS'),
-      60_000,
-    );
-    this.timeoutMs = this.parsePositiveInteger(
-      this.configService.get<string>('UNLEASH_TIMEOUT_MS'),
-      2_500,
-    );
+    this.cacheTtlMs = this.parsePositiveInteger(this.configService.get<string>('UNLEASH_CACHE_TTL_MS'), 60_000);
+    this.timeoutMs = this.parsePositiveInteger(this.configService.get<string>('UNLEASH_TIMEOUT_MS'), 2_500);
   }
 
   async isUndergraduateUnespRoleVerificationDisabled(): Promise<boolean> {
-    return this.isEnabled(
-      GLOBAL_FEATURE_FLAGS.undergraduateUnespRoleVerificationDisabled,
-      false,
-    );
+    return this.isEnabled(GLOBAL_FEATURE_FLAGS.undergraduateUnespRoleVerificationDisabled, false);
   }
 
   async isEnabled(flagName: string, fallback: boolean): Promise<boolean> {
@@ -63,10 +51,7 @@ export class FeatureFlagService {
     }
   }
 
-  private async fetchFlagValue(
-    flagName: string,
-    fallback: boolean,
-  ): Promise<boolean> {
+  private async fetchFlagValue(flagName: string, fallback: boolean): Promise<boolean> {
     const clientKey = this.readClientKey();
     if (!clientKey) {
       return fallback;
@@ -94,10 +79,7 @@ export class FeatureFlagService {
         continue;
       }
 
-      if (
-        toggle['name'] === flagName &&
-        typeof toggle['enabled'] === 'boolean'
-      ) {
+      if (toggle['name'] === flagName && typeof toggle['enabled'] === 'boolean') {
         return toggle['enabled'];
       }
     }
@@ -145,16 +127,12 @@ export class FeatureFlagService {
   }
 
   private readAppName(): string {
-    return (
-      this.configService.get<string>('UNLEASH_APP_NAME') ||
-      'account-manager-backend'
-    );
+    return this.configService.get<string>('UNLEASH_APP_NAME') || 'account-manager-backend';
   }
 
   private readEnvironment(): 'development' | 'production' {
     const configured =
-      this.configService.get<string>('UNLEASH_ENVIRONMENT') ||
-      this.configService.get<string>('NODE_ENV');
+      this.configService.get<string>('UNLEASH_ENVIRONMENT') || this.configService.get<string>('NODE_ENV');
 
     return configured === 'production' ? 'production' : 'development';
   }

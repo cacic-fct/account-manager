@@ -17,23 +17,23 @@ container before starting it again.
 
 All users use the password `1`.
 
-| Email | Purpose |
-| --- | --- |
-| `super-admin@unesp.br` | Super admin in Account Manager and Event Manager. |
-| `aluno@unesp.br` | Verified Unesp student, CACiC student entity member, regular app access. |
-| `professor@unesp.br` | Verified Unesp professor with Event Manager access only. |
-| `externo@gmail.com` | External user with incomplete onboarding and no app roles. |
+| Email                  | Purpose                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `super-admin@unesp.br` | Super admin in Account Manager and Event Manager.                        |
+| `aluno@unesp.br`       | Verified Unesp student, CACiC student entity member, regular app access. |
+| `professor@unesp.br`   | Verified Unesp professor with Event Manager access only.                 |
+| `externo@gmail.com`    | External user with incomplete onboarding and no app roles.               |
 
 ## Static development clients
 
-| Client | Secret |
-| --- | --- |
-| `cacic-account-manager` | `cacic-account-manager-dev-secret` |
-| `cacic-event-manager` | `cacic-event-manager-dev-secret` |
+| Client                               | Secret                                          |
+| ------------------------------------ | ----------------------------------------------- |
+| `cacic-account-manager`              | `cacic-account-manager-dev-secret`              |
+| `cacic-event-manager`                | `cacic-event-manager-dev-secret`                |
 | `cacic-account-manager-admin-client` | `cacic-account-manager-admin-client-dev-secret` |
-| `cacic-account-manager-m2m` | `cacic-account-manager-m2m-dev-secret` |
-| `cacic-event-manager-m2m` | `cacic-event-manager-m2m-dev-secret` |
-| `cacic-voto-m2m` | `cacic-voto-m2m-dev-secret` |
+| `cacic-account-manager-m2m`          | `cacic-account-manager-m2m-dev-secret`          |
+| `cacic-event-manager-m2m`            | `cacic-event-manager-m2m-dev-secret`            |
+| `cacic-voto-m2m`                     | `cacic-voto-m2m-dev-secret`                     |
 
 The backends use these values as development fallbacks when the matching
 environment variables are not set. In production, set real secrets; the

@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  UploadResponseDto,
-  VerificationStatusDto,
-  UpdateVerificationStatusDto,
-} from './dto/student-verification.dto';
+import { UploadResponseDto, VerificationStatusDto, UpdateVerificationStatusDto } from './dto/student-verification.dto';
 import type { StudentVerificationDocument } from '@prisma/client';
 import { DocumentUploadService } from './services/document-upload.service';
 import { StatusManagementService } from './services/status-management.service';
@@ -25,20 +21,14 @@ export class StudentVerificationService {
     userId: string,
     isManualFallback = false,
   ): Promise<UploadResponseDto> {
-    return this.documentUploadService.uploadDocument(
-      file,
-      userId,
-      isManualFallback,
-    );
+    return this.documentUploadService.uploadDocument(file, userId, isManualFallback);
   }
 
   async getVerificationStatus(userId: string): Promise<VerificationStatusDto> {
     return this.statusManagementService.getVerificationStatus(userId);
   }
 
-  async getAllPendingDocuments(): Promise<
-    (StudentVerificationDocument & { email?: string; fullName?: string })[]
-  > {
+  async getAllPendingDocuments(): Promise<(StudentVerificationDocument & { email?: string; fullName?: string })[]> {
     return this.adminOperationsService.getAllPendingDocuments();
   }
 
@@ -47,11 +37,7 @@ export class StudentVerificationService {
     updateDto: UpdateVerificationStatusDto,
     verifiedBy: string,
   ): Promise<StudentVerificationDocument> {
-    return this.adminOperationsService.updateVerificationStatus(
-      documentId,
-      updateDto,
-      verifiedBy,
-    );
+    return this.adminOperationsService.updateVerificationStatus(documentId, updateDto, verifiedBy);
   }
 
   async getDocumentFile(documentId: string): Promise<{

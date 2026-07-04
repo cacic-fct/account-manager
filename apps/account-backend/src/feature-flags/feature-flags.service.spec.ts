@@ -16,8 +16,7 @@ const createService = (values: ConfigValues = {}) => {
   return new FeatureFlagService(configService as unknown as ConfigService);
 };
 
-const createFetchMock = (): FetchMock =>
-  jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>();
+const createFetchMock = (): FetchMock => jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>();
 
 const getFetchInit = (fetchMock: FetchMock): FetchInitWithHeaders => {
   const call = fetchMock.mock.calls[0];
@@ -58,14 +57,9 @@ describe('FeatureFlagService', () => {
       UNLEASH_ENVIRONMENT: 'production',
     });
 
-    await expect(
-      service.isUndergraduateUnespRoleVerificationDisabled(),
-    ).resolves.toBe(true);
+    await expect(service.isUndergraduateUnespRoleVerificationDisabled()).resolves.toBe(true);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://unleash.cacic.dev.br/api/frontend',
-      expect.any(Object),
-    );
+    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.dev.br/api/frontend', expect.any(Object));
     expect(getFetchInit(fetchMock).headers).toMatchObject({
       Authorization: 'client-key',
       'UNLEASH-APPNAME': 'account-manager-backend-test',
@@ -81,9 +75,7 @@ describe('FeatureFlagService', () => {
       UNLEASH_FRONTEND_CLIENT_KEY: 'client-key',
     });
 
-    await expect(
-      service.isUndergraduateUnespRoleVerificationDisabled(),
-    ).resolves.toBe(false);
+    await expect(service.isUndergraduateUnespRoleVerificationDisabled()).resolves.toBe(false);
   });
 
   it('uses cached flag values while the cache entry is fresh', async () => {
@@ -161,10 +153,7 @@ describe('FeatureFlagService', () => {
 
     await expect(service.isEnabled('feature-a', true)).resolves.toBe(false);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://unleash.example.test/frontend',
-      expect.any(Object),
-    );
+    expect(fetchMock).toHaveBeenCalledWith('https://unleash.example.test/frontend', expect.any(Object));
     const init = getFetchInit(fetchMock);
     expect(init.headers.Authorization).toContain('default:production.');
     expect(init.headers['UNLEASH-ENVIRONMENT']).toBe('production');
@@ -172,9 +161,7 @@ describe('FeatureFlagService', () => {
 
   it('uses fallback values for malformed toggle payloads', async () => {
     const fetchMock = createFetchMock();
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify('bad'), { status: 200 }),
-    );
+    fetchMock.mockResolvedValue(new Response(JSON.stringify('bad'), { status: 200 }));
     global.fetch = fetchMock;
     const service = createService({
       UNLEASH_FRONTEND_CLIENT_KEY: 'client-key',
@@ -220,10 +207,7 @@ describe('FeatureFlagService', () => {
 
     await expect(service.isEnabled('feature-a', false)).resolves.toBe(true);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://unleash.cacic.dev.br/api/frontend',
-      expect.any(Object),
-    );
+    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.dev.br/api/frontend', expect.any(Object));
     const init = getFetchInit(fetchMock);
     expect(init.headers.Authorization).toContain('default:development.');
     expect(init.headers['UNLEASH-ENVIRONMENT']).toBe('development');

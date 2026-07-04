@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  Logger,
-  Optional,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
 import { VerificationStatusDto } from '../dto/student-verification.dto';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,15 +17,10 @@ export class StatusManagementService {
     private readonly featureFlags?: FeatureFlagService,
   ) {}
 
-  private async logKeycloakDrift(
-    userId: string,
-    document: StudentVerificationDocument | null,
-  ): Promise<void> {
+  private async logKeycloakDrift(userId: string, document: StudentVerificationDocument | null): Promise<void> {
     try {
-      const userAttributes =
-        await this.keycloakService.getUserAttributes(userId);
-      const isKeycloakVerified =
-        userAttributes.unespRoleVerified?.[0] === 'true';
+      const userAttributes = await this.keycloakService.getUserAttributes(userId);
+      const isKeycloakVerified = userAttributes.unespRoleVerified?.[0] === 'true';
       const isDatabaseVerified = document?.status === 'approved';
 
       if (isKeycloakVerified !== isDatabaseVerified) {
@@ -57,11 +47,10 @@ export class StatusManagementService {
         };
       }
 
-      const approvedDocument =
-        await this.prisma.studentVerificationDocument.findFirst({
-          where: { userId, status: 'approved' },
-          orderBy: { verificationDate: 'desc' },
-        });
+      const approvedDocument = await this.prisma.studentVerificationDocument.findFirst({
+        where: { userId, status: 'approved' },
+        orderBy: { verificationDate: 'desc' },
+      });
 
       if (approvedDocument) {
         await this.logKeycloakDrift(userId, approvedDocument);
@@ -85,11 +74,10 @@ export class StatusManagementService {
         };
       }
 
-      const rejectedDocument =
-        await this.prisma.studentVerificationDocument.findFirst({
-          where: { userId, status: 'rejected' },
-          orderBy: { createdAt: 'desc' },
-        });
+      const rejectedDocument = await this.prisma.studentVerificationDocument.findFirst({
+        where: { userId, status: 'rejected' },
+        orderBy: { createdAt: 'desc' },
+      });
 
       if (rejectedDocument) {
         await this.logKeycloakDrift(userId, rejectedDocument);
@@ -116,12 +104,8 @@ export class StatusManagementService {
     }
   }
 
-  private async isUndergraduateVerificationNotRequired(
-    userId: string,
-  ): Promise<boolean> {
-    if (
-      !(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())
-    ) {
+  private async isUndergraduateVerificationNotRequired(userId: string): Promise<boolean> {
+    if (!(await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled())) {
       return false;
     }
 

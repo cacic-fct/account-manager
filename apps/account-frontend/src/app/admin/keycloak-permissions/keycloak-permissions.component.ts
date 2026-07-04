@@ -1,17 +1,5 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnInit,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
-import {
-  FormBuilder,
-  FormControl,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   KeycloakPermissionDefinition,
@@ -123,9 +111,7 @@ export class PermissionsComponent implements OnInit {
     indefinite: [true],
   });
 
-  protected catalogByClient = computed(() =>
-    groupPermissionsByClient(this.catalog()),
-  );
+  protected catalogByClient = computed(() => groupPermissionsByClient(this.catalog()));
 
   protected selectedGroup = computed(() => {
     const selectedKey = this.selectedGroupKey();
@@ -133,31 +119,20 @@ export class PermissionsComponent implements OnInit {
       return null;
     }
 
-    return (
-      this.groups().find((group) => group.key === selectedKey) ?? null
-    );
+    return this.groups().find((group) => group.key === selectedKey) ?? null;
   });
 
-  protected selectedGroupPermissions = computed(
-    () => activeGroupPermissions(this.groupRoleGrants()),
-  );
+  protected selectedGroupPermissions = computed(() => activeGroupPermissions(this.groupRoleGrants()));
 
   protected availableDirectPermissions = computed(() =>
     availableDirectPermissions(this.catalog(), this.directGrants()),
   );
 
   protected availableDirectPermissionIds = computed(
-    () =>
-      new Set(
-        this.availableDirectPermissions().map(
-          (permission) => permission.permission,
-        ),
-      ),
+    () => new Set(this.availableDirectPermissions().map((permission) => permission.permission)),
   );
 
-  protected hasAvailableDirectPermissions = computed(
-    () => this.availableDirectPermissions().length > 0,
-  );
+  protected hasAvailableDirectPermissions = computed(() => this.availableDirectPermissions().length > 0);
 
   ngOnInit(): void {
     this.loadCatalog();
@@ -198,17 +173,11 @@ export class PermissionsComponent implements OnInit {
   }
 
   protected setMembershipIndefinite(checked: boolean): void {
-    this.updateOptionalEndDateControl(
-      this.membershipForm.controls.validUntil,
-      checked,
-    );
+    this.updateOptionalEndDateControl(this.membershipForm.controls.validUntil, checked);
   }
 
   protected setDirectGrantIndefinite(checked: boolean): void {
-    this.updateOptionalEndDateControl(
-      this.directGrantForm.controls.validUntil,
-      checked,
-    );
+    this.updateOptionalEndDateControl(this.directGrantForm.controls.validUntil, checked);
   }
 
   protected selectUser(user: KeycloakPermissionUser): void {
@@ -228,36 +197,32 @@ export class PermissionsComponent implements OnInit {
     const permissions = this.groupRolesForm.controls.permissions.value;
     const groupKey = group.key;
     this.savingGroupRoles.set(true);
-    this.apiService
-      .updatePermissionGroupRoleGrants(groupKey, { permissions })
-      .subscribe({
-        next: (grants) => {
-          if (this.selectedGroupKey() !== groupKey) {
-            this.savingGroupRoles.set(false);
-            return;
-          }
-
-          this.groupRoleGrants.set(grants);
-          this.groupRolesForm.controls.permissions.setValue(
-            grants.map((grant) => grant.permission),
-          );
-          this.snackBar.open('Permissões do grupo salvas.', 'Fechar', {
-            duration: 4000,
-          });
+    this.apiService.updatePermissionGroupRoleGrants(groupKey, { permissions }).subscribe({
+      next: (grants) => {
+        if (this.selectedGroupKey() !== groupKey) {
           this.savingGroupRoles.set(false);
-        },
-        error: () => {
-          if (this.selectedGroupKey() !== groupKey) {
-            this.savingGroupRoles.set(false);
-            return;
-          }
+          return;
+        }
 
-          this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
-            duration: 5000,
-          });
+        this.groupRoleGrants.set(grants);
+        this.groupRolesForm.controls.permissions.setValue(grants.map((grant) => grant.permission));
+        this.snackBar.open('Permissões do grupo salvas.', 'Fechar', {
+          duration: 4000,
+        });
+        this.savingGroupRoles.set(false);
+      },
+      error: () => {
+        if (this.selectedGroupKey() !== groupKey) {
           this.savingGroupRoles.set(false);
-        },
-      });
+          return;
+        }
+
+        this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
+          duration: 5000,
+        });
+        this.savingGroupRoles.set(false);
+      },
+    });
   }
 
   protected saveMembership(): void {
@@ -276,9 +241,7 @@ export class PermissionsComponent implements OnInit {
     }
 
     const value = this.membershipForm.getRawValue();
-    const validUntil = value.indefinite
-      ? null
-      : this.toIsoOrNull(value.validUntil);
+    const validUntil = value.indefinite ? null : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
       this.membershipForm.controls.validUntil.setErrors({ invalidDate: true });
       this.membershipForm.controls.validUntil.markAsTouched();
@@ -329,9 +292,7 @@ export class PermissionsComponent implements OnInit {
     }
 
     const value = this.directGrantForm.getRawValue();
-    const validUntil = value.indefinite
-      ? null
-      : this.toIsoOrNull(value.validUntil);
+    const validUntil = value.indefinite ? null : this.toIsoOrNull(value.validUntil);
     if (!value.indefinite && !validUntil) {
       this.directGrantForm.controls.validUntil.setErrors({ invalidDate: true });
       this.directGrantForm.controls.validUntil.markAsTouched();
@@ -385,9 +346,7 @@ export class PermissionsComponent implements OnInit {
     });
   }
 
-  protected confirmDeleteMembership(
-    membership: PermissionGroupMembership,
-  ): void {
+  protected confirmDeleteMembership(membership: PermissionGroupMembership): void {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
       width: '460px',
       data: {
@@ -455,10 +414,7 @@ export class PermissionsComponent implements OnInit {
     return getStatusLabel(status);
   }
 
-  protected formatValidity(item: {
-    validFrom?: string | null;
-    validUntil?: string | null;
-  }): string {
+  protected formatValidity(item: { validFrom?: string | null; validUntil?: string | null }): string {
     return formatValidity(item);
   }
 
@@ -505,9 +461,7 @@ export class PermissionsComponent implements OnInit {
         this.groupRoleGrants.set(roleGrants);
         this.groupMemberships.set(memberships);
         this.groupRolesForm.controls.permissions.setValue(
-          roleGrants
-            .filter((grant) => grant.status !== 'expired')
-            .map((grant) => grant.permission),
+          roleGrants.filter((grant) => grant.status !== 'expired').map((grant) => grant.permission),
         );
         this.loadingGroup.set(false);
       },
@@ -601,16 +555,10 @@ export class PermissionsComponent implements OnInit {
       validUntil: '',
       indefinite: true,
     });
-    this.updateOptionalEndDateControl(
-      this.directGrantForm.controls.validUntil,
-      true,
-    );
+    this.updateOptionalEndDateControl(this.directGrantForm.controls.validUntil, true);
   }
 
-  private updateOptionalEndDateControl(
-    control: FormControl<string>,
-    indefinite: boolean,
-  ): void {
+  private updateOptionalEndDateControl(control: FormControl<string>, indefinite: boolean): void {
     if (indefinite) {
       control.reset('');
       control.clearValidators();
@@ -645,7 +593,6 @@ export class PermissionsComponent implements OnInit {
 
     return date.toISOString();
   }
-
 }
 
 export { PermissionsComponent as KeycloakPermissionsComponent };

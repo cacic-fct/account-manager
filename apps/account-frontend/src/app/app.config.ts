@@ -1,23 +1,10 @@
-import {
-  ApplicationConfig,
-  inject,
-  provideAppInitializer,
-  provideZonelessChangeDetection,
-} from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
-import {
-  provideClientHydration,
-  withEventReplay,
-  withNoIncrementalHydration
-} from '@angular/platform-browser';
+import { provideClientHydration, withEventReplay, withNoIncrementalHydration } from '@angular/platform-browser';
 
-import {
-  provideHttpClient,
-  withFetch,
-  withInterceptors,
-} from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { authAppInitializerFactory } from './shared/services/auth/auth-initializer';
 import { AuthService } from './shared/services/auth/auth.service';
 import { credentialsInterceptor } from './shared/interceptors/credentials.interceptor';
@@ -36,9 +23,6 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideRouter(routes),
     provideClientHydration(withEventReplay(), withNoIncrementalHydration()),
-    provideHttpClient(
-      withFetch(),
-      withInterceptors([credentialsInterceptor, csrfInterceptor]),
-    ),
+    provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, csrfInterceptor])),
   ],
 };

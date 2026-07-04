@@ -58,18 +58,13 @@ export class AccountLinkingController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('google/start')
-  startGoogleLinking(
-    @Session() session: AuthSession,
-  ): AccountLinkingStartUrlDto {
+  startGoogleLinking(@Session() session: AuthSession): AccountLinkingStartUrlDto {
     const state = randomBytes(32).toString('hex');
     session.accountLinkingState = state;
     session.accountLinkingUserId = session.user!.keycloakId;
 
     const resumeUrl = `${this.appConfig.apiBaseUrl}/auth/account-linking/google/resume?state=${encodeURIComponent(state)}`;
-    const url = this.keycloakService.getEndSessionUrl(
-      resumeUrl,
-      session.idToken,
-    );
+    const url = this.keycloakService.getEndSessionUrl(resumeUrl, session.idToken);
 
     return { url };
   }
@@ -85,15 +80,8 @@ export class AccountLinkingController {
     @Res() res: Response,
   ): Promise<void> {
     try {
-      if (
-        !state ||
-        !session.accountLinkingState ||
-        !this.secureCompare(state, session.accountLinkingState)
-      ) {
-        throw new HttpException(
-          'Invalid or missing state parameter',
-          HttpStatus.FORBIDDEN,
-        );
+      if (!state || !session.accountLinkingState || !this.secureCompare(state, session.accountLinkingState)) {
+        throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
       }
 
       const redirectUri = this.googleCallbackUrl();
@@ -128,15 +116,8 @@ export class AccountLinkingController {
     @Res() res: Response,
   ) {
     try {
-      if (
-        !state ||
-        !session.accountLinkingState ||
-        !this.secureCompare(state, session.accountLinkingState)
-      ) {
-        throw new HttpException(
-          'Invalid or missing state parameter',
-          HttpStatus.FORBIDDEN,
-        );
+      if (!state || !session.accountLinkingState || !this.secureCompare(state, session.accountLinkingState)) {
+        throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
       }
 
       const requesterUserId = session.accountLinkingUserId;
@@ -155,34 +136,22 @@ export class AccountLinkingController {
       }
 
       const redirectUri = this.googleCallbackUrl();
-      const tokens = await this.keycloakService.exchangeCodeForTokens(
-        code,
-        redirectUri,
-        codeVerifier,
-      );
-      const keycloakUser = await this.keycloakService.getUserInfo(
-        tokens.access_token,
-      );
+      const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
+      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
 
       let candidate = await this.userService.findByKeycloakId(keycloakUser.sub);
       if (!candidate) {
         candidate = await this.userService.createFromKeycloak(keycloakUser);
       } else {
-        candidate =
-          await this.userService.updateFromKeycloakOAuth(keycloakUser);
+        candidate = await this.userService.updateFromKeycloakOAuth(keycloakUser);
       }
 
       if (candidate.keycloakId === requesterUserId) {
-        res.redirect(
-          this.googleIntegrationUrl({ accountLink: 'already-linked' }),
-        );
+        res.redirect(this.googleIntegrationUrl({ accountLink: 'already-linked' }));
         return;
       }
 
-      const mergeRequest = await this.accountLinkingService.createMergeRequest(
-        requesterUserId,
-        candidate.keycloakId,
-      );
+      const mergeRequest = await this.accountLinkingService.createMergeRequest(requesterUserId, candidate.keycloakId);
 
       const params = new URLSearchParams({
         accountLink: 'merge-required',
@@ -204,14 +173,8 @@ export class AccountLinkingController {
   @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('merge-requests/:id')
-  async getMergeRequest(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-  ): Promise<AccountMergeRequestDto> {
-    const request = await this.accountLinkingService.getRequest(
-      id,
-      session.user!.keycloakId,
-    );
+  async getMergeRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<AccountMergeRequestDto> {
+    const request = await this.accountLinkingService.getRequest(id, session.user!.keycloakId);
 
     if (
       request.primaryUserId &&
@@ -234,11 +197,7 @@ export class AccountLinkingController {
     @Body() dto: ConfirmAccountMergeDto,
     @Session() session: AuthSession,
   ): Promise<ConfirmAccountMergeResponseDto> {
-    const result = await this.accountLinkingService.confirmMerge(
-      id,
-      session.user!.keycloakId,
-      dto.primaryEmail,
-    );
+    const result = await this.accountLinkingService.confirmMerge(id, session.user!.keycloakId, dto.primaryEmail);
 
     return result;
   }
@@ -247,14 +206,8 @@ export class AccountLinkingController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('merge-requests/:id/cancel')
-  async cancelMerge(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-  ): Promise<{ success: true }> {
-    await this.accountLinkingService.cancelRequest(
-      id,
-      session.user!.keycloakId,
-    );
+  async cancelMerge(@Param('id') id: string, @Session() session: AuthSession): Promise<{ success: true }> {
+    await this.accountLinkingService.cancelRequest(id, session.user!.keycloakId);
     return { success: true };
   }
 
@@ -273,13 +226,8 @@ export class AccountLinkingController {
     }
   }
 
-  private googleIntegrationUrl(
-    query?: URLSearchParams | Record<string, string>,
-  ): string {
-    const url = new URL(
-      LINKED_ACCOUNT_ROUTE_PATHS.google,
-      this.appConfig.frontendUrl,
-    );
+  private googleIntegrationUrl(query?: URLSearchParams | Record<string, string>): string {
+    const url = new URL(LINKED_ACCOUNT_ROUTE_PATHS.google, this.appConfig.frontendUrl);
 
     if (query instanceof URLSearchParams) {
       url.search = query.toString();
@@ -294,15 +242,10 @@ export class AccountLinkingController {
     return `${this.appConfig.apiBaseUrl}/auth/account-linking/google/callback`;
   }
 
-  private async switchSessionToUser(
-    session: AuthSession,
-    keycloakId: string,
-  ): Promise<void> {
+  private async switchSessionToUser(session: AuthSession, keycloakId: string): Promise<void> {
     const primaryUser = await this.userService.findByKeycloakId(keycloakId);
     if (!primaryUser) {
-      this.logger.warn(
-        `Unable to switch session: user not found for keycloakId ${keycloakId}`,
-      );
+      this.logger.warn(`Unable to switch session: user not found for keycloakId ${keycloakId}`);
       return;
     }
 

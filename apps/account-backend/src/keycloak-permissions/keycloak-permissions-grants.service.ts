@@ -25,11 +25,7 @@ import {
   normalizeValidityWindow,
   parsePermissionOrThrow,
 } from './keycloak-permissions.helpers';
-import {
-  DB_MANAGED_ROLE_FILTER,
-  GRANT_SELECT,
-  type GrantRecord,
-} from './keycloak-permissions.records';
+import { DB_MANAGED_ROLE_FILTER, GRANT_SELECT, type GrantRecord } from './keycloak-permissions.records';
 import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
 import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.service';
 
@@ -63,10 +59,7 @@ export class KeycloakPermissionsGrantsService {
     return grants.map((grant) => mapGrant(grant));
   }
 
-  async createGrant(
-    input: KeycloakPermissionGrantCreateRequest,
-    actorId?: string,
-  ): Promise<KeycloakPermissionGrant> {
+  async createGrant(input: KeycloakPermissionGrantCreateRequest, actorId?: string): Promise<KeycloakPermissionGrant> {
     const permission = normalizePermission(input.permission);
     await this.catalog.assertPermissionsKnown([permission]);
     if (!actorId) {
@@ -77,23 +70,16 @@ export class KeycloakPermissionsGrantsService {
     const parsedPermission = parsePermissionOrThrow(permission);
     const userId = input.userId.trim();
     if (!userId) {
-      throw new BadRequestException(
-        'Informe a pessoa que receberá a permissão.',
-      );
+      throw new BadRequestException('Informe a pessoa que receberá a permissão.');
     }
 
     const validity = normalizeValidityWindow(input.validFrom, input.validUntil);
     const user = await this.keycloakService.getUserBasicInfo(userId);
     if (!user) {
-      throw new NotFoundException(
-        `Usuário ${userId} não foi encontrado no Keycloak.`,
-      );
+      throw new NotFoundException(`Usuário ${userId} não foi encontrado no Keycloak.`);
     }
 
-    const existingGrant = await this.findNonDeletedDirectGrant(
-      userId,
-      permission,
-    );
+    const existingGrant = await this.findNonDeletedDirectGrant(userId, permission);
     if (existingGrant) {
       if (hasSameValidityWindow(existingGrant, validity)) {
         return mapGrant(existingGrant);
@@ -144,9 +130,7 @@ export class KeycloakPermissionsGrantsService {
     actorId?: string,
   ): Promise<KeycloakPermissionGrant> {
     const existingGrant = await this.getDirectGrantRecordOrThrow(id);
-    const nextPermission = input.permission
-      ? normalizePermission(input.permission)
-      : existingGrant.permission;
+    const nextPermission = input.permission ? normalizePermission(input.permission) : existingGrant.permission;
     await this.catalog.assertPermissionsKnown([nextPermission]);
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
@@ -155,20 +139,15 @@ export class KeycloakPermissionsGrantsService {
     const parsedPermission = parsePermissionOrThrow(nextPermission);
     const validity = normalizeValidityWindow(
       input.validFrom === undefined ? existingGrant.validFrom : input.validFrom,
-      input.validUntil === undefined
-        ? existingGrant.validUntil
-        : input.validUntil,
+      input.validUntil === undefined ? existingGrant.validUntil : input.validUntil,
     );
     const now = new Date();
     const wasActive = isGrantActive(existingGrant, now);
     const willBeActive =
       (!validity.validFrom || validity.validFrom.getTime() <= now.getTime()) &&
       (!validity.validUntil || validity.validUntil.getTime() > now.getTime());
-    const willProvideAccess =
-      !validity.validUntil || validity.validUntil.getTime() > now.getTime();
-    const isGrantingNewActiveAccess =
-      willProvideAccess &&
-      (!wasActive || nextPermission !== existingGrant.permission);
+    const willProvideAccess = !validity.validUntil || validity.validUntil.getTime() > now.getTime();
+    const isGrantingNewActiveAccess = willProvideAccess && (!wasActive || nextPermission !== existingGrant.permission);
     const isKeepingActiveAccessWithValidityChange =
       wasActive &&
       willBeActive &&
@@ -178,33 +157,17 @@ export class KeycloakPermissionsGrantsService {
       wasActive &&
       willBeActive &&
       !!validity.validUntil &&
-      (!existingGrant.validUntil ||
-        validity.validUntil.getTime() < existingGrant.validUntil.getTime());
-    if (
-      isGrantingNewActiveAccess ||
-      (isKeepingActiveAccessWithValidityChange && !isShorteningActiveAccess)
-    ) {
+      (!existingGrant.validUntil || validity.validUntil.getTime() < existingGrant.validUntil.getTime());
+    if (isGrantingNewActiveAccess || (isKeepingActiveAccessWithValidityChange && !isShorteningActiveAccess)) {
       await this.assertActorCanAssignPermission(actorId, nextPermission);
     }
-    const duplicateGrant = await this.findNonDeletedDirectGrant(
-      existingGrant.userId,
-      nextPermission,
-      existingGrant.id,
-    );
+    const duplicateGrant = await this.findNonDeletedDirectGrant(existingGrant.userId, nextPermission, existingGrant.id);
     if (duplicateGrant) {
       throw new ConflictException('Essa permissão já foi concedida.');
     }
 
-    if (
-      wasActive &&
-      (nextPermission !== existingGrant.permission ||
-        !willBeActive ||
-        isShorteningActiveAccess)
-    ) {
-      await this.assertActorCanRevokePermission(
-        actorId,
-        existingGrant.permission,
-      );
+    if (wasActive && (nextPermission !== existingGrant.permission || !willBeActive || isShorteningActiveAccess)) {
+      await this.assertActorCanRevokePermission(actorId, existingGrant.permission);
     }
 
     if (wasActive && nextPermission !== existingGrant.permission) {
@@ -251,11 +214,7 @@ export class KeycloakPermissionsGrantsService {
     }
 
     try {
-      await this.keycloakService.removeUserClientRoles(
-        grant.userId,
-        [grant.roleName],
-        grant.clientId,
-      );
+      await this.keycloakService.removeUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
       const now = new Date();
       await this.prisma.keycloakPermissionGrant.update({
         where: { id },
@@ -291,10 +250,7 @@ export class KeycloakPermissionsGrantsService {
     }
   }
 
-  async selfRemoveGrant(
-    userId: string,
-    grantId: string,
-  ): Promise<PermissionSelfRemovalResult> {
+  async selfRemoveGrant(userId: string, grantId: string): Promise<PermissionSelfRemovalResult> {
     const grant = await this.prisma.keycloakPermissionGrant.findFirst({
       where: {
         id: grantId,
@@ -355,10 +311,7 @@ export class KeycloakPermissionsGrantsService {
     });
   }
 
-  private isMissingKeycloakClientRoleError(
-    error: unknown,
-    grant: GrantRecord,
-  ): boolean {
+  private isMissingKeycloakClientRoleError(error: unknown, grant: GrantRecord): boolean {
     return (
       error instanceof KeycloakClientRoleNotFoundException &&
       error.clientId === grant.clientId &&
@@ -367,43 +320,18 @@ export class KeycloakPermissionsGrantsService {
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'P2002'
-    );
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 
-  private async assertActorCanAssignPermission(
-    actorId: string,
-    permission: string,
-  ): Promise<void> {
-    if (
-      !(await this.accountPermissionService.canAssignPermission(
-        actorId,
-        permission,
-      ))
-    ) {
-      throw new ForbiddenException(
-        'Você não pode conceder uma permissão que não possui.',
-      );
+  private async assertActorCanAssignPermission(actorId: string, permission: string): Promise<void> {
+    if (!(await this.accountPermissionService.canAssignPermission(actorId, permission))) {
+      throw new ForbiddenException('Você não pode conceder uma permissão que não possui.');
     }
   }
 
-  private async assertActorCanRevokePermission(
-    actorId: string,
-    permission: string,
-  ): Promise<void> {
-    if (
-      !(await this.accountPermissionService.canRevokePermission(
-        actorId,
-        permission,
-      ))
-    ) {
-      throw new ForbiddenException(
-        'Você não pode revogar uma permissão que não possui.',
-      );
+  private async assertActorCanRevokePermission(actorId: string, permission: string): Promise<void> {
+    if (!(await this.accountPermissionService.canRevokePermission(actorId, permission))) {
+      throw new ForbiddenException('Você não pode revogar uma permissão que não possui.');
     }
   }
 }

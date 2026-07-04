@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -17,11 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import {
-  ApiService,
-  DiscordAuthUrl,
-  DiscordLinkStatus,
-} from '../../../shared/services/api.service';
+import { ApiService, DiscordAuthUrl, DiscordLinkStatus } from '../../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../../shared/components/confirmation-dialog.component';
 import { getDiscordAvatarUrl } from '@cacic/shared-utils';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
@@ -95,8 +84,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   private updateBannerBasedOnStatus(): void {
     // Only show status banner if there's no current error/success/warning banner
     const currentType = this.currentBanner()?.type;
-    const hasImportantBanner =
-      currentType && ['error', 'success', 'warning'].includes(currentType);
+    const hasImportantBanner = currentType && ['error', 'success', 'warning'].includes(currentType);
 
     if (!hasImportantBanner) {
       const status = this.discordStatus();
@@ -150,24 +138,20 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
 
     switch (errorType) {
       case 'not_authenticated':
-        errorMessage =
-          'Você precisa estar autenticado para vincular sua conta do Discord.';
+        errorMessage = 'Você precisa estar autenticado para vincular sua conta do Discord.';
         break;
       case 'missing_parameters':
-        errorMessage =
-          'Parâmetros OAuth inválidos. Tente vincular sua conta novamente.';
+        errorMessage = 'Parâmetros OAuth inválidos. Tente vincular sua conta novamente.';
         break;
       case 'user_mismatch':
-        errorMessage =
-          'Erro de segurança: incompatibilidade de usuário. Faça login novamente.';
+        errorMessage = 'Erro de segurança: incompatibilidade de usuário. Faça login novamente.';
         break;
       case 'callback_failed':
         errorMessage =
           'Esta conta do Discord já está vinculada a um usuário ou ocorreu um erro no processo de vinculação.';
         break;
       case 'already_linked':
-        errorMessage =
-          'Esta conta do Discord já está vinculada a um usuário. Use uma conta diferente.';
+        errorMessage = 'Esta conta do Discord já está vinculada a um usuário. Use uma conta diferente.';
         break;
       default:
         errorMessage = `Erro desconhecido (${errorType}). Tente novamente.`;
@@ -177,10 +161,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   private handleOAuthSuccess(): void {
-    this.showSuccessBanner(
-      'Sucesso!',
-      'Conta do Discord vinculada com sucesso!',
-    );
+    this.showSuccessBanner('Sucesso!', 'Conta do Discord vinculada com sucesso!');
     // Reload status to update the UI with the new linked account
     this.loadDiscordStatus();
   }
@@ -204,8 +185,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error loading Discord status:', error);
-        let errorMessage =
-          'Falha ao carregar status do Discord. Tente recarregar a página.';
+        let errorMessage = 'Falha ao carregar status do Discord. Tente recarregar a página.';
 
         if (error.status === 401) {
           errorMessage = 'Sessão expirada. Faça login novamente.';
@@ -229,13 +209,11 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error getting Discord auth URL:', error);
-        let errorMessage =
-          'Falha ao iniciar vinculação do Discord. Tente novamente.';
+        let errorMessage = 'Falha ao iniciar vinculação do Discord. Tente novamente.';
 
         // Check for specific error messages from the backend
         if (error.status === 401) {
-          errorMessage =
-            'Você precisa estar autenticado para vincular sua conta do Discord.';
+          errorMessage = 'Você precisa estar autenticado para vincular sua conta do Discord.';
         } else if (error.status === 400 && error.error?.message) {
           errorMessage = error.error.message;
         } else if (error.error?.message) {
@@ -269,22 +247,17 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
     this.isUnlinking.set(true);
     this.apiService.unlinkDiscord(linkId).subscribe({
       next: (response: { message: string }) => {
-        this.showSuccessBanner(
-          'Sucesso!',
-          response.message || 'Conta desvinculada com sucesso!',
-        );
+        this.showSuccessBanner('Sucesso!', response.message || 'Conta desvinculada com sucesso!');
         this.loadDiscordStatus(); // Reload status
         this.isUnlinking.set(false);
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error unlinking Discord:', error);
-        let errorMessage =
-          'Falha ao desvincular conta do Discord. Tente novamente.';
+        let errorMessage = 'Falha ao desvincular conta do Discord. Tente novamente.';
 
         // Check for specific error messages from the backend
         if (error.status === 401) {
-          errorMessage =
-            'Você precisa estar autenticado para desvincular sua conta.';
+          errorMessage = 'Você precisa estar autenticado para desvincular sua conta.';
         } else if (error.status === 404) {
           errorMessage = 'Conta não encontrada ou já desvinculada.';
         } else if (error.error?.message) {
@@ -323,11 +296,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   hasVisitorRole(): boolean {
-    return (
-      this.discordStatus()?.discordLinks?.some(
-        (link) => link.assignedRole === 'visitor',
-      ) || false
-    );
+    return this.discordStatus()?.discordLinks?.some((link) => link.assignedRole === 'visitor') || false;
   }
 
   formatDate(date: string | Date): string {

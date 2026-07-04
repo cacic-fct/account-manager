@@ -53,8 +53,7 @@ export class DiscordRoleController {
 
   @ApiOperation({
     summary: 'Get all Discord roles for admin management',
-    description:
-      'Get all Discord roles categorized by permissions for admin management',
+    description: 'Get all Discord roles categorized by permissions for admin management',
   })
   @ApiResponse({
     status: 200,
@@ -77,8 +76,7 @@ export class DiscordRoleController {
 
   @ApiOperation({
     summary: 'Update role selection configuration',
-    description:
-      'Update which roles are available for user selection (admin only)',
+    description: 'Update which roles are available for user selection (admin only)',
   })
   @ApiBody({
     type: UpdateRoleSelectionDto,
@@ -108,9 +106,7 @@ export class DiscordRoleController {
   @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Put('admin/selection')
-  async updateRoleSelection(
-    @Body() dto: UpdateRoleSelectionDto,
-  ): Promise<{ message: string }> {
+  async updateRoleSelection(@Body() dto: UpdateRoleSelectionDto): Promise<{ message: string }> {
     await this.roleManagementService.updateRoleSelection(dto);
     return { message: 'Role selection updated successfully' };
   }
@@ -149,28 +145,20 @@ export class DiscordRoleController {
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
       if (!guildId) {
-        throw new HttpException(
-          'Discord guild ID not configured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+        throw new HttpException('Discord guild ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
       await this.roleManagementService.syncRolesFromDiscord(client, guildId);
       return { message: 'Discord roles synced successfully' };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(
-        `Failed to sync Discord roles: ${errorMessage}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new HttpException(`Failed to sync Discord roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @ApiOperation({
     summary: 'List hardcoded Discord managed role categories',
-    description:
-      'Returns the automated Discord role categories that can be forced by an admin override.',
+    description: 'Returns the automated Discord role categories that can be forced by an admin override.',
   })
   @ApiResponse({
     status: 200,
@@ -185,8 +173,7 @@ export class DiscordRoleController {
 
   @ApiOperation({
     summary: 'List Discord managed role overrides',
-    description:
-      'Returns users whose automated Discord role category is overridden by an admin.',
+    description: 'Returns users whose automated Discord role category is overridden by an admin.',
   })
   @ApiResponse({
     status: 200,
@@ -201,8 +188,7 @@ export class DiscordRoleController {
 
   @ApiOperation({
     summary: 'Create or replace a Discord managed role override',
-    description:
-      'Creates one active override for a Keycloak user and immediately resyncs linked Discord accounts.',
+    description: 'Creates one active override for a Keycloak user and immediately resyncs linked Discord accounts.',
   })
   @ApiBody({ type: DiscordManagedRoleOverrideCreateDto })
   @ApiResponse({
@@ -217,22 +203,15 @@ export class DiscordRoleController {
     @Body() dto: DiscordManagedRoleOverrideCreateDto,
     @Session() session: AuthSession,
   ): Promise<DiscordManagedRoleOverrideDto> {
-    const override = await this.managedRoleOverridesService.createOverride(
-      dto,
-      session.user?.keycloakId,
-    );
-    await this.discordRoleService.syncUserDiscordRoles(
-      override.userId,
-      'admin-discord-managed-role-override-updated',
-    );
+    const override = await this.managedRoleOverridesService.createOverride(dto, session.user?.keycloakId);
+    await this.discordRoleService.syncUserDiscordRoles(override.userId, 'admin-discord-managed-role-override-updated');
 
     return override;
   }
 
   @ApiOperation({
     summary: 'Update a Discord managed role override',
-    description:
-      'Updates the forced role category or metadata and immediately resyncs linked Discord accounts.',
+    description: 'Updates the forced role category or metadata and immediately resyncs linked Discord accounts.',
   })
   @ApiBody({ type: DiscordManagedRoleOverrideUpdateDto })
   @ApiResponse({
@@ -248,23 +227,15 @@ export class DiscordRoleController {
     @Body() dto: DiscordManagedRoleOverrideUpdateDto,
     @Session() session: AuthSession,
   ): Promise<DiscordManagedRoleOverrideDto> {
-    const override = await this.managedRoleOverridesService.updateOverride(
-      id,
-      dto,
-      session.user?.keycloakId,
-    );
-    await this.discordRoleService.syncUserDiscordRoles(
-      override.userId,
-      'admin-discord-managed-role-override-updated',
-    );
+    const override = await this.managedRoleOverridesService.updateOverride(id, dto, session.user?.keycloakId);
+    await this.discordRoleService.syncUserDiscordRoles(override.userId, 'admin-discord-managed-role-override-updated');
 
     return override;
   }
 
   @ApiOperation({
     summary: 'Delete a Discord managed role override',
-    description:
-      'Removes a forced Discord role category and immediately resyncs linked Discord accounts.',
+    description: 'Removes a forced Discord role category and immediately resyncs linked Discord accounts.',
   })
   @ApiResponse({
     status: 200,
@@ -281,14 +252,9 @@ export class DiscordRoleController {
   @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Delete('admin/managed-role-overrides/:id')
-  async deleteManagedRoleOverride(
-    @Param('id') id: string,
-  ): Promise<{ deleted: true; id: string; userId: string }> {
+  async deleteManagedRoleOverride(@Param('id') id: string): Promise<{ deleted: true; id: string; userId: string }> {
     const result = await this.managedRoleOverridesService.deleteOverride(id);
-    await this.discordRoleService.syncUserDiscordRoles(
-      result.userId,
-      'admin-discord-managed-role-override-removed',
-    );
+    await this.discordRoleService.syncUserDiscordRoles(result.userId, 'admin-discord-managed-role-override-removed');
 
     return result;
   }
@@ -335,10 +301,7 @@ export class DiscordRoleController {
     try {
       // Check if user is authenticated
       if (!session?.user?.id) {
-        throw new HttpException(
-          'User not authenticated',
-          HttpStatus.UNAUTHORIZED,
-        );
+        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
       }
 
       const userId: string = session.user.id;
@@ -346,24 +309,13 @@ export class DiscordRoleController {
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
       if (!guildId) {
-        throw new HttpException(
-          'Discord guild ID not configured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+        throw new HttpException('Discord guild ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      return await this.roleManagementService.getUserRoles(
-        userId,
-        client,
-        guildId,
-      );
+      return await this.roleManagementService.getUserRoles(userId, client, guildId);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(
-        `Failed to get user roles: ${errorMessage}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new HttpException(`Failed to get user roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -419,10 +371,7 @@ export class DiscordRoleController {
     try {
       // Check if user is authenticated
       if (!session?.user?.id) {
-        throw new HttpException(
-          'User not authenticated',
-          HttpStatus.UNAUTHORIZED,
-        );
+        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
       }
 
       const userId: string = session.user.id;
@@ -430,10 +379,7 @@ export class DiscordRoleController {
 
       // Check cooldown
       if (this.cooldownService.isOnCooldown(userId, action)) {
-        const remainingSeconds = this.cooldownService.getRemainingCooldown(
-          userId,
-          action,
-        );
+        const remainingSeconds = this.cooldownService.getRemainingCooldown(userId, action);
         const attempts = this.cooldownService.getAttempts(userId, action);
 
         throw new HttpException(
@@ -450,19 +396,11 @@ export class DiscordRoleController {
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
       if (!guildId) {
-        throw new HttpException(
-          'Discord guild ID not configured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+        throw new HttpException('Discord guild ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
       try {
-        const result = await this.roleManagementService.updateUserRoles(
-          userId,
-          dto,
-          client,
-          guildId,
-        );
+        const result = await this.roleManagementService.updateUserRoles(userId, dto, client, guildId);
 
         // Clear cooldown on successful update
         this.cooldownService.clearCooldown(userId, action);
@@ -485,16 +423,11 @@ export class DiscordRoleController {
         // For other errors, include cooldown information
         throw new HttpException(
           {
-            message:
-              updateError instanceof Error
-                ? updateError.message
-                : 'Failed to update Discord roles',
+            message: updateError instanceof Error ? updateError.message : 'Failed to update Discord roles',
             attempts: cooldownEntry.attempts,
             cooldownSeconds,
           },
-          updateError instanceof HttpException
-            ? updateError.getStatus()
-            : HttpStatus.INTERNAL_SERVER_ERROR,
+          updateError instanceof HttpException ? updateError.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
     } catch (error) {
@@ -503,12 +436,8 @@ export class DiscordRoleController {
         throw error;
       }
 
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(
-        `Failed to update user roles: ${errorMessage}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new HttpException(`Failed to update user roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

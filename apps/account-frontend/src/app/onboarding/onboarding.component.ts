@@ -119,9 +119,7 @@ export class OnboardingComponent implements OnInit {
 
         // Double-check onboarding status after getting fresh data
         if (currentUser.isOnboarded) {
-          this.logger.info(
-            'User is already onboarded according to backend data, redirecting to applications',
-          );
+          this.logger.info('User is already onboarded according to backend data, redirecting to applications');
           this.router.navigateByUrl('/applications');
           return;
         }
@@ -161,9 +159,7 @@ export class OnboardingComponent implements OnInit {
 
     let redirectUrl: string | null = null;
     try {
-      const redirectResponse = await firstValueFrom(
-        this.apiService.consumePostOnboardingRedirect(),
-      );
+      const redirectResponse = await firstValueFrom(this.apiService.consumePostOnboardingRedirect());
       redirectUrl = redirectResponse.redirectUrl;
     } catch (consumeRedirectError) {
       this.logger.warn(

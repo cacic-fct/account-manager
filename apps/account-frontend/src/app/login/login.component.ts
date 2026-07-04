@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  PLATFORM_ID,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -18,14 +12,7 @@ import { AuthService } from '../shared/services/auth/auth.service';
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-  ],
+  imports: [ReactiveFormsModule, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule],
   template: `
     <main class="login-shell">
       <mat-card class="login-card" appearance="outlined">
@@ -38,12 +25,7 @@ import { AuthService } from '../shared/services/auth/auth.service';
           <form [formGroup]="form" class="login-form" (ngSubmit)="submit()">
             <mat-form-field appearance="outline">
               <mat-label>E-mail</mat-label>
-              <input
-                matInput
-                type="email"
-                autocomplete="username"
-                formControlName="email"
-              />
+              <input matInput type="email" autocomplete="username" formControlName="email" />
               @if (form.controls.email.hasError('email')) {
                 <mat-error>Informe um e-mail válido.</mat-error>
               }
@@ -58,17 +40,13 @@ import { AuthService } from '../shared/services/auth/auth.service';
                 matInput
                 [type]="hidePassword() ? 'password' : 'text'"
                 autocomplete="current-password"
-                formControlName="password"
-              />
+                formControlName="password" />
               <button
                 mat-icon-button
                 matSuffix
                 type="button"
-                [attr.aria-label]="
-                  hidePassword() ? 'Mostrar senha' : 'Ocultar senha'
-                "
-                (click)="hidePassword.set(!hidePassword())"
-              >
+                [attr.aria-label]="hidePassword() ? 'Mostrar senha' : 'Ocultar senha'"
+                (click)="hidePassword.set(!hidePassword())">
                 <mat-icon>
                   {{ hidePassword() ? 'visibility' : 'visibility_off' }}
                 </mat-icon>
@@ -84,22 +62,12 @@ import { AuthService } from '../shared/services/auth/auth.service';
               </p>
             }
 
-            <button
-              mat-flat-button
-              color="primary"
-              type="submit"
-              [disabled]="form.invalid || isSubmitting()"
-            >
+            <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSubmitting()">
               <mat-icon>login</mat-icon>
               {{ isSubmitting() ? 'Entrando...' : 'Entrar' }}
             </button>
 
-            <button
-              mat-button
-              type="button"
-              [disabled]="isSubmitting()"
-              (click)="loginWithSso()"
-            >
+            <button mat-button type="button" [disabled]="isSubmitting()" (click)="loginWithSso()">
               <mat-icon>account_circle</mat-icon>
               Entrar com SSO
             </button>
@@ -171,9 +139,7 @@ export class LoginComponent {
     }
 
     if (this.authService.isAuthenticated()) {
-      void this.router.navigateByUrl(
-        this.authService.isOnboarded() ? '/applications' : '/onboarding',
-      );
+      void this.router.navigateByUrl(this.authService.isOnboarded() ? '/applications' : '/onboarding');
     }
   }
 
@@ -187,18 +153,16 @@ export class LoginComponent {
     this.errorMessage.set(null);
 
     const { email, password } = this.form.getRawValue();
-    this.authService
-      .passwordLogin(email, password, this.returnTo())
-      .subscribe({
-        next: (result) => {
-          this.isSubmitting.set(false);
-          this.navigateTo(result.redirectUrl);
-        },
-        error: () => {
-          this.isSubmitting.set(false);
-          this.errorMessage.set('E-mail ou senha inválidos.');
-        },
-      });
+    this.authService.passwordLogin(email, password, this.returnTo()).subscribe({
+      next: (result) => {
+        this.isSubmitting.set(false);
+        this.navigateTo(result.redirectUrl);
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set('E-mail ou senha inválidos.');
+      },
+    });
   }
 
   protected loginWithSso(): void {

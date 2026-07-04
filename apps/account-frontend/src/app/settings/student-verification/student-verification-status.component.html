@@ -31,68 +31,60 @@
           <div class="status-chip-container">
             <mat-chip-set>
               <mat-chip [color]="getStatusColor(status.status)" highlighted>
-                <mat-icon matChipIcon>{{
-                  getStatusIcon(status.status)
-                }}</mat-icon>
+                <mat-icon matChipIcon>{{ getStatusIcon(status.status) }}</mat-icon>
                 {{ getStatusText(status.status) }}
               </mat-chip>
             </mat-chip-set>
           </div>
 
-          @if (status.status === "not_submitted") {
+          @if (status.status === 'not_submitted') {
             <div class="info-message">
               <mat-icon>info</mat-icon>
               <p>Você ainda não enviou nenhum documento para verificação.</p>
             </div>
           }
 
-          @if (status.status === "not_required") {
+          @if (status.status === 'not_required') {
             <div class="success-message">
               <mat-icon>verified_user</mat-icon>
-              <p>
-                A verificação de estudantes da graduação está temporariamente
-                desativada.
-              </p>
+              <p>A verificação de estudantes da graduação está temporariamente desativada.</p>
             </div>
           }
 
-          @if (status.status === "pending") {
+          @if (status.status === 'pending') {
             <div class="info-message">
               <mat-icon>schedule</mat-icon>
               <p>
                 Seu documento foi enviado em
-                {{ status.submissionDate | date: "dd/MM/yyyy HH:mm" }} e está
-                aguardando verificação.
+                {{ status.submissionDate | date: 'dd/MM/yyyy HH:mm' }} e está aguardando verificação.
               </p>
             </div>
           }
 
-          @if (status.status === "approved") {
+          @if (status.status === 'approved') {
             <div class="success-message">
               <mat-icon>check_circle</mat-icon>
               <p>Seu registro acadêmico foi verificado com sucesso!</p>
               @if (status.verificationDate) {
                 <p class="verification-date">
                   Verificado em:
-                  {{ status.verificationDate | date: "dd/MM/yyyy HH:mm" }}
+                  {{ status.verificationDate | date: 'dd/MM/yyyy HH:mm' }}
                 </p>
               }
             </div>
           }
 
-          @if (status.status === "rejected") {
+          @if (status.status === 'rejected') {
             <div class="error-message">
               <mat-icon>cancel</mat-icon>
               <p>Seu documento foi rejeitado.</p>
               @if (status.rejectionReason) {
-                <p class="rejection-reason">
-                  <strong>Motivo:</strong> {{ status.rejectionReason }}
-                </p>
+                <p class="rejection-reason"><strong>Motivo:</strong> {{ status.rejectionReason }}</p>
               }
               @if (status.verificationDate) {
                 <p class="verification-date">
                   Rejeitado em:
-                  {{ status.verificationDate | date: "dd/MM/yyyy HH:mm" }}
+                  {{ status.verificationDate | date: 'dd/MM/yyyy HH:mm' }}
                 </p>
               }
             </div>
@@ -101,24 +93,16 @@
       </mat-card-content>
 
       <mat-card-actions align="end">
-        @if (
-          (status.status === "not_submitted" || status.status === "rejected")
-        ) {
-          <button
-            mat-raised-button
-            color="primary"
-            routerLink="/settings/student-verification"
-          >
-            @if (status.status === "not_submitted") {
+        @if (status.status === 'not_submitted' || status.status === 'rejected') {
+          <button mat-raised-button color="primary" routerLink="/settings/student-verification">
+            @if (status.status === 'not_submitted') {
               Enviar Documento
             } @else {
               Enviar Novo Documento
             }
           </button>
         } @else {
-          <button mat-button routerLink="/settings">
-            Voltar às Configurações
-          </button>
+          <button mat-button routerLink="/settings">Voltar às Configurações</button>
         }
       </mat-card-actions>
     </mat-card>

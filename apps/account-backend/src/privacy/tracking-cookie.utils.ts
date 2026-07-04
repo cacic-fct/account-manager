@@ -64,15 +64,11 @@ export function refreshCacicTrackingCookies(
     version: TRACKING_COOKIE_VERSION,
   };
 
-  response.cookie(
-    CACIC_ANALYTICS_CONSENT_COOKIE_NAME,
-    JSON.stringify(consentPayload),
-    {
-      ...baseOptions,
-      httpOnly: false,
-      maxAge: TRACKING_COOKIE_MAX_AGE_MS,
-    },
-  );
+  response.cookie(CACIC_ANALYTICS_CONSENT_COOKIE_NAME, JSON.stringify(consentPayload), {
+    ...baseOptions,
+    httpOnly: false,
+    maxAge: TRACKING_COOKIE_MAX_AGE_MS,
+  });
 
   return {
     analyticsAllowed: true,
@@ -82,10 +78,7 @@ export function refreshCacicTrackingCookies(
   };
 }
 
-export function clearCacicTrackingCookies(
-  response: Response,
-  configService: ConfigService,
-): void {
+export function clearCacicTrackingCookies(response: Response, configService: ConfigService): void {
   const baseOptions = resolveSharedCookieOptions(configService);
   const hostOnlyOptions = { ...baseOptions };
   delete hostOnlyOptions.domain;
@@ -101,9 +94,7 @@ export function clearCacicTrackingCookies(
   }
 }
 
-function resolveSharedCookieOptions(
-  configService: ConfigService,
-): CookieOptions {
+function resolveSharedCookieOptions(configService: ConfigService): CookieOptions {
   return {
     domain: resolveSharedCookieDomain(configService),
     httpOnly: false,
@@ -113,12 +104,8 @@ function resolveSharedCookieOptions(
   };
 }
 
-function resolveSharedCookieDomain(
-  configService: ConfigService,
-): string | undefined {
-  const configuredDomain = configService
-    .get<string>('CACIC_SHARED_COOKIE_DOMAIN')
-    ?.trim();
+function resolveSharedCookieDomain(configService: ConfigService): string | undefined {
+  const configuredDomain = configService.get<string>('CACIC_SHARED_COOKIE_DOMAIN')?.trim();
 
   if (configuredDomain) {
     return configuredDomain;
@@ -135,9 +122,7 @@ function resolveSharedCookieDomain(
 
   try {
     const hostname = new URL(backendUrl).hostname;
-    return hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br')
-      ? '.cacic.dev.br'
-      : undefined;
+    return hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br') ? '.cacic.dev.br' : undefined;
   } catch {
     return undefined;
   }

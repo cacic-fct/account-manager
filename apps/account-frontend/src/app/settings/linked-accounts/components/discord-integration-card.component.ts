@@ -1,18 +1,11 @@
 import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
-import {
-  MatCard,
-  MatCardContent,
-  MatCardActions,
-} from '@angular/material/card';
+import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
-import {
-  ApiService,
-  DiscordLinkStatus,
-} from '../../../shared/services/api.service';
+import { ApiService, DiscordLinkStatus } from '../../../shared/services/api.service';
 
 @Component({
   selector: 'app-discord-integration-card',
@@ -42,9 +35,7 @@ import {
           @if (discordStatus()?.isLinked) {
             <span class="integration-status linked">Conectado</span>
           } @else {
-            <p class="integration-description">
-              Notificações e acesso ao servidor do CACiC
-            </p>
+            <p class="integration-description">Notificações e acesso ao servidor do CACiC</p>
             <span class="integration-status not-linked">Não conectado</span>
           }
         }
@@ -56,8 +47,7 @@ import {
               mat-icon-button
               matTooltip="Configuração de notificações"
               routerLink="/settings/linked-accounts/discord/role-selection"
-              [disabled]="!discordStatus()?.isLinked"
-            >
+              [disabled]="!discordStatus()?.isLinked">
               <mat-icon>notifications</mat-icon>
             </button>
 
@@ -65,8 +55,7 @@ import {
               mat-icon-button
               matTooltip="Servidor do CACiC"
               (click)="openDiscordServer()"
-              [disabled]="!discordStatus()?.inviteLink"
-            >
+              [disabled]="!discordStatus()?.inviteLink">
               <mat-icon>groups</mat-icon>
             </button>
 
@@ -74,8 +63,7 @@ import {
               mat-icon-button
               matTooltip="Gerenciar vínculo"
               routerLink="/settings/linked-accounts/discord"
-              color="primary"
-            >
+              color="primary">
               <mat-icon>settings</mat-icon>
             </button>
           }

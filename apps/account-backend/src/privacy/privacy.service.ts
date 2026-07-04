@@ -47,13 +47,8 @@ export class PrivacyService {
     const record = value as Record<string, unknown>;
     return {
       analytics_tracking:
-        typeof record.analytics_tracking === 'boolean'
-          ? record.analytics_tracking
-          : defaults.analytics_tracking,
-      error_debugging:
-        typeof record.error_debugging === 'boolean'
-          ? record.error_debugging
-          : defaults.error_debugging,
+        typeof record.analytics_tracking === 'boolean' ? record.analytics_tracking : defaults.analytics_tracking,
+      error_debugging: typeof record.error_debugging === 'boolean' ? record.error_debugging : defaults.error_debugging,
       performance_monitoring:
         typeof record.performance_monitoring === 'boolean'
           ? record.performance_monitoring
@@ -65,9 +60,7 @@ export class PrivacyService {
     };
   }
 
-  private normalizeMetadata(
-    value: unknown,
-  ): Record<string, unknown> | undefined {
+  private normalizeMetadata(value: unknown): Record<string, unknown> | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return undefined;
     }
@@ -99,16 +92,12 @@ export class PrivacyService {
     return this.toRecord(userSettings);
   }
 
-  async getUserPrivacySettingsForIdentity(
-    identity: PrivacyUserIdentity,
-  ): Promise<PrivacySettingRecord> {
+  async getUserPrivacySettingsForIdentity(identity: PrivacyUserIdentity): Promise<PrivacySettingRecord> {
     const normalized = this.normalizeIdentity(identity);
     return this.getUserPrivacySettings(normalized.userId);
   }
 
-  async findUserPrivacySettings(
-    userId: string,
-  ): Promise<PrivacySettingRecord | null> {
+  async findUserPrivacySettings(userId: string): Promise<PrivacySettingRecord | null> {
     const userSettings = await this.prisma.privacySetting.findUnique({
       where: { userId },
     });
@@ -116,9 +105,7 @@ export class PrivacyService {
     return userSettings ? this.toRecord(userSettings) : null;
   }
 
-  async findUserPrivacySettingsForIdentity(
-    identity: PrivacyUserIdentity,
-  ): Promise<PrivacySettingRecord | null> {
+  async findUserPrivacySettingsForIdentity(identity: PrivacyUserIdentity): Promise<PrivacySettingRecord | null> {
     const normalized = this.normalizeIdentity(identity);
     return this.findUserPrivacySettings(normalized.userId);
   }
@@ -163,11 +150,7 @@ export class PrivacyService {
   ): Promise<PrivacySettingRecord> {
     const userSettings = await this.getUserPrivacySettingsForIdentity(identity);
 
-    return this.updatePrivacySetting(
-      userSettings.userId,
-      settingType,
-      updateData,
-    );
+    return this.updatePrivacySetting(userSettings.userId, settingType, updateData);
   }
 
   /**
@@ -222,10 +205,7 @@ export class PrivacyService {
   /**
    * Get a specific privacy setting value
    */
-  async getUserPrivacySetting(
-    userId: string,
-    settingType: PrivacySettingTypeValue,
-  ): Promise<boolean> {
+  async getUserPrivacySetting(userId: string, settingType: PrivacySettingTypeValue): Promise<boolean> {
     const userSettings = await this.getUserPrivacySettings(userId);
     return userSettings.settings[settingType];
   }
@@ -233,9 +213,7 @@ export class PrivacyService {
   /**
    * Get simplified privacy preferences (for external consumption)
    */
-  async getSimplifiedPreferences(
-    userId: string,
-  ): Promise<Record<string, boolean>> {
+  async getSimplifiedPreferences(userId: string): Promise<Record<string, boolean>> {
     const userSettings = await this.getUserPrivacySettings(userId);
     return { ...userSettings.settings };
   }
@@ -244,10 +222,7 @@ export class PrivacyService {
    * Check if cookie banner should be displayed
    */
   async shouldShowCookieBanner(userId: string): Promise<boolean> {
-    const cookieAccepted = await this.getUserPrivacySetting(
-      userId,
-      PRIVACY_SETTING_TYPES.COOKIE_BANNER_ACCEPTED,
-    );
+    const cookieAccepted = await this.getUserPrivacySetting(userId, PRIVACY_SETTING_TYPES.COOKIE_BANNER_ACCEPTED);
     return !cookieAccepted;
   }
 
@@ -255,34 +230,26 @@ export class PrivacyService {
    * Mark cookie banner as accepted
    */
   async acceptCookieBanner(userId: string): Promise<PrivacySettingRecord> {
-    return this.updatePrivacySetting(
-      userId,
-      PRIVACY_SETTING_TYPES.COOKIE_BANNER_ACCEPTED,
-      {
-        enabled: true,
-        metadata: {
-          acceptedAt: new Date(),
-          source: 'cookie_banner',
-        },
+    return this.updatePrivacySetting(userId, PRIVACY_SETTING_TYPES.COOKIE_BANNER_ACCEPTED, {
+      enabled: true,
+      metadata: {
+        acceptedAt: new Date(),
+        source: 'cookie_banner',
       },
-    );
+    });
   }
 
   /**
    * Initialize default privacy settings for a user
    */
-  async initializeUserPrivacySettings(
-    userId: string,
-  ): Promise<PrivacySettingRecord> {
+  async initializeUserPrivacySettings(userId: string): Promise<PrivacySettingRecord> {
     return this.getUserPrivacySettings(userId);
   }
 
   /**
    * Get privacy settings by user ID (for API access)
    */
-  async getSettingsByUserId(
-    userId: number,
-  ): Promise<PrivacySettingResponseDto> {
+  async getSettingsByUserId(userId: number): Promise<PrivacySettingResponseDto> {
     const settings = await this.getUserPrivacySettings(userId.toString());
     return {
       id: settings.id,
@@ -298,9 +265,7 @@ export class PrivacyService {
     return this.getUserPrivacySettings(userId);
   }
 
-  async getUserSettingsForIdentity(
-    identity: PrivacyUserIdentity,
-  ): Promise<PrivacySettingRecord> {
+  async getUserSettingsForIdentity(identity: PrivacyUserIdentity): Promise<PrivacySettingRecord> {
     return this.getUserPrivacySettingsForIdentity(identity);
   }
 
@@ -308,16 +273,11 @@ export class PrivacyService {
     return this.findUserPrivacySettings(userId);
   }
 
-  async findUserSettingsForIdentity(
-    identity: PrivacyUserIdentity,
-  ): Promise<PrivacySettingRecord | null> {
+  async findUserSettingsForIdentity(identity: PrivacyUserIdentity): Promise<PrivacySettingRecord | null> {
     return this.findUserPrivacySettingsForIdentity(identity);
   }
 
-  async getUserSetting(
-    userId: string,
-    settingType: PrivacySettingTypeValue,
-  ): Promise<boolean> {
+  async getUserSetting(userId: string, settingType: PrivacySettingTypeValue): Promise<boolean> {
     return this.getUserPrivacySetting(userId, settingType);
   }
 
@@ -378,9 +338,7 @@ export class PrivacyService {
     return updatedCount;
   }
 
-  private normalizeIdentity(
-    identity: PrivacyUserIdentity,
-  ): PrivacyUserIdentity {
+  private normalizeIdentity(identity: PrivacyUserIdentity): PrivacyUserIdentity {
     const userId = identity.userId.trim();
 
     if (!userId) {

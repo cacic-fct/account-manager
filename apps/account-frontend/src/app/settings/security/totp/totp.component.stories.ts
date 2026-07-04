@@ -41,10 +41,7 @@ const handlers = [
     await waitForStory();
 
     if (storyState.mode === 'error') {
-      return HttpResponse.json(
-        { message: 'Erro ao carregar segurança off-line' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Erro ao carregar segurança off-line' }, { status: 500 });
     }
 
     return HttpResponse.json({
@@ -53,9 +50,7 @@ const handlers = [
       digits: 6,
       periodSeconds: 30,
       serverTime: new Date().toISOString(),
-      ...(storyState.mode === 'configured'
-        ? { createdAt: new Date(Date.now() - 86_400_000).toISOString() }
-        : {}),
+      ...(storyState.mode === 'configured' ? { createdAt: new Date(Date.now() - 86_400_000).toISOString() } : {}),
     });
   }),
   http.post(`${API_BASE}/totp/seed`, async () => {

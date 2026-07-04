@@ -6,12 +6,7 @@ const [, , packageDirArg, packageKey] = process.argv;
 const packages = {
   'm2m-contracts': {
     name: '@cacic-fct/account-manager-m2m-contracts',
-    requiredFiles: [
-      'index.js',
-      'index.d.ts',
-      'lib/m2m-contracts.js',
-      'lib/m2m-contracts.d.ts',
-    ],
+    requiredFiles: ['index.js', 'index.d.ts', 'lib/m2m-contracts.js', 'lib/m2m-contracts.d.ts'],
   },
   'account-privacy': {
     name: '@cacic-fct/account-manager-privacy',

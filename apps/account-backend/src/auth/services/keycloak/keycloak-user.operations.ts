@@ -1,9 +1,5 @@
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
-import {
-  KeycloakErrorResponse,
-  KeycloakFederatedIdentity,
-  KeycloakUserData,
-} from './keycloak.types';
+import { KeycloakErrorResponse, KeycloakFederatedIdentity, KeycloakUserData } from './keycloak.types';
 import { KeycloakAdminOperations } from './keycloak-admin.operations';
 
 export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
@@ -74,12 +70,8 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       if (Array.isArray(value)) {
         const filteredValue = value.filter((v) => v && v.trim() !== '');
 
-        if (
-          filteredValue.length > 0 ||
-          (options.skipValidation && requiredAttributes.includes(key))
-        ) {
-          formattedAttributes[key] =
-            filteredValue.length > 0 ? filteredValue : [''];
+        if (filteredValue.length > 0 || (options.skipValidation && requiredAttributes.includes(key))) {
+          formattedAttributes[key] = filteredValue.length > 0 ? filteredValue : [''];
         }
       } else if (value && typeof value === 'string') {
         const trimmedValue = value.trim();
@@ -128,9 +120,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         const errorData = JSON.parse(errorText) as KeycloakErrorResponse;
 
         if (errorData.errors && Array.isArray(errorData.errors)) {
-          const validationErrors = errorData.errors
-            .map((err) => `${err.field}: ${err.errorMessage}`)
-            .join(', ');
+          const validationErrors = errorData.errors.map((err) => `${err.field}: ${err.errorMessage}`).join(', ');
 
           throw new Error(`Validation failed: ${validationErrors}`);
         }
@@ -138,9 +128,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         // If parsing fails, use original error below.
       }
 
-      throw new Error(
-        `Failed to update user attributes: ${updateResponse.status} ${updateResponse.statusText}`,
-      );
+      throw new Error(`Failed to update user attributes: ${updateResponse.status} ${updateResponse.statusText}`);
     }
   }
 
@@ -174,9 +162,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
           throw new Error(`User with ID ${userId} not found in Keycloak`);
         }
 
-        throw new Error(
-          `Failed to get user attributes: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(`Failed to get user attributes: ${response.status} ${response.statusText}`);
       }
 
       const userData = (await response.json()) as KeycloakUserData;
@@ -234,10 +220,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     return users.length > 0 ? users[0] : null;
   }
 
-  async searchUsers(
-    query: string,
-    options: { max?: number } = {},
-  ): Promise<KeycloakUserData[]> {
+  async searchUsers(query: string, options: { max?: number } = {}): Promise<KeycloakUserData[]> {
     const normalizedQuery = query.trim();
 
     if (normalizedQuery.length < 2) {
@@ -256,9 +239,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         ...params,
       });
 
-      requestUrls.add(
-        `${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`,
-      );
+      requestUrls.add(`${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`);
     };
 
     addSearchUrl({ search: normalizedQuery });
@@ -292,9 +273,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
             bodyPreview: details.bodyPreview,
           });
 
-          throw new Error(
-            `Failed to search users: ${response.status} ${response.statusText}`,
-          );
+          throw new Error(`Failed to search users: ${response.status} ${response.statusText}`);
         }
 
         return (await response.json()) as KeycloakUserData[];
@@ -358,9 +337,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to search users by attribute: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to search users by attribute: ${response.status} ${response.statusText}`);
     }
 
     return (await response.json()) as KeycloakUserData[];
@@ -396,9 +373,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get basic user info: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get basic user info: ${response.status} ${response.statusText}`);
     }
 
     const userData = (await response.json()) as KeycloakUserData;
@@ -411,10 +386,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     return userData;
   }
 
-  async updateUser(
-    userId: string,
-    data: Partial<KeycloakUserData>,
-  ): Promise<void> {
+  async updateUser(userId: string, data: Partial<KeycloakUserData>): Promise<void> {
     const adminToken = await this.getAdminToken();
     const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
 
@@ -469,9 +441,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to update user: ${updateResponse.status} ${updateResponse.statusText}`,
-      );
+      throw new Error(`Failed to update user: ${updateResponse.status} ${updateResponse.statusText}`);
     }
   }
 
@@ -479,9 +449,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     await this.updateUser(userId, { enabled });
   }
 
-  async getFederatedIdentities(
-    userId: string,
-  ): Promise<KeycloakFederatedIdentity[]> {
+  async getFederatedIdentities(userId: string): Promise<KeycloakFederatedIdentity[]> {
     const adminToken = await this.getAdminToken();
     const identitiesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity`;
 
@@ -508,18 +476,13 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get federated identities: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get federated identities: ${response.status} ${response.statusText}`);
     }
 
     return (await response.json()) as KeycloakFederatedIdentity[];
   }
 
-  async addFederatedIdentity(
-    userId: string,
-    identity: KeycloakFederatedIdentity,
-  ): Promise<void> {
+  async addFederatedIdentity(userId: string, identity: KeycloakFederatedIdentity): Promise<void> {
     const adminToken = await this.getAdminToken();
     const identityUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity/${encodeURIComponent(
       identity.identityProvider,
@@ -548,16 +511,11 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to add federated identity: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to add federated identity: ${response.status} ${response.statusText}`);
     }
   }
 
-  async removeFederatedIdentity(
-    userId: string,
-    identityProvider: string,
-  ): Promise<void> {
+  async removeFederatedIdentity(userId: string, identityProvider: string): Promise<void> {
     const adminToken = await this.getAdminToken();
     const identityUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity/${encodeURIComponent(
       identityProvider,
@@ -584,9 +542,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to remove federated identity: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to remove federated identity: ${response.status} ${response.statusText}`);
     }
   }
 
@@ -605,10 +561,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     if (!response.ok) {
       if (response.status === 404) {
-        this.logger.warn(
-          'User not found in Keycloak, may have been already deleted',
-          { userId },
-        );
+        this.logger.warn('User not found in Keycloak, may have been already deleted', { userId });
         return;
       }
 
@@ -624,9 +577,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to delete user from Keycloak: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to delete user from Keycloak: ${response.status} ${response.statusText}`);
     }
 
     this.logger.log('User successfully deleted from Keycloak', { userId });

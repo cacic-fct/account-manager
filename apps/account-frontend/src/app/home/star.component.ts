@@ -1,9 +1,4 @@
-import {
-  Component,
-  input,
-  computed,
-  ChangeDetectionStrategy,
-} from '@angular/core';
+import { Component, input, computed, ChangeDetectionStrategy } from '@angular/core';
 import { StarConfig } from './star-pattern-generator';
 
 @Component({
@@ -17,8 +12,7 @@ import { StarConfig } from './star-pattern-generator';
       [style.width.px]="star().size"
       [style.height.px]="star().size"
       [style.background-color]="starColor()"
-      [style.animation]="starAnimation()"
-    ></div>
+      [style.animation]="starAnimation()"></div>
   `,
   styles: [
     `
@@ -37,9 +31,7 @@ export class StarComponent {
   // Computed star color
   readonly starColor = computed(() => {
     const starConfig = this.star();
-    return starConfig.opacity === 1
-      ? '#fff'
-      : `rgba(255, 255, 255, ${starConfig.opacity})`;
+    return starConfig.opacity === 1 ? '#fff' : `rgba(255, 255, 255, ${starConfig.opacity})`;
   });
 
   // Computed animation

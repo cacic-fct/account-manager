@@ -45,15 +45,7 @@ export class AdminStudentVerificationComponent implements OnInit {
   documents = signal<StudentDocument[]>([]);
   loading = signal(true);
 
-  displayedColumns: string[] = [
-    'fullName',
-    'email',
-    'fileName',
-    'authCode',
-    'submissionDate',
-    'status',
-    'actions',
-  ];
+  displayedColumns: string[] = ['fullName', 'email', 'fileName', 'authCode', 'submissionDate', 'status', 'actions'];
 
   ngOnInit(): void {
     this.loadPendingDocuments();
@@ -67,10 +59,7 @@ export class AdminStudentVerificationComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error) => {
-        this.logger.error(
-          'Error loading student verification documents',
-          error,
-        );
+        this.logger.error('Error loading student verification documents', error);
         this.documents.set([]);
         this.loading.set(false);
       },
@@ -89,15 +78,11 @@ export class AdminStudentVerificationComponent implements OnInit {
       .subscribe({
         next: (response) => {
           // Extract filename from Content-Disposition header or use fallback
-          const contentDisposition = response.headers.get(
-            'Content-Disposition',
-          );
+          const contentDisposition = response.headers.get('Content-Disposition');
           let filename = `documento-${documentId}.pdf`;
 
           if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(
-              /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/,
-            );
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
             if (filenameMatch && filenameMatch[1]) {
               filename = filenameMatch[1].replace(/['"]/g, '');
               // Decode URI encoded filenames properly
@@ -128,15 +113,8 @@ export class AdminStudentVerificationComponent implements OnInit {
           }
         },
         error: (error) => {
-          this.logger.error(
-            'Error downloading student verification document',
-            error,
-          );
-          this.snackBar.open(
-            'Erro ao baixar documento. Tente novamente.',
-            'Fechar',
-            { duration: 5000 },
-          );
+          this.logger.error('Error downloading student verification document', error);
+          this.snackBar.open('Erro ao baixar documento. Tente novamente.', 'Fechar', { duration: 5000 });
         },
       });
   }
@@ -150,15 +128,8 @@ export class AdminStudentVerificationComponent implements OnInit {
         this.loadPendingDocuments(); // Reload the list
       },
       error: (error) => {
-        this.logger.error(
-          'Error approving student verification document',
-          error,
-        );
-        this.snackBar.open(
-          'Erro ao aprovar documento. Tente novamente.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.logger.error('Error approving student verification document', error);
+        this.snackBar.open('Erro ao aprovar documento. Tente novamente.', 'Fechar', { duration: 5000 });
       },
     });
   }
@@ -171,35 +142,25 @@ export class AdminStudentVerificationComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((reason: string | null) => {
       if (reason) {
-        this.studentVerificationService
-          .rejectDocument(documentId, reason)
-          .subscribe({
-            next: () => {
-              this.snackBar.open('Documento rejeitado com sucesso', 'Fechar', {
-                duration: 3000,
-              });
-              this.loadPendingDocuments(); // Reload the list
-            },
-            error: (error) => {
-              this.logger.error(
-                'Error rejecting student verification document',
-                error,
-              );
-              this.snackBar.open(
-                'Erro ao rejeitar documento. Tente novamente.',
-                'Fechar',
-                { duration: 5000 },
-              );
-            },
-          });
+        this.studentVerificationService.rejectDocument(documentId, reason).subscribe({
+          next: () => {
+            this.snackBar.open('Documento rejeitado com sucesso', 'Fechar', {
+              duration: 3000,
+            });
+            this.loadPendingDocuments(); // Reload the list
+          },
+          error: (error) => {
+            this.logger.error('Error rejecting student verification document', error);
+            this.snackBar.open('Erro ao rejeitar documento. Tente novamente.', 'Fechar', { duration: 5000 });
+          },
+        });
       }
     });
   }
 
   openUniversityVerification(authCode: string): void {
     if (authCode) {
-      const url =
-        this.studentVerificationService.getUniversityVerificationUrl(authCode);
+      const url = this.studentVerificationService.getUniversityVerificationUrl(authCode);
       window.open(url, '_blank');
     }
   }

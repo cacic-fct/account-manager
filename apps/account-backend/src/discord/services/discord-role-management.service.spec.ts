@@ -6,10 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DISCORD_AUTOMATED_ROLE_IDS } from '../constants/discord-managed-roles';
 import { DiscordRoleManagementService } from './discord-role-management.service';
 
-const AUTOMATED_ROLE_IDS = [
-  ...DISCORD_AUTOMATED_ROLE_IDS,
-  ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
-];
+const AUTOMATED_ROLE_IDS = [...DISCORD_AUTOMATED_ROLE_IDS, ...PERMISSION_GROUP_DISCORD_ROLE_IDS];
 
 type PrismaMock = {
   discordRoleSetting: {
@@ -32,9 +29,7 @@ type RoleUpsertArgs = {
 
 const createdAt = new Date('2026-06-18T12:00:00.000Z');
 
-const createRoleSetting = (
-  overrides: Partial<DiscordRoleSetting> = {},
-): DiscordRoleSetting => ({
+const createRoleSetting = (overrides: Partial<DiscordRoleSetting> = {}): DiscordRoleSetting => ({
   id: '00000000-0000-7000-8000-000000000001',
   roleId: 'role-safe',
   roleName: 'Safe Role',
@@ -48,9 +43,7 @@ const createRoleSetting = (
   ...overrides,
 });
 
-const createDiscordLink = (
-  overrides: Partial<DiscordLink> = {},
-): DiscordLink => ({
+const createDiscordLink = (overrides: Partial<DiscordLink> = {}): DiscordLink => ({
   id: '00000000-0000-7000-8000-000000000002',
   userId: 'user-1',
   discordId: 'discord-1',
@@ -81,9 +74,7 @@ const createContext = () => {
   prisma.discordRoleSetting.updateMany.mockResolvedValue({ count: 1 });
   prisma.discordRoleSetting.upsert.mockResolvedValue(createRoleSetting());
 
-  const service = new DiscordRoleManagementService(
-    prisma as unknown as PrismaService,
-  );
+  const service = new DiscordRoleManagementService(prisma as unknown as PrismaService);
 
   return {
     prisma,
@@ -158,21 +149,16 @@ describe('DiscordRoleManagementService', () => {
     const guild = {
       name: 'CACiC',
       roles: {
-        fetch: jest
-          .fn<Promise<Map<string, unknown>>, []>()
-          .mockResolvedValue(roles),
+        fetch: jest.fn<Promise<Map<string, unknown>>, []>().mockResolvedValue(roles),
       },
     };
 
     await service.syncRolesFromDiscord(createClient(guild), 'guild-1');
 
     expect(prisma.discordRoleSetting.upsert).toHaveBeenCalledTimes(4);
-    const dangerousRoleUpsert = prisma.discordRoleSetting.upsert.mock
-      .calls[1][0] as RoleUpsertArgs;
-    const managedRoleUpsert = prisma.discordRoleSetting.upsert.mock
-      .calls[2][0] as RoleUpsertArgs;
-    const boosterRoleUpsert = prisma.discordRoleSetting.upsert.mock
-      .calls[3][0] as RoleUpsertArgs;
+    const dangerousRoleUpsert = prisma.discordRoleSetting.upsert.mock.calls[1][0] as RoleUpsertArgs;
+    const managedRoleUpsert = prisma.discordRoleSetting.upsert.mock.calls[2][0] as RoleUpsertArgs;
+    const boosterRoleUpsert = prisma.discordRoleSetting.upsert.mock.calls[3][0] as RoleUpsertArgs;
     expect(dangerousRoleUpsert.create.roleId).toBe('role-dangerous');
     expect(dangerousRoleUpsert.create.hasPermissions).toBe(true);
     expect(managedRoleUpsert.create.roleId).toBe(DISCORD_AUTOMATED_ROLE_IDS[0]);
@@ -184,9 +170,7 @@ describe('DiscordRoleManagementService', () => {
   it('propagates sync failures when the guild cannot be fetched', async () => {
     const { service } = createContext();
 
-    await expect(
-      service.syncRolesFromDiscord(createClient(null), 'guild-1'),
-    ).rejects.toMatchObject({
+    await expect(service.syncRolesFromDiscord(createClient(null), 'guild-1')).rejects.toMatchObject({
       response: 'Guild not found',
       status: HttpStatus.NOT_FOUND,
     });
@@ -224,9 +208,7 @@ describe('DiscordRoleManagementService', () => {
 
     expect(result.rolesWithPermissions).toHaveLength(1);
     expect(result.rolesWithoutPermissions).toHaveLength(2);
-    expect(result.selectableRoles).toEqual([
-      expect.objectContaining({ id: 'role-safe', isManaged: false }),
-    ]);
+    expect(result.selectableRoles).toEqual([expect.objectContaining({ id: 'role-safe', isManaged: false })]);
   });
 
   it('returns selectable user roles ordered by the database query', async () => {
@@ -312,12 +294,7 @@ describe('DiscordRoleManagementService', () => {
     prisma.discordRoleSetting.findMany.mockResolvedValue([]);
 
     await expect(
-      service.updateUserRoles(
-        'user-1',
-        { selectedRoleIds: ['role-dangerous'] },
-        {} as Client,
-        'guild-1',
-      ),
+      service.updateUserRoles('user-1', { selectedRoleIds: ['role-dangerous'] }, {} as Client, 'guild-1'),
     ).rejects.toMatchObject({
       response: 'Some roles are not selectable',
       status: HttpStatus.BAD_REQUEST,
@@ -341,12 +318,7 @@ describe('DiscordRoleManagementService', () => {
     prisma.discordLink.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.updateUserRoles(
-        'user-1',
-        { selectedRoleIds: [] },
-        createClient({}),
-        'guild-1',
-      ),
+      service.updateUserRoles('user-1', { selectedRoleIds: [] }, createClient({}), 'guild-1'),
     ).rejects.toMatchObject({
       response: 'Discord account not linked',
       status: HttpStatus.BAD_REQUEST,
@@ -358,9 +330,7 @@ describe('DiscordRoleManagementService', () => {
     prisma.discordLink.findFirst.mockResolvedValue(createDiscordLink());
     prisma.discordRoleSetting.findMany
       .mockResolvedValueOnce([createRoleSetting()])
-      .mockResolvedValueOnce([
-        createRoleSetting({ roleId: 'role-new', roleName: 'New Role' }),
-      ]);
+      .mockResolvedValueOnce([createRoleSetting({ roleId: 'role-new', roleName: 'New Role' })]);
     const guild = {
       members: {
         fetch: jest.fn<Promise<unknown>, [string]>().mockResolvedValue({
@@ -373,9 +343,7 @@ describe('DiscordRoleManagementService', () => {
       },
     };
 
-    await expect(
-      service.getUserRoles('user-1', createClient(guild), 'guild-1'),
-    ).resolves.toEqual({
+    await expect(service.getUserRoles('user-1', createClient(guild), 'guild-1')).resolves.toEqual({
       currentRoles: [expect.objectContaining({ id: 'role-safe' })],
       availableRoles: [expect.objectContaining({ id: 'role-new' })],
     });
@@ -384,17 +352,13 @@ describe('DiscordRoleManagementService', () => {
   it('rejects user role reads when the Discord account or guild member is missing', async () => {
     const { prisma, service } = createContext();
 
-    await expect(
-      service.getUserRoles('user-1', createClient({}), 'guild-1'),
-    ).rejects.toMatchObject({
+    await expect(service.getUserRoles('user-1', createClient({}), 'guild-1')).rejects.toMatchObject({
       response: 'Discord account not linked',
       status: HttpStatus.BAD_REQUEST,
     });
 
     prisma.discordLink.findFirst.mockResolvedValue(createDiscordLink());
-    await expect(
-      service.getUserRoles('user-1', createClient(null), 'guild-1'),
-    ).rejects.toMatchObject({
+    await expect(service.getUserRoles('user-1', createClient(null), 'guild-1')).rejects.toMatchObject({
       response: 'Discord guild not found',
       status: HttpStatus.INTERNAL_SERVER_ERROR,
     });
@@ -404,9 +368,7 @@ describe('DiscordRoleManagementService', () => {
         'user-1',
         createClient({
           members: {
-            fetch: jest
-              .fn<Promise<unknown>, [string]>()
-              .mockRejectedValue(new Error('missing')),
+            fetch: jest.fn<Promise<unknown>, [string]>().mockRejectedValue(new Error('missing')),
           },
         }),
         'guild-1',
@@ -421,9 +383,7 @@ describe('DiscordRoleManagementService', () => {
     const { prisma, service } = createContext();
     prisma.discordLink.findFirst.mockRejectedValue(new Error('database down'));
 
-    await expect(
-      service.getUserRoles('user-1', createClient({}), 'guild-1'),
-    ).rejects.toMatchObject({
+    await expect(service.getUserRoles('user-1', createClient({}), 'guild-1')).rejects.toMatchObject({
       response: 'Failed to fetch user Discord roles',
       status: HttpStatus.INTERNAL_SERVER_ERROR,
     });
@@ -433,22 +393,15 @@ describe('DiscordRoleManagementService', () => {
     const { prisma, service } = createContext();
     prisma.discordLink.findFirst.mockResolvedValue(createDiscordLink());
     prisma.discordRoleSetting.findMany
-      .mockResolvedValueOnce([
-        createRoleSetting({ roleId: 'role-new', roleName: 'New Role' }),
-      ])
+      .mockResolvedValueOnce([createRoleSetting({ roleId: 'role-new', roleName: 'New Role' })])
       .mockResolvedValueOnce([
         createRoleSetting({ roleId: 'role-old', roleName: 'Old Role' }),
         createRoleSetting({ roleId: 'role-new', roleName: 'New Role' }),
       ]);
 
-    const remove = jest
-      .fn<Promise<void>, [string, string | undefined]>()
-      .mockRejectedValue(new Error('cannot remove'));
-    const add = jest
-      .fn<Promise<void>, [string, string | undefined]>()
-      .mockRejectedValue(new Error('cannot add'));
-    let hasRole: (roleId: string) => boolean = (roleId: string) =>
-      roleId === 'role-old';
+    const remove = jest.fn<Promise<void>, [string, string | undefined]>().mockRejectedValue(new Error('cannot remove'));
+    const add = jest.fn<Promise<void>, [string, string | undefined]>().mockRejectedValue(new Error('cannot add'));
+    let hasRole: (roleId: string) => boolean = (roleId: string) => roleId === 'role-old';
     const fetch = jest.fn<Promise<void>, [boolean]>().mockImplementation(() => {
       hasRole = (roleId: string) => roleId === 'role-new';
       return Promise.resolve();
@@ -460,9 +413,7 @@ describe('DiscordRoleManagementService', () => {
         cache: {
           filter: (predicate: (role: { id: string }) => boolean) => ({
             map: (mapper: (role: { id: string }) => string) =>
-              [{ id: 'role-old' }, { id: 'unselectable-role' }]
-                .filter(predicate)
-                .map(mapper),
+              [{ id: 'role-old' }, { id: 'unselectable-role' }].filter(predicate).map(mapper),
           }),
           has: (roleId: string) => hasRole(roleId),
         },
@@ -471,31 +422,18 @@ describe('DiscordRoleManagementService', () => {
     };
     const guild = {
       members: {
-        fetch: jest
-          .fn<Promise<typeof member>, [string]>()
-          .mockResolvedValue(member),
+        fetch: jest.fn<Promise<typeof member>, [string]>().mockResolvedValue(member),
       },
     };
 
     await expect(
-      service.updateUserRoles(
-        'user-1',
-        { selectedRoleIds: ['role-new'] },
-        createClient(guild),
-        'guild-1',
-      ),
+      service.updateUserRoles('user-1', { selectedRoleIds: ['role-new'] }, createClient(guild), 'guild-1'),
     ).resolves.toEqual({
       message: 'Roles updated successfully',
       updatedRoles: [expect.objectContaining({ id: 'role-new' })],
     });
-    expect(remove).toHaveBeenCalledWith(
-      'role-old',
-      'CACiC self-service role selection by account user-1',
-    );
-    expect(add).toHaveBeenCalledWith(
-      'role-new',
-      'CACiC self-service role selection by account user-1',
-    );
+    expect(remove).toHaveBeenCalledWith('role-old', 'CACiC self-service role selection by account user-1');
+    expect(add).toHaveBeenCalledWith('role-new', 'CACiC self-service role selection by account user-1');
     expect(fetch).toHaveBeenCalledWith(true);
   });
 });

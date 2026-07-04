@@ -6,28 +6,16 @@
       class="beta-badge"
       (click)="openAlphaInfo()"
       title="Clique para saber mais sobre a versão alpha"
-      aria-label="Informações sobre a versão alpha"
-    >
+      aria-label="Informações sobre a versão alpha">
       alpha
     </button>
   </h1>
   <span class="spacer"></span>
 
   <div class="user-info">
-    <button
-      matIconButton
-      [matMenuTriggerFor]="menu"
-      class="avatar-btn"
-      aria-label="Abrir menu do usuário"
-    >
+    <button matIconButton [matMenuTriggerFor]="menu" class="avatar-btn" aria-label="Abrir menu do usuário">
       @if (currentUser()?.picture; as userPicture) {
-        <img
-          [ngSrc]="userPicture"
-          class="avatar"
-          fill="true"
-          alt="Avatar do usuário"
-          priority
-        />
+        <img [ngSrc]="userPicture" class="avatar" fill="true" alt="Avatar do usuário" priority />
       } @else {
         <mat-icon class="avatar">account_circle</mat-icon>
       }
@@ -75,10 +63,7 @@
       <div class="no-apps-container">
         <mat-icon class="no-apps-icon">apps</mat-icon>
         <h3>Nenhum aplicativo disponível</h3>
-        <p>
-          Entre em contato com o CACiC se precisar de acesso a aplicativos
-          específicos.
-        </p>
+        <p>Entre em contato com o CACiC se precisar de acesso a aplicativos específicos.</p>
       </div>
     }
 

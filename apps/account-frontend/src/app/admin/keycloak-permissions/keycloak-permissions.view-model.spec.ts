@@ -16,10 +16,7 @@ import {
 
 describe('keycloak permissions view model helpers', () => {
   it('groups catalog permissions by client and sorts each client by label', () => {
-    const grouped = groupPermissionsByClient([
-      mockKeycloakPermissionCatalog[1],
-      mockKeycloakPermissionCatalog[0],
-    ]);
+    const grouped = groupPermissionsByClient([mockKeycloakPermissionCatalog[1], mockKeycloakPermissionCatalog[0]]);
 
     expect(grouped).toHaveLength(1);
     expect(grouped[0].permissions.map((permission) => permission.label)).toEqual(
@@ -39,34 +36,21 @@ describe('keycloak permissions view model helpers', () => {
     ]);
 
     expect(permissions.has('cacic-account-manager:expired')).toBe(false);
-    expect(permissions.has(mockPermissionGroupRoleGrants[0].permission)).toBe(
-      true,
-    );
+    expect(permissions.has(mockPermissionGroupRoleGrants[0].permission)).toBe(true);
   });
 
   it('filters direct grant options and resolves display labels', () => {
-    const available = availableDirectPermissions(mockKeycloakPermissionCatalog, [
-      mockDirectKeycloakPermissionGrant,
-    ]);
+    const available = availableDirectPermissions(mockKeycloakPermissionCatalog, [mockDirectKeycloakPermissionGrant]);
 
-    expect(
-      available.some(
-        (permission) =>
-          permission.permission === mockDirectKeycloakPermissionGrant.permission,
-      ),
-    ).toBe(false);
-    expect(
-      getPermissionLabel(
-        mockKeycloakPermissionCatalog,
-        mockKeycloakPermissionCatalog[0].permission,
-      ),
-    ).toBe(mockKeycloakPermissionCatalog[0].label);
-    expect(
-      getPermissionClientLabel(
-        mockKeycloakPermissionCatalog,
-        mockKeycloakPermissionCatalog[0].permission,
-      ),
-    ).toBe(mockKeycloakPermissionCatalog[0].clientLabel);
+    expect(available.some((permission) => permission.permission === mockDirectKeycloakPermissionGrant.permission)).toBe(
+      false,
+    );
+    expect(getPermissionLabel(mockKeycloakPermissionCatalog, mockKeycloakPermissionCatalog[0].permission)).toBe(
+      mockKeycloakPermissionCatalog[0].label,
+    );
+    expect(getPermissionClientLabel(mockKeycloakPermissionCatalog, mockKeycloakPermissionCatalog[0].permission)).toBe(
+      mockKeycloakPermissionCatalog[0].clientLabel,
+    );
   });
 
   it('falls back when catalog or group labels are unknown', () => {

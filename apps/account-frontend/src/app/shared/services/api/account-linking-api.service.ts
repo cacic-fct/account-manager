@@ -33,26 +33,16 @@ export class AccountLinkingApiService {
   }
 
   getAccountMergeRequest(id: string): Observable<AccountMergeRequest> {
-    return this.http.get<AccountMergeRequest>(
-      `${this.baseUrl}/auth/account-linking/merge-requests/${id}`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<AccountMergeRequest>(`${this.baseUrl}/auth/account-linking/merge-requests/${id}`, {
+      withCredentials: true,
+    });
   }
 
-  confirmAccountMerge(
-    id: string,
-    dto: ConfirmAccountMergeRequest,
-  ): Observable<ConfirmAccountMergeResponse> {
+  confirmAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
     return this.http
-      .post<ConfirmAccountMergeResponse>(
-        `${this.baseUrl}/auth/account-linking/merge-requests/${id}/confirm`,
-        dto,
-        {
-          withCredentials: true,
-        },
-      )
+      .post<ConfirmAccountMergeResponse>(`${this.baseUrl}/auth/account-linking/merge-requests/${id}/confirm`, dto, {
+        withCredentials: true,
+      })
       .pipe(
         tap(() => {
           this.authApi.clearAuthCache();

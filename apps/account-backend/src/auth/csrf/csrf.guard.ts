@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  SetMetadata,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { CsrfService } from './csrf.service';
@@ -57,23 +51,14 @@ export class CsrfGuard implements CanActivate {
     }
 
     // Get CSRF token from header (primary) or body (fallback)
-    const tokenFromRequest =
-      request.headers['x-csrf-token'] ||
-      (request.body as { csrfToken?: string })?.csrfToken;
+    const tokenFromRequest = request.headers['x-csrf-token'] || (request.body as { csrfToken?: string })?.csrfToken;
 
     // Get CSRF token from session
     const tokenFromSession = request.session.csrfToken;
 
     // Validate tokens
-    if (
-      !this.csrfService.validateToken(
-        tokenFromRequest as string,
-        tokenFromSession as string,
-      )
-    ) {
-      throw new ForbiddenException(
-        'Invalid or missing CSRF token. Please refresh the page and try again.',
-      );
+    if (!this.csrfService.validateToken(tokenFromRequest as string, tokenFromSession as string)) {
+      throw new ForbiddenException('Invalid or missing CSRF token. Please refresh the page and try again.');
     }
 
     return true;

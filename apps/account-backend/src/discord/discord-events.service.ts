@@ -24,38 +24,25 @@ export class DiscordEventsService {
     // Set the client in our service for dependency injection
     this.discordClientService.setClient(client);
 
-    void this.discordRoleService
-      .syncAllLinkedMemberRoles('discord-bot-ready')
-      .catch((error) => {
-        this.logger.warn(
-          'Failed to sync Discord managed roles on ready',
-          error,
-        );
-      });
+    void this.discordRoleService.syncAllLinkedMemberRoles('discord-bot-ready').catch((error) => {
+      this.logger.warn('Failed to sync Discord managed roles on ready', error);
+    });
   }
 
   @On('guildMemberAdd')
-  public async onGuildMemberAdd(
-    @Context() [member]: ContextOf<'guildMemberAdd'>,
-  ) {
+  public async onGuildMemberAdd(@Context() [member]: ContextOf<'guildMemberAdd'>) {
     await this.discordBotService.handleMemberJoin(member);
   }
 
   @On('guildMemberRoleAdd')
-  public async onGuildMemberRoleAdd(
-    @Context() [member]: ContextOf<'guildMemberRoleAdd'>,
-  ) {
+  public async onGuildMemberRoleAdd(@Context() [member]: ContextOf<'guildMemberRoleAdd'>) {
     // Assign nickname when a member is added to a role
-    this.logger.log(
-      `Member role added: ${member.user.username} (${member.id})`,
-    );
+    this.logger.log(`Member role added: ${member.user.username} (${member.id})`);
     try {
       await this.discordBotService.assignNickname(member, member.nickname);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to assign nickname for ${member.user.username}: ${message}`,
-      );
+      this.logger.error(`Failed to assign nickname for ${member.user.username}: ${message}`);
     }
   }
 
@@ -74,26 +61,17 @@ export class DiscordEventsService {
         await this.discordBotService.assignNickname(member, newNickname);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `Failed to assign nickname for ${member.user.username}: ${message}`,
-        );
+        this.logger.error(`Failed to assign nickname for ${member.user.username}: ${message}`);
       }
     }
   }
 
   @On('guildMemberUpdate')
-  public async onGuildMemberUpdate(
-    @Context() [oldMember, newMember]: ContextOf<'guildMemberUpdate'>,
-  ) {
+  public async onGuildMemberUpdate(@Context() [oldMember, newMember]: ContextOf<'guildMemberUpdate'>) {
     // Handle member updates if needed
-    this.logger.log(
-      `Member updated: ${newMember.user.username} (${newMember.id})`,
-    );
+    this.logger.log(`Member updated: ${newMember.user.username} (${newMember.id})`);
 
-    if (
-      this.didRolesChange(oldMember, newMember) &&
-      this.hasNoAssignableRoles(newMember)
-    ) {
+    if (this.didRolesChange(oldMember, newMember) && this.hasNoAssignableRoles(newMember)) {
       if (this.discordRoleService.hasRecentManagedRoleMutation(newMember.id)) {
         this.logger.debug(
           `Skipping Discord role-state sync for ${newMember.id}; update follows a managed role mutation`,
@@ -101,46 +79,29 @@ export class DiscordEventsService {
         return;
       }
 
-      await this.discordRoleService.syncGuildMemberRoleState(
-        newMember,
-        'discord-member-roles-cleared',
-      );
+      await this.discordRoleService.syncGuildMemberRoleState(newMember, 'discord-member-roles-cleared');
     }
   }
 
   @Cron('*/30 * * * *')
   public async syncManagedRoles(): Promise<void> {
-    await this.discordRoleService.syncAllLinkedMemberRoles(
-      'scheduled-discord-managed-role-sync',
-    );
+    await this.discordRoleService.syncAllLinkedMemberRoles('scheduled-discord-managed-role-sync');
   }
 
   @Cron('15 4 * * *')
   public async enforceManagedRolePolicy(): Promise<void> {
-    await this.discordRoleService.syncAllGuildMemberRoleState(
-      'scheduled-discord-managed-role-hard-enforcement',
-    );
+    await this.discordRoleService.syncAllGuildMemberRoleState('scheduled-discord-managed-role-hard-enforcement');
   }
 
-  private didRolesChange(
-    oldMember: Pick<GuildMember, 'roles'>,
-    newMember: Pick<GuildMember, 'roles'>,
-  ) {
+  private didRolesChange(oldMember: Pick<GuildMember, 'roles'>, newMember: Pick<GuildMember, 'roles'>) {
     if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
       return true;
     }
 
-    return oldMember.roles.cache.some(
-      (role) => !newMember.roles.cache.has(role.id),
-    );
+    return oldMember.roles.cache.some((role) => !newMember.roles.cache.has(role.id));
   }
 
-  private hasNoAssignableRoles(
-    member: Pick<GuildMember, 'guild' | 'roles'>,
-  ): boolean {
-    return (
-      member.roles.cache.filter((role) => role.id !== member.guild.id).size ===
-      0
-    );
+  private hasNoAssignableRoles(member: Pick<GuildMember, 'guild' | 'roles'>): boolean {
+    return member.roles.cache.filter((role) => role.id !== member.guild.id).size === 0;
   }
 }

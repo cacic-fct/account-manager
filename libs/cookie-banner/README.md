@@ -13,10 +13,7 @@ bun add @cacic-fct/account-manager-cookie-banner
 ## Angular
 
 ```ts
-import {
-  CookieBannerComponent,
-  type CookieBannerOptions,
-} from '@cacic-fct/account-manager-cookie-banner/angular';
+import { CookieBannerComponent, type CookieBannerOptions } from '@cacic-fct/account-manager-cookie-banner/angular';
 ```
 
 ```html
@@ -32,10 +29,7 @@ banner even for logged-out users. The package also keeps the existing
 ## Vanilla
 
 ```ts
-import {
-  createCookieBanner,
-  hasAcceptedCookieBanner,
-} from '@cacic-fct/account-manager-cookie-banner';
+import { createCookieBanner, hasAcceptedCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
 
 createCookieBanner({
   privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',

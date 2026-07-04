@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 
 import { DiscordServerAccessComponent } from './server-access.component';
-import {
-  authHandlers,
-  discordHandlers,
-} from '../../../../../storybook/mocks/msw-handlers';
+import { authHandlers, discordHandlers } from '../../../../../storybook/mocks/msw-handlers';
 
 const meta: Meta<DiscordServerAccessComponent> = {
   title: 'Settings/LinkedAccounts/DiscordServerAccess',

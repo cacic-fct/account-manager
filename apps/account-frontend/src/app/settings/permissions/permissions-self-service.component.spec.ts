@@ -4,10 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import {
-  AccountManagerPermission,
-  type KeycloakPermissionGrant,
-} from '@cacic/shared-types';
+import { AccountManagerPermission, type KeycloakPermissionGrant } from '@cacic/shared-types';
 import { ApiService } from '../../shared/services/api.service';
 import {
   mockDirectKeycloakPermissionGrant,
@@ -36,12 +33,8 @@ describe('PermissionsSelfServiceComponent', () => {
           grants: [mockDirectKeycloakPermissionGrant],
         }),
       ),
-      selfRemovePermissionGroupMembership: vi
-        .fn()
-        .mockReturnValue(of({ removed: true, id: 'membership-1' })),
-      selfRemovePermissionGrant: vi
-        .fn()
-        .mockReturnValue(of({ removed: true, id: 'grant-1' })),
+      selfRemovePermissionGroupMembership: vi.fn().mockReturnValue(of({ removed: true, id: 'membership-1' })),
+      selfRemovePermissionGrant: vi.fn().mockReturnValue(of({ removed: true, id: 'grant-1' })),
     };
 
     await TestBed.configureTestingModule({
@@ -80,19 +73,15 @@ describe('PermissionsSelfServiceComponent', () => {
   });
 
   it('confirms and removes a direct grant', () => {
-    const component =
-      fixture.componentInstance as PermissionsSelfServiceHarness;
+    const component = fixture.componentInstance as PermissionsSelfServiceHarness;
 
     component.confirmRemoveGrant(mockDirectKeycloakPermissionGrant);
 
-    expect(apiService.selfRemovePermissionGrant).toHaveBeenCalledWith(
-      mockDirectKeycloakPermissionGrant.id,
-    );
+    expect(apiService.selfRemovePermissionGrant).toHaveBeenCalledWith(mockDirectKeycloakPermissionGrant.id);
   });
 
   it('formats access and super-admin client role labels', () => {
-    const component =
-      fixture.componentInstance as PermissionsSelfServiceHarness;
+    const component = fixture.componentInstance as PermissionsSelfServiceHarness;
     const accessGrant: KeycloakPermissionGrant = {
       ...mockDirectKeycloakPermissionGrant,
       permission: AccountManagerPermission.Access,
@@ -105,8 +94,6 @@ describe('PermissionsSelfServiceComponent', () => {
     };
 
     expect(component.getPermissionLabel(accessGrant)).toContain('Acesso');
-    expect(component.getPermissionLabel(superAdminGrant)).toContain(
-      'Super Admin',
-    );
+    expect(component.getPermissionLabel(superAdminGrant)).toContain('Super Admin');
   });
 });

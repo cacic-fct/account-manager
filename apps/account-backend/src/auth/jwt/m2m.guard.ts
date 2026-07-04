@@ -14,11 +14,9 @@ export const REQUIRED_ROLES_KEY = 'requiredRoles';
 export const REQUIRED_CLIENT_KEY = 'requiredClient';
 export const IS_M2M_PROTECTED_KEY = 'isM2MProtected';
 
-export const RequireRoles = (...roles: string[]) =>
-  SetMetadata(REQUIRED_ROLES_KEY, roles);
+export const RequireRoles = (...roles: string[]) => SetMetadata(REQUIRED_ROLES_KEY, roles);
 
-export const RequireClient = (clientId: string) =>
-  SetMetadata(REQUIRED_CLIENT_KEY, clientId);
+export const RequireClient = (clientId: string) => SetMetadata(REQUIRED_CLIENT_KEY, clientId);
 
 export const M2MProtected = () => SetMetadata(IS_M2M_PROTECTED_KEY, true);
 
@@ -36,10 +34,10 @@ export class M2MGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isM2MProtected = this.reflector.getAllAndOverride<boolean>(
-      IS_M2M_PROTECTED_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const isM2MProtected = this.reflector.getAllAndOverride<boolean>(IS_M2M_PROTECTED_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!isM2MProtected) {
       return true; // Not protected, allow access
@@ -64,45 +62,32 @@ export class M2MGuard implements CanActivate {
       }
 
       if (!this.jwtService.isAllowedM2MClient(payload)) {
-        throw new ForbiddenException(
-          `M2M client is not allowed: ${this.jwtService.getClientId(payload) || 'unknown'}`,
-        );
+        throw new ForbiddenException(`M2M client is not allowed: ${this.jwtService.getClientId(payload) || 'unknown'}`);
       }
 
       // Check required M2M roles against the configured receiver audience.
-      const requiredRoles = this.reflector.getAllAndOverride<string[]>(
-        REQUIRED_ROLES_KEY,
-        [context.getHandler(), context.getClass()],
-      );
+      const requiredRoles = this.reflector.getAllAndOverride<string[]>(REQUIRED_ROLES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
 
       if (requiredRoles && requiredRoles.length > 0) {
-        const hasAllRequiredRoles = requiredRoles.every((role) =>
-          this.jwtService.hasRequiredRole(payload, role),
-        );
+        const hasAllRequiredRoles = requiredRoles.every((role) => this.jwtService.hasRequiredRole(payload, role));
 
         if (!hasAllRequiredRoles) {
-          const missingRoles = requiredRoles.filter(
-            (role) => !this.jwtService.hasRequiredRole(payload, role),
-          );
-          throw new ForbiddenException(
-            `Missing required role(s): ${missingRoles.join(', ')}`,
-          );
+          const missingRoles = requiredRoles.filter((role) => !this.jwtService.hasRequiredRole(payload, role));
+          throw new ForbiddenException(`Missing required role(s): ${missingRoles.join(', ')}`);
         }
       }
 
       // Check required client
-      const requiredClient = this.reflector.getAllAndOverride<string>(
-        REQUIRED_CLIENT_KEY,
-        [context.getHandler(), context.getClass()],
-      );
+      const requiredClient = this.reflector.getAllAndOverride<string>(REQUIRED_CLIENT_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
 
-      if (
-        requiredClient &&
-        !this.jwtService.isFromClient(payload, requiredClient)
-      ) {
-        throw new ForbiddenException(
-          `Access denied for client: ${payload.azp || payload.client_id || 'unknown'}`,
-        );
+      if (requiredClient && !this.jwtService.isFromClient(payload, requiredClient)) {
+        throw new ForbiddenException(`Access denied for client: ${payload.azp || payload.client_id || 'unknown'}`);
       }
 
       return true;

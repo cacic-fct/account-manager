@@ -1,12 +1,6 @@
-export type StudentVerificationDocumentStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected';
+export type StudentVerificationDocumentStatus = 'pending' | 'approved' | 'rejected';
 
-export type StudentVerificationStatus =
-  | StudentVerificationDocumentStatus
-  | 'not_submitted'
-  | 'not_required';
+export type StudentVerificationStatus = StudentVerificationDocumentStatus | 'not_submitted' | 'not_required';
 
 export interface StudentVerificationUploadResponse {
   message: string;

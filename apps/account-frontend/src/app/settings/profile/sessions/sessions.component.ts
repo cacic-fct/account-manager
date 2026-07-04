@@ -4,8 +4,6 @@ import { Component } from '@angular/core';
   selector: 'app-sessions',
   imports: [],
   templateUrl: './sessions.component.html',
-  styleUrl: './sessions.component.scss'
+  styleUrl: './sessions.component.scss',
 })
-export class SessionsComponent {
-
-}
+export class SessionsComponent {}

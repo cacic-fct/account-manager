@@ -13,8 +13,7 @@ export const KEYCLOAK_PERMISSION_CLIENTS = [
   },
 ] as const;
 
-export type KeycloakPermissionClientId =
-  (typeof KEYCLOAK_PERMISSION_CLIENTS)[number]['clientId'];
+export type KeycloakPermissionClientId = (typeof KEYCLOAK_PERMISSION_CLIENTS)[number]['clientId'];
 
 export const HIDDEN_KEYCLOAK_ROLE_NAMES = ['uma_protection'] as const;
 export const KEYCLOAK_BACKED_ROLE_NAMES = ['access', 'super-admin'] as const;
@@ -35,11 +34,9 @@ export const AccountManagerKeycloakRole = {
   PermissionGrantSync: 'permission-grant#sync',
 } as const;
 
-export type AccountManagerKeycloakRole =
-  (typeof AccountManagerKeycloakRole)[keyof typeof AccountManagerKeycloakRole];
+export type AccountManagerKeycloakRole = (typeof AccountManagerKeycloakRole)[keyof typeof AccountManagerKeycloakRole];
 
-export const ACCOUNT_MANAGER_PERMISSION_CLIENT_ID =
-  'cacic-account-manager' satisfies KeycloakPermissionClientId;
+export const ACCOUNT_MANAGER_PERMISSION_CLIENT_ID = 'cacic-account-manager' satisfies KeycloakPermissionClientId;
 
 export const ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG = [
   AccountManagerKeycloakRole.DiscordManagementRead,
@@ -61,20 +58,12 @@ export const ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG = [
   ...ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG,
 ] as const satisfies readonly AccountManagerKeycloakRole[];
 
-export function buildKeycloakPermissionId(
-  clientId: string,
-  roleName: string,
-): string {
+export function buildKeycloakPermissionId(clientId: string, roleName: string): string {
   return `${clientId.trim()}:${roleName.trim()}`;
 }
 
-export function buildAccountManagerPermissionId(
-  roleName: AccountManagerKeycloakRole,
-): string {
-  return buildKeycloakPermissionId(
-    ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
-    roleName,
-  );
+export function buildAccountManagerPermissionId(roleName: AccountManagerKeycloakRole): string {
+  return buildKeycloakPermissionId(ACCOUNT_MANAGER_PERMISSION_CLIENT_ID, roleName);
 }
 
 export function parseKeycloakPermissionId(permission: string): {
@@ -96,9 +85,7 @@ export function parseKeycloakPermissionId(permission: string): {
 }
 
 export function isKeycloakBackedRoleName(roleName: string): boolean {
-  return KEYCLOAK_BACKED_ROLE_NAMES.includes(
-    roleName as (typeof KEYCLOAK_BACKED_ROLE_NAMES)[number],
-  );
+  return KEYCLOAK_BACKED_ROLE_NAMES.includes(roleName as (typeof KEYCLOAK_BACKED_ROLE_NAMES)[number]);
 }
 
 export function isKeycloakBackedPermission(permission: string): boolean {
@@ -110,46 +97,21 @@ export function isKeycloakBackedPermission(permission: string): boolean {
 
 export const AccountManagerPermission = {
   Access: buildAccountManagerPermissionId(AccountManagerKeycloakRole.Access),
-  SuperAdmin: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.SuperAdmin,
-  ),
-  DiscordManagementRead: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.DiscordManagementRead,
-  ),
-  DiscordManagementUpdate: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.DiscordManagementUpdate,
-  ),
-  StudentVerificationRead: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.StudentVerificationRead,
-  ),
-  StudentVerificationReview: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.StudentVerificationReview,
-  ),
-  StudentVerificationDownload: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.StudentVerificationDownload,
-  ),
-  AccountDeletionRead: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.AccountDeletionRead,
-  ),
-  AccountDeletionUpdate: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.AccountDeletionUpdate,
-  ),
-  PermissionGrantRead: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.PermissionGrantRead,
-  ),
-  PermissionGrantAssign: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.PermissionGrantAssign,
-  ),
-  PermissionGrantRevoke: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.PermissionGrantRevoke,
-  ),
-  PermissionGrantSync: buildAccountManagerPermissionId(
-    AccountManagerKeycloakRole.PermissionGrantSync,
-  ),
+  SuperAdmin: buildAccountManagerPermissionId(AccountManagerKeycloakRole.SuperAdmin),
+  DiscordManagementRead: buildAccountManagerPermissionId(AccountManagerKeycloakRole.DiscordManagementRead),
+  DiscordManagementUpdate: buildAccountManagerPermissionId(AccountManagerKeycloakRole.DiscordManagementUpdate),
+  StudentVerificationRead: buildAccountManagerPermissionId(AccountManagerKeycloakRole.StudentVerificationRead),
+  StudentVerificationReview: buildAccountManagerPermissionId(AccountManagerKeycloakRole.StudentVerificationReview),
+  StudentVerificationDownload: buildAccountManagerPermissionId(AccountManagerKeycloakRole.StudentVerificationDownload),
+  AccountDeletionRead: buildAccountManagerPermissionId(AccountManagerKeycloakRole.AccountDeletionRead),
+  AccountDeletionUpdate: buildAccountManagerPermissionId(AccountManagerKeycloakRole.AccountDeletionUpdate),
+  PermissionGrantRead: buildAccountManagerPermissionId(AccountManagerKeycloakRole.PermissionGrantRead),
+  PermissionGrantAssign: buildAccountManagerPermissionId(AccountManagerKeycloakRole.PermissionGrantAssign),
+  PermissionGrantRevoke: buildAccountManagerPermissionId(AccountManagerKeycloakRole.PermissionGrantRevoke),
+  PermissionGrantSync: buildAccountManagerPermissionId(AccountManagerKeycloakRole.PermissionGrantSync),
 } as const;
 
-export type AccountManagerPermission =
-  (typeof AccountManagerPermission)[keyof typeof AccountManagerPermission];
+export type AccountManagerPermission = (typeof AccountManagerPermission)[keyof typeof AccountManagerPermission];
 
 export const ACCOUNT_MANAGER_ADMIN_PERMISSIONS = [
   AccountManagerPermission.DiscordManagementRead,
@@ -173,8 +135,7 @@ export const PermissionGroupKey = {
   SecomppSystems: 'SECOMPP_SYSTEMS',
 } as const;
 
-export type PermissionGroupKey =
-  (typeof PermissionGroupKey)[keyof typeof PermissionGroupKey];
+export type PermissionGroupKey = (typeof PermissionGroupKey)[keyof typeof PermissionGroupKey];
 
 export interface PermissionGroupDefinition {
   key: PermissionGroupKey;
@@ -195,8 +156,7 @@ export const PERMISSION_GROUP_CATALOG = [
     description: 'Centro Academico da Ciencia da Computacao.',
     rootLabel: 'Entidades estudantis',
     keycloakGroupId: '5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
-    keycloakGroupIdPath:
-      '27337291-8ad5-40a7-9267-d70cfa60a2de/5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
+    keycloakGroupIdPath: '27337291-8ad5-40a7-9267-d70cfa60a2de/5470bc10-d4f5-47c7-90cc-a4dd62ecd163',
     keycloakGroupPath: '/Entidades estudantis/CACiC',
     discordRoleId: '533900085642133504',
     managedBy: PermissionGroupKey.Cacic,
@@ -207,8 +167,7 @@ export const PERMISSION_GROUP_CATALOG = [
     description: 'Empresa Junior de Computacao.',
     rootLabel: 'Entidades estudantis',
     keycloakGroupId: '5a3de54b-21f1-4db1-9513-a450f325e151',
-    keycloakGroupIdPath:
-      '27337291-8ad5-40a7-9267-d70cfa60a2de/5a3de54b-21f1-4db1-9513-a450f325e151',
+    keycloakGroupIdPath: '27337291-8ad5-40a7-9267-d70cfa60a2de/5a3de54b-21f1-4db1-9513-a450f325e151',
     keycloakGroupPath: '/Entidades estudantis/EJComp',
     discordRoleId: '1400636044050960425',
     managedBy: PermissionGroupKey.Cacic,
@@ -219,8 +178,7 @@ export const PERMISSION_GROUP_CATALOG = [
     description: 'Comissao eleitoral do CACiC.',
     rootLabel: 'Comissões',
     keycloakGroupId: 'dfd321d2-ef57-4851-9bc4-6e6c09192a7c',
-    keycloakGroupIdPath:
-      '0f0463d1-f0a9-4412-ae21-2ab8c812891e/dfd321d2-ef57-4851-9bc4-6e6c09192a7c',
+    keycloakGroupIdPath: '0f0463d1-f0a9-4412-ae21-2ab8c812891e/dfd321d2-ef57-4851-9bc4-6e6c09192a7c',
     keycloakGroupPath: '/Comissões/Eleições CACiC',
     managedBy: PermissionGroupKey.Cacic,
   },
@@ -230,8 +188,7 @@ export const PERMISSION_GROUP_CATALOG = [
     description: 'Comissao organizadora da SECOMPP.',
     rootLabel: 'Comissões',
     keycloakGroupId: 'f71d95d0-256d-44fc-91ed-0e7c64f1ce1f',
-    keycloakGroupIdPath:
-      '0f0463d1-f0a9-4412-ae21-2ab8c812891e/f71d95d0-256d-44fc-91ed-0e7c64f1ce1f',
+    keycloakGroupIdPath: '0f0463d1-f0a9-4412-ae21-2ab8c812891e/f71d95d0-256d-44fc-91ed-0e7c64f1ce1f',
     keycloakGroupPath: '/Comissões/SECOMPP',
     discordRoleId: '1520835558849642617',
     managedBy: PermissionGroupKey.Cacic,
@@ -254,15 +211,11 @@ export const PERMISSION_GROUP_SET = new Set<PermissionGroupKey>(
   PERMISSION_GROUP_CATALOG.map((definition) => definition.key),
 );
 
-export const PERMISSION_GROUP_DISCORD_ROLE_IDS = (
-  PERMISSION_GROUP_CATALOG as readonly PermissionGroupDefinition[]
-)
+export const PERMISSION_GROUP_DISCORD_ROLE_IDS = (PERMISSION_GROUP_CATALOG as readonly PermissionGroupDefinition[])
   .map((definition) => definition.discordRoleId)
   .filter((roleId): roleId is string => !!roleId);
 
-export function isPermissionGroupKey(
-  value: string,
-): value is PermissionGroupKey {
+export function isPermissionGroupKey(value: string): value is PermissionGroupKey {
   return PERMISSION_GROUP_SET.has(value as PermissionGroupKey);
 }
 
@@ -346,10 +299,7 @@ export interface PermissionGroupRoleGrantUpdateRequest {
   permissions: string[];
 }
 
-export type PermissionGroupMembershipStatus =
-  | 'active'
-  | 'scheduled'
-  | 'expired';
+export type PermissionGroupMembershipStatus = 'active' | 'scheduled' | 'expired';
 
 export interface PermissionGroupMembership {
   id: string;
@@ -403,10 +353,8 @@ export type AssignableKeycloakPermission = string;
 export type StudentEntityKey = PermissionGroupKey;
 export type StudentEntityDefinition = PermissionGroupDefinition;
 export type StudentEntityMembership = PermissionGroupMembership;
-export type StudentEntityMembershipCreateRequest =
-  PermissionGroupMembershipCreateRequest;
-export type StudentEntityMembershipUpdateRequest =
-  PermissionGroupMembershipUpdateRequest;
+export type StudentEntityMembershipCreateRequest = PermissionGroupMembershipCreateRequest;
+export type StudentEntityMembershipUpdateRequest = PermissionGroupMembershipUpdateRequest;
 export type StudentEntityMembershipStatus = PermissionGroupMembershipStatus;
 
 export const STUDENT_ENTITY_CATALOG = PERMISSION_GROUP_CATALOG;

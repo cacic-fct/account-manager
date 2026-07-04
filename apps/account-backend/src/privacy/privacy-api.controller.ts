@@ -1,19 +1,5 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  BadRequestException,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { M2M_PRIVACY_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import { PrivacyService } from './privacy.service';
@@ -22,10 +8,7 @@ import {
   createDefaultPrivacySettings,
   PrivacySettingTypeValue,
 } from './constants/privacy-setting.constants';
-import {
-  ApiPrivacySettingResponseDto,
-  BulkPrivacySettingsDto,
-} from './dto/privacy-setting.dto';
+import { ApiPrivacySettingResponseDto, BulkPrivacySettingsDto } from './dto/privacy-setting.dto';
 
 @ApiTags('External API - Privacy Settings')
 @Controller('v1/privacy')
@@ -47,9 +30,7 @@ export class PrivacyApiController {
     description: 'User privacy settings retrieved successfully',
     type: [ApiPrivacySettingResponseDto],
   })
-  async getUserPrivacySettings(
-    @Param('userId') userId: string,
-  ): Promise<ApiPrivacySettingResponseDto[]> {
+  async getUserPrivacySettings(@Param('userId') userId: string): Promise<ApiPrivacySettingResponseDto[]> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }
@@ -75,12 +56,7 @@ export class PrivacyApiController {
     description: 'Type of privacy setting to retrieve',
     schema: {
       type: 'string',
-      enum: [
-        'analytics_tracking',
-        'error_debugging',
-        'performance_monitoring',
-        'cookie_banner_accepted',
-      ],
+      enum: ['analytics_tracking', 'error_debugging', 'performance_monitoring', 'cookie_banner_accepted'],
     },
   })
   @ApiResponse({
@@ -96,11 +72,7 @@ export class PrivacyApiController {
       throw new BadRequestException('User ID is required');
     }
 
-    if (
-      !Object.values(PRIVACY_SETTING_TYPES).includes(
-        settingType as PrivacySettingTypeValue,
-      )
-    ) {
+    if (!Object.values(PRIVACY_SETTING_TYPES).includes(settingType as PrivacySettingTypeValue)) {
       throw new BadRequestException('Invalid setting type');
     }
 
@@ -118,8 +90,7 @@ export class PrivacyApiController {
   @Get('user/:userId/cookie-consent')
   @ApiOperation({
     summary: 'Check cookie consent status',
-    description:
-      'Check if user has given cookie consent. Requires M2M authentication with privacy:read realm role.',
+    description: 'Check if user has given cookie consent. Requires M2M authentication with privacy:read realm role.',
   })
   @ApiResponse({
     status: 200,
@@ -143,9 +114,7 @@ export class PrivacyApiController {
 
     return {
       hasConsent: userSettings?.settings.cookie_banner_accepted ?? false,
-      consentDate: userSettings?.settings.cookie_banner_accepted
-        ? userSettings.updatedAt
-        : null,
+      consentDate: userSettings?.settings.cookie_banner_accepted ? userSettings.updatedAt : null,
     };
   }
 
@@ -160,9 +129,7 @@ export class PrivacyApiController {
     status: 200,
     description: 'Cookie consent recorded successfully',
   })
-  async recordCookieConsent(
-    @Param('userId') userId: string,
-  ): Promise<{ success: boolean }> {
+  async recordCookieConsent(@Param('userId') userId: string): Promise<{ success: boolean }> {
     if (!userId || userId.trim() === '') {
       throw new BadRequestException('User ID is required');
     }
@@ -175,8 +142,7 @@ export class PrivacyApiController {
   @Post('user/:userId/settings/bulk')
   @ApiOperation({
     summary: 'Bulk update privacy settings',
-    description:
-      'Update multiple privacy settings at once. Requires M2M authentication with privacy:write realm role.',
+    description: 'Update multiple privacy settings at once. Requires M2M authentication with privacy:write realm role.',
   })
   @RequireRoles(M2M_PRIVACY_ROLES.WRITE)
   @ApiResponse({
@@ -191,10 +157,7 @@ export class PrivacyApiController {
       throw new BadRequestException('User ID is required');
     }
 
-    const updated = await this.privacyService.bulkUpdateSettings(
-      userId,
-      settingsDto.settings,
-    );
+    const updated = await this.privacyService.bulkUpdateSettings(userId, settingsDto.settings);
 
     return { success: true, updated };
   }

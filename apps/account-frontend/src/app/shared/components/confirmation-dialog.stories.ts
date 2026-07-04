@@ -2,10 +2,7 @@ import type { Meta, StoryObj } from '@storybook/angular';
 import { action } from 'storybook/actions';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
-import {
-  ConfirmationDialogComponent,
-  type ConfirmationDialogData,
-} from './confirmation-dialog.component';
+import { ConfirmationDialogComponent, type ConfirmationDialogData } from './confirmation-dialog.component';
 
 const createDialogRefStub = () => ({
   close: action('dialog-close'),

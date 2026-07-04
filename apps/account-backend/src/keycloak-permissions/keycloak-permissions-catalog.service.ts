@@ -6,18 +6,9 @@ import {
   KeycloakPermissionDefinition,
   parseKeycloakPermissionId,
 } from '@cacic/shared-types';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { KeycloakService } from '../auth/services/keycloak.service';
-import {
-  fallbackAccountManagerDefinitions,
-  getRoleLabel,
-  isDbManagedRole,
-} from './keycloak-permissions.helpers';
+import { fallbackAccountManagerDefinitions, getRoleLabel, isDbManagedRole } from './keycloak-permissions.helpers';
 
 interface KeycloakPermissionCatalogSnapshot {
   definitions: KeycloakPermissionDefinition[];
@@ -55,9 +46,7 @@ export class KeycloakPermissionsCatalogService {
     const results = await Promise.all(
       KEYCLOAK_PERMISSION_CLIENTS.map(async (client) => {
         try {
-          const roles = await this.keycloakService.listClientRoles(
-            client.clientId,
-          );
+          const roles = await this.keycloakService.listClientRoles(client.clientId);
           const definitions = roles
             .filter((role) => isDbManagedRole(role.name))
             .map((role) => ({
@@ -75,9 +64,7 @@ export class KeycloakPermissionsCatalogService {
             return { definitions, unavailableClientId: undefined };
           }
 
-          const knownPermissions = new Set(
-            definitions.map((definition) => definition.permission),
-          );
+          const knownPermissions = new Set(definitions.map((definition) => definition.permission));
           return {
             definitions: [
               ...definitions,
@@ -88,20 +75,11 @@ export class KeycloakPermissionsCatalogService {
             unavailableClientId: undefined,
           };
         } catch (error) {
-          this.logger.warn(
-            `Failed to load Keycloak roles for ${client.clientId}`,
-            error,
-          );
+          this.logger.warn(`Failed to load Keycloak roles for ${client.clientId}`, error);
 
           return {
-            definitions:
-              client.clientId === 'cacic-account-manager'
-                ? fallbackAccountManagerDefinitions()
-                : [],
-            unavailableClientId:
-              client.clientId === 'cacic-account-manager'
-                ? undefined
-                : client.clientId,
+            definitions: client.clientId === 'cacic-account-manager' ? fallbackAccountManagerDefinitions() : [],
+            unavailableClientId: client.clientId === 'cacic-account-manager' ? undefined : client.clientId,
           };
         }
       }),
@@ -109,11 +87,7 @@ export class KeycloakPermissionsCatalogService {
 
     const definitions = results
       .flatMap((result) => result.definitions)
-      .sort((left, right) =>
-        `${left.clientLabel}:${left.label}`.localeCompare(
-          `${right.clientLabel}:${right.label}`,
-        ),
-      );
+      .sort((left, right) => `${left.clientLabel}:${left.label}`.localeCompare(`${right.clientLabel}:${right.label}`));
     const unavailableClientIds: string[] = [];
     for (const result of results) {
       if (result.unavailableClientId) {
@@ -125,9 +99,7 @@ export class KeycloakPermissionsCatalogService {
       definitions,
       unavailableClientIds,
       unavailableClientIdSet: new Set(unavailableClientIds),
-      knownPermissions: new Set(
-        definitions.map((definition) => definition.permission),
-      ),
+      knownPermissions: new Set(definitions.map((definition) => definition.permission)),
     };
   }
 
@@ -139,8 +111,7 @@ export class KeycloakPermissionsCatalogService {
     group: PermissionGroupDefinition,
     options: { allowPartial?: boolean } = {},
   ): Promise<KeycloakPermissionDefinition[]> {
-    return (await this.loadKeycloakGroupPermissions(group, options))
-      .permissions;
+    return (await this.loadKeycloakGroupPermissions(group, options)).permissions;
   }
 
   async listKeycloakGroupPermissionsWithAvailability(
@@ -165,10 +136,7 @@ export class KeycloakPermissionsCatalogService {
         try {
           return {
             client,
-            roles: await this.keycloakService.getGroupClientRoles(
-              group.keycloakGroupId,
-              client.clientId,
-            ),
+            roles: await this.keycloakService.getGroupClientRoles(group.keycloakGroupId, client.clientId),
             error: undefined,
           };
         } catch (error) {
@@ -199,10 +167,7 @@ export class KeycloakPermissionsCatalogService {
         ...result.roles
           .filter((roleName) => isDbManagedRole(roleName))
           .map((roleName) => ({
-            permission: buildKeycloakPermissionId(
-              result.client.clientId,
-              roleName,
-            ),
+            permission: buildKeycloakPermissionId(result.client.clientId, roleName),
             clientId: result.client.clientId,
             clientLabel: result.client.label,
             roleName,
@@ -225,10 +190,7 @@ export class KeycloakPermissionsCatalogService {
       ...new Set(
         permissions
           .map((permission) => parseKeycloakPermissionId(permission)?.clientId)
-          .filter(
-            (clientId): clientId is string =>
-              !!clientId && catalog.unavailableClientIdSet.has(clientId),
-          ),
+          .filter((clientId): clientId is string => !!clientId && catalog.unavailableClientIdSet.has(clientId)),
       ),
     ];
     if (requestedUnavailableClientIds.length > 0) {
@@ -237,14 +199,10 @@ export class KeycloakPermissionsCatalogService {
       );
     }
 
-    const unknown = permissions.filter(
-      (permission) => !catalog.knownPermissions.has(permission),
-    );
+    const unknown = permissions.filter((permission) => !catalog.knownPermissions.has(permission));
 
     if (unknown.length > 0) {
-      throw new BadRequestException(
-        `Permissão inválida: ${unknown.join(', ')}.`,
-      );
+      throw new BadRequestException(`Permissão inválida: ${unknown.join(', ')}.`);
     }
   }
 }

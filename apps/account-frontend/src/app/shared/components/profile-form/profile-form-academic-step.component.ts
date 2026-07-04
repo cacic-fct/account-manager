@@ -40,14 +40,10 @@ export class ProfileFormAcademicStepComponent {
   }
 
   showUnespRoleResetWarning(): boolean {
-    return (
-      this.isEditMode() && this.isUserVerified() && this.unespRoleWillReset()
-    );
+    return this.isEditMode() && this.isUserVerified() && this.unespRoleWillReset();
   }
 
   showEnrollmentResetWarning(): boolean {
-    return (
-      this.isEditMode() && this.isUserVerified() && this.enrollmentWillReset()
-    );
+    return this.isEditMode() && this.isUserVerified() && this.enrollmentWillReset();
   }
 }

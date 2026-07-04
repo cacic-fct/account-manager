@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { DiscordServerSettings } from '@prisma/client';
-import {
-  ServerSettingDto,
-  UpdateServerSettingDto,
-} from '../dto/server-settings.dto';
+import { ServerSettingDto, UpdateServerSettingDto } from '../dto/server-settings.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -23,10 +20,7 @@ export class DiscordSettingsService {
   /**
    * Update server setting
    */
-  async updateServerSetting(
-    key: string,
-    dto: UpdateServerSettingDto,
-  ): Promise<ServerSettingDto> {
+  async updateServerSetting(key: string, dto: UpdateServerSettingDto): Promise<ServerSettingDto> {
     const setting = await this.prisma.discordServerSettings.upsert({
       where: { settingKey: key },
       update: { settingValue: dto.value },

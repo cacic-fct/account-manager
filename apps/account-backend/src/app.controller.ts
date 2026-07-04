@@ -9,8 +9,7 @@ export class AppController {
 
   @ApiOperation({
     summary: 'Health check',
-    description:
-      'Simple health check endpoint that returns a greeting message.',
+    description: 'Simple health check endpoint that returns a greeting message.',
   })
   @ApiResponse({
     status: 200,
@@ -27,8 +26,7 @@ export class AppController {
 
   @ApiOperation({
     summary: 'Comprehensive health check',
-    description:
-      'Comprehensive health check that includes Redis connection status.',
+    description: 'Comprehensive health check that includes Redis connection status.',
   })
   @ApiResponse({
     status: 200,

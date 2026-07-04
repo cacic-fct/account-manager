@@ -19,9 +19,7 @@ function run(command, args, options = {}) {
   });
 
   if (result.status !== 0) {
-    throw new Error(
-      `${command} ${args.join(' ')} exited with status ${result.status}`,
-    );
+    throw new Error(`${command} ${args.join(' ')} exited with status ${result.status}`);
   }
 }
 
@@ -47,9 +45,7 @@ async function waitForUrl(url, label, timeoutMs = 120_000) {
   }
 
   throw new Error(
-    `Timed out waiting for ${label} at ${url}: ${
-      lastError instanceof Error ? lastError.message : String(lastError)
-    }`,
+    `Timed out waiting for ${label} at ${url}: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
   );
 }
 
@@ -66,8 +62,7 @@ function buildTestEnv() {
     KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
     KEYCLOAK_CLIENT_SECRET: 'cacic-account-manager-dev-secret',
     KEYCLOAK_ADMIN_CLIENT_ID: 'cacic-account-manager-admin-client',
-    KEYCLOAK_ADMIN_CLIENT_SECRET:
-      'cacic-account-manager-admin-client-dev-secret',
+    KEYCLOAK_ADMIN_CLIENT_SECRET: 'cacic-account-manager-admin-client-dev-secret',
     KEYCLOAK_M2M_CLIENT_ID: 'cacic-account-manager-m2m',
     KEYCLOAK_M2M_CLIENT_SECRET: 'cacic-account-manager-m2m-dev-secret',
     KEYCLOAK_M2M_AUDIENCE: 'cacic-account-manager-audience',
@@ -86,20 +81,11 @@ async function main() {
   dockerCompose(['down', '-v', '--remove-orphans']);
   dockerCompose(['up', '-d']);
 
-  await waitForUrl(
-    `${keycloakUrl}/realms/cacic-sso/.well-known/openid-configuration`,
-    'test Keycloak',
-  );
+  await waitForUrl(`${keycloakUrl}/realms/cacic-sso/.well-known/openid-configuration`, 'test Keycloak');
 
   run(
     process.platform === 'win32' ? 'bun.cmd' : 'bun',
-    [
-      'run',
-      'jest',
-      '--config',
-      './test/jest-keycloak-e2e.json',
-      '--runInBand',
-    ],
+    ['run', 'jest', '--config', './test/jest-keycloak-e2e.json', '--runInBand'],
     {
       cwd: `${rootDir}/apps/account-backend`,
       env: testEnv,

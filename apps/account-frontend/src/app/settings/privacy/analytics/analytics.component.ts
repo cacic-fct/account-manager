@@ -1,11 +1,4 @@
-import {
-  Component,
-  OnInit,
-  inject,
-  signal,
-  computed,
-  DestroyRef
-} from '@angular/core';
+import { Component, OnInit, inject, signal, computed, DestroyRef } from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -64,8 +57,7 @@ export class AnalyticsComponent implements OnInit {
     {
       key: 'analytics_tracking',
       title: 'Análise',
-      description:
-        'Para entendermos como nossas aplicações são utilizadas e, com isso, para melhorá-las continuamente',
+      description: 'Para entendermos como nossas aplicações são utilizadas e, com isso, para melhorá-las continuamente',
       icon: 'timeline',
     },
     {
@@ -78,8 +70,7 @@ export class AnalyticsComponent implements OnInit {
     {
       key: 'performance_monitoring',
       title: 'Performance',
-      description:
-        'Coleta de performance das aplicações para resolver problemas de lentidão',
+      description: 'Coleta de performance das aplicações para resolver problemas de lentidão',
       icon: 'speed',
     },
   ];
@@ -120,14 +111,10 @@ export class AnalyticsComponent implements OnInit {
         },
         error: (error) => {
           console.error('Error loading privacy settings:', error);
-          this.snackBar.open(
-            'Erro ao carregar configurações de privacidade',
-            'Fechar',
-            {
-              duration: 5000,
-              panelClass: ['error-snackbar'],
-            },
-          );
+          this.snackBar.open('Erro ao carregar configurações de privacidade', 'Fechar', {
+            duration: 5000,
+            panelClass: ['error-snackbar'],
+          });
         },
       });
   }
@@ -150,14 +137,10 @@ export class AnalyticsComponent implements OnInit {
             [toggleKey]: false,
           }));
 
-          this.snackBar.open(
-            `Configuração ${enabled ? 'ativada' : 'desativada'} com sucesso`,
-            'Fechar',
-            {
-              duration: 3000,
-              panelClass: ['success-snackbar'],
-            },
-          );
+          this.snackBar.open(`Configuração ${enabled ? 'ativada' : 'desativada'} com sucesso`, 'Fechar', {
+            duration: 3000,
+            panelClass: ['success-snackbar'],
+          });
         },
         error: (error) => {
           console.error('Error updating privacy setting:', error);
@@ -168,14 +151,10 @@ export class AnalyticsComponent implements OnInit {
             [toggleKey]: false,
           }));
 
-          this.snackBar.open(
-            'Erro ao atualizar configuração de privacidade',
-            'Fechar',
-            {
-              duration: 5000,
-              panelClass: ['error-snackbar'],
-            },
-          );
+          this.snackBar.open('Erro ao atualizar configuração de privacidade', 'Fechar', {
+            duration: 5000,
+            panelClass: ['error-snackbar'],
+          });
         },
       });
   }

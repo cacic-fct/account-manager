@@ -17,10 +17,7 @@ import { AccountLinkingService } from './account-linking.service';
 type KeycloakServiceMock = {
   getUserBasicInfo: jest.Mock;
   getEndSessionUrl: jest.Mock;
-  getAuthUrl: jest.Mock<
-    ReturnType<KeycloakService['getAuthUrl']>,
-    Parameters<KeycloakService['getAuthUrl']>
-  >;
+  getAuthUrl: jest.Mock<ReturnType<KeycloakService['getAuthUrl']>, Parameters<KeycloakService['getAuthUrl']>>;
   exchangeCodeForTokens: jest.Mock;
   getUserInfo: jest.Mock;
 };
@@ -96,10 +93,7 @@ describe('AccountLinkingController', () => {
     keycloakService = {
       getUserBasicInfo: jest.fn(),
       getEndSessionUrl: jest.fn(),
-      getAuthUrl: jest.fn<
-        ReturnType<KeycloakService['getAuthUrl']>,
-        Parameters<KeycloakService['getAuthUrl']>
-      >(),
+      getAuthUrl: jest.fn<ReturnType<KeycloakService['getAuthUrl']>, Parameters<KeycloakService['getAuthUrl']>>(),
       exchangeCodeForTokens: jest.fn(),
       getUserInfo: jest.fn(),
     };
@@ -176,9 +170,7 @@ describe('AccountLinkingController', () => {
       enabled: false,
     });
 
-    await request(app!.getHttpServer())
-      .get('/auth/account-linking/merge-requests/merge-request-1')
-      .expect(403);
+    await request(app!.getHttpServer()).get('/auth/account-linking/merge-requests/merge-request-1').expect(403);
 
     expect(accountLinkingService.getRequest).not.toHaveBeenCalled();
     expect(userService.findByKeycloakId).not.toHaveBeenCalled();
@@ -199,14 +191,9 @@ describe('AccountLinkingController', () => {
       isOnboarded: true,
     });
 
-    await request(app!.getHttpServer())
-      .get('/auth/account-linking/merge-requests/merge-request-1')
-      .expect(200);
+    await request(app!.getHttpServer()).get('/auth/account-linking/merge-requests/merge-request-1').expect(200);
 
-    expect(accountLinkingService.getRequest).toHaveBeenCalledWith(
-      'merge-request-1',
-      'secondary-user',
-    );
+    expect(accountLinkingService.getRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
     expect(session.user).toEqual({
       id: 'local-primary-user',
       email: 'primary@example.com',
@@ -238,9 +225,7 @@ describe('AccountLinkingController', () => {
     await controller.resumeGoogleLinking('state-1', session, res);
 
     const getAuthUrlCall = keycloakService.getAuthUrl.mock.calls[0];
-    expect(getAuthUrlCall?.[0]).toBe(
-      'http://localhost:3000/api/auth/account-linking/google/callback',
-    );
+    expect(getAuthUrlCall?.[0]).toBe('http://localhost:3000/api/auth/account-linking/google/callback');
     expect(getAuthUrlCall?.[1]).toBe('state-1');
     const getAuthUrlOptions = getAuthUrlCall?.[2];
     expect(getAuthUrlOptions).toMatchObject({
@@ -263,9 +248,7 @@ describe('AccountLinkingController', () => {
     expect(session.accountLinkingState).toBeUndefined();
     expect(session.accountLinkingUserId).toBeUndefined();
     expect(session.accountLinkingCodeVerifier).toBeUndefined();
-    expect(redirect).toHaveBeenCalledWith(
-      'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
-    );
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/settings/linked-accounts/google?accountLink=failed');
   });
 
   it('creates a merge request for a newly authenticated different Google account', async () => {
@@ -298,10 +281,7 @@ describe('AccountLinkingController', () => {
       'http://localhost:3000/api/auth/account-linking/google/callback',
       'verifier-1',
     );
-    expect(accountLinkingService.createMergeRequest).toHaveBeenCalledWith(
-      'secondary-user',
-      'candidate-user',
-    );
+    expect(accountLinkingService.createMergeRequest).toHaveBeenCalledWith('secondary-user', 'candidate-user');
     expect(redirect).toHaveBeenLastCalledWith(
       'http://localhost:4200/settings/linked-accounts/google?accountLink=merge-required&merge_request=merge-request-1',
     );
@@ -314,9 +294,7 @@ describe('AccountLinkingController', () => {
 
     await controller.googleCallback('code-1', 'state-1', '', session, res);
 
-    expect(redirect).toHaveBeenCalledWith(
-      'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
-    );
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/settings/linked-accounts/google?accountLink=failed');
     expect(session.accountLinkingState).toBeUndefined();
   });
 
@@ -325,18 +303,10 @@ describe('AccountLinkingController', () => {
     session.accountLinkingState = 'state-1';
     session.accountLinkingUserId = 'secondary-user';
 
-    await controller.googleCallback(
-      '',
-      'state-1',
-      'access_denied',
-      session,
-      res,
-    );
+    await controller.googleCallback('', 'state-1', 'access_denied', session, res);
 
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(
-      'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
-    );
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/settings/linked-accounts/google?accountLink=failed');
   });
 
   it('clears state and redirects to failure when callback state is invalid', async () => {
@@ -351,9 +321,7 @@ describe('AccountLinkingController', () => {
     expect(session.accountLinkingUserId).toBeUndefined();
     expect(session.accountLinkingCodeVerifier).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(
-      'http://localhost:4200/settings/linked-accounts/google?accountLink=failed',
-    );
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/settings/linked-accounts/google?accountLink=failed');
   });
 
   it('redirects already-linked Google accounts without creating a merge request', async () => {
@@ -395,37 +363,26 @@ describe('AccountLinkingController', () => {
     });
 
     await expect(
-      controller.confirmMerge(
-        'merge-request-1',
-        { primaryEmail: 'primary@example.com' },
-        session,
-      ),
+      controller.confirmMerge('merge-request-1', { primaryEmail: 'primary@example.com' }, session),
     ).resolves.toEqual({
       primaryUserId: 'primary-user',
       mergedUserId: 'secondary-user',
     });
-    await expect(
-      controller.cancelMerge('merge-request-1', session),
-    ).resolves.toEqual({ success: true });
+    await expect(controller.cancelMerge('merge-request-1', session)).resolves.toEqual({ success: true });
 
     expect(accountLinkingService.confirmMerge).toHaveBeenCalledWith(
       'merge-request-1',
       'secondary-user',
       'primary@example.com',
     );
-    expect(accountLinkingService.cancelRequest).toHaveBeenCalledWith(
-      'merge-request-1',
-      'secondary-user',
-    );
+    expect(accountLinkingService.cancelRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
   });
 
   it('leaves the session unchanged when a completed merge primary user cannot be loaded', async () => {
     accountLinkingService.getRequest.mockResolvedValue(createMergeRequest());
     userService.findByKeycloakId.mockResolvedValue(null);
 
-    await expect(
-      controller.getMergeRequest('merge-request-1', session),
-    ).resolves.toEqual(createMergeRequest());
+    await expect(controller.getMergeRequest('merge-request-1', session)).resolves.toEqual(createMergeRequest());
 
     expect(session.user?.keycloakId).toBe('secondary-user');
   });
@@ -434,10 +391,7 @@ describe('AccountLinkingController', () => {
     const internals = controller as unknown as {
       secureCompare: (a: string, b: string) => boolean;
       googleIntegrationUrl: () => string;
-      switchSessionToUser: (
-        session: AuthSession,
-        keycloakId: string,
-      ) => Promise<void>;
+      switchSessionToUser: (session: AuthSession, keycloakId: string) => Promise<void>;
     };
     const emptySession = {
       destroy: jest.fn(),
@@ -451,11 +405,7 @@ describe('AccountLinkingController', () => {
 
     await internals.switchSessionToUser(emptySession, 'primary-user');
 
-    expect(internals.googleIntegrationUrl()).toBe(
-      'http://localhost:4200/settings/linked-accounts/google',
-    );
-    expect(
-      internals.secureCompare(Symbol('bad') as unknown as string, 'state-1'),
-    ).toBe(false);
+    expect(internals.googleIntegrationUrl()).toBe('http://localhost:4200/settings/linked-accounts/google');
+    expect(internals.secureCompare(Symbol('bad') as unknown as string, 'state-1')).toBe(false);
   });
 });

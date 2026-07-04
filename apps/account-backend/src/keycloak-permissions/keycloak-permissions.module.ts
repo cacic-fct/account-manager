@@ -2,10 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DiscordBotModule } from '../discord/bot/discord-bot.module';
-import {
-  KeycloakPermissionsController,
-  UserPermissionsController,
-} from './keycloak-permissions.controller';
+import { KeycloakPermissionsController, UserPermissionsController } from './keycloak-permissions.controller';
 import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
 import { KeycloakPermissionsGrantsService } from './keycloak-permissions-grants.service';
 import { KeycloakPermissionsGroupRolesService } from './keycloak-permissions-group-roles.service';
@@ -16,11 +13,7 @@ import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.serv
 import { KEYCLOAK_PERMISSIONS_QUEUE } from './keycloak-permissions.queue';
 
 @Module({
-  imports: [
-    AuthModule,
-    DiscordBotModule,
-    BullModule.registerQueue({ name: KEYCLOAK_PERMISSIONS_QUEUE }),
-  ],
+  imports: [AuthModule, DiscordBotModule, BullModule.registerQueue({ name: KEYCLOAK_PERMISSIONS_QUEUE })],
   controllers: [KeycloakPermissionsController, UserPermissionsController],
   providers: [
     KeycloakPermissionsCatalogService,

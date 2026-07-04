@@ -2,12 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import type {
-  Application,
-  AuthStatus,
-  CreateUserProfile,
-  User,
-} from '@cacic/shared-types';
+import type { Application, AuthStatus, CreateUserProfile, User } from '@cacic/shared-types';
 import { CacheService } from '../cache.service';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_DURATIONS, API_CACHE_KEYS } from './api-cache.constants';
@@ -67,17 +62,11 @@ export class AuthApiService {
     );
   }
 
-  passwordLogin(
-    credentials: PasswordLoginRequest,
-  ): Observable<PasswordLoginResponse> {
+  passwordLogin(credentials: PasswordLoginRequest): Observable<PasswordLoginResponse> {
     return this.http
-      .post<PasswordLoginResponse>(
-        `${this.baseUrl}/auth/password-login`,
-        credentials,
-        {
-          withCredentials: true,
-        },
-      )
+      .post<PasswordLoginResponse>(`${this.baseUrl}/auth/password-login`, credentials, {
+        withCredentials: true,
+      })
       .pipe(
         tap(() => {
           this.clearAuthCache();
@@ -108,19 +97,14 @@ export class AuthApiService {
     return this.cacheService.getOrSet(
       API_CACHE_KEYS.UNESP_ROLE_REQUIRED,
       () =>
-        this.http.get<{ shouldShowUnespRoleSelection: boolean }>(
-          `${this.baseUrl}/auth/unesp-role-required`,
-          {
-            withCredentials: true,
-          },
-        ),
+        this.http.get<{ shouldShowUnespRoleSelection: boolean }>(`${this.baseUrl}/auth/unesp-role-required`, {
+          withCredentials: true,
+        }),
       API_CACHE_DURATIONS.UNESP_ROLE_REQUIRED,
     );
   }
 
-  logout(
-    postLogoutRedirectUri?: string,
-  ): Observable<{ success: boolean; logoutUrl?: string }> {
+  logout(postLogoutRedirectUri?: string): Observable<{ success: boolean; logoutUrl?: string }> {
     return this.http
       .post<{ success: boolean; logoutUrl?: string }>(
         `${this.baseUrl}/auth/logout`,
@@ -183,12 +167,9 @@ export class AuthApiService {
   }
 
   getAdminStatus(): Observable<{ isAdmin: boolean; adminGroups: string[] }> {
-    return this.http.get<{ isAdmin: boolean; adminGroups: string[] }>(
-      `${this.baseUrl}/auth/admin-status`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<{ isAdmin: boolean; adminGroups: string[] }>(`${this.baseUrl}/auth/admin-status`, {
+      withCredentials: true,
+    });
   }
 
   getApplications(): Observable<Application[]> {

@@ -60,40 +60,27 @@ export class DiscordApiService {
   }
 
   getDiscordAdminStatus(): Observable<{ isAdmin: boolean }> {
-    return this.http.get<{ isAdmin: boolean }>(
-      `${this.baseUrl}/discord/admin/status`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<{ isAdmin: boolean }>(`${this.baseUrl}/discord/admin/status`, {
+      withCredentials: true,
+    });
   }
 
   getServerSettings(): Observable<ServerSetting[]> {
     return this.cacheService.getOrSet(
       API_CACHE_KEYS.SERVER_SETTINGS,
       () =>
-        this.http.get<ServerSetting[]>(
-          `${this.baseUrl}/discord/admin/settings`,
-          {
-            withCredentials: true,
-          },
-        ),
+        this.http.get<ServerSetting[]>(`${this.baseUrl}/discord/admin/settings`, {
+          withCredentials: true,
+        }),
       API_CACHE_DURATIONS.SERVER_SETTINGS,
     );
   }
 
-  updateServerSetting(
-    key: string,
-    setting: UpdateServerSetting,
-  ): Observable<ServerSetting> {
+  updateServerSetting(key: string, setting: UpdateServerSetting): Observable<ServerSetting> {
     return this.http
-      .put<ServerSetting>(
-        `${this.baseUrl}/discord/admin/settings/${key}`,
-        setting,
-        {
-          withCredentials: true,
-        },
-      )
+      .put<ServerSetting>(`${this.baseUrl}/discord/admin/settings/${key}`, setting, {
+        withCredentials: true,
+      })
       .pipe(
         tap(() => {
           this.cacheService.invalidate(API_CACHE_KEYS.SERVER_SETTINGS);
@@ -102,24 +89,15 @@ export class DiscordApiService {
   }
 
   getDiscordRolesAdmin(): Observable<SelectableRoles> {
-    return this.http.get<SelectableRoles>(
-      `${this.baseUrl}/discord/roles/admin`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<SelectableRoles>(`${this.baseUrl}/discord/roles/admin`, {
+      withCredentials: true,
+    });
   }
 
-  updateDiscordRoleSelection(
-    dto: UpdateRoleSelection,
-  ): Observable<{ message: string }> {
-    return this.http.put<{ message: string }>(
-      `${this.baseUrl}/discord/roles/admin/selection`,
-      dto,
-      {
-        withCredentials: true,
-      },
-    );
+  updateDiscordRoleSelection(dto: UpdateRoleSelection): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/discord/roles/admin/selection`, dto, {
+      withCredentials: true,
+    });
   }
 
   syncDiscordRoles(): Observable<{ message: string }> {
@@ -132,9 +110,7 @@ export class DiscordApiService {
     );
   }
 
-  getDiscordManagedRoleCatalog(): Observable<
-    DiscordManagedRoleDefinition[]
-  > {
+  getDiscordManagedRoleCatalog(): Observable<DiscordManagedRoleDefinition[]> {
     return this.http.get<DiscordManagedRoleDefinition[]>(
       `${this.baseUrl}/discord/roles/admin/managed-role-overrides/catalog`,
       {
@@ -143,15 +119,10 @@ export class DiscordApiService {
     );
   }
 
-  getDiscordManagedRoleOverrides(): Observable<
-    DiscordManagedRoleOverride[]
-  > {
-    return this.http.get<DiscordManagedRoleOverride[]>(
-      `${this.baseUrl}/discord/roles/admin/managed-role-overrides`,
-      {
-        withCredentials: true,
-      },
-    );
+  getDiscordManagedRoleOverrides(): Observable<DiscordManagedRoleOverride[]> {
+    return this.http.get<DiscordManagedRoleOverride[]>(`${this.baseUrl}/discord/roles/admin/managed-role-overrides`, {
+      withCredentials: true,
+    });
   }
 
   createDiscordManagedRoleOverride(
@@ -179,9 +150,7 @@ export class DiscordApiService {
     );
   }
 
-  deleteDiscordManagedRoleOverride(
-    id: string,
-  ): Observable<{ deleted: true; id: string; userId: string }> {
+  deleteDiscordManagedRoleOverride(id: string): Observable<{ deleted: true; id: string; userId: string }> {
     return this.http.delete<{ deleted: true; id: string; userId: string }>(
       `${this.baseUrl}/discord/roles/admin/managed-role-overrides/${id}`,
       {
@@ -191,12 +160,9 @@ export class DiscordApiService {
   }
 
   getSelectableDiscordRoles(): Observable<DiscordRole[]> {
-    return this.http.get<DiscordRole[]>(
-      `${this.baseUrl}/discord/roles/selectable`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<DiscordRole[]>(`${this.baseUrl}/discord/roles/selectable`, {
+      withCredentials: true,
+    });
   }
 
   getUserDiscordRoles(): Observable<UserRoles> {
@@ -205,15 +171,9 @@ export class DiscordApiService {
     });
   }
 
-  updateUserDiscordRoles(
-    dto: UserRoleSelection,
-  ): Observable<RoleSelectionResponse> {
-    return this.http.put<RoleSelectionResponse>(
-      `${this.baseUrl}/discord/roles/user`,
-      dto,
-      {
-        withCredentials: true,
-      },
-    );
+  updateUserDiscordRoles(dto: UserRoleSelection): Observable<RoleSelectionResponse> {
+    return this.http.put<RoleSelectionResponse>(`${this.baseUrl}/discord/roles/user`, dto, {
+      withCredentials: true,
+    });
   }
 }

@@ -4,11 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import {
-  DiscordManagedRoleDefinition,
-  DiscordManagedRoleOverride,
-  KeycloakPermissionUser,
-} from '@cacic/shared-types';
+import { DiscordManagedRoleDefinition, DiscordManagedRoleOverride, KeycloakPermissionUser } from '@cacic/shared-types';
 import { ApiService } from '../../shared/services/api.service';
 import { DiscordManagedRoleOverridesComponent } from './discord-managed-role-overrides.component';
 
@@ -83,17 +79,11 @@ describe('DiscordManagedRoleOverridesComponent', () => {
       getDiscordManagedRoleCatalog: vi.fn().mockReturnValue(of(mockCatalog)),
       getDiscordManagedRoleOverrides: vi.fn().mockReturnValue(of([])),
       searchKeycloakPermissionUsers: vi.fn().mockReturnValue(of([mockUser])),
-      createDiscordManagedRoleOverride: vi
-        .fn()
-        .mockReturnValue(of(mockOverride)),
-      updateDiscordManagedRoleOverride: vi
-        .fn()
-        .mockReturnValue(of(mockOverride)),
+      createDiscordManagedRoleOverride: vi.fn().mockReturnValue(of(mockOverride)),
+      updateDiscordManagedRoleOverride: vi.fn().mockReturnValue(of(mockOverride)),
       deleteDiscordManagedRoleOverride: vi
         .fn()
-        .mockReturnValue(
-          of({ deleted: true, id: mockOverride.id, userId: mockUser.id }),
-        ),
+        .mockReturnValue(of({ deleted: true, id: mockOverride.id, userId: mockUser.id })),
     };
 
     await TestBed.configureTestingModule({
@@ -124,29 +114,22 @@ describe('DiscordManagedRoleOverridesComponent', () => {
   it('loads the hardcoded managed role catalog and override list', () => {
     expect(apiService.getDiscordManagedRoleCatalog).toHaveBeenCalled();
     expect(apiService.getDiscordManagedRoleOverrides).toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain(
-      'Cargos gerenciados',
-    );
+    expect(fixture.nativeElement.textContent).toContain('Cargos gerenciados');
     expect(fixture.nativeElement.textContent).toContain('Aluno da Computação');
   });
 
   it('creates an override for a searched Keycloak user with JSON data', () => {
-    const component =
-      fixture.componentInstance as unknown as OverrideHarness;
+    const component = fixture.componentInstance as unknown as OverrideHarness;
 
     component.searchForm.controls.query.setValue('student');
     component.searchUsers();
     component.selectUser(mockUser);
     component.overrideForm.controls.roleCategory.setValue('student');
     component.overrideForm.controls.reason.setValue('Conferido manualmente.');
-    component.overrideForm.controls.dataJson.setValue(
-      '{ "ticket": "CACIC-42" }',
-    );
+    component.overrideForm.controls.dataJson.setValue('{ "ticket": "CACIC-42" }');
     component.saveOverride();
 
-    expect(apiService.searchKeycloakPermissionUsers).toHaveBeenCalledWith(
-      'student',
-    );
+    expect(apiService.searchKeycloakPermissionUsers).toHaveBeenCalledWith('student');
     expect(apiService.createDiscordManagedRoleOverride).toHaveBeenCalledWith({
       userId: mockUser.id,
       roleCategory: 'student',
@@ -156,8 +139,7 @@ describe('DiscordManagedRoleOverridesComponent', () => {
   });
 
   it('loads an existing override into edit mode', () => {
-    const component =
-      fixture.componentInstance as unknown as OverrideHarness;
+    const component = fixture.componentInstance as unknown as OverrideHarness;
 
     component.selectOverride(mockOverride);
     fixture.detectChanges();

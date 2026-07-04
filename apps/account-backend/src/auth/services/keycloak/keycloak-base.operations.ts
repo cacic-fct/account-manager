@@ -15,18 +15,9 @@ export abstract class KeycloakBaseOperations {
   private readonly realmHealthCheckTimeoutMs = 5_000;
 
   constructor() {
-    this.keycloakUrl = this.readEnvWithDevelopmentFallback(
-      'KEYCLOAK_URL',
-      'http://localhost:8080',
-    );
-    this.realm = this.readEnvWithDevelopmentFallback(
-      'KEYCLOAK_REALM',
-      'cacic-sso',
-    );
-    this.clientId = this.readEnvWithDevelopmentFallback(
-      'KEYCLOAK_CLIENT_ID',
-      'cacic-account-manager',
-    );
+    this.keycloakUrl = this.readEnvWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
+    this.realm = this.readEnvWithDevelopmentFallback('KEYCLOAK_REALM', 'cacic-sso');
+    this.clientId = this.readEnvWithDevelopmentFallback('KEYCLOAK_CLIENT_ID', 'cacic-account-manager');
     this.clientAuthMethod = this.resolveClientAuthMethod();
     this.clientSecret = this.resolveClientSecret();
     this.adminClientId = this.readEnvWithDevelopmentFallback(
@@ -37,9 +28,7 @@ export abstract class KeycloakBaseOperations {
     this.loginIdpHint = this.resolveLoginIdpHint();
 
     if (this.isProduction() && !this.adminClientSecret) {
-      throw new Error(
-        'KEYCLOAK_ADMIN_CLIENT_SECRET must be configured in production',
-      );
+      throw new Error('KEYCLOAK_ADMIN_CLIENT_SECRET must be configured in production');
     }
   }
 
@@ -59,9 +48,7 @@ export abstract class KeycloakBaseOperations {
 
     if (error instanceof Error) {
       return connectionErrorMessages.some(
-        (msg) =>
-          error.message.includes(msg) ||
-          (error.cause instanceof Error && error.cause.message.includes(msg)),
+        (msg) => error.message.includes(msg) || (error.cause instanceof Error && error.cause.message.includes(msg)),
       );
     }
 
@@ -72,10 +59,7 @@ export abstract class KeycloakBaseOperations {
     return false;
   }
 
-  protected readEnvWithDevelopmentFallback(
-    name: string,
-    developmentFallback: string,
-  ): string {
+  protected readEnvWithDevelopmentFallback(name: string, developmentFallback: string): string {
     const value = this.readOptionalEnv(name);
     if (value) {
       return value;
@@ -103,10 +87,7 @@ export abstract class KeycloakBaseOperations {
   async isRealmReachable(): Promise<boolean> {
     const configurationUrl = `${this.keycloakUrl}/realms/${this.realm}/.well-known/openid-configuration`;
     const abortController = new AbortController();
-    const timeout = setTimeout(
-      () => abortController.abort(),
-      this.realmHealthCheckTimeoutMs,
-    );
+    const timeout = setTimeout(() => abortController.abort(), this.realmHealthCheckTimeoutMs);
 
     try {
       const response = await fetch(configurationUrl, {
@@ -138,12 +119,8 @@ export abstract class KeycloakBaseOperations {
       this.readOptionalEnv('KEYCLOAK_CLIENT_AUTH_METHOD');
 
     if (!configuredMethod) {
-      const hasClientSecret =
-        !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET') ||
-        !this.isProduction();
-      return hasClientSecret || this.isProduction()
-        ? 'client_secret_basic'
-        : 'none';
+      const hasClientSecret = !!this.readOptionalEnv('KEYCLOAK_CLIENT_SECRET') || !this.isProduction();
+      return hasClientSecret || this.isProduction() ? 'client_secret_basic' : 'none';
     }
 
     if (
@@ -155,10 +132,7 @@ export abstract class KeycloakBaseOperations {
     }
 
     throw new Error(
-      [
-        'KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD must be client_secret_basic,',
-        'client_secret_post, or none',
-      ].join(' '),
+      ['KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD must be client_secret_basic,', 'client_secret_post, or none'].join(' '),
     );
   }
 
@@ -239,20 +213,13 @@ export abstract class KeycloakBaseOperations {
 
   protected getAdminClientSecret(): string {
     if (!this.adminClientSecret) {
-      throw new Error(
-        [
-          'KEYCLOAK_ADMIN_CLIENT_SECRET must be configured for Keycloak admin',
-          'API calls',
-        ].join(' '),
-      );
+      throw new Error(['KEYCLOAK_ADMIN_CLIENT_SECRET must be configured for Keycloak admin', 'API calls'].join(' '));
     }
 
     return this.adminClientSecret;
   }
 
-  protected readResponseDebugHeaders(
-    response: Response,
-  ): Record<string, string | undefined> {
+  protected readResponseDebugHeaders(response: Response): Record<string, string | undefined> {
     return {
       contentType: response.headers.get('content-type') ?? undefined,
       contentLength: response.headers.get('content-length') ?? undefined,
@@ -275,9 +242,7 @@ export abstract class KeycloakBaseOperations {
    * Important: Response bodies can only be consumed once. This method reads text
    * first, then parses JSON from that text if possible.
    */
-  protected async readTokenError(
-    response: Response,
-  ): Promise<KeycloakTokenError> {
+  protected async readTokenError(response: Response): Promise<KeycloakTokenError> {
     const headers = this.readResponseDebugHeaders(response);
     const contentType = response.headers.get('content-type') ?? '';
 
@@ -290,9 +255,7 @@ export abstract class KeycloakBaseOperations {
 
           return {
             error: this.readString(body['error']),
-            errorDescription:
-              this.readString(body['error_description']) ??
-              this.readString(body['errorDescription']),
+            errorDescription: this.readString(body['error_description']) ?? this.readString(body['errorDescription']),
             bodyPreview: bodyPreview.slice(0, 1000),
             contentType,
             headers,
@@ -314,9 +277,7 @@ export abstract class KeycloakBaseOperations {
     } catch (error) {
       return {
         bodyPreview:
-          error instanceof Error
-            ? `Failed to read response body: ${error.message}`
-            : 'Failed to read response body',
+          error instanceof Error ? `Failed to read response body: ${error.message}` : 'Failed to read response body',
         contentType: contentType || undefined,
         headers,
       };

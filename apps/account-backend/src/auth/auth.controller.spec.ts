@@ -6,10 +6,7 @@ import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
 import { TotpService } from '../totp/totp.service';
 
-type KeycloakServiceMock = Pick<
-  jest.Mocked<KeycloakService>,
-  'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl'
->;
+type KeycloakServiceMock = Pick<jest.Mocked<KeycloakService>, 'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl'>;
 
 type UserServiceMock = Pick<
   jest.Mocked<UserService>,
@@ -87,8 +84,6 @@ describe('AuthController OAuth callback cleanup', () => {
     expect(session.silentLogin).toBeUndefined();
     expect(session.redirectTo).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(
-      'http://localhost:4200/login?error=auth_failed',
-    );
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
   });
 });

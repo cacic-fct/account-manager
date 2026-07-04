@@ -19,10 +19,7 @@ export interface AccountPermissionConfig {
   mode?: 'any' | 'all';
 }
 
-export const RequireAccountPermissions = (
-  permissions: readonly string[],
-  mode: 'any' | 'all' = 'any',
-) =>
+export const RequireAccountPermissions = (permissions: readonly string[], mode: 'any' | 'all' = 'any') =>
   SetMetadata(ACCOUNT_PERMISSIONS_KEY, {
     permissions,
     mode,
@@ -38,20 +35,16 @@ export class AccountPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const config = this.reflector.getAllAndOverride<AccountPermissionConfig>(
-      ACCOUNT_PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const config = this.reflector.getAllAndOverride<AccountPermissionConfig>(ACCOUNT_PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!config || config.permissions.length === 0) {
-      throw new ForbiddenException(
-        'Required Account Manager permissions are not configured',
-      );
+      throw new ForbiddenException('Required Account Manager permissions are not configured');
     }
 
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { session: AuthSession }>();
+    const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const userId = request.session?.user?.keycloakId;
 
     if (!userId) {
@@ -61,24 +54,11 @@ export class AccountPermissionGuard implements CanActivate {
     try {
       const hasPermission =
         config.mode === 'all'
-          ? await this.accountPermissionService.hasAllActivePermissions(
-              userId,
-              config.permissions,
-            )
-          : await this.accountPermissionService.hasAnyActivePermission(
-              userId,
-              config.permissions,
-            );
+          ? await this.accountPermissionService.hasAllActivePermissions(userId, config.permissions)
+          : await this.accountPermissionService.hasAnyActivePermission(userId, config.permissions);
 
-      if (
-        !hasPermission &&
-        !(await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
-          userId,
-        ))
-      ) {
-        throw new ForbiddenException(
-          'Required Account Manager permission missing',
-        );
+      if (!hasPermission && !(await this.accountPermissionService.hasAccountManagerSuperAdminAccess(userId))) {
+        throw new ForbiddenException('Required Account Manager permission missing');
       }
 
       return true;
@@ -88,9 +68,7 @@ export class AccountPermissionGuard implements CanActivate {
       }
 
       this.logger.error('Account permission verification failed', error);
-      throw new ForbiddenException(
-        'Unable to verify Account Manager permissions',
-      );
+      throw new ForbiddenException('Unable to verify Account Manager permissions');
     }
   }
 }

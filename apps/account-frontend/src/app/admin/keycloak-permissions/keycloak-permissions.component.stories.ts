@@ -72,10 +72,7 @@ export const InteractiveWorkspace: Story = {
     }
 
     const canvas = within(canvasElement);
-    await userEvent.type(
-      await canvas.findByLabelText('Nome, CPF ou e-mail'),
-      primaryUser.displayName.slice(0, 6),
-    );
+    await userEvent.type(await canvas.findByLabelText('Nome, CPF ou e-mail'), primaryUser.displayName.slice(0, 6));
     await userEvent.click(await canvas.findByRole('button', { name: /buscar/i }));
     await userEvent.click(await canvas.findByText(primaryUser.displayName));
   },

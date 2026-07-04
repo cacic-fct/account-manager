@@ -8,7 +8,6 @@ export const LINKED_ACCOUNT_ROUTE_PATHS = {
   unespStudentVerification: '/settings/linked-accounts/unesp/student-verification',
 } as const;
 
-export type LinkedAccountRoutePath =
-  (typeof LINKED_ACCOUNT_ROUTE_PATHS)[keyof typeof LINKED_ACCOUNT_ROUTE_PATHS];
+export type LinkedAccountRoutePath = (typeof LINKED_ACCOUNT_ROUTE_PATHS)[keyof typeof LINKED_ACCOUNT_ROUTE_PATHS];
 
 export type LinkedAccountIntegration = 'google' | 'discord' | 'unesp';

@@ -12,22 +12,9 @@ import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [ConfigModule, JwtModule, AuthModule],
-  controllers: [
-    PrivacyController,
-    PrivacyApiController,
-    PrivacyDirectiveController,
-    TrackingController,
-  ],
-  providers: [
-    PrivacyService,
-    PrivacyDirectiveService,
-    PrivacyDirectiveMiddleware,
-  ],
-  exports: [
-    PrivacyService,
-    PrivacyDirectiveService,
-    PrivacyDirectiveMiddleware,
-  ],
+  controllers: [PrivacyController, PrivacyApiController, PrivacyDirectiveController, TrackingController],
+  providers: [PrivacyService, PrivacyDirectiveService, PrivacyDirectiveMiddleware],
+  exports: [PrivacyService, PrivacyDirectiveService, PrivacyDirectiveMiddleware],
 })
 export class PrivacyModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

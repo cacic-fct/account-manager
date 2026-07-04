@@ -1,9 +1,4 @@
-import {
-  DestroyRef,
-  Injectable,
-  PLATFORM_ID,
-  inject,
-} from '@angular/core';
+import { DestroyRef, Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -42,8 +37,7 @@ export class AnalyticsService {
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly sentryDsn = environment.sentryDsn;
   private readonly sentryEnvironment =
-    environment.sentryEnvironment ??
-    (environment.production ? 'production' : 'development');
+    environment.sentryEnvironment ?? (environment.production ? 'production' : 'development');
 
   constructor() {
     if (!this.isBrowser) {
@@ -56,10 +50,7 @@ export class AnalyticsService {
 
     window.addEventListener('cookieBannerAccepted', handleCookieBannerAccepted);
     this.destroyRef.onDestroy(() => {
-      window.removeEventListener(
-        'cookieBannerAccepted',
-        handleCookieBannerAccepted,
-      );
+      window.removeEventListener('cookieBannerAccepted', handleCookieBannerAccepted);
     });
 
     const stopPreferencesListener = this.privacyService.onPreferencesChange(() => {
@@ -102,8 +93,7 @@ export class AnalyticsService {
         dsn,
         environment: this.sentryEnvironment,
         tracesSampleRate: 0.1,
-        beforeSend: (event) =>
-          this.privacyService.isErrorDebuggingEnabled() ? event : null,
+        beforeSend: (event) => (this.privacyService.isErrorDebuggingEnabled() ? event : null),
       });
     };
     script.onerror = () => {
@@ -117,8 +107,7 @@ export class AnalyticsService {
       return;
     }
 
-    const errorDebuggingEnabled =
-      this.privacyService.isErrorDebuggingEnabled();
+    const errorDebuggingEnabled = this.privacyService.isErrorDebuggingEnabled();
     if (errorDebuggingEnabled && !window.Sentry) {
       this.initializeSentry();
     }
@@ -133,12 +122,7 @@ export class AnalyticsService {
     void page;
   }
 
-  trackEvent(
-    action: string,
-    category: string,
-    label?: string,
-    value?: number,
-  ): void {
+  trackEvent(action: string, category: string, label?: string, value?: number): void {
     void action;
     void category;
     void label;

@@ -17,14 +17,10 @@ export class AccountLinkingProcessor extends WorkerHost {
     super();
   }
 
-  async process(
-    job: Job<ScoreAndMergeJob | DeliverExternalNotificationJob>,
-  ): Promise<void> {
+  async process(job: Job<ScoreAndMergeJob | DeliverExternalNotificationJob>): Promise<void> {
     switch (job.name) {
       case ACCOUNT_MERGE_JOBS.SCORE_AND_MERGE:
-        await this.accountLinkingService.processScoreAndMerge(
-          (job.data as ScoreAndMergeJob).mergeRequestId,
-        );
+        await this.accountLinkingService.processScoreAndMerge((job.data as ScoreAndMergeJob).mergeRequestId);
         return;
       case ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION:
         await this.accountLinkingService.deliverExternalNotification(

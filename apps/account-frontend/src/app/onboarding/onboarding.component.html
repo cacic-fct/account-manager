@@ -4,20 +4,9 @@
   <span class="spacer"></span>
 
   <div class="user-info">
-    <button
-      matIconButton
-      [matMenuTriggerFor]="menu"
-      class="avatar-btn"
-      aria-label="Abrir menu do usuário"
-    >
+    <button matIconButton [matMenuTriggerFor]="menu" class="avatar-btn" aria-label="Abrir menu do usuário">
       @if (currentUser()?.picture; as userPicture) {
-        <img
-          [ngSrc]="userPicture"
-          class="avatar"
-          fill="true"
-          alt="Avatar do usuário"
-          priority
-        />
+        <img [ngSrc]="userPicture" class="avatar" fill="true" alt="Avatar do usuário" priority />
       } @else {
         <mat-icon class="avatar">account_circle</mat-icon>
       }
@@ -54,8 +43,7 @@
             [isEditMode]="false"
             [layoutMode]="'stepper'"
             (saveSuccess)="onProfileSaveSuccess($event)"
-            (saveError)="onProfileSaveError($event)"
-          />
+            (saveError)="onProfileSaveError($event)" />
         </div>
       </mat-card-content>
     </div>
@@ -63,10 +51,7 @@
     <div class="privacy-summary">
       <h2>Como tratamos seus dados</h2>
       <mat-accordion class="privacy-accordion" multi="false">
-        <mat-expansion-panel
-          [expanded]="sectionIndex() === 0"
-          (opened)="sectionIndex.set(0)"
-        >
+        <mat-expansion-panel [expanded]="sectionIndex() === 0" (opened)="sectionIndex.set(0)">
           <mat-expansion-panel-header>
             <mat-panel-title>Uso dos dados</mat-panel-title>
           </mat-expansion-panel-header>
@@ -79,9 +64,8 @@
               <div>
                 <div class="privacy-title">Nome completo</div>
                 <div class="privacy-description">
-                  Identificação em nossos sistemas e para a emissão de
-                  certificados. Por isso, é importante que ele esteja correto e
-                  completo.
+                  Identificação em nossos sistemas e para a emissão de certificados. Por isso, é importante que ele
+                  esteja correto e completo.
                 </div>
               </div>
             </div>
@@ -93,8 +77,7 @@
               <div>
                 <div class="privacy-title">Telefone</div>
                 <div class="privacy-description">
-                  Para contatos urgentes, como problemas em inscrições em
-                  eventos, e exclusivamente por WhatsApp.
+                  Para contatos urgentes, como problemas em inscrições em eventos, e exclusivamente por WhatsApp.
                 </div>
               </div>
             </div>
@@ -106,8 +89,8 @@
               <div>
                 <div class="privacy-title">CPF</div>
                 <div class="privacy-description">
-                  Para a sua identificação e para a emissão de certificados. Se
-                  você é estrangeiro, usaremos o número do seu passaporte.
+                  Para a sua identificação e para a emissão de certificados. Se você é estrangeiro, usaremos o número do
+                  seu passaporte.
                 </div>
               </div>
             </div>
@@ -119,18 +102,15 @@
               <div>
                 <div class="privacy-title">Vínculo com a Unesp</div>
                 <div class="privacy-description">
-                  Para personalizar a sua experiência em nossas plataformas, com
-                  recursos e conteúdos específicos para a comunidade unespiana.
+                  Para personalizar a sua experiência em nossas plataformas, com recursos e conteúdos específicos para a
+                  comunidade unespiana.
                 </div>
               </div>
             </div>
           </div>
         </mat-expansion-panel>
 
-        <mat-expansion-panel
-          [expanded]="sectionIndex() === 1 || showOnboardingForm"
-          (opened)="sectionIndex.set(1)"
-        >
+        <mat-expansion-panel [expanded]="sectionIndex() === 1 || showOnboardingForm" (opened)="sectionIndex.set(1)">
           <mat-expansion-panel-header>
             <mat-panel-title>Quem tem acesso aos meus dados?</mat-panel-title>
           </mat-expansion-panel-header>
@@ -143,10 +123,9 @@
               <div>
                 <div class="privacy-title">DTI e DMC da FCT-Unesp</div>
                 <div class="privacy-description">
-                  A Diretoria Técnica de Informática hospeda os sistemas do
-                  CACiC e o Departamento de Matemática e Computação é o
-                  responsável por intermediar esse serviço. Essas entidades
-                  tratam os dados de acordo com a legislação da Unesp.
+                  A Diretoria Técnica de Informática hospeda os sistemas do CACiC e o Departamento de Matemática e
+                  Computação é o responsável por intermediar esse serviço. Essas entidades tratam os dados de acordo com
+                  a legislação da Unesp.
                 </div>
               </div>
             </div>
@@ -156,12 +135,9 @@
                 <mat-icon>terminal</mat-icon>
               </span>
               <div>
-                <div class="privacy-title">
-                  Administradores de sistemas do CACiC
-                </div>
+                <div class="privacy-title">Administradores de sistemas do CACiC</div>
                 <div class="privacy-description">
-                  Pessoas, autorizadas e atestadas por comissão externa, que
-                  gerenciam os servidores do CACiC.
+                  Pessoas, autorizadas e atestadas por comissão externa, que gerenciam os servidores do CACiC.
                 </div>
               </div>
             </div>
@@ -173,8 +149,7 @@
               <div>
                 <div class="privacy-title">Diretores do CACiC</div>
                 <div class="privacy-description">
-                  Alguns diretores do CACiC têm acesso a dados pessoais para a
-                  gestão das plataformas.
+                  Alguns diretores do CACiC têm acesso a dados pessoais para a gestão das plataformas.
                 </div>
               </div>
             </div>
@@ -186,10 +161,8 @@
               <div>
                 <div class="privacy-title">Aplicativos terceiros</div>
                 <div class="privacy-description">
-                  Aplicativos que você fizer login usando sua conta do CACiC. O
-                  CACiC decide quais dados são compartilhados com esses
-                  aplicativos e impõe exigências de tratamento de dados para
-                  eles.
+                  Aplicativos que você fizer login usando sua conta do CACiC. O CACiC decide quais dados são
+                  compartilhados com esses aplicativos e impõe exigências de tratamento de dados para eles.
                 </div>
               </div>
             </div>
@@ -198,24 +171,13 @@
       </mat-accordion>
 
       <div class="privacy-footer">
-        <button
-          mat-flat-button
-          color="primary"
-          aria-label="Continuar"
-          (click)="continueToNextSection()"
-        >
+        <button mat-flat-button color="primary" aria-label="Continuar" (click)="continueToNextSection()">
           Continuar
         </button>
       </div>
 
       <div class="privacy-fab">
-        <button
-          matFab
-          extended
-          color="primary"
-          aria-label="Continuar"
-          (click)="continueToNextSection()"
-        >
+        <button matFab extended color="primary" aria-label="Continuar" (click)="continueToNextSection()">
           <mat-icon>arrow_forward</mat-icon>
           Continuar
         </button>

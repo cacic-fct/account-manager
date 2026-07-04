@@ -1,8 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CaptchaSession,
-  ValidationResult,
-} from '../university-validation.types';
+import { CaptchaSession, ValidationResult } from '../university-validation.types';
 import { StudentVerificationService } from '../../student-verification/student-verification.service';
 import { PdfProcessingService } from './pdf-processing.service';
 import { UserVerificationService } from './user-verification.service';
@@ -47,9 +44,7 @@ export class DocumentValidationService {
    */
   async extractEnrollmentFromPdf(pdfBuffer: Buffer): Promise<string | null> {
     try {
-      return await this.pdfProcessingService.extractEnrollmentFromPdf(
-        pdfBuffer,
-      );
+      return await this.pdfProcessingService.extractEnrollmentFromPdf(pdfBuffer);
     } catch (error) {
       this.logger.warn('Failed to extract enrollment from PDF:', error);
       return null; // This is optional, so don't throw
@@ -75,8 +70,7 @@ export class DocumentValidationService {
       });
 
       // Determine verification type
-      const isExternal =
-        await this.userVerificationService.isExternalUser(userId);
+      const isExternal = await this.userVerificationService.isExternalUser(userId);
 
       this.logger.debug('User verification type determined:', {
         userId,
@@ -88,8 +82,7 @@ export class DocumentValidationService {
 
       if (isExternal) {
         // External user verification by fullname
-        const userFullname =
-          await this.userVerificationService.getUserFullname(userId);
+        const userFullname = await this.userVerificationService.getUserFullname(userId);
         if (!userFullname) {
           return {
             success: false,
@@ -97,33 +90,29 @@ export class DocumentValidationService {
           };
         }
 
-        const externalVerification =
-          await this.userVerificationService.verifyExternalUser(
-            userId,
-            pdfBuffer,
-            userFullname,
-          );
+        const externalVerification = await this.userVerificationService.verifyExternalUser(
+          userId,
+          pdfBuffer,
+          userFullname,
+        );
 
         verificationResult = externalVerification.nameMatches;
         verificationDetails = {
           verificationType: 'external_user',
           nameMatches: externalVerification.nameMatches,
-          extractedEnrollment:
-            externalVerification.extractedEnrollment || undefined,
+          extractedEnrollment: externalVerification.extractedEnrollment || undefined,
           expectedFullname: userFullname || undefined,
         };
       } else {
         // Unesp student verification by enrollment + fullname
-        const userFullname =
-          await this.userVerificationService.getUserFullname(userId);
+        const userFullname = await this.userVerificationService.getUserFullname(userId);
 
-        const unespVerification =
-          await this.userVerificationService.verifyUnespStudent(
-            userId,
-            pdfBuffer,
-            enrollmentNumber,
-            userFullname || undefined,
-          );
+        const unespVerification = await this.userVerificationService.verifyUnespStudent(
+          userId,
+          pdfBuffer,
+          enrollmentNumber,
+          userFullname || undefined,
+        );
 
         verificationResult = unespVerification.combinedResult;
         verificationDetails = {
@@ -151,10 +140,7 @@ export class DocumentValidationService {
         try {
           const { CaptchaService } = await import('./captcha.service');
           const captchaService = new CaptchaService(this.s3Service);
-          await captchaService.saveCaptchaTrainingData(
-            session.captchaImageBase64,
-            captchaCode,
-          );
+          await captchaService.saveCaptchaTrainingData(session.captchaImageBase64, captchaCode);
         } catch (error) {
           this.logger.warn('Failed to save captcha training data:', error);
         }

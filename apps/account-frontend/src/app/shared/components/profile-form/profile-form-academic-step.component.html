@@ -12,18 +12,13 @@
       </mat-select>
       <mat-icon matSuffix>work</mat-icon>
       @if (showUnespRoleResetWarning()) {
-        <mat-icon
-          matSuffix
-          color="warn"
-          matTooltip="Alterar este campo irá invalidar sua verificação"
+        <mat-icon matSuffix color="warn" matTooltip="Alterar este campo irá invalidar sua verificação"
           >warning</mat-icon
         >
       }
       <mat-hint>
         @if (showUnespRoleResetWarning()) {
-          <span class="verification-warning">
-            Alterar este campo irá invalidar sua verificação.
-          </span>
+          <span class="verification-warning"> Alterar este campo irá invalidar sua verificação. </span>
         }
       </mat-hint>
     </mat-form-field>
@@ -35,23 +30,18 @@
       <input matInput formControlName="enrollmentNumber" />
       <mat-icon matSuffix>badge</mat-icon>
       @if (showEnrollmentResetWarning()) {
-        <mat-icon
-          matSuffix
-          color="warn"
-          matTooltip="Alterar este campo irá invalidar sua verificação"
+        <mat-icon matSuffix color="warn" matTooltip="Alterar este campo irá invalidar sua verificação"
           >warning</mat-icon
         >
       }
 
       <mat-hint>
         @if (showEnrollmentResetWarning()) {
-          <span class="verification-warning">
-            Alterar este campo irá invalidar sua verificação.
-          </span>
+          <span class="verification-warning"> Alterar este campo irá invalidar sua verificação. </span>
         }
       </mat-hint>
 
-      @if (hasError("enrollmentNumber", "required")) {
+      @if (hasError('enrollmentNumber', 'required')) {
         <mat-error>Campo obrigatório para alunos</mat-error>
       }
     </mat-form-field>

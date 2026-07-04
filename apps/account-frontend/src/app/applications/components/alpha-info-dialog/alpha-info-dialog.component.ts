@@ -13,12 +13,7 @@ import { MatCardModule } from '@angular/material/card';
         <mat-icon class="alpha-icon">science</mat-icon>
         <h2 mat-dialog-title>Versão Alpha</h2>
       </div>
-      <button
-        mat-icon-button
-        mat-dialog-close
-        class="close-button"
-        aria-label="Fechar"
-      >
+      <button mat-icon-button mat-dialog-close class="close-button" aria-label="Fechar">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -26,26 +21,20 @@ import { MatCardModule } from '@angular/material/card';
     <mat-dialog-content class="dialog-content">
       <div class="info-section">
         <h4><mat-icon>speed</mat-icon> Aja rápido e quebre as coisas</h4>
-        <p>
-          Priorizamos a entrega rápida de funcionalidades úteis, o que pode
-          resultar em bugs ocasionais.
-        </p>
+        <p>Priorizamos a entrega rápida de funcionalidades úteis, o que pode resultar em bugs ocasionais.</p>
       </div>
 
       <div class="info-section">
         <h4><mat-icon>palette</mat-icon> Função sobre forma</h4>
         <p>
-          Você pode encontrar pequenos problemas visuais, elementos desalinhados
-          ou interfaces que ainda não estão totalmente polidas.
+          Você pode encontrar pequenos problemas visuais, elementos desalinhados ou interfaces que ainda não estão
+          totalmente polidas.
         </p>
       </div>
 
       <div class="info-section">
         <h4><mat-icon>security</mat-icon> Segurança garantida</h4>
-        <p>
-          Mesmo em fase alpha, mantemos altos padrões de segurança para proteger
-          seus dados e a sua privacidade.
-        </p>
+        <p>Mesmo em fase alpha, mantemos altos padrões de segurança para proteger seus dados e a sua privacidade.</p>
       </div>
 
       <div class="info-section">

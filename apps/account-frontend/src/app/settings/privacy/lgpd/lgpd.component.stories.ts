@@ -5,21 +5,10 @@ import { Observable } from 'rxjs';
 import { LgpdComponent } from './lgpd.component';
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import { CacheService } from '../../../shared/services/cache.service';
-import type {
-  DeleteAccountResponse,
-  LgpdRequest,
-} from '../../../shared/services/api.service';
+import type { DeleteAccountResponse, LgpdRequest } from '../../../shared/services/api.service';
 import { authHandlers } from '../../../../storybook/mocks/msw-handlers';
 
-type LgpdScenario =
-  | 'empty'
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'expired'
-  | 'failed'
-  | 'mixed'
-  | 'cooldown';
+type LgpdScenario = 'empty' | 'pending' | 'processing' | 'completed' | 'expired' | 'failed' | 'mixed' | 'cooldown';
 
 type LgpdFailureMode = 'none' | 'load' | 'create' | 'delete';
 
@@ -42,10 +31,7 @@ let storyState = defaultStoryState;
 let createdRequest: LgpdRequest | null = null;
 
 class NoCacheStoryCacheService {
-  getOrSet<T>(
-    _key: string,
-    source: () => Observable<T>,
-  ): Observable<T> {
+  getOrSet<T>(_key: string, source: () => Observable<T>): Observable<T> {
     return source();
   }
 
@@ -80,14 +66,11 @@ const waitForStory = async (): Promise<void> => {
   }
 };
 
-const isoMinutesAgo = (minutes: number): Date =>
-  new Date(Date.now() - minutes * 60 * 1000);
+const isoMinutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60 * 1000);
 
-const isoDaysAgo = (days: number): Date =>
-  new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+const isoDaysAgo = (days: number): Date => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-const isoDaysFromNow = (days: number): Date =>
-  new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+const isoDaysFromNow = (days: number): Date => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
 const makeRequest = (
   id: string,
@@ -132,10 +115,7 @@ const getRequestsForScenario = (): LgpdRequest[] => {
     cooldown: [cooldown],
   };
 
-  return [
-    ...(createdRequest ? [createdRequest] : []),
-    ...scenarioRequests[storyState.scenario],
-  ];
+  return [...(createdRequest ? [createdRequest] : []), ...scenarioRequests[storyState.scenario]];
 };
 
 const handlers = [
@@ -144,10 +124,7 @@ const handlers = [
     await waitForStory();
 
     if (storyState.failureMode === 'load') {
-      return HttpResponse.json(
-        { message: 'Erro ao carregar solicitacoes LGPD.' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Erro ao carregar solicitacoes LGPD.' }, { status: 500 });
     }
 
     return HttpResponse.json(getRequestsForScenario());
@@ -156,10 +133,7 @@ const handlers = [
     await waitForStory();
 
     if (storyState.failureMode === 'create') {
-      return HttpResponse.json(
-        { message: 'Aguarde antes de criar uma nova solicitacao.' },
-        { status: 429 },
-      );
+      return HttpResponse.json({ message: 'Aguarde antes de criar uma nova solicitacao.' }, { status: 429 });
     }
 
     createdRequest = makeRequest('lgpd-created-story', 'pending', new Date());
@@ -185,10 +159,7 @@ const handlers = [
     await waitForStory();
 
     if (storyState.failureMode === 'delete') {
-      return HttpResponse.json(
-        { message: 'Nao foi possivel solicitar a exclusao agora.' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Nao foi possivel solicitar a exclusao agora.' }, { status: 500 });
     }
 
     const response: DeleteAccountResponse = {
@@ -227,16 +198,7 @@ const meta: Meta<StoryArgs> = {
   argTypes: {
     scenario: {
       control: 'radio',
-      options: [
-        'empty',
-        'pending',
-        'processing',
-        'completed',
-        'expired',
-        'failed',
-        'mixed',
-        'cooldown',
-      ],
+      options: ['empty', 'pending', 'processing', 'completed', 'expired', 'failed', 'mixed', 'cooldown'],
     },
     failureMode: {
       control: 'radio',

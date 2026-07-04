@@ -1,9 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient, withXhr } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AuthApiService } from './auth-api.service';
 import { API_CACHE_KEYS } from './api-cache.constants';
@@ -63,9 +60,7 @@ describe('AuthApiService', () => {
       received = response;
     });
 
-    const request = httpMock.expectOne(
-      'http://localhost:3000/api/auth/password-login',
-    );
+    const request = httpMock.expectOne('http://localhost:3000/api/auth/password-login');
     expect(request.request.method).toBe('POST');
     expect(request.request.withCredentials).toBe(true);
     expect(request.request.body).toEqual(credentials);
@@ -83,17 +78,9 @@ describe('AuthApiService', () => {
       isOnboarded: true,
       redirectUrl: 'http://localhost:4200/app/settings',
     });
-    expect(cacheService.invalidate).toHaveBeenCalledWith(
-      API_CACHE_KEYS.CURRENT_USER,
-    );
-    expect(cacheService.invalidate).toHaveBeenCalledWith(
-      API_CACHE_KEYS.AUTH_STATUS,
-    );
-    expect(cacheService.invalidate).toHaveBeenCalledWith(
-      API_CACHE_KEYS.APPLICATIONS,
-    );
-    expect(cacheService.invalidate).toHaveBeenCalledWith(
-      API_CACHE_KEYS.ONBOARDING_STATUS,
-    );
+    expect(cacheService.invalidate).toHaveBeenCalledWith(API_CACHE_KEYS.CURRENT_USER);
+    expect(cacheService.invalidate).toHaveBeenCalledWith(API_CACHE_KEYS.AUTH_STATUS);
+    expect(cacheService.invalidate).toHaveBeenCalledWith(API_CACHE_KEYS.APPLICATIONS);
+    expect(cacheService.invalidate).toHaveBeenCalledWith(API_CACHE_KEYS.ONBOARDING_STATUS);
   });
 });

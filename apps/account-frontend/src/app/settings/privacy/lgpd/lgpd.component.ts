@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnInit,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,11 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import {
-  ApiService,
-  LgpdRequest,
-  DeleteAccountRequest,
-} from '../../../shared/services/api.service';
+import { ApiService, LgpdRequest, DeleteAccountRequest } from '../../../shared/services/api.service';
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import { LgpdConfirmDialogComponent } from './lgpd-confirm-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
@@ -36,13 +25,12 @@ const STATUS_LABELS: Record<LgpdRequestStatus, string> = {
   failed: 'Falhou',
 };
 
-const STATUS_COLORS: Record<LgpdRequestStatus, 'accent' | 'primary' | 'warn'> =
-  {
-    pending: 'accent',
-    processing: 'primary',
-    completed: 'primary',
-    failed: 'warn',
-  };
+const STATUS_COLORS: Record<LgpdRequestStatus, 'accent' | 'primary' | 'warn'> = {
+  pending: 'accent',
+  processing: 'primary',
+  completed: 'primary',
+  failed: 'warn',
+};
 
 const STATUS_ICONS: Record<LgpdRequestStatus, string> = {
   pending: 'schedule',
@@ -80,12 +68,7 @@ export class LgpdComponent implements OnInit {
   protected isDeletingAccount = signal(false);
   protected requests = signal<LgpdRequest[]>([]);
 
-  protected readonly displayedColumns = [
-    'status',
-    'createdAt',
-    'fileSize',
-    'actions',
-  ];
+  protected readonly displayedColumns = ['status', 'createdAt', 'fileSize', 'actions'];
 
   protected readonly canCreateNewRequest = computed(() => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -93,11 +76,7 @@ export class LgpdComponent implements OnInit {
     return !this.requests().some((request) => {
       const createdAt = new Date(request.createdAt).getTime();
 
-      return (
-        createdAt > oneDayAgo ||
-        request.status === 'pending' ||
-        request.status === 'processing'
-      );
+      return createdAt > oneDayAgo || request.status === 'pending' || request.status === 'processing';
     });
   });
 
@@ -156,22 +135,15 @@ export class LgpdComponent implements OnInit {
     this.isCreatingRequest.set(true);
     this.apiService.createLgpdRequest().subscribe({
       next: () => {
-        this.snackBar.open(
-          'Solicitação criada com sucesso! O processamento pode levar alguns minutos.',
-          'Fechar',
-          {
-            duration: 8000,
-            panelClass: ['success-snackbar'],
-          },
-        );
+        this.snackBar.open('Solicitação criada com sucesso! O processamento pode levar alguns minutos.', 'Fechar', {
+          duration: 8000,
+          panelClass: ['success-snackbar'],
+        });
         this.loadRequests(); // Reload to show the new request
         this.isCreatingRequest.set(false);
       },
       error: (error) => {
-        const errorMessage = this.getApiErrorMessage(
-          error,
-          'Erro ao criar solicitação. Tente novamente mais tarde.',
-        );
+        const errorMessage = this.getApiErrorMessage(error, 'Erro ao criar solicitação. Tente novamente mais tarde.');
 
         this.snackBar.open(errorMessage, 'Fechar', {
           duration: 8000,
@@ -184,14 +156,10 @@ export class LgpdComponent implements OnInit {
 
   protected downloadFile(request: LgpdRequest): void {
     if (request.status !== 'completed') {
-      this.snackBar.open(
-        'O arquivo ainda não está pronto para download.',
-        'Fechar',
-        {
-          duration: 5000,
-          panelClass: ['warning-snackbar'],
-        },
-      );
+      this.snackBar.open('O arquivo ainda não está pronto para download.', 'Fechar', {
+        duration: 5000,
+        panelClass: ['warning-snackbar'],
+      });
       return;
     }
 
@@ -231,10 +199,7 @@ export class LgpdComponent implements OnInit {
   protected formatFileSize(bytes?: number): string {
     if (!bytes || bytes <= 0) return '-';
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.min(
-      Math.floor(Math.log(bytes) / Math.log(1024)),
-      sizes.length - 1,
-    );
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
 
     return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
   }
@@ -253,17 +218,11 @@ export class LgpdComponent implements OnInit {
   }
 
   protected canDownload(request: LgpdRequest): boolean {
-    return (
-      request.status === 'completed' &&
-      (!request.expiresAt || new Date() <= new Date(request.expiresAt))
-    );
+    return request.status === 'completed' && (!request.expiresAt || new Date() <= new Date(request.expiresAt));
   }
 
   protected isExpired(request: LgpdRequest): boolean {
-    return (
-      request.expiresAt !== undefined &&
-      new Date() > new Date(request.expiresAt)
-    );
+    return request.expiresAt !== undefined && new Date() > new Date(request.expiresAt);
   }
 
   protected openDeleteAccountDialog(): void {
@@ -298,10 +257,7 @@ export class LgpdComponent implements OnInit {
       },
       error: (error) => {
         this.snackBar.open(
-          this.getApiErrorMessage(
-            error,
-            'Erro ao solicitar exclusão da conta. Tente novamente.',
-          ),
+          this.getApiErrorMessage(error, 'Erro ao solicitar exclusão da conta. Tente novamente.'),
           'Fechar',
           { duration: 5000 },
         );

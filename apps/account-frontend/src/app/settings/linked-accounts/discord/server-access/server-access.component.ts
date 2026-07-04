@@ -9,10 +9,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Location } from '@angular/common';
-import {
-  ApiService,
-  DiscordLinkStatus,
-} from '../../../../shared/services/api.service';
+import { ApiService, DiscordLinkStatus } from '../../../../shared/services/api.service';
 
 @Component({
   selector: 'app-discord-server-access',
@@ -24,8 +21,8 @@ import {
     MatProgressSpinnerModule,
     MatChipsModule,
     MatDividerModule,
-    MatToolbarModule
-],
+    MatToolbarModule,
+  ],
   templateUrl: './server-access.component.html',
   styleUrl: './server-access.component.scss',
 })
@@ -63,11 +60,7 @@ export class DiscordServerAccessComponent implements OnInit {
   }
 
   hasVisitorRole(): boolean {
-    return (
-      this.discordStatus()?.discordLinks?.some(
-        (link) => link.assignedRole === 'visitor',
-      ) || false
-    );
+    return this.discordStatus()?.discordLinks?.some((link) => link.assignedRole === 'visitor') || false;
   }
 
   retryLoading(): void {

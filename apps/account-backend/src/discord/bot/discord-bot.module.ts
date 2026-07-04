@@ -16,11 +16,6 @@ import { AuthModule } from '../../auth/auth.module';
     DiscordManagedRoleOverridesService,
     DiscordRoleService,
   ],
-  exports: [
-    DiscordBotService,
-    DiscordClientService,
-    DiscordManagedRoleOverridesService,
-    DiscordRoleService,
-  ],
+  exports: [DiscordBotService, DiscordClientService, DiscordManagedRoleOverridesService, DiscordRoleService],
 })
 export class DiscordBotModule {}

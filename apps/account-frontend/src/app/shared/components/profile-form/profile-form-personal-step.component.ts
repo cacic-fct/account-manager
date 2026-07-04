@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  input,
-  output,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -68,8 +62,6 @@ export class ProfileFormPersonalStepComponent {
   }
 
   getIdentityDocumentLabel(): string {
-    return this.formGroup().get('isForeigner')?.value
-      ? 'Número do passaporte'
-      : 'CPF';
+    return this.formGroup().get('isForeigner')?.value ? 'Número do passaporte' : 'CPF';
   }
 }

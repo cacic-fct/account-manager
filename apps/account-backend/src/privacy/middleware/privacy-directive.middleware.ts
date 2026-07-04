@@ -7,9 +7,7 @@ import type { PrivacyUserIdentity } from '../privacy.service';
 
 @Injectable()
 export class PrivacyDirectiveMiddleware implements NestMiddleware {
-  constructor(
-    private readonly privacyDirectiveService: PrivacyDirectiveService,
-  ) {}
+  constructor(private readonly privacyDirectiveService: PrivacyDirectiveService) {}
 
   private readonly logger = new Logger(PrivacyDirectiveMiddleware.name);
 
@@ -33,11 +31,7 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
   /**
    * Handle privacy directives with intelligent caching (PURR-style)
    */
-  private async handlePrivacyDirectives(
-    req: Request,
-    res: Response,
-    identity: PrivacyUserIdentity,
-  ): Promise<void> {
+  private async handlePrivacyDirectives(req: Request, res: Response, identity: PrivacyUserIdentity): Promise<void> {
     const shouldSend = await this.shouldSendDirectives(req, identity);
 
     if (shouldSend) {
@@ -45,10 +39,7 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
     }
   }
 
-  private async shouldSendDirectives(
-    req: Request,
-    identity: PrivacyUserIdentity,
-  ): Promise<boolean> {
+  private async shouldSendDirectives(req: Request, identity: PrivacyUserIdentity): Promise<boolean> {
     // Send directives only when needed (like PURR):
 
     // 1. On page loads (HTML requests)
@@ -67,19 +58,13 @@ export class PrivacyDirectiveMiddleware implements NestMiddleware {
     const hasPrivacyUpdateHeader = req.headers['x-privacy-updated'] === 'true';
 
     // 6. Check CACIC-PURR cookie validity
-    const cookies = req.cookies as
-      | Record<string, string | undefined>
-      | undefined;
+    const cookies = req.cookies as Record<string, string | undefined> | undefined;
     const cacicPurrCookie = cookies?.[CACIC_PURR_COOKIE_NAME];
     let hasMissingOrExpiredCookie = true;
 
     if (cacicPurrCookie) {
       // Use service to validate cache
-      const isValid =
-        await this.privacyDirectiveService.areCachedDirectivesValid(
-          cacicPurrCookie,
-          identity,
-        );
+      const isValid = await this.privacyDirectiveService.areCachedDirectivesValid(cacicPurrCookie, identity);
       hasMissingOrExpiredCookie = !isValid;
     }
 

@@ -28,9 +28,7 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
           bodyPreview: details.bodyPreview,
         });
 
-        throw new Error(
-          `Failed to get applications: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(`Failed to get applications: ${response.status} ${response.statusText}`);
       }
 
       const clients = (await response.json()) as KeycloakApplication[];

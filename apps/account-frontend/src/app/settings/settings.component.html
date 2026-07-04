@@ -11,24 +11,13 @@
 <div class="settings-container">
   <div class="profile-section">
     @if (currentUser(); as currentUserData) {
-      <img
-        [src]="user().avatarUrl"
-        alt="Avatar"
-        class="avatar"
-        (error)="onImageError($event)"
-      />
+      <img [src]="user().avatarUrl" alt="Avatar" class="avatar" (error)="onImageError($event)" />
       <h3>{{ user().name }}</h3>
       <h4>{{ user().email }}</h4>
     } @else {
       <div
         class="avatar"
-        style="
-          background-color: #f0f0f0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        "
-      >
+        style="background-color: #f0f0f0; display: flex; align-items: center; justify-content: center">
         <mat-icon>person</mat-icon>
       </div>
       <h3>Loading...</h3>

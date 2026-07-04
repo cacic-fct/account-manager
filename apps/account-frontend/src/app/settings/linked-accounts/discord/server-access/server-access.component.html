@@ -17,9 +17,7 @@
         <mat-card-header>
           <mat-icon mat-card-avatar class="error-icon">error_outline</mat-icon>
           <mat-card-title>Erro ao carregar</mat-card-title>
-          <mat-card-subtitle>
-            Não foi possível carregar as informações de acesso
-          </mat-card-subtitle>
+          <mat-card-subtitle> Não foi possível carregar as informações de acesso </mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <button mat-raised-button color="primary" (click)="retryLoading()">
@@ -33,9 +31,7 @@
         <mat-card-header>
           <mat-icon mat-card-avatar class="info-icon">info</mat-icon>
           <mat-card-title>Conta não vinculada</mat-card-title>
-          <mat-card-subtitle>
-            Você precisa vincular sua conta do Discord primeiro
-          </mat-card-subtitle>
+          <mat-card-subtitle> Você precisa vincular sua conta do Discord primeiro </mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <button mat-raised-button color="primary" routerLink="../">
@@ -50,33 +46,30 @@
         <mat-card-header class="card-header">
           <mat-icon mat-card-avatar class="access-icon">security</mat-icon>
           <mat-card-title>Nível de Acesso</mat-card-title>
-          <mat-card-subtitle
-            >Seu status atual no servidor do CACiC</mat-card-subtitle
-          >
+          <mat-card-subtitle>Seu status atual no servidor do CACiC</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
           <div class="access-status">
-            @if (discordStatus()?.eligibleForRole === "student") {
+            @if (discordStatus()?.eligibleForRole === 'student') {
               <mat-chip class="status-chip student">
                 <mat-icon matChipAvatar>school</mat-icon>
                 Estudante do BCC
               </mat-chip>
               <div class="access-description">
                 <p class="description-text">
-                  Como estudante verificado do curso de Ciência da Computação,
-                  você tem acesso total ao servidor do CACiC.
+                  Como estudante verificado do curso de Ciência da Computação, você tem acesso total ao servidor do
+                  CACiC.
                 </p>
               </div>
-            } @else if (discordStatus()?.eligibleForRole === "unesp") {
+            } @else if (discordStatus()?.eligibleForRole === 'unesp') {
               <mat-chip class="status-chip unesp">
                 <mat-icon matChipAvatar>school</mat-icon>
                 Unespiano
               </mat-chip>
               <div class="access-description">
                 <p class="description-text">
-                  Você deve solicitar o convite do servidor a um aluno da
-                  Ciência da Computação.
+                  Você deve solicitar o convite do servidor a um aluno da Ciência da Computação.
                 </p>
               </div>
             } @else {
@@ -85,9 +78,7 @@
                 Visitante
               </mat-chip>
               <div class="access-description">
-                <p class="description-text">
-                  Você tem acesso básico ao servidor por meio de convite.
-                </p>
+                <p class="description-text">Você tem acesso básico ao servidor por meio de convite.</p>
               </div>
             }
           </div>
@@ -97,23 +88,19 @@
       <!-- Benefits Card -->
       <mat-card class="benefits-card">
         <mat-card-header class="card-header">
-          <mat-icon mat-card-avatar class="benefits-icon"
-            >verified_user</mat-icon
-          >
+          <mat-icon mat-card-avatar class="benefits-icon">verified_user</mat-icon>
           <mat-card-title>Benefícios</mat-card-title>
           <mat-card-subtitle>O que você pode acessar</mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
           <div class="benefits-list">
-            @if (discordStatus()?.eligibleForRole === "student") {
+            @if (discordStatus()?.eligibleForRole === 'student') {
               <div class="benefit-item">
                 <mat-icon class="benefit-icon">verified_user</mat-icon>
                 <div class="benefit-content">
                   <h4>Acesso automático ao servidor</h4>
-                  <p>
-                    Entre diretamente sem necessidade de solicitar um convite
-                  </p>
+                  <p>Entre diretamente sem necessidade de solicitar um convite</p>
                 </div>
               </div>
               <div class="benefit-item">
@@ -130,14 +117,12 @@
                   <p>Participação em eventos do CACiC</p>
                 </div>
               </div>
-            } @else if (discordStatus()?.eligibleForRole === "unesp") {
+            } @else if (discordStatus()?.eligibleForRole === 'unesp') {
               <div class="benefit-item">
                 <mat-icon class="benefit-icon">person_add</mat-icon>
                 <div class="benefit-content">
                   <h4>Acesso por convite</h4>
-                  <p>
-                    É necessário solicitar um convite para entrar no servidor
-                  </p>
+                  <p>É necessário solicitar um convite para entrar no servidor</p>
                 </div>
               </div>
               <div class="benefit-item">
@@ -151,10 +136,7 @@
                 <mat-icon class="benefit-icon">info</mat-icon>
                 <div class="benefit-content">
                   <h4>Upgrade disponível</h4>
-                  <p>
-                    Realize a verificação de estudante para acesso total e
-                    automático
-                  </p>
+                  <p>Realize a verificação de estudante para acesso total e automático</p>
                 </div>
               </div>
             } @else {
@@ -173,18 +155,15 @@
       <!-- Server Invitation Card -->
       @if (
         !hasVisitorRole() &&
-        (discordStatus()?.eligibleForRole === "student" ||
-          discordStatus()?.eligibleForRole === "unesp") &&
-        discordStatus()?.inviteLink;
+          (discordStatus()?.eligibleForRole === 'student' || discordStatus()?.eligibleForRole === 'unesp') &&
+          discordStatus()?.inviteLink;
         as inviteLink
       ) {
         <mat-card class="invitation-card success">
           <mat-card-header class="card-header">
             <mat-icon mat-card-avatar class="invite-icon">groups</mat-icon>
             <mat-card-title>Junte-se ao Servidor</mat-card-title>
-            <mat-card-subtitle
-              >Você está elegível para entrar</mat-card-subtitle
-            >
+            <mat-card-subtitle>Você está elegível para entrar</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
@@ -210,19 +189,13 @@
           </mat-card-content>
 
           <mat-card-actions class="invite-actions">
-            <a
-              [href]="inviteLink"
-              target="_blank"
-              mat-raised-button
-              color="primary"
-              class="join-button"
-            >
+            <a [href]="inviteLink" target="_blank" mat-raised-button color="primary" class="join-button">
               <mat-icon>launch</mat-icon>
               Entrar no Servidor
             </a>
           </mat-card-actions>
         </mat-card>
-      } @else if (discordStatus()?.eligibleForRole === "student") {
+      } @else if (discordStatus()?.eligibleForRole === 'student') {
         <mat-card class="invitation-card warning">
           <mat-card-header class="card-header">
             <mat-icon mat-card-avatar class="warning-icon">info</mat-icon>
@@ -233,8 +206,8 @@
           <mat-card-content>
             <div class="warning-content">
               <p>
-                No momento não há um link de convite disponível para o servidor.
-                Entre em contato com o CACiC ou tente novamente mais tarde.
+                No momento não há um link de convite disponível para o servidor. Entre em contato com o CACiC ou tente
+                novamente mais tarde.
               </p>
             </div>
           </mat-card-content>
@@ -242,32 +215,25 @@
       }
 
       <!-- Upgrade Suggestion -->
-      @if (discordStatus()?.eligibleForRole !== "student") {
+      @if (discordStatus()?.eligibleForRole !== 'student') {
         <mat-card class="upgrade-card">
           <mat-card-header class="card-header">
             <mat-icon mat-card-avatar class="upgrade-icon">upgrade</mat-icon>
             <mat-card-title>Quer mais acesso?</mat-card-title>
-            <mat-card-subtitle
-              >Verifique seu status de estudante</mat-card-subtitle
-            >
+            <mat-card-subtitle>Verifique seu status de estudante</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
             <div class="upgrade-content">
               <p>
-                Se você é estudante do Bacharelado em Ciência da Computação da
-                Unesp, pode realizar a verificação de estudante para obter
-                acesso completo ao servidor.
+                Se você é estudante do Bacharelado em Ciência da Computação da Unesp, pode realizar a verificação de
+                estudante para obter acesso completo ao servidor.
               </p>
             </div>
           </mat-card-content>
 
           <mat-card-actions>
-            <button
-              mat-raised-button
-              color="accent"
-              routerLink="/settings/linked-accounts/unesp/student-verification"
-            >
+            <button mat-raised-button color="accent" routerLink="/settings/linked-accounts/unesp/student-verification">
               <mat-icon>school</mat-icon>
               Verificar como Estudante
             </button>

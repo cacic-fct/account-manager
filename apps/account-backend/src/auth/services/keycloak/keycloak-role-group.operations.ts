@@ -31,9 +31,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get user groups: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get user groups: ${response.status} ${response.statusText}`);
     }
 
     const groups = (await response.json()) as Array<{ name: string }>;
@@ -57,10 +55,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     return this.getUserDirectClientRoles(userId);
   }
 
-  async getUserClientRoles(
-    userId: string,
-    clientId = this.clientId,
-  ): Promise<string[]> {
+  async getUserClientRoles(userId: string, clientId = this.clientId): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}/composite`;
@@ -98,9 +93,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get user client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get user client roles: ${response.status} ${response.statusText}`);
     }
 
     const roles = (await response.json()) as Array<{ name: string }>;
@@ -114,10 +107,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     return roles.map((role) => role.name);
   }
 
-  async getUserDirectClientRoles(
-    userId: string,
-    clientId = this.clientId,
-  ): Promise<string[]> {
+  async getUserDirectClientRoles(userId: string, clientId = this.clientId): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
@@ -155,9 +145,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get direct user client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get direct user client roles: ${response.status} ${response.statusText}`);
     }
 
     const roles = (await response.json()) as Array<{ name: string }>;
@@ -171,11 +159,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     return roles.map((role) => role.name);
   }
 
-  async addUserClientRoles(
-    userId: string,
-    roleNames: readonly string[],
-    clientId = this.clientId,
-  ): Promise<void> {
+  async addUserClientRoles(userId: string, roleNames: readonly string[], clientId = this.clientId): Promise<void> {
     const roles = await this.getClientRolesByName(clientId, roleNames);
 
     if (roles.length === 0) {
@@ -210,17 +194,11 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to assign user client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to assign user client roles: ${response.status} ${response.statusText}`);
     }
   }
 
-  async removeUserClientRoles(
-    userId: string,
-    roleNames: readonly string[],
-    clientId = this.clientId,
-  ): Promise<void> {
+  async removeUserClientRoles(userId: string, roleNames: readonly string[], clientId = this.clientId): Promise<void> {
     const roles = await this.getClientRolesByName(clientId, roleNames);
 
     if (roles.length === 0) {
@@ -255,9 +233,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to remove user client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to remove user client roles: ${response.status} ${response.statusText}`);
     }
   }
 
@@ -266,11 +242,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     await this.addUserToGroupId(userId, group.id, groupPath);
   }
 
-  async addUserToGroupId(
-    userId: string,
-    groupId: string,
-    groupLabel = groupId,
-  ): Promise<void> {
+  async addUserToGroupId(userId: string, groupId: string, groupLabel = groupId): Promise<void> {
     const adminToken = await this.getAdminToken();
     const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
@@ -296,25 +268,16 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to add user to Keycloak group ${groupLabel}: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to add user to Keycloak group ${groupLabel}: ${response.status} ${response.statusText}`);
     }
   }
 
-  async removeUserFromGroupPath(
-    userId: string,
-    groupPath: string,
-  ): Promise<void> {
+  async removeUserFromGroupPath(userId: string, groupPath: string): Promise<void> {
     const group = await this.getGroupByPath(groupPath);
     await this.removeUserFromGroupId(userId, group.id, groupPath);
   }
 
-  async removeUserFromGroupId(
-    userId: string,
-    groupId: string,
-    groupLabel = groupId,
-  ): Promise<void> {
+  async removeUserFromGroupId(userId: string, groupId: string, groupLabel = groupId): Promise<void> {
     const adminToken = await this.getAdminToken();
     const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
@@ -346,10 +309,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     }
   }
 
-  async getGroupClientRoles(
-    groupId: string,
-    clientId = this.clientId,
-  ): Promise<string[]> {
+  async getGroupClientRoles(groupId: string, clientId = this.clientId): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
@@ -382,20 +342,14 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get group client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get group client roles: ${response.status} ${response.statusText}`);
     }
 
     const roles = (await response.json()) as Array<{ name: string }>;
     return roles.map((role) => role.name);
   }
 
-  async addGroupClientRoles(
-    groupId: string,
-    roleNames: readonly string[],
-    clientId = this.clientId,
-  ): Promise<void> {
+  async addGroupClientRoles(groupId: string, roleNames: readonly string[], clientId = this.clientId): Promise<void> {
     const roles = await this.getClientRolesByName(clientId, roleNames);
 
     if (roles.length === 0) {
@@ -430,17 +384,11 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to assign group client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to assign group client roles: ${response.status} ${response.statusText}`);
     }
   }
 
-  async removeGroupClientRoles(
-    groupId: string,
-    roleNames: readonly string[],
-    clientId = this.clientId,
-  ): Promise<void> {
+  async removeGroupClientRoles(groupId: string, roleNames: readonly string[], clientId = this.clientId): Promise<void> {
     const roles = await this.getClientRolesByName(clientId, roleNames);
 
     if (roles.length === 0) {
@@ -475,9 +423,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to remove group client roles: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to remove group client roles: ${response.status} ${response.statusText}`);
     }
   }
 }

@@ -1,19 +1,6 @@
-import {
-  Injectable,
-  inject,
-  signal,
-  computed,
-  PLATFORM_ID,
-} from '@angular/core';
+import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import {
-  BehaviorSubject,
-  catchError,
-  Observable,
-  of,
-  tap,
-  throwError,
-} from 'rxjs';
+import { BehaviorSubject, catchError, Observable, of, tap, throwError } from 'rxjs';
 import { ApiService, type PasswordLoginResponse } from '../api.service';
 import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
@@ -36,12 +23,8 @@ export class AuthService {
   private isLoadingSignal = signal<boolean>(false);
 
   // Computed properties
-  public isAuthenticated = computed(
-    () => this.authStatusSignal().isAuthenticated,
-  );
-  public isOnboarded = computed(
-    () => this.authStatusSignal().isOnboarded ?? false,
-  );
+  public isAuthenticated = computed(() => this.authStatusSignal().isAuthenticated);
+  public isOnboarded = computed(() => this.authStatusSignal().isOnboarded ?? false);
   public currentUser = computed(() => this.currentUserSignal());
   public isLoading = computed(() => this.isLoadingSignal());
 
@@ -60,12 +43,7 @@ export class AuthService {
       .checkAuth()
       .pipe(
         tap((status) => {
-          if (
-            status &&
-            !status.isAuthenticated &&
-            attemptSilentLogin &&
-            this.trySilentLogin()
-          ) {
+          if (status && !status.isAuthenticated && attemptSilentLogin && this.trySilentLogin()) {
             return;
           }
 
@@ -143,20 +121,12 @@ export class AuthService {
 
   public login(targetUrl?: string): void {
     this.clearSilentLoginAttempt();
-    window.location.href = this.apiService.getLoginUrl(
-      this.resolveApplicationReturnPath(targetUrl),
-    );
+    window.location.href = this.apiService.getLoginUrl(this.resolveApplicationReturnPath(targetUrl));
   }
 
-  public passwordLogin(
-    email: string,
-    password: string,
-    targetUrl?: string,
-  ): Observable<PasswordLoginResponse> {
+  public passwordLogin(email: string, password: string, targetUrl?: string): Observable<PasswordLoginResponse> {
     if (environment.production) {
-      return throwError(
-        () => new Error('Password login is available only in development.'),
-      );
+      return throwError(() => new Error('Password login is available only in development.'));
     }
 
     this.isLoadingSignal.set(true);
@@ -180,8 +150,7 @@ export class AuthService {
 
           if (result.isAuthenticated) {
             this.csrfService.fetchToken().subscribe({
-              error: (err) =>
-                console.error('Failed to fetch CSRF token:', err),
+              error: (err) => console.error('Failed to fetch CSRF token:', err),
             });
             this.loadCurrentUser();
           }
@@ -209,9 +178,7 @@ export class AuthService {
 
     sessionStorage.setItem(this.silentLoginAttemptKey, 'true');
     window.location.href = this.apiService.getSilentLoginUrl(
-      this.resolveApplicationReturnPath(
-        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
-      ),
+      this.resolveApplicationReturnPath(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`),
     );
     return true;
   }
@@ -230,9 +197,7 @@ export class AuthService {
 
   public logout(): void {
     this.isLoadingSignal.set(true);
-    const postLogoutRedirectUri = this.isBrowser
-      ? this.getApplicationRootUrl()
-      : undefined;
+    const postLogoutRedirectUri = this.isBrowser ? this.getApplicationRootUrl() : undefined;
     this.apiService
       .logout(postLogoutRedirectUri)
       .pipe(
@@ -263,13 +228,11 @@ export class AuthService {
   }
 
   private getApplicationRootUrl(): string {
-    return new URL(this.getApplicationBasePath(), window.location.origin)
-      .toString();
+    return new URL(this.getApplicationBasePath(), window.location.origin).toString();
   }
 
   private getApplicationBasePath(): string {
-    const baseHref =
-      this.document.querySelector('base')?.getAttribute('href') ?? '/';
+    const baseHref = this.document.querySelector('base')?.getAttribute('href') ?? '/';
     const basePath = new URL(baseHref, window.location.origin).pathname;
 
     return basePath.endsWith('/') ? basePath : `${basePath}/`;
@@ -296,11 +259,7 @@ export class AuthService {
     const basePath = this.getApplicationBasePath();
     const baseRoot = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
 
-    if (
-      basePath === '/' ||
-      candidate === baseRoot ||
-      candidate.startsWith(basePath)
-    ) {
+    if (basePath === '/' || candidate === baseRoot || candidate.startsWith(basePath)) {
       return candidate;
     }
 
@@ -404,12 +363,7 @@ export class AuthService {
       return;
     }
 
-    for (const cookieName of [
-      'cacic-analytics-id',
-      'cacic-analytics-consent',
-      'cacic-purr',
-      'cacic-purr-quick',
-    ]) {
+    for (const cookieName of ['cacic-analytics-id', 'cacic-analytics-consent', 'cacic-purr', 'cacic-purr-quick']) {
       this.expireCookie(cookieName);
       this.expireCookie(cookieName, '.cacic.dev.br');
     }

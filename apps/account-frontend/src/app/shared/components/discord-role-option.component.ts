@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  input,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import type { DiscordRole } from '@cacic/shared-types';
 
@@ -17,8 +12,7 @@ import { normalizeDiscordRoleColor } from '../utils/discord-role-color.util';
       <span
         class="role-swatch"
         [style.background-color]="roleColor()"
-        [attr.aria-label]="'Cor do cargo ' + role().name"
-      ></span>
+        [attr.aria-label]="'Cor do cargo ' + role().name"></span>
       <span class="role-copy">
         <span class="role-name" [class.muted]="muted()">
           {{ role().name }}

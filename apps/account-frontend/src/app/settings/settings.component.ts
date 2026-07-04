@@ -47,8 +47,7 @@ export class SettingsComponent {
     }
 
     return {
-      name:
-        current.fullname || current.displayName || current.email.split('@')[0],
+      name: current.fullname || current.displayName || current.email.split('@')[0],
       email: current.email,
       // TODO: change
       avatarUrl: current.picture || '',

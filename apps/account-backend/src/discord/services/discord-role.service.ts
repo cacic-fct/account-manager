@@ -63,19 +63,15 @@ export class DiscordRoleService {
   /**
    * Check which role user is eligible for
    */
-  async checkRoleEligibility(
-    userId: string,
-  ): Promise<DiscordManagedRoleCategory> {
-    const override =
-      await this.managedRoleOverrides.getOverrideCategoryForUser(userId);
+  async checkRoleEligibility(userId: string): Promise<DiscordManagedRoleCategory> {
+    const override = await this.managedRoleOverrides.getOverrideCategoryForUser(userId);
     if (override) {
       return override;
     }
 
     const user = await this.getUserByKeycloakId(userId);
     return getDiscordManagedRoleCategory(user, {
-      skipUndergraduateUnespRoleVerification:
-        await this.shouldSkipUndergraduateVerification(),
+      skipUndergraduateUnespRoleVerification: await this.shouldSkipUndergraduateVerification(),
     });
   }
 
@@ -91,9 +87,7 @@ export class DiscordRoleService {
   /**
    * Get user by Keycloak ID
    */
-  async getUserByKeycloakId(
-    keycloakUserId: string,
-  ): Promise<UserProfile | null> {
+  async getUserByKeycloakId(keycloakUserId: string): Promise<UserProfile | null> {
     try {
       return await this.userService.findByKeycloakId(keycloakUserId);
     } catch (error) {
@@ -116,10 +110,7 @@ export class DiscordRoleService {
     discordLink: DiscordLink,
     options: AssignManagedRoleOptions = {},
   ): Promise<ManagedRoleAssignmentResult> {
-    if (
-      options.skipKeycloakHealthCheck !== true &&
-      !(await this.keycloakService.isRealmReachable())
-    ) {
+    if (options.skipKeycloakHealthCheck !== true && !(await this.keycloakService.isRealmReachable())) {
       this.logger.warn(
         `Skipping Discord role assignment for link ${discordLink.id}: Keycloak realm health check failed`,
       );
@@ -138,9 +129,7 @@ export class DiscordRoleService {
     const user = await this.userService.findByKeycloakId(discordLink.userId);
 
     if (!user) {
-      this.logger.warn(
-        `No user found for Discord link ${discordLink.id}; removing managed roles`,
-      );
+      this.logger.warn(`No user found for Discord link ${discordLink.id}; removing managed roles`);
 
       await this.prisma.discordLink.update({
         where: { id: discordLink.id },
@@ -160,20 +149,13 @@ export class DiscordRoleService {
         };
       }
 
-      const managedRolesRemoved = await this.removeStaleManagedRoles(
+      const managedRolesRemoved = await this.removeStaleManagedRoles(member, null, options.reason);
+      const permissionGroupRolesRemoved = await this.removePermissionGroupRolesFromMember(
         member,
-        null,
-        options.reason,
+        options.reason ?? 'discord-link-missing-account-role-cleanup',
       );
-      const permissionGroupRolesRemoved =
-        await this.removePermissionGroupRolesFromMember(
-          member,
-          options.reason ?? 'discord-link-missing-account-role-cleanup',
-        );
-      const staleRolesRemoved =
-        managedRolesRemoved + permissionGroupRolesRemoved;
-      const registrationRoleApplied =
-        await this.ensureRegistrationRoleForMember(member, options.reason);
+      const staleRolesRemoved = managedRolesRemoved + permissionGroupRolesRemoved;
+      const registrationRoleApplied = await this.ensureRegistrationRoleForMember(member, options.reason);
 
       return {
         eligibleRole: null,
@@ -186,14 +168,11 @@ export class DiscordRoleService {
       };
     }
 
-    const override = await this.managedRoleOverrides.getOverrideCategoryForUser(
-      discordLink.userId,
-    );
+    const override = await this.managedRoleOverrides.getOverrideCategoryForUser(discordLink.userId);
     const role = override
       ? DISCORD_MANAGED_ROLES[override]
       : getDiscordManagedRoleForUser(user, {
-          skipUndergraduateUnespRoleVerification:
-            await this.shouldSkipUndergraduateVerification(),
+          skipUndergraduateUnespRoleVerification: await this.shouldSkipUndergraduateVerification(),
         });
 
     await this.prisma.discordLink.update({
@@ -217,26 +196,14 @@ export class DiscordRoleService {
       };
     }
 
-    const staleRolesRemoved = await this.removeStaleManagedRoles(
-      member,
-      role.roleId,
-      options.reason,
-    );
-    const roleApplied = await this.ensureManagedRole(
-      member,
-      role.roleId,
-      role.roleName,
-      options.reason,
-    );
+    const staleRolesRemoved = await this.removeStaleManagedRoles(member, role.roleId, options.reason);
+    const roleApplied = await this.ensureManagedRole(member, role.roleId, role.roleName, options.reason);
     let registrationRoleApplied = false;
 
     if (roleApplied) {
       await this.removeRegistrationRole(member, options.reason);
     } else if (this.hasNoAssignableRoles(member)) {
-      registrationRoleApplied = await this.ensureRegistrationRoleForMember(
-        member,
-        options.reason,
-      );
+      registrationRoleApplied = await this.ensureRegistrationRoleForMember(member, options.reason);
     }
 
     this.logger.log(
@@ -271,10 +238,7 @@ export class DiscordRoleService {
     };
   }
 
-  async removeManagedRolesForDiscordLink(
-    discordLink: DiscordLink,
-    reason = 'discord-account-unlinked',
-  ): Promise<void> {
+  async removeManagedRolesForDiscordLink(discordLink: DiscordLink, reason = 'discord-account-unlinked'): Promise<void> {
     const member = await this.resolveGuildMember(discordLink, { reason });
     if (!member) {
       await this.prisma.discordLink.update({
@@ -293,14 +257,9 @@ export class DiscordRoleService {
     });
   }
 
-  async syncUserDiscordRoles(
-    userId: string,
-    reason = 'user-profile-sync',
-  ): Promise<void> {
+  async syncUserDiscordRoles(userId: string, reason = 'user-profile-sync'): Promise<void> {
     if (!(await this.keycloakService.isRealmReachable())) {
-      this.logger.warn(
-        `Skipping Discord role sync for user ${userId}: Keycloak realm health check failed`,
-      );
+      this.logger.warn(`Skipping Discord role sync for user ${userId}: Keycloak realm health check failed`);
       return;
     }
 
@@ -315,10 +274,7 @@ export class DiscordRoleService {
           skipKeycloakHealthCheck: true,
         });
       } catch (error) {
-        this.logger.warn(
-          `Failed to sync Discord role for link ${discordLink.id}:`,
-          error,
-        );
+        this.logger.warn(`Failed to sync Discord role for link ${discordLink.id}:`, error);
       }
     }
   }
@@ -335,9 +291,7 @@ export class DiscordRoleService {
     }
 
     if (!(await this.keycloakService.isRealmReachable())) {
-      this.logger.warn(
-        'Skipping Discord managed role sync: Keycloak realm health check failed',
-      );
+      this.logger.warn('Skipping Discord managed role sync: Keycloak realm health check failed');
       return { checked: 0, synced: 0, failed: 0 };
     }
 
@@ -360,10 +314,7 @@ export class DiscordRoleService {
         synced += 1;
       } catch (error) {
         failed += 1;
-        this.logger.warn(
-          `Failed to reconcile Discord role for link ${discordLink.id}:`,
-          error,
-        );
+        this.logger.warn(`Failed to reconcile Discord role for link ${discordLink.id}:`, error);
       }
     }
 
@@ -399,9 +350,7 @@ export class DiscordRoleService {
     return 'registration';
   }
 
-  async syncAllGuildMemberRoleState(
-    reason = 'discord-managed-role-hard-enforcement',
-  ): Promise<{
+  async syncAllGuildMemberRoleState(reason = 'discord-managed-role-hard-enforcement'): Promise<{
     checked: number;
     linkedSynced: number;
     invalidLinkedCleaned: number;
@@ -413,9 +362,7 @@ export class DiscordRoleService {
     const guildId = this.getGuildId();
 
     if (!client || !guildId) {
-      this.logger.debug(
-        'Skipping Discord guild member role state sync: bot unavailable',
-      );
+      this.logger.debug('Skipping Discord guild member role state sync: bot unavailable');
       return {
         checked: 0,
         linkedSynced: 0,
@@ -429,9 +376,7 @@ export class DiscordRoleService {
     const keycloakReachable = await this.keycloakService.isRealmReachable();
 
     if (!keycloakReachable) {
-      this.logger.warn(
-        'Skipping Discord guild member role state sync: Keycloak realm health check failed',
-      );
+      this.logger.warn('Skipping Discord guild member role state sync: Keycloak realm health check failed');
       return {
         checked: 0,
         linkedSynced: 0,
@@ -449,9 +394,7 @@ export class DiscordRoleService {
         where: { deleted: false, isVerified: true },
       }),
     ]);
-    const linksByDiscordId = new Map(
-      discordLinks.map((discordLink) => [discordLink.discordId, discordLink]),
-    );
+    const linksByDiscordId = new Map(discordLinks.map((discordLink) => [discordLink.discordId, discordLink]));
     const membersToReconcile = new Map<string, GuildMember>();
 
     for (const [, member] of members) {
@@ -459,10 +402,7 @@ export class DiscordRoleService {
         continue;
       }
 
-      if (
-        linksByDiscordId.has(member.id) ||
-        this.hasManagedRoleAssigned(member)
-      ) {
+      if (linksByDiscordId.has(member.id) || this.hasManagedRoleAssigned(member)) {
         membersToReconcile.set(member.id, member);
       }
     }
@@ -501,27 +441,16 @@ export class DiscordRoleService {
           continue;
         }
 
-        staleManagedRolesRemoved += await this.removeStaleManagedRoles(
-          member,
-          null,
-          reason,
-        );
-        staleManagedRolesRemoved +=
-          await this.removePermissionGroupRolesFromMember(member, reason);
-        const roleApplied = await this.ensureRegistrationRoleForMember(
-          member,
-          reason,
-        );
+        staleManagedRolesRemoved += await this.removeStaleManagedRoles(member, null, reason);
+        staleManagedRolesRemoved += await this.removePermissionGroupRolesFromMember(member, reason);
+        const roleApplied = await this.ensureRegistrationRoleForMember(member, reason);
 
         if (roleApplied) {
           registrationEnsured += 1;
         }
       } catch (error) {
         failed += 1;
-        this.logger.warn(
-          `Failed to reconcile Discord guild member ${member.id}:`,
-          error,
-        );
+        this.logger.warn(`Failed to reconcile Discord guild member ${member.id}:`, error);
       }
     }
 
@@ -558,9 +487,9 @@ export class DiscordRoleService {
     const expectedRoleIds = new Set(
       memberships
         .map((membership) => {
-          const definition = (
-            PERMISSION_GROUP_CATALOG as readonly PermissionGroupDefinition[]
-          ).find((definition) => definition.key === membership.entity);
+          const definition = (PERMISSION_GROUP_CATALOG as readonly PermissionGroupDefinition[]).find(
+            (definition) => definition.key === membership.entity,
+          );
 
           return definition?.discordRoleId;
         })
@@ -596,10 +525,7 @@ export class DiscordRoleService {
             await member.roles.remove(roleId, reason);
             rolesRemoved += 1;
           } catch (error) {
-            this.logger.warn(
-              `Failed to remove Discord permission group role ${roleId} from ${member.id}:`,
-              error,
-            );
+            this.logger.warn(`Failed to remove Discord permission group role ${roleId} from ${member.id}:`, error);
           }
         }
       }
@@ -679,26 +605,17 @@ export class DiscordRoleService {
 
       try {
         this.markManagedRoleMutation(member);
-        await member.roles.remove(
-          roleId,
-          reason ?? 'CACiC managed role reconciliation',
-        );
+        await member.roles.remove(roleId, reason ?? 'CACiC managed role reconciliation');
         removed += 1;
       } catch (error) {
-        this.logger.warn(
-          `Failed to remove stale Discord managed role ${roleId} from ${member.id}:`,
-          error,
-        );
+        this.logger.warn(`Failed to remove stale Discord managed role ${roleId} from ${member.id}:`, error);
       }
     }
 
     return removed;
   }
 
-  private async removePermissionGroupRolesFromMember(
-    member: GuildMember,
-    reason?: string,
-  ): Promise<number> {
+  private async removePermissionGroupRolesFromMember(member: GuildMember, reason?: string): Promise<number> {
     let removed = 0;
 
     for (const roleId of PERMISSION_GROUP_DISCORD_ROLE_IDS) {
@@ -708,31 +625,20 @@ export class DiscordRoleService {
 
       try {
         this.markManagedRoleMutation(member);
-        await member.roles.remove(
-          roleId,
-          reason ?? 'CACiC permission group role cleanup',
-        );
+        await member.roles.remove(roleId, reason ?? 'CACiC permission group role cleanup');
         removed += 1;
       } catch (error) {
-        this.logger.warn(
-          `Failed to remove Discord permission group role ${roleId} from ${member.id}:`,
-          error,
-        );
+        this.logger.warn(`Failed to remove Discord permission group role ${roleId} from ${member.id}:`, error);
       }
     }
 
     return removed;
   }
 
-  async ensureRegistrationRoleForMember(
-    member: GuildMember,
-    reason?: string,
-  ): Promise<boolean> {
+  async ensureRegistrationRoleForMember(member: GuildMember, reason?: string): Promise<boolean> {
     const role =
       member.guild.roles.cache.get(DISCORD_REGISTRATION_ROLE.roleId) ??
-      (await member.guild.roles
-        .fetch(DISCORD_REGISTRATION_ROLE.roleId)
-        .catch(() => null));
+      (await member.guild.roles.fetch(DISCORD_REGISTRATION_ROLE.roleId).catch(() => null));
 
     if (!role) {
       this.logger.warn(
@@ -747,10 +653,7 @@ export class DiscordRoleService {
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.add(
-        DISCORD_REGISTRATION_ROLE.roleId,
-        reason ?? 'CACiC registration role reconciliation',
-      );
+      await member.roles.add(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC registration role reconciliation');
       return true;
     } catch (error) {
       this.logger.warn(
@@ -761,20 +664,14 @@ export class DiscordRoleService {
     }
   }
 
-  private async removeRegistrationRole(
-    member: GuildMember,
-    reason?: string,
-  ): Promise<void> {
+  private async removeRegistrationRole(member: GuildMember, reason?: string): Promise<void> {
     if (!member.roles.cache.has(DISCORD_REGISTRATION_ROLE.roleId)) {
       return;
     }
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.remove(
-        DISCORD_REGISTRATION_ROLE.roleId,
-        reason ?? 'CACiC managed role reconciliation',
-      );
+      await member.roles.remove(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC managed role reconciliation');
     } catch (error) {
       this.logger.warn(
         `Failed to remove Discord registration role ${DISCORD_REGISTRATION_ROLE.roleId} from ${member.id}:`,
@@ -789,14 +686,10 @@ export class DiscordRoleService {
     roleName: string,
     reason?: string,
   ): Promise<boolean> {
-    const role =
-      member.guild.roles.cache.get(roleId) ??
-      (await member.guild.roles.fetch(roleId).catch(() => null));
+    const role = member.guild.roles.cache.get(roleId) ?? (await member.guild.roles.fetch(roleId).catch(() => null));
 
     if (!role) {
-      this.logger.warn(
-        `Managed Discord role ${roleName} (${roleId}) not found in guild ${member.guild.id}`,
-      );
+      this.logger.warn(`Managed Discord role ${roleName} (${roleId}) not found in guild ${member.guild.id}`);
       return false;
     }
 
@@ -806,46 +699,32 @@ export class DiscordRoleService {
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.add(
-        roleId,
-        reason ?? 'CACiC managed role reconciliation',
-      );
+      await member.roles.add(roleId, reason ?? 'CACiC managed role reconciliation');
       return true;
     } catch (error) {
-      this.logger.warn(
-        `Failed to add Discord managed role ${roleName} (${roleId}) to ${member.id}:`,
-        error,
-      );
+      this.logger.warn(`Failed to add Discord managed role ${roleName} (${roleId}) to ${member.id}:`, error);
       return false;
     }
   }
 
   private async shouldSkipUndergraduateVerification(): Promise<boolean> {
-    return (
-      (await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled()) ??
-      false
-    );
+    return (await this.featureFlags?.isUndergraduateUnespRoleVerificationDisabled()) ?? false;
   }
 
   private hasManagedRoleAssigned(member: Pick<GuildMember, 'roles'>): boolean {
-    return [
-      ...DISCORD_MANAGED_ROLE_IDS,
-      ...PERMISSION_GROUP_DISCORD_ROLE_IDS,
-    ].some((roleId) => member.roles.cache.has(roleId));
+    return [...DISCORD_MANAGED_ROLE_IDS, ...PERMISSION_GROUP_DISCORD_ROLE_IDS].some((roleId) =>
+      member.roles.cache.has(roleId),
+    );
   }
 
   private markManagedRoleMutation(member: Pick<GuildMember, 'id'>): void {
     this.purgeExpiredManagedRoleMutations();
-    this.recentManagedRoleMutationUntil.set(
-      member.id,
-      Date.now() + this.managedRoleMutationTtlMs,
-    );
+    this.recentManagedRoleMutationUntil.set(member.id, Date.now() + this.managedRoleMutationTtlMs);
   }
 
   private purgeExpiredManagedRoleMutations(): void {
     const now = Date.now();
-    for (const [memberId, mutationUntil] of this
-      .recentManagedRoleMutationUntil) {
+    for (const [memberId, mutationUntil] of this.recentManagedRoleMutationUntil) {
       if (mutationUntil <= now) {
         this.recentManagedRoleMutationUntil.delete(memberId);
       }
@@ -853,9 +732,6 @@ export class DiscordRoleService {
   }
 
   private hasNoAssignableRoles(member: GuildMember): boolean {
-    return (
-      member.roles.cache.filter((role) => role.id !== member.guild.id).size ===
-      0
-    );
+    return member.roles.cache.filter((role) => role.id !== member.guild.id).size === 0;
   }
 }

@@ -1,9 +1,7 @@
 <mat-card class="settings-card">
   <mat-card-header>
     <mat-card-title>Convite do servidor</mat-card-title>
-    <mat-card-subtitle>
-      Link usado quando estudantes conectam o Discord.
-    </mat-card-subtitle>
+    <mat-card-subtitle> Link usado quando estudantes conectam o Discord. </mat-card-subtitle>
   </mat-card-header>
 
   <mat-card-content>
@@ -16,19 +14,12 @@
       <div class="invite-editor">
         <mat-form-field appearance="outline">
           <mat-label>Link de convite</mat-label>
-          <input
-            matInput
-            [formControl]="inviteLinkControl"
-            placeholder="https://discord.gg/..."
-            type="url"
-          />
+          <input matInput [formControl]="inviteLinkControl" placeholder="https://discord.gg/..." type="url" />
           <mat-icon matSuffix>link</mat-icon>
         </mat-form-field>
 
         @if (inviteSetting()?.updatedAt) {
-          <p class="last-updated">
-            Atualizado em {{ inviteSetting()?.updatedAt | date: "dd/MM/yyyy HH:mm" }}
-          </p>
+          <p class="last-updated">Atualizado em {{ inviteSetting()?.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
         } @else {
           <p class="last-updated">O convite será criado ao salvar.</p>
         }
@@ -39,20 +30,11 @@
           <mat-icon>refresh</mat-icon>
           Atualizar
         </button>
-        <button
-          mat-button
-          (click)="resetInviteLink()"
-          [disabled]="isSaving() || !hasChanges()"
-        >
+        <button mat-button (click)="resetInviteLink()" [disabled]="isSaving() || !hasChanges()">
           <mat-icon>undo</mat-icon>
           Desfazer
         </button>
-        <button
-          mat-raised-button
-          color="primary"
-          (click)="saveInviteLink()"
-          [disabled]="isSaving() || !hasChanges()"
-        >
+        <button mat-raised-button color="primary" (click)="saveInviteLink()" [disabled]="isSaving() || !hasChanges()">
           @if (isSaving()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {

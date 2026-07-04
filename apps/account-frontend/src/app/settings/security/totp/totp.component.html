@@ -29,8 +29,7 @@
               mode="determinate"
               [value]="progressValue()"
               diameter="44"
-              aria-label="Tempo restante do código"
-            ></mat-progress-spinner>
+              aria-label="Tempo restante do código"></mat-progress-spinner>
           </section>
 
           @if (primaryEmail()) {
@@ -42,22 +41,11 @@
           <mat-divider></mat-divider>
 
           <div class="action-row">
-            <button
-              mat-flat-button
-              color="primary"
-              type="button"
-              (click)="copyCode()"
-              [disabled]="!code()"
-            >
+            <button mat-flat-button color="primary" type="button" (click)="copyCode()" [disabled]="!code()">
               <mat-icon>content_copy</mat-icon>
               Copiar
             </button>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="requestRotateSeed()"
-              [disabled]="isRotating()"
-            >
+            <button mat-stroked-button type="button" (click)="requestRotateSeed()" [disabled]="isRotating()">
               @if (isRotating()) {
                 <mat-spinner diameter="18"></mat-spinner>
               } @else {
@@ -71,12 +59,7 @@
             <mat-icon>cloud_off</mat-icon>
             <h2>Código indisponível</h2>
             <p>Não foi possível preparar seu código agora.</p>
-            <button
-              mat-flat-button
-              color="primary"
-              type="button"
-              (click)="retry()"
-            >
+            <button mat-flat-button color="primary" type="button" (click)="retry()">
               <mat-icon>refresh</mat-icon>
               Tentar novamente
             </button>

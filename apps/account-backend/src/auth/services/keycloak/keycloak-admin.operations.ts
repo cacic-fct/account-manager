@@ -1,11 +1,6 @@
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 import { KeycloakClientRoleNotFoundException } from '../../exceptions/keycloak-client-role-not-found.exception';
-import {
-  KeycloakClient,
-  KeycloakGroup,
-  KeycloakRole,
-  TokenResponse,
-} from './keycloak.types';
+import { KeycloakClient, KeycloakGroup, KeycloakRole, TokenResponse } from './keycloak.types';
 import { KeycloakLoginOperations } from './keycloak-login.operations';
 
 export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
@@ -65,13 +60,8 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     }
   }
 
-  protected async getClientRolesByName(
-    clientId: string,
-    roleNames: readonly string[],
-  ): Promise<KeycloakRole[]> {
-    const normalizedRoleNames = [
-      ...new Set(roleNames.map((role) => role.trim())),
-    ].filter((role) => role.length > 0);
+  protected async getClientRolesByName(clientId: string, roleNames: readonly string[]): Promise<KeycloakRole[]> {
+    const normalizedRoleNames = [...new Set(roleNames.map((role) => role.trim()))].filter((role) => role.length > 0);
 
     if (normalizedRoleNames.length === 0) {
       return [];
@@ -146,18 +136,13 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to list client roles ${clientId}: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to list client roles ${clientId}: ${response.status} ${response.statusText}`);
     }
 
     return (await response.json()) as KeycloakRole[];
   }
 
-  protected async getClientUuid(
-    clientId: string,
-    adminToken?: string,
-  ): Promise<string> {
+  protected async getClientUuid(clientId: string, adminToken?: string): Promise<string> {
     const normalizedClientId = clientId.trim();
 
     if (!normalizedClientId) {
@@ -200,9 +185,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     }
 
     const clients = (await response.json()) as KeycloakClient[];
-    const client = clients.find(
-      (candidate) => candidate.clientId === normalizedClientId,
-    );
+    const client = clients.find((candidate) => candidate.clientId === normalizedClientId);
 
     if (!client) {
       throw new Error(`Keycloak client ${normalizedClientId} was not found`);
@@ -251,9 +234,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         bodyPreview: details.bodyPreview,
       });
 
-      throw new Error(
-        `Failed to get Keycloak group ${groupPath}: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Failed to get Keycloak group ${groupPath}: ${response.status} ${response.statusText}`);
     }
 
     return (await response.json()) as KeycloakGroup;

@@ -15,11 +15,7 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
-import {
-  GlassContainerComponent,
-  MouseOffset,
-  GlassSize,
-} from './glass-container.component';
+import { GlassContainerComponent, MouseOffset, GlassSize } from './glass-container.component';
 import { DisplacementMode } from './glass-filter.component';
 import { ShaderDisplacementGenerator, fragmentShaders } from './shader-utils';
 
@@ -52,25 +48,21 @@ export interface LiquidGlassProps {
         'bg-black transition-all duration-150 ease-in-out pointer-events-none ' +
         (overLight() ? 'opacity-20' : 'opacity-0')
       "
-      [style]="overLightStyle1()"
-    ></div>
+      [style]="overLightStyle1()"></div>
 
     <div
       [class]="
         'bg-black transition-all duration-150 ease-in-out pointer-events-none mix-blend-overlay ' +
         (overLight() ? 'opacity-100' : 'opacity-0')
       "
-      [style]="overLightStyle2()"
-    ></div>
+      [style]="overLightStyle2()"></div>
 
     <app-glass-container
       #glassRef
       [className]="className()"
       [containerStyleValue]="baseStyle()"
       [cornerRadius]="cornerRadius()"
-      [displacementScale]="
-        overLight() ? displacementScale() * 0.5 : displacementScale()
-      "
+      [displacementScale]="overLight() ? displacementScale() * 0.5 : displacementScale()"
       [blurAmount]="blurAmount()"
       [saturation]="saturation()"
       [aberrationIntensity]="aberrationIntensity()"
@@ -85,8 +77,7 @@ export interface LiquidGlassProps {
       [overLight]="overLight()"
       [onClick]="onClick()"
       [mode]="mode()"
-      [shaderMapUrl]="shaderMapUrl()"
-    >
+      [shaderMapUrl]="shaderMapUrl()">
       <ng-content></ng-content>
     </app-glass-container>
 
@@ -137,21 +128,14 @@ export class LiquidGlassComponent implements OnInit {
   shaderMapUrl = signal<string>('');
 
   // Computed values
-  computedGlobalMousePos = computed(
-    () => this.globalMousePos() || this.internalGlobalMousePos(),
-  );
-  computedMouseOffset = computed(
-    () => this.mouseOffset() || this.internalMouseOffset(),
-  );
+  computedGlobalMousePos = computed(() => this.globalMousePos() || this.internalGlobalMousePos());
+  computedMouseOffset = computed(() => this.mouseOffset() || this.internalMouseOffset());
 
   constructor() {
     // Generate shader displacement map when in shader mode
     effect(() => {
       if (this.isBrowser && this.mode() === 'shader') {
-        const url = this.generateShaderDisplacementMap(
-          this.glassSize().width,
-          this.glassSize().height,
-        );
+        const url = this.generateShaderDisplacementMap(this.glassSize().width, this.glassSize().height);
         this.shaderMapUrl.set(url);
       }
     });
@@ -190,8 +174,7 @@ export class LiquidGlassComponent implements OnInit {
       return;
     }
 
-    const container =
-      this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
+    const container = this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
     if (!container) {
       return;
     }
@@ -202,8 +185,7 @@ export class LiquidGlassComponent implements OnInit {
   }
 
   private handleMouseMove(e: MouseEvent) {
-    const container =
-      this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
+    const container = this.mouseContainer()?.nativeElement || this.glassRef?.nativeElement;
     if (!container) {
       return;
     }
@@ -247,11 +229,7 @@ export class LiquidGlassComponent implements OnInit {
   // Calculate directional scaling based on mouse position
   private calculateDirectionalScale(): string {
     const globalMousePos = this.computedGlobalMousePos();
-    if (
-      !globalMousePos.x ||
-      !globalMousePos.y ||
-      !this.glassRef?.nativeElement
-    ) {
+    if (!globalMousePos.x || !globalMousePos.y || !this.glassRef?.nativeElement) {
       return 'scale(1)';
     }
 
@@ -267,9 +245,7 @@ export class LiquidGlassComponent implements OnInit {
     // Calculate distance from mouse to pill edges (not center)
     const edgeDistanceX = Math.max(0, Math.abs(deltaX) - pillWidth / 2);
     const edgeDistanceY = Math.max(0, Math.abs(deltaY) - pillHeight / 2);
-    const edgeDistance = Math.sqrt(
-      edgeDistanceX * edgeDistanceX + edgeDistanceY * edgeDistanceY,
-    );
+    const edgeDistance = Math.sqrt(edgeDistanceX * edgeDistanceX + edgeDistanceY * edgeDistanceY);
 
     // Activation zone: 200px from edges
     const activationZone = 200;
@@ -292,31 +268,20 @@ export class LiquidGlassComponent implements OnInit {
     const normalizedY = deltaY / centerDistance;
 
     // Calculate stretch factors with fade-in
-    const stretchIntensity =
-      Math.min(centerDistance / 300, 1) * this.elasticity() * fadeInFactor;
+    const stretchIntensity = Math.min(centerDistance / 300, 1) * this.elasticity() * fadeInFactor;
 
     // X-axis scaling: stretch horizontally when moving left/right, compress when moving up/down
-    const scaleX =
-      1 +
-      Math.abs(normalizedX) * stretchIntensity * 0.3 -
-      Math.abs(normalizedY) * stretchIntensity * 0.15;
+    const scaleX = 1 + Math.abs(normalizedX) * stretchIntensity * 0.3 - Math.abs(normalizedY) * stretchIntensity * 0.15;
 
     // Y-axis scaling: stretch vertically when moving up/down, compress when moving left/right
-    const scaleY =
-      1 +
-      Math.abs(normalizedY) * stretchIntensity * 0.3 -
-      Math.abs(normalizedX) * stretchIntensity * 0.15;
+    const scaleY = 1 + Math.abs(normalizedY) * stretchIntensity * 0.3 - Math.abs(normalizedX) * stretchIntensity * 0.15;
 
     return `scaleX(${Math.max(0.8, scaleX)}) scaleY(${Math.max(0.8, scaleY)})`;
   }
 
   private calculateFadeInFactor(): number {
     const globalMousePos = this.computedGlobalMousePos();
-    if (
-      !globalMousePos.x ||
-      !globalMousePos.y ||
-      !this.glassRef?.nativeElement
-    ) {
+    if (!globalMousePos.x || !globalMousePos.y || !this.glassRef?.nativeElement) {
       return 0;
     }
 
@@ -326,22 +291,12 @@ export class LiquidGlassComponent implements OnInit {
     const pillWidth = this.glassSize().width;
     const pillHeight = this.glassSize().height;
 
-    const edgeDistanceX = Math.max(
-      0,
-      Math.abs(globalMousePos.x - pillCenterX) - pillWidth / 2,
-    );
-    const edgeDistanceY = Math.max(
-      0,
-      Math.abs(globalMousePos.y - pillCenterY) - pillHeight / 2,
-    );
-    const edgeDistance = Math.sqrt(
-      edgeDistanceX * edgeDistanceX + edgeDistanceY * edgeDistanceY,
-    );
+    const edgeDistanceX = Math.max(0, Math.abs(globalMousePos.x - pillCenterX) - pillWidth / 2);
+    const edgeDistanceY = Math.max(0, Math.abs(globalMousePos.y - pillCenterY) - pillHeight / 2);
+    const edgeDistance = Math.sqrt(edgeDistanceX * edgeDistanceX + edgeDistanceY * edgeDistanceY);
 
     const activationZone = 200;
-    return edgeDistance > activationZone
-      ? 0
-      : 1 - edgeDistance / activationZone;
+    return edgeDistance > activationZone ? 0 : 1 - edgeDistance / activationZone;
   }
 
   private calculateElasticTranslation(): { x: number; y: number } {
@@ -356,26 +311,15 @@ export class LiquidGlassComponent implements OnInit {
     const globalMousePos = this.computedGlobalMousePos();
 
     return {
-      x:
-        (globalMousePos.x - pillCenterX) *
-        this.elasticity() *
-        0.1 *
-        fadeInFactor,
-      y:
-        (globalMousePos.y - pillCenterY) *
-        this.elasticity() *
-        0.1 *
-        fadeInFactor,
+      x: (globalMousePos.x - pillCenterX) * this.elasticity() * 0.1 * fadeInFactor,
+      y: (globalMousePos.y - pillCenterY) * this.elasticity() * 0.1 * fadeInFactor,
     };
   }
 
   // Style getters
   transformStyle(): string {
     const translation = this.calculateElasticTranslation();
-    const scale =
-      this.isActive() && Boolean(this.onClick())
-        ? 'scale(0.96)'
-        : this.calculateDirectionalScale();
+    const scale = this.isActive() && Boolean(this.onClick()) ? 'scale(0.96)' : this.calculateDirectionalScale();
     return `translate(calc(-50% + ${translation.x}px), calc(-50% + ${translation.y}px)) ${scale}`;
   }
 
@@ -425,8 +369,7 @@ export class LiquidGlassComponent implements OnInit {
       mixBlendMode: 'screen',
       opacity: 0.2,
       padding: '1.5px',
-      WebkitMask:
-        'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+      WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
       WebkitMaskComposite: 'xor',
       maskComposite: 'exclude',
       boxShadow:
@@ -456,8 +399,7 @@ export class LiquidGlassComponent implements OnInit {
       pointerEvents: 'none',
       mixBlendMode: 'overlay',
       padding: '1.5px',
-      WebkitMask:
-        'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+      WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
       WebkitMaskComposite: 'xor',
       maskComposite: 'exclude',
       boxShadow:
@@ -485,8 +427,7 @@ export class LiquidGlassComponent implements OnInit {
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
       opacity: this.isHovered() || this.isActive() ? 0.5 : 0,
-      backgroundImage:
-        'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 50%)',
+      backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 50%)',
       mixBlendMode: 'overlay',
     };
   }
@@ -504,8 +445,7 @@ export class LiquidGlassComponent implements OnInit {
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
       opacity: this.isActive() ? 0.5 : 0,
-      backgroundImage:
-        'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 80%)',
+      backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 80%)',
       mixBlendMode: 'overlay',
     };
   }
@@ -520,8 +460,7 @@ export class LiquidGlassComponent implements OnInit {
       pointerEvents: 'none',
       transition: 'all 0.2s ease-out',
       opacity: this.isHovered() ? 0.4 : this.isActive() ? 0.8 : 0,
-      backgroundImage:
-        'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 100%)',
+      backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 100%)',
       mixBlendMode: 'overlay',
     };
   }

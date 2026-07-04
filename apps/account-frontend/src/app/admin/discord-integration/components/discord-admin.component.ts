@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  OnInit,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -16,10 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import {
-  ApiService,
-  ServerSetting,
-} from '../../../shared/services/api.service';
+import { ApiService, ServerSetting } from '../../../shared/services/api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../shared/services/logger.service';
 
@@ -51,16 +41,11 @@ export class DiscordAdminComponent implements OnInit {
   isSaving = signal(false);
   inviteLinkControl = new FormControl('', { nonNullable: true });
 
-  private readonly inviteLinkValue = toSignal(
-    this.inviteLinkControl.valueChanges,
-    {
-      initialValue: this.inviteLinkControl.value,
-    },
-  );
+  private readonly inviteLinkValue = toSignal(this.inviteLinkControl.valueChanges, {
+    initialValue: this.inviteLinkControl.value,
+  });
 
-  inviteSetting = computed(() =>
-    this.settings().find((setting) => setting.key === this.inviteSettingKey),
-  );
+  inviteSetting = computed(() => this.settings().find((setting) => setting.key === this.inviteSettingKey));
 
   hasChanges = computed(() => {
     const value = this.inviteLinkValue().trim();
@@ -81,11 +66,7 @@ export class DiscordAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error loading server settings', error);
-        this.snackBar.open(
-          'Não foi possível carregar o convite do Discord.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.snackBar.open('Não foi possível carregar o convite do Discord.', 'Fechar', { duration: 5000 });
         this.isLoading.set(false);
       },
     });
@@ -99,11 +80,7 @@ export class DiscordAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error refreshing settings', error);
-        this.snackBar.open(
-          'Não foi possível atualizar o convite.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.snackBar.open('Não foi possível atualizar o convite.', 'Fechar', { duration: 5000 });
       },
     });
   }
@@ -116,18 +93,12 @@ export class DiscordAdminComponent implements OnInit {
 
     this.isSaving.set(true);
 
-    this.apiService
-      .updateServerSetting(this.inviteSettingKey, { value: newValue })
-      .subscribe({
+    this.apiService.updateServerSetting(this.inviteSettingKey, { value: newValue }).subscribe({
       next: (updatedSetting: ServerSetting) => {
         this.settings.update((settings) => {
-          const existingIndex = settings.findIndex(
-            (setting) => setting.key === this.inviteSettingKey,
-          );
+          const existingIndex = settings.findIndex((setting) => setting.key === this.inviteSettingKey);
           if (existingIndex >= 0) {
-            return settings.map((setting) =>
-              setting.key === this.inviteSettingKey ? updatedSetting : setting,
-            );
+            return settings.map((setting) => (setting.key === this.inviteSettingKey ? updatedSetting : setting));
           }
           return [...settings, updatedSetting];
         });
@@ -152,9 +123,6 @@ export class DiscordAdminComponent implements OnInit {
 
   private setSettings(settings: ServerSetting[]): void {
     this.settings.set(settings);
-    this.inviteLinkControl.setValue(
-      settings.find((setting) => setting.key === this.inviteSettingKey)
-        ?.value ?? '',
-    );
+    this.inviteLinkControl.setValue(settings.find((setting) => setting.key === this.inviteSettingKey)?.value ?? '');
   }
 }

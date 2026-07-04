@@ -1,19 +1,6 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  signal,
-  inject,
-  computed,
-  ChangeDetectionStrategy,
-} from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 
-import {
-  ReactiveFormsModule,
-  FormBuilder,
-  FormGroup,
-  FormControl,
-} from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,11 +11,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DiscordRoleOptionComponent } from '../../../../../shared/components/discord-role-option.component';
 import { ApiService } from '../../../../../shared/services/api.service';
-import type {
-  DiscordRole,
-  UserRoles,
-  RoleSelectionResponse,
-} from '@cacic/shared-types';
+import type { DiscordRole, UserRoles, RoleSelectionResponse } from '@cacic/shared-types';
 
 type RoleSelectionErrorAction = 'login' | 'link' | 'retry';
 
@@ -165,9 +148,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
     this.cooldownTimer = setInterval(() => {
       const cooldownEnd = this.cooldownEndTime();
       if (cooldownEnd > Date.now()) {
-        this.remainingCooldown.set(
-          Math.ceil((cooldownEnd - Date.now()) / 1000),
-        );
+        this.remainingCooldown.set(Math.ceil((cooldownEnd - Date.now()) / 1000));
       } else {
         // Cooldown has expired, just clear the time-based signals
         // Keep updateAttempts for tracking, only clear cooldownEndTime
@@ -217,14 +198,8 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         this.userRoles.set(null);
         this.initialSelectedIds.set(new Set());
         this.errorAction.set('retry');
-        this.errorMessage.set(
-          'Não foi possível carregar os cargos disponíveis. Tente novamente.',
-        );
-        this.snackBar.open(
-          'Não foi possível carregar os cargos disponíveis.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.errorMessage.set('Não foi possível carregar os cargos disponíveis. Tente novamente.');
+        this.snackBar.open('Não foi possível carregar os cargos disponíveis.', 'Fechar', { duration: 5000 });
         this.isLoading.set(false);
       },
     });
@@ -249,9 +224,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         this.userRoles.set(userRoles);
 
         // Set initial selected IDs from user's current roles
-        const currentRoleIds = new Set(
-          userRoles.currentRoles.map((role) => role.id),
-        );
+        const currentRoleIds = new Set(userRoles.currentRoles.map((role) => role.id));
         this.initialSelectedIds.set(currentRoleIds);
 
         // Update form controls with current user roles
@@ -269,13 +242,11 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error loading user Discord roles:', error);
-        let errorMessage =
-          'Não foi possível carregar seus cargos atuais. Tente novamente.';
+        let errorMessage = 'Não foi possível carregar seus cargos atuais. Tente novamente.';
         let errorAction: RoleSelectionErrorAction = 'retry';
 
         if (error.status === 400) {
-          errorMessage =
-            'Vincule sua conta do Discord para gerenciar seus cargos.';
+          errorMessage = 'Vincule sua conta do Discord para gerenciar seus cargos.';
           errorAction = 'link';
         } else if (error.status === 401) {
           errorMessage = 'Faça login para gerenciar seus cargos do Discord.';
@@ -319,61 +290,53 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
 
     const selectedIds = Array.from(this.getSelectedRoleIds());
 
-    this.apiService
-      .updateUserDiscordRoles({ selectedRoleIds: selectedIds })
-      .subscribe({
-        next: (response: RoleSelectionResponse) => {
-          this.successMessage.set(
-            response.message || 'Seus cargos do Discord foram atualizados.',
-          );
-          // Clear success message after 3 seconds
-          setTimeout(() => this.successMessage.set(''), 3000);
+    this.apiService.updateUserDiscordRoles({ selectedRoleIds: selectedIds }).subscribe({
+      next: (response: RoleSelectionResponse) => {
+        this.successMessage.set(response.message || 'Seus cargos do Discord foram atualizados.');
+        // Clear success message after 3 seconds
+        setTimeout(() => this.successMessage.set(''), 3000);
 
-          // Clear cooldown on successful update
-          this.clearCooldown();
+        // Clear cooldown on successful update
+        this.clearCooldown();
 
-          // Update initial state and re-enable form
-          this.initialSelectedIds.set(new Set(selectedIds));
-          this.roleForm.enable();
-          this.isSaving.set(false);
+        // Update initial state and re-enable form
+        this.initialSelectedIds.set(new Set(selectedIds));
+        this.roleForm.enable();
+        this.isSaving.set(false);
 
-          // Trigger form change detection after successful update
-          this.formChangeSignal.update((val) => val + 1);
-        },
-        error: (error: HttpErrorResponse) => {
-          console.error('Error updating Discord roles:', error);
-          let errorMessage =
-            'Não foi possível atualizar seus cargos do Discord. Tente novamente.';
+        // Trigger form change detection after successful update
+        this.formChangeSignal.update((val) => val + 1);
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('Error updating Discord roles:', error);
+        let errorMessage = 'Não foi possível atualizar seus cargos do Discord. Tente novamente.';
 
-          // Handle cooldown from backend
-          if (error.status === 429) {
-            const attempts = error.error?.attempts || this.updateAttempts() + 1;
-            const cooldownSeconds =
-              error.error?.cooldownSeconds || Math.pow(2, attempts);
+        // Handle cooldown from backend
+        if (error.status === 429) {
+          const attempts = error.error?.attempts || this.updateAttempts() + 1;
+          const cooldownSeconds = error.error?.cooldownSeconds || Math.pow(2, attempts);
 
-            this.setCooldown(attempts);
-            errorMessage = `Muitas tentativas. Aguarde ${cooldownSeconds}s antes de tentar novamente.`;
-          } else {
-            // Increment attempts on other errors and set cooldown
-            const newAttempts = this.updateAttempts() + 1;
-            this.setCooldown(newAttempts);
+          this.setCooldown(attempts);
+          errorMessage = `Muitas tentativas. Aguarde ${cooldownSeconds}s antes de tentar novamente.`;
+        } else {
+          // Increment attempts on other errors and set cooldown
+          const newAttempts = this.updateAttempts() + 1;
+          this.setCooldown(newAttempts);
 
-            if (error.status === 400) {
-              errorMessage =
-                error.error?.message ||
-                'Alguns cargos não puderam ser atribuídos. Confira sua seleção.';
-            }
+          if (error.status === 400) {
+            errorMessage = error.error?.message || 'Alguns cargos não puderam ser atribuídos. Confira sua seleção.';
           }
+        }
 
-          this.updateErrorMessage.set(errorMessage);
-          // Clear error message after 5 seconds
-          setTimeout(() => this.updateErrorMessage.set(''), 5000);
+        this.updateErrorMessage.set(errorMessage);
+        // Clear error message after 5 seconds
+        setTimeout(() => this.updateErrorMessage.set(''), 5000);
 
-          // Re-enable form
-          this.roleForm.enable();
-          this.isSaving.set(false);
-        },
-      });
+        // Re-enable form
+        this.roleForm.enable();
+        this.isSaving.set(false);
+      },
+    });
   }
 
   resetChanges(): void {

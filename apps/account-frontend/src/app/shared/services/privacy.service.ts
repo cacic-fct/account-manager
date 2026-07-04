@@ -1,11 +1,4 @@
-import {
-  Injectable,
-  Injector,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
+import { Injectable, Injector, computed, effect, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
 import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
 import { Observable, from, of } from 'rxjs';
@@ -14,11 +7,7 @@ import { AuthService } from './auth/auth.service';
 import { LoggerService } from './logger.service';
 import { trackCacicAccountPrivacySettingDisabled } from '../../analytics/account-umami-tracking';
 
-const ANALYTICS_SETTING_KEYS = new Set([
-  'analytics_tracking',
-  'error_debugging',
-  'performance_monitoring',
-]);
+const ANALYTICS_SETTING_KEYS = new Set(['analytics_tracking', 'error_debugging', 'performance_monitoring']);
 
 export interface PrivacyPreferences {
   analyticsTracking: boolean;
@@ -157,9 +146,7 @@ export class PrivacyService {
   /**
    * Listen for privacy preference changes
    */
-  onPreferencesChange(
-    callback: (preferences: PrivacyPreferences) => void,
-  ): () => void {
+  onPreferencesChange(callback: (preferences: PrivacyPreferences) => void): () => void {
     const preferencesEffect = effect(
       () => {
         callback(this.preferences());
@@ -193,9 +180,7 @@ export class PrivacyService {
 
     return this.apiService.updatePrivacySetting(key, updateData).pipe(
       switchMap((updatedSettings) =>
-        this.trackDisabledAnalyticsSettings([{ key, enabled }]).pipe(
-          map(() => updatedSettings),
-        ),
+        this.trackDisabledAnalyticsSettings([{ key, enabled }]).pipe(map(() => updatedSettings)),
       ),
       tap((updatedSettings) => {
         // Update local cache with the complete updated settings object
@@ -209,9 +194,7 @@ export class PrivacyService {
   /**
    * Bulk update multiple privacy settings
    */
-  bulkUpdateSettings(
-    updates: Array<{ key: string; enabled: boolean }>,
-  ): Observable<PrivacySetting> {
+  bulkUpdateSettings(updates: Array<{ key: string; enabled: boolean }>): Observable<PrivacySetting> {
     if (!this.authService.isAuthenticated()) {
       return of().pipe(
         tap(() => {
@@ -227,9 +210,7 @@ export class PrivacyService {
     }, {});
 
     return this.apiService.bulkUpdatePrivacySettings(bulkData).pipe(
-      switchMap((settings) =>
-        this.trackDisabledAnalyticsSettings(updates).pipe(map(() => settings)),
-      ),
+      switchMap((settings) => this.trackDisabledAnalyticsSettings(updates).pipe(map(() => settings))),
       tap((settings) => {
         this._settings.set(settings);
         this._lastUpdated.set(new Date());
@@ -263,14 +244,9 @@ export class PrivacyService {
     });
   }
 
-  private trackDisabledAnalyticsSettings(
-    updates: Array<{ key: string; enabled: boolean }>,
-  ): Observable<void> {
+  private trackDisabledAnalyticsSettings(updates: Array<{ key: string; enabled: boolean }>): Observable<void> {
     const disabledAnalyticsSettings = updates
-      .filter(
-        (update) =>
-          !update.enabled && ANALYTICS_SETTING_KEYS.has(update.key),
-      )
+      .filter((update) => !update.enabled && ANALYTICS_SETTING_KEYS.has(update.key))
       .map((update) => update.key);
 
     if (!disabledAnalyticsSettings.length) {
@@ -278,11 +254,7 @@ export class PrivacyService {
     }
 
     return from(
-      Promise.all(
-        disabledAnalyticsSettings.map((settingKey) =>
-          trackCacicAccountPrivacySettingDisabled(settingKey),
-        ),
-      ),
+      Promise.all(disabledAnalyticsSettings.map((settingKey) => trackCacicAccountPrivacySettingDisabled(settingKey))),
     ).pipe(
       map(() => undefined),
       catchError((error) => {

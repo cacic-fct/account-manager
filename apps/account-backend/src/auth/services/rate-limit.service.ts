@@ -20,9 +20,7 @@ export class RateLimitService {
     const requests = this.requests.get(identifier) || [];
 
     // Remove old requests outside the time window
-    const recentRequests = requests.filter(
-      (timestamp) => now - timestamp < this.windowMs,
-    );
+    const recentRequests = requests.filter((timestamp) => now - timestamp < this.windowMs);
 
     // Check if within limits
     if (recentRequests.length >= this.maxRequests) {
@@ -42,9 +40,7 @@ export class RateLimitService {
   getRemainingRequests(identifier: string): number {
     const now = Date.now();
     const requests = this.requests.get(identifier) || [];
-    const recentRequests = requests.filter(
-      (timestamp) => now - timestamp < this.windowMs,
-    );
+    const recentRequests = requests.filter((timestamp) => now - timestamp < this.windowMs);
 
     return Math.max(0, this.maxRequests - recentRequests.length);
   }
@@ -78,9 +74,7 @@ export class RateLimitService {
     const now = Date.now();
 
     for (const [identifier, requests] of this.requests.entries()) {
-      const recentRequests = requests.filter(
-        (timestamp) => now - timestamp < this.windowMs,
-      );
+      const recentRequests = requests.filter((timestamp) => now - timestamp < this.windowMs);
 
       if (recentRequests.length === 0) {
         this.requests.delete(identifier);

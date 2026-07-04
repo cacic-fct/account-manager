@@ -33,8 +33,7 @@ describe('EditProfileComponent', () => {
           },
         },
       ],
-    })
-    .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(EditProfileComponent);
     component = fixture.componentInstance;

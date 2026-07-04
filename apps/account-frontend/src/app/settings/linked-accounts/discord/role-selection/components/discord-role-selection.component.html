@@ -6,8 +6,7 @@
       </div>
       <mat-card-title> Seleção de cargos </mat-card-title>
       <mat-card-subtitle>
-        Escolha os cargos do Discord para receber notificações quando for
-        mencionado.
+        Escolha os cargos do Discord para receber notificações quando for mencionado.
       </mat-card-subtitle>
     </mat-card-header>
 
@@ -25,31 +24,15 @@
             <p>{{ errorMessage() }}</p>
             @switch (errorAction()) {
               @case ('login') {
-                <button
-                  mat-raised-button
-                  color="primary"
-                  (click)="redirectToLogin()"
-                >
-                  Entrar
-                </button>
+                <button mat-raised-button color="primary" (click)="redirectToLogin()">Entrar</button>
               }
               @case ('link') {
-                <button
-                  mat-raised-button
-                  color="primary"
-                  (click)="redirectToDiscordLink()"
-                >
+                <button mat-raised-button color="primary" (click)="redirectToDiscordLink()">
                   Vincular conta do Discord
                 </button>
               }
               @default {
-                <button
-                  mat-raised-button
-                  color="primary"
-                  (click)="retryLoading()"
-                >
-                  Tentar novamente
-                </button>
+                <button mat-raised-button color="primary" (click)="retryLoading()">Tentar novamente</button>
               }
             }
           </div>
@@ -60,12 +43,7 @@
             <p>{{ selectedCount() }} selecionado(s) para sua conta.</p>
           </div>
           <div class="quick-actions" aria-label="Ações rápidas">
-            <button
-              mat-button
-              type="button"
-              [disabled]="isSaving()"
-              (click)="clearAllRoles()"
-            >
+            <button mat-button type="button" [disabled]="isSaving()" (click)="clearAllRoles()">
               <mat-icon>deselect</mat-icon>
               Limpar
             </button>
@@ -75,9 +53,8 @@
         <div class="instructions">
           <mat-icon>info</mat-icon>
           <p>
-            Estes são os cargos liberados pela administração para
-            autoatribuição. As alterações são aplicadas ao seu usuário no
-            servidor do Discord.
+            Estes são os cargos liberados pela administração para autoatribuição. As alterações são aplicadas ao seu
+            usuário no servidor do Discord.
           </p>
         </div>
 
@@ -91,10 +68,7 @@
               @for (role of selectableRoles(); track role.id) {
                 <div class="role-item">
                   <mat-checkbox [formControlName]="role.id">
-                    <app-discord-role-option
-                      [role]="role"
-                      meta="Sem permissões sensíveis"
-                    />
+                    <app-discord-role-option [role]="role" meta="Sem permissões sensíveis" />
                   </mat-checkbox>
                 </div>
               }
@@ -123,12 +97,7 @@
           }
 
           <div class="actions">
-            <button
-              type="submit"
-              mat-raised-button
-              color="primary"
-              [disabled]="!canSubmit()"
-            >
+            <button type="submit" mat-raised-button color="primary" [disabled]="!canSubmit()">
               @if (isSaving()) {
                 <mat-spinner diameter="20"></mat-spinner>
               } @else {
@@ -137,12 +106,7 @@
               Atualizar
             </button>
 
-            <button
-              type="button"
-              mat-button
-              [disabled]="!hasChanges() || isSaving()"
-              (click)="onReset()"
-            >
+            <button type="button" mat-button [disabled]="!hasChanges() || isSaving()" (click)="onReset()">
               <mat-icon>undo</mat-icon>
               Desfazer
             </button>

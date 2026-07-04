@@ -13,21 +13,13 @@
           [layoutMode]="'all-in-one'"
           (savingChange)="onSavingChange($event)"
           (saveSuccess)="onProfileSaveSuccess($event)"
-          (saveError)="onProfileSaveError($event)"
-        />
+          (saveError)="onProfileSaveError($event)" />
       </div>
     </mat-card-content>
 
     <mat-card-actions>
       <div class="actions-container">
-        <button
-          mat-button
-          type="button"
-          (click)="cancel()"
-          [disabled]="isSubmitting()"
-        >
-          Cancelar
-        </button>
+        <button mat-button type="button" (click)="cancel()" [disabled]="isSubmitting()">Cancelar</button>
       </div>
     </mat-card-actions>
   </mat-card>

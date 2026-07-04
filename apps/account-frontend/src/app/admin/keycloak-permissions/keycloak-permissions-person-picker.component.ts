@@ -37,18 +37,13 @@ export type PermissionPersonSearchForm = FormGroup<{
           <mat-label>Nome, CPF ou e-mail</mat-label>
           <input matInput type="search" formControlName="query" />
           <mat-icon matSuffix>search</mat-icon>
-          @if (searchForm().controls.query.hasError("required")) {
+          @if (searchForm().controls.query.hasError('required')) {
             <mat-error>Informe nome, CPF ou e-mail.</mat-error>
-          } @else if (searchForm().controls.query.hasError("minlength")) {
+          } @else if (searchForm().controls.query.hasError('minlength')) {
             <mat-error>Digite pelo menos 2 caracteres.</mat-error>
           }
         </mat-form-field>
-        <button
-          mat-flat-button
-          color="primary"
-          type="submit"
-          [disabled]="searching()"
-        >
+        <button mat-flat-button color="primary" type="submit" [disabled]="searching()">
           @if (searching()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
@@ -70,8 +65,7 @@ export type PermissionPersonSearchForm = FormGroup<{
               class="user-result"
               [class.selected]="selectedUser()?.id === user.id"
               [attr.aria-pressed]="selectedUser()?.id === user.id"
-              (click)="userSelected.emit(user)"
-            >
+              (click)="userSelected.emit(user)">
               <span class="user-main">
                 <mat-icon>person</mat-icon>
                 <span>

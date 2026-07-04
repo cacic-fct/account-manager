@@ -8,10 +8,7 @@ import {
 
 export interface CacicUmamiGlobal {
   identify?: (data: CacicUmamiIdentifyPayload) => void;
-  track?: (
-    eventNameOrData?: string | Record<string, unknown>,
-    eventData?: Record<string, unknown>,
-  ) => void;
+  track?: (eventNameOrData?: string | Record<string, unknown>, eventData?: Record<string, unknown>) => void;
 }
 
 export interface CacicUmamiIdentifyPayload extends Record<string, unknown> {
@@ -47,13 +44,7 @@ export type StopCacicUmamiTracking = () => void;
 
 export interface CacicUmamiTrackingResult extends CacicTrackingIdentity {
   loaded: boolean;
-  reason:
-    | 'loaded'
-    | 'missing_website_id'
-    | 'not_browser'
-    | 'analytics_disabled'
-    | 'missing_identity'
-    | 'script_failed';
+  reason: 'loaded' | 'missing_website_id' | 'not_browser' | 'analytics_disabled' | 'missing_identity' | 'script_failed';
 }
 
 declare global {
@@ -65,9 +56,7 @@ declare global {
 const DEFAULT_ACCOUNT_API_BASE_URL = 'https://account.cacic.dev.br/api';
 const DEFAULT_UMAMI_SCRIPT_SRC = 'https://a.cacic.dev.br/b.js';
 
-export async function initCacicUmamiTracking(
-  config: CacicUmamiTrackingConfig,
-): Promise<CacicUmamiTrackingResult> {
+export async function initCacicUmamiTracking(config: CacicUmamiTrackingConfig): Promise<CacicUmamiTrackingResult> {
   if (!config.websiteId) {
     return disabledResult('missing_website_id');
   }
@@ -111,10 +100,7 @@ export async function initCacicUmamiTracking(
 }
 
 export async function resolveCacicTrackingIdentity(
-  config: Pick<
-    CacicUmamiTrackingConfig,
-    'accountApiBaseUrl'
-  > = {},
+  config: Pick<CacicUmamiTrackingConfig, 'accountApiBaseUrl'> = {},
 ): Promise<CacicTrackingIdentity> {
   if (!isBrowser()) {
     return {
@@ -130,8 +116,7 @@ export async function resolveCacicTrackingIdentity(
   return {
     analyticsAllowed: cookies.consent?.analyticsAllowed === true,
     cookieBannerAccepted: cookies.consent?.cookieBannerAccepted === true,
-    userId:
-      cookies.consent?.analyticsAllowed === true ? cookies.analyticsId : null,
+    userId: cookies.consent?.analyticsAllowed === true ? cookies.analyticsId : null,
   };
 }
 
@@ -154,18 +139,13 @@ export function clearClientTrackingCookies(): void {
     return;
   }
 
-  for (const cookieName of [
-    CACIC_ANALYTICS_ID_COOKIE_NAME,
-    CACIC_ANALYTICS_CONSENT_COOKIE_NAME,
-  ]) {
+  for (const cookieName of [CACIC_ANALYTICS_ID_COOKIE_NAME, CACIC_ANALYTICS_CONSENT_COOKIE_NAME]) {
     expireCookie(cookieName);
     expireCookie(cookieName, resolveCurrentSharedCookieDomain());
   }
 }
 
-export function startCacicUmamiTracking(
-  config: CacicUmamiTrackingConfig,
-): StopCacicUmamiTracking | null {
+export function startCacicUmamiTracking(config: CacicUmamiTrackingConfig): StopCacicUmamiTracking | null {
   if (!isBrowser()) {
     return null;
   }
@@ -173,11 +153,7 @@ export function startCacicUmamiTracking(
   const run = (): void => {
     void initCacicUmamiTracking(config);
   };
-  const events = [
-    'cookieBannerAccepted',
-    'cacicTrackingConsentChanged',
-    'pageshow',
-  ] as const;
+  const events = ['cookieBannerAccepted', 'cacicTrackingConsentChanged', 'pageshow'] as const;
 
   run();
 
@@ -199,9 +175,7 @@ export function startCacicUmamiTrackingFromCurrentScript(
   return config ? startCacicUmamiTracking(config) : null;
 }
 
-export function unloadCacicUmamiTracking(
-  config: Pick<CacicUmamiTrackingConfig, 'websiteId'>,
-): void {
+export function unloadCacicUmamiTracking(config: Pick<CacicUmamiTrackingConfig, 'websiteId'>): void {
   if (!isBrowser() || !config.websiteId) {
     return;
   }
@@ -232,17 +206,12 @@ async function requestTrackingCookieRefresh(
   }
 }
 
-function resolveTrackingUrl(
-  accountApiBaseUrl: string,
-  route: keyof typeof CACIC_TRACKING_ROUTES,
-): string {
+function resolveTrackingUrl(accountApiBaseUrl: string, route: keyof typeof CACIC_TRACKING_ROUTES): string {
   const origin = new URL(accountApiBaseUrl).origin;
   return new URL(CACIC_TRACKING_ROUTES[route], origin).toString();
 }
 
-function resolveConfigFromCurrentScript(
-  defaults: Partial<CacicUmamiTrackingConfig>,
-): CacicUmamiTrackingConfig | null {
+function resolveConfigFromCurrentScript(defaults: Partial<CacicUmamiTrackingConfig>): CacicUmamiTrackingConfig | null {
   if (!isBrowser() || !(document.currentScript instanceof HTMLScriptElement)) {
     return null;
   }
@@ -260,18 +229,12 @@ function resolveConfigFromCurrentScript(
     domains: resolveDomains(dataset['domains'], defaults.domains),
     recorder: resolveRecorderConfig(dataset, defaults.recorder),
     scriptSrc: dataset['scriptSrc'] ?? defaults.scriptSrc,
-    trackPageView: resolveBooleanDatasetValue(
-      dataset['trackPageView'],
-      defaults.trackPageView,
-    ),
+    trackPageView: resolveBooleanDatasetValue(dataset['trackPageView'], defaults.trackPageView),
     websiteId,
   };
 }
 
-function resolveBooleanDatasetValue(
-  value: string | undefined,
-  fallback: boolean | undefined,
-): boolean | undefined {
+function resolveBooleanDatasetValue(value: string | undefined, fallback: boolean | undefined): boolean | undefined {
   if (value === 'true') {
     return true;
   }
@@ -283,10 +246,7 @@ function resolveBooleanDatasetValue(
   return fallback;
 }
 
-function resolveDomains(
-  value: string | undefined,
-  fallback: string[] | undefined,
-): string[] | undefined {
+function resolveDomains(value: string | undefined, fallback: string[] | undefined): string[] | undefined {
   if (!value) {
     return fallback;
   }
@@ -303,34 +263,20 @@ function resolveRecorderConfig(
   dataset: DOMStringMap,
   fallback: CacicUmamiRecorderConfig | undefined,
 ): CacicUmamiRecorderConfig | undefined {
-  if (
-    !dataset['recorderSrc'] &&
-    !dataset['sampleRate'] &&
-    !dataset['maskLevel'] &&
-    !dataset['maxDuration']
-  ) {
+  if (!dataset['recorderSrc'] && !dataset['sampleRate'] && !dataset['maskLevel'] && !dataset['maxDuration']) {
     return fallback;
   }
 
   return {
     ...fallback,
     maskLevel: resolveMaskLevel(dataset['maskLevel'], fallback?.maskLevel),
-    maxDuration: resolveNumberDatasetValue(
-      dataset['maxDuration'],
-      fallback?.maxDuration,
-    ),
-    sampleRate: resolveNumberDatasetValue(
-      dataset['sampleRate'],
-      fallback?.sampleRate,
-    ),
+    maxDuration: resolveNumberDatasetValue(dataset['maxDuration'], fallback?.maxDuration),
+    sampleRate: resolveNumberDatasetValue(dataset['sampleRate'], fallback?.sampleRate),
     src: dataset['recorderSrc'] ?? fallback?.src,
   };
 }
 
-function resolveNumberDatasetValue(
-  value: string | undefined,
-  fallback: number | undefined,
-): number | undefined {
+function resolveNumberDatasetValue(value: string | undefined, fallback: number | undefined): number | undefined {
   if (!value) {
     return fallback;
   }
@@ -343,12 +289,7 @@ function resolveMaskLevel(
   value: string | undefined,
   fallback: CacicUmamiRecorderConfig['maskLevel'],
 ): CacicUmamiRecorderConfig['maskLevel'] {
-  return value === 'none' ||
-    value === 'light' ||
-    value === 'moderate' ||
-    value === 'strict'
-    ? value
-    : fallback;
+  return value === 'none' || value === 'light' || value === 'moderate' || value === 'strict' ? value : fallback;
 }
 
 function readCookie(name: string): string | null {
@@ -369,9 +310,7 @@ function readCookie(name: string): string | null {
   }
 }
 
-function readConsentCookie(
-  value: string | null,
-): CacicAnalyticsConsentCookiePayload | null {
+function readConsentCookie(value: string | null): CacicAnalyticsConsentCookiePayload | null {
   if (!value) {
     return null;
   }
@@ -451,16 +390,11 @@ function loadRecorderScript(config: CacicUmamiTrackingConfig): void {
   document.head.append(script);
 }
 
-function resolveScriptId(
-  config: Pick<CacicUmamiTrackingConfig, 'websiteId'>,
-  kind: 'recorder' | 'umami',
-): string {
+function resolveScriptId(config: Pick<CacicUmamiTrackingConfig, 'websiteId'>, kind: 'recorder' | 'umami'): string {
   return `cacic-${kind}-${config.websiteId.replace(/[^a-z0-9_-]/gi, '-')}`;
 }
 
-function disabledResult(
-  reason: CacicUmamiTrackingResult['reason'],
-): CacicUmamiTrackingResult {
+function disabledResult(reason: CacicUmamiTrackingResult['reason']): CacicUmamiTrackingResult {
   return {
     analyticsAllowed: false,
     cookieBannerAccepted: false,

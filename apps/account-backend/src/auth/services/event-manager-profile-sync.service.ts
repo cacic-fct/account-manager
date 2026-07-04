@@ -27,13 +27,11 @@ export class EventManagerProfileSyncService {
   ) {
     this.profileUpdateUrl =
       this.configService.get<string>('EVENT_MANAGER_PROFILE_UPDATE_URL') ??
-      `${(
-        this.configService.get<string>('EVENT_MANAGER_API_URL') ??
-        'https://eventos.cacic.dev.br/api'
-      ).replace(/\/+$/, '')}/internal/account-profile/updated`;
-    this.audience = this.configService.get<string>(
-      'EVENT_MANAGER_M2M_AUDIENCE',
-    );
+      `${(this.configService.get<string>('EVENT_MANAGER_API_URL') ?? 'https://eventos.cacic.dev.br/api').replace(
+        /\/+$/,
+        '',
+      )}/internal/account-profile/updated`;
+    this.audience = this.configService.get<string>('EVENT_MANAGER_M2M_AUDIENCE');
   }
 
   async notifyProfileUpdated(profile: UserProfile): Promise<void> {

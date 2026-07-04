@@ -1,10 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import {
-  CanActivate,
-  ActivatedRouteSnapshot,
-  RouterStateSnapshot,
-  Router,
-} from '@angular/router';
+import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { AuthService } from './auth.service';
@@ -17,10 +12,7 @@ export class AuthGuardWithForcedLogin implements CanActivate {
   private router = inject(Router);
   private routeCache = inject(RouteCacheService);
 
-  canActivate(
-    route: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot,
-  ): Observable<boolean> {
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> {
     return this.authService.isDoneLoading$.pipe(
       switchMap(() => {
         const isAuthenticated = this.authService.isAuthenticated();
@@ -36,9 +28,7 @@ export class AuthGuardWithForcedLogin implements CanActivate {
 
         if (currentUser) {
           // Use cached user data if available
-          return of(
-            this.handleUserAccessSync(currentUser, state, isAuthenticated),
-          );
+          return of(this.handleUserAccessSync(currentUser, state, isAuthenticated));
         }
 
         // Use route cache service for optimized data fetching
@@ -60,15 +50,8 @@ export class AuthGuardWithForcedLogin implements CanActivate {
             });
 
             // If user is not onboarded according to cached data, redirect to onboarding
-            if (
-              isAuthenticated &&
-              !isOnboarded &&
-              !state.url.includes('/onboarding')
-            ) {
-              console.log(
-                'User not onboarded (cached), redirecting to onboarding from:',
-                state.url,
-              );
+            if (isAuthenticated && !isOnboarded && !state.url.includes('/onboarding')) {
+              console.log('User not onboarded (cached), redirecting to onboarding from:', state.url);
               setTimeout(() => {
                 this.router.navigateByUrl('/onboarding');
               }, 0);
@@ -88,11 +71,7 @@ export class AuthGuardWithForcedLogin implements CanActivate {
     );
   }
 
-  private handleUserAccessSync(
-    user: User,
-    state: RouterStateSnapshot,
-    isAuthenticated: boolean,
-  ): boolean {
+  private handleUserAccessSync(user: User, state: RouterStateSnapshot, isAuthenticated: boolean): boolean {
     const isOnboarded = user.isOnboarded;
 
     console.log('AuthGuard check with user data:', {
@@ -105,10 +84,7 @@ export class AuthGuardWithForcedLogin implements CanActivate {
 
     // If user is authenticated but not onboarded, redirect to onboarding
     if (isAuthenticated && !isOnboarded && !state.url.includes('/onboarding')) {
-      console.log(
-        'User not onboarded, redirecting to onboarding from:',
-        state.url,
-      );
+      console.log('User not onboarded, redirecting to onboarding from:', state.url);
       setTimeout(() => {
         this.router.navigateByUrl('/onboarding');
       }, 0);
@@ -117,9 +93,7 @@ export class AuthGuardWithForcedLogin implements CanActivate {
 
     // If user is onboarded but trying to access onboarding, redirect to applications
     if (isAuthenticated && isOnboarded && state.url.includes('/onboarding')) {
-      console.log(
-        'User already onboarded, redirecting to applications from onboarding',
-      );
+      console.log('User already onboarded, redirecting to applications from onboarding');
       setTimeout(() => {
         this.router.navigateByUrl('/applications');
       }, 0);

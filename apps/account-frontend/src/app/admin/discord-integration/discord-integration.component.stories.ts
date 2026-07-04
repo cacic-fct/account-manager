@@ -3,10 +3,7 @@ import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular'
 
 import { DiscordIntegrationComponent } from './discord-integration.component';
 import { AuthService } from '../../shared/services/auth/auth.service';
-import {
-  authHandlers,
-  discordHandlers,
-} from '../../../storybook/mocks/msw-handlers';
+import { authHandlers, discordHandlers } from '../../../storybook/mocks/msw-handlers';
 
 const authProvider = (isAuthenticated: boolean) =>
   applicationConfig({

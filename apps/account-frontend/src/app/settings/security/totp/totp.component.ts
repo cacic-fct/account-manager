@@ -19,11 +19,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import {
-  TOTP_PERIOD_SECONDS,
-  formatTotpCode,
-  generateTotpCode,
-} from '@cacic/m2m-contracts';
+import { TOTP_PERIOD_SECONDS, formatTotpCode, generateTotpCode } from '@cacic/m2m-contracts';
 import type { TotpSeed, TotpStatus } from '@cacic/shared-types';
 import { ApiService } from '../../../shared/services/api.service';
 
@@ -63,12 +59,8 @@ export class TotpComponent {
   readonly hasLoadError = signal(false);
   readonly isRotating = signal(false);
 
-  readonly displayCode = computed(() =>
-    this.code() ? formatTotpCode(this.code()) : '--- ---',
-  );
-  readonly currentStep = computed(() =>
-    Math.floor(this.now() / TOTP_PERIOD_MS),
-  );
+  readonly displayCode = computed(() => (this.code() ? formatTotpCode(this.code()) : '--- ---'));
+  readonly currentStep = computed(() => Math.floor(this.now() / TOTP_PERIOD_MS));
   readonly progressValue = computed(() => {
     const elapsed = this.now() % TOTP_PERIOD_MS;
     return ((TOTP_PERIOD_MS - elapsed) / TOTP_PERIOD_MS) * 100;
@@ -259,8 +251,8 @@ export class TotpComponent {
     <h2 mat-dialog-title>Trocar código secreto?</h2>
     <mat-dialog-content>
       <p>
-        O código atual vai parar de funcionar. Use esta opção se você abriu o código em
-        um dispositivo compartilhado ou suspeita que outra pessoa viu.
+        O código atual vai parar de funcionar. Use esta opção se você abriu o código em um dispositivo compartilhado ou
+        suspeita que outra pessoa viu.
       </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">

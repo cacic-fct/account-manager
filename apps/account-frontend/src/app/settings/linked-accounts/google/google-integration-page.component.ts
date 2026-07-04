@@ -8,13 +8,7 @@ import { GoogleAccountLinkingComponent } from '../components/google-account-link
 
 @Component({
   selector: 'app-google-integration-page',
-  imports: [
-    MatToolbarModule,
-    MatIconModule,
-    MatButtonModule,
-    RouterLink,
-    GoogleAccountLinkingComponent,
-  ],
+  imports: [MatToolbarModule, MatIconModule, MatButtonModule, RouterLink, GoogleAccountLinkingComponent],
   template: `
     <div class="linked-account-page">
       <mat-toolbar color="primary" class="toolbar">

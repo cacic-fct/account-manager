@@ -3,10 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
-import {
-  PrivacyDirectives,
-  PrivacyDirectiveResponse,
-} from '../interfaces/privacy-directive.interface';
+import { PrivacyDirectives, PrivacyDirectiveResponse } from '../interfaces/privacy-directive.interface';
 import { getApiBaseUrl } from '../utils/api-url.util';
 import { LoggerService } from './logger.service';
 
@@ -65,10 +62,7 @@ export class PrivacyDirectiveService {
           // Check if directives are in response headers (PURR-style)
           const directivesHeader = response.headers.get('X-Privacy-Directives');
           this.logger.debug('Loaded directives from response headers');
-          const directives = this.parseDirectiveResponse(
-            directivesHeader,
-            response.body,
-          );
+          const directives = this.parseDirectiveResponse(directivesHeader, response.body);
 
           this._directives.set(directives);
           this._lastUpdated.set(new Date());
@@ -76,9 +70,7 @@ export class PrivacyDirectiveService {
           this.logger.info('Privacy directives fetched successfully');
 
           // Update cookie banner visibility based on directives
-          this._shouldShowCookieBanner.set(
-            directives.cookieBanner.action === 'show',
-          );
+          this._shouldShowCookieBanner.set(directives.cookieBanner.action === 'show');
 
           // Store in localStorage for offline access
           this.saveToLocalStorage(directives);
@@ -96,9 +88,7 @@ export class PrivacyDirectiveService {
           const cached = this.loadFromLocalStorage();
           if (cached) {
             // Update cookie banner visibility for cached directives too
-            this._shouldShowCookieBanner.set(
-              cached.cookieBanner.action === 'show',
-            );
+            this._shouldShowCookieBanner.set(cached.cookieBanner.action === 'show');
             return of(cached);
           }
 
@@ -155,9 +145,7 @@ export class PrivacyDirectiveService {
               this._directives.set(updatedDirectives);
               this.saveToLocalStorage(updatedDirectives);
             } catch {
-              this.logger.warn(
-                'Failed to parse updated directives from headers',
-              );
+              this.logger.warn('Failed to parse updated directives from headers');
             }
           }
 
@@ -292,16 +280,13 @@ export class PrivacyDirectiveService {
         // Check if data is not too old (24 hours)
         const timestamp = new Date(parsed.timestamp);
         const now = new Date();
-        const hoursDiff =
-          (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
+        const hoursDiff = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
 
         if (hoursDiff < 24) {
           this._directives.set(parsed.directives);
 
           // Update cookie banner visibility based on loaded directives
-          this._shouldShowCookieBanner.set(
-            parsed.directives.cookieBanner.action === 'show',
-          );
+          this._shouldShowCookieBanner.set(parsed.directives.cookieBanner.action === 'show');
 
           return parsed.directives;
         }
@@ -311,8 +296,7 @@ export class PrivacyDirectiveService {
     }
 
     // Check legacy cookie banner localStorage
-    const cookieBannerHidden =
-      localStorage.getItem('cookieBannerHidden') === 'true';
+    const cookieBannerHidden = localStorage.getItem('cookieBannerHidden') === 'true';
     if (cookieBannerHidden) {
       this._shouldShowCookieBanner.set(false);
     }
@@ -348,12 +332,7 @@ export class PrivacyDirectiveService {
     localStorage.removeItem('cookieBannerHidden');
 
     // Clear shared privacy and tracking cookies.
-    for (const cookieName of [
-      'cacic-analytics-id',
-      'cacic-analytics-consent',
-      'cacic-purr',
-      'cacic-purr-quick',
-    ]) {
+    for (const cookieName of ['cacic-analytics-id', 'cacic-analytics-consent', 'cacic-purr', 'cacic-purr-quick']) {
       this.expireCookie(cookieName);
       this.expireCookie(cookieName, '.cacic.dev.br');
     }
@@ -365,8 +344,7 @@ export class PrivacyDirectiveService {
         withCredentials: true,
       })
       .subscribe({
-        next: () =>
-          window.dispatchEvent(new CustomEvent('cacicTrackingConsentChanged')),
+        next: () => window.dispatchEvent(new CustomEvent('cacicTrackingConsentChanged')),
         error: () => undefined,
       });
   }

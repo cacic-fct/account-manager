@@ -1,17 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  M2MUserIdentifierLookupItem,
-  M2MUserIdentifierLookupMatch,
-  M2MUserProfile,
-} from '@cacic/m2m-contracts';
-import {
-  KeycloakService,
-  KeycloakUserData,
-} from '../auth/services/keycloak.service';
-import {
-  M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS,
-  M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS,
-} from './dto/m2m-user-lookup.dto';
+import { M2MUserIdentifierLookupItem, M2MUserIdentifierLookupMatch, M2MUserProfile } from '@cacic/m2m-contracts';
+import { KeycloakService, KeycloakUserData } from '../auth/services/keycloak.service';
+import { M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS, M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS } from './dto/m2m-user-lookup.dto';
 
 const KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER = 10;
 
@@ -21,9 +11,7 @@ export class M2MUsersService {
 
   constructor(private readonly keycloakService: KeycloakService) {}
 
-  async lookupByEnrollmentNumbers(
-    enrollmentNumbers: readonly string[],
-  ): Promise<M2MUserProfile[]> {
+  async lookupByEnrollmentNumbers(enrollmentNumbers: readonly string[]): Promise<M2MUserProfile[]> {
     const normalizedEnrollmentNumbers = this.normalizeUniqueValues(
       enrollmentNumbers,
       M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS,
@@ -36,9 +24,7 @@ export class M2MUsersService {
         ['enrollmentNumber'],
         [enrollmentNumber],
         (user) =>
-          this.normalizeEnrollmentNumber(
-            this.firstAttributeValue(user, 'enrollmentNumber'),
-          ) === enrollmentNumber,
+          this.normalizeEnrollmentNumber(this.firstAttributeValue(user, 'enrollmentNumber')) === enrollmentNumber,
       );
 
       for (const match of matches) {
@@ -78,14 +64,10 @@ export class M2MUsersService {
     return this.dedupeIdentifierMatches(matches);
   }
 
-  private async findUsersForIdentifier(
-    identifier: M2MUserIdentifierLookupItem,
-  ): Promise<KeycloakUserData[]> {
+  private async findUsersForIdentifier(identifier: M2MUserIdentifierLookupItem): Promise<KeycloakUserData[]> {
     switch (identifier.identifierType) {
       case 'email': {
-        const user = await this.keycloakService.findUserByEmail(
-          identifier.identifierValue,
-        );
+        const user = await this.keycloakService.findUserByEmail(identifier.identifierValue);
         return user ? [user] : [];
       }
       case 'cpf': {
@@ -98,13 +80,8 @@ export class M2MUsersService {
           ['identity-document', 'identityDocument'],
           [normalizedCpf],
           (user) =>
-            this.normalizeCpf(
-              this.firstAttributeValue(
-                user,
-                'identity-document',
-                'identityDocument',
-              ),
-            ) === normalizedCpf,
+            this.normalizeCpf(this.firstAttributeValue(user, 'identity-document', 'identityDocument')) ===
+            normalizedCpf,
         );
       }
       case 'phone': {
@@ -116,9 +93,7 @@ export class M2MUsersService {
         return this.findUsersByAttributeValues(
           ['phone'],
           [normalizedPhone, `+${normalizedPhone}`],
-          (user) =>
-            this.normalizePhone(this.firstAttributeValue(user, 'phone')) ===
-            normalizedPhone,
+          (user) => this.normalizePhone(this.firstAttributeValue(user, 'phone')) === normalizedPhone,
         );
       }
     }
@@ -134,11 +109,9 @@ export class M2MUsersService {
     for (const attributeName of attributeNames) {
       for (const attributeValue of attributeValues) {
         try {
-          const users = await this.keycloakService.searchUsersByAttribute(
-            attributeName,
-            attributeValue,
-            { max: KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER },
-          );
+          const users = await this.keycloakService.searchUsersByAttribute(attributeName, attributeValue, {
+            max: KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER,
+          });
 
           for (const user of users) {
             if (isExactMatch(user)) {
@@ -158,16 +131,11 @@ export class M2MUsersService {
     return [...usersById.values()];
   }
 
-  private normalizeIdentifiers(
-    identifiers: readonly M2MUserIdentifierLookupItem[],
-  ): M2MUserIdentifierLookupItem[] {
+  private normalizeIdentifiers(identifiers: readonly M2MUserIdentifierLookupItem[]): M2MUserIdentifierLookupItem[] {
     const normalized: M2MUserIdentifierLookupItem[] = [];
     const seen = new Set<string>();
 
-    for (const identifier of identifiers.slice(
-      0,
-      M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS,
-    )) {
+    for (const identifier of identifiers.slice(0, M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS)) {
       const requestId = identifier.requestId.trim();
       const identifierValue = identifier.identifierValue.trim();
 
@@ -184,10 +152,7 @@ export class M2MUsersService {
       normalized.push({
         requestId,
         identifierType: identifier.identifierType,
-        identifierValue:
-          identifier.identifierType === 'email'
-            ? identifierValue.toLowerCase()
-            : identifierValue,
+        identifierValue: identifier.identifierType === 'email' ? identifierValue.toLowerCase() : identifierValue,
       });
     }
 
@@ -221,13 +186,8 @@ export class M2MUsersService {
       return null;
     }
 
-    const email = this.firstNonEmpty(
-      user.email,
-      this.firstAttributeValue(user, 'email'),
-    );
-    const federatedFullName = this.firstNonEmpty(
-      [user.firstName, user.lastName].filter(Boolean).join(' '),
-    );
+    const email = this.firstNonEmpty(user.email, this.firstAttributeValue(user, 'email'));
+    const federatedFullName = this.firstNonEmpty([user.firstName, user.lastName].filter(Boolean).join(' '));
     const name = this.firstNonEmpty(
       this.firstAttributeValue(user, 'fullName'),
       this.firstAttributeValue(user, 'displayName'),
@@ -245,17 +205,11 @@ export class M2MUsersService {
       userId,
       name,
       email: email ?? null,
-      enrollmentNumber:
-        this.normalizeEnrollmentNumber(
-          this.firstAttributeValue(user, 'enrollmentNumber'),
-        ) ?? null,
+      enrollmentNumber: this.normalizeEnrollmentNumber(this.firstAttributeValue(user, 'enrollmentNumber')) ?? null,
     };
   }
 
-  private firstAttributeValue(
-    user: KeycloakUserData,
-    ...attributeNames: string[]
-  ): string | undefined {
+  private firstAttributeValue(user: KeycloakUserData, ...attributeNames: string[]): string | undefined {
     const attributes = user.attributes ?? {};
 
     for (const attributeName of attributeNames) {
@@ -268,9 +222,7 @@ export class M2MUsersService {
     return undefined;
   }
 
-  private firstNonEmpty(
-    ...values: readonly (string | undefined | null)[]
-  ): string | undefined {
+  private firstNonEmpty(...values: readonly (string | undefined | null)[]): string | undefined {
     for (const value of values) {
       const trimmed = value?.trim();
       if (trimmed) {
@@ -305,9 +257,7 @@ export class M2MUsersService {
     return [...usersByKey.values()];
   }
 
-  private dedupeIdentifierMatches(
-    users: readonly M2MUserIdentifierLookupMatch[],
-  ): M2MUserIdentifierLookupMatch[] {
+  private dedupeIdentifierMatches(users: readonly M2MUserIdentifierLookupMatch[]): M2MUserIdentifierLookupMatch[] {
     const usersByKey = new Map<string, M2MUserIdentifierLookupMatch>();
     for (const user of users) {
       usersByKey.set(`${user.requestId}:${user.userId}`, user);

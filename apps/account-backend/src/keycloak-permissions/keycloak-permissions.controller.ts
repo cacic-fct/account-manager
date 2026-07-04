@@ -1,28 +1,6 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Post,
-  Put,
-  Query,
-  Session,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  AccountManagerPermission,
-  PermissionGroupKey,
-} from '@cacic/shared-types';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiParam,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query, Session, UseGuards } from '@nestjs/common';
+import { AccountManagerPermission, PermissionGroupKey } from '@cacic/shared-types';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AccountPermissions, Auth } from '../auth/guards/auth.decorator';
 import { AuthSession } from '../auth/auth.controller';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
@@ -36,12 +14,8 @@ import {
 } from './dto/keycloak-permission-grant.dto';
 
 const PERMISSION_READ = [AccountManagerPermission.PermissionGrantRead] as const;
-const PERMISSION_ASSIGN = [
-  AccountManagerPermission.PermissionGrantAssign,
-] as const;
-const PERMISSION_REVOKE = [
-  AccountManagerPermission.PermissionGrantRevoke,
-] as const;
+const PERMISSION_ASSIGN = [AccountManagerPermission.PermissionGrantAssign] as const;
+const PERMISSION_REVOKE = [AccountManagerPermission.PermissionGrantRevoke] as const;
 const PERMISSION_ASSIGN_OR_REVOKE = [
   AccountManagerPermission.PermissionGrantAssign,
   AccountManagerPermission.PermissionGrantRevoke,
@@ -89,9 +63,7 @@ const GROUP_MEMBERSHIP_EXAMPLE = {
 @ApiTags('Admin Permissions')
 @Controller('admin/permissions')
 export class KeycloakPermissionsController {
-  constructor(
-    private readonly keycloakPermissions: KeycloakPermissionsService,
-  ) {}
+  constructor(private readonly keycloakPermissions: KeycloakPermissionsService) {}
 
   @ApiOperation({ summary: 'List assignable Keycloak client roles' })
   @ApiResponse({
@@ -170,16 +142,12 @@ export class KeycloakPermissionsController {
   })
   @ApiBody({
     type: PermissionGroupRoleGrantUpdateDto,
-    description:
-      'Complete list of Keycloak client roles that should be enabled for the managed group.',
+    description: 'Complete list of Keycloak client roles that should be enabled for the managed group.',
     examples: {
       replaceGroupRoles: {
         summary: 'Replace managed group role grants',
         value: {
-          permissions: [
-            'cacic-account-manager:permission-grant#read',
-            'cacic-event-manager:events#publish',
-          ],
+          permissions: ['cacic-account-manager:permission-grant#read', 'cacic-event-manager:events#publish'],
         },
       },
     },
@@ -209,11 +177,7 @@ export class KeycloakPermissionsController {
     @Body() input: PermissionGroupRoleGrantUpdateDto,
     @Session() session: AuthSession,
   ) {
-    return this.keycloakPermissions.updatePermissionGroupRoleGrants(
-      groupKey,
-      input,
-      session.user?.keycloakId,
-    );
+    return this.keycloakPermissions.updatePermissionGroupRoleGrants(groupKey, input, session.user?.keycloakId);
   }
 
   @ApiOperation({
@@ -366,8 +330,7 @@ export class KeycloakPermissionsController {
   })
   @ApiBody({
     type: KeycloakPermissionGrantCreateDto,
-    description:
-      'Direct Keycloak permission grant payload for one target user and one client role.',
+    description: 'Direct Keycloak permission grant payload for one target user and one client role.',
     examples: {
       activeGrant: {
         summary: 'Create an active direct grant',
@@ -405,14 +368,8 @@ export class KeycloakPermissionsController {
   @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
   @Post('grants')
-  createGrant(
-    @Body() input: KeycloakPermissionGrantCreateDto,
-    @Session() session: AuthSession,
-  ) {
-    return this.keycloakPermissions.createGrant(
-      input,
-      session.user?.keycloakId,
-    );
+  createGrant(@Body() input: KeycloakPermissionGrantCreateDto, @Session() session: AuthSession) {
+    return this.keycloakPermissions.createGrant(input, session.user?.keycloakId);
   }
 
   @ApiOperation({ summary: 'Create a managed group membership' })
@@ -441,14 +398,8 @@ export class KeycloakPermissionsController {
   @AccountPermissions(PERMISSION_ASSIGN)
   @UseGuards(CsrfGuard)
   @Post('groups/memberships')
-  createMembership(
-    @Body() input: PermissionGroupMembershipCreateDto,
-    @Session() session: AuthSession,
-  ) {
-    return this.keycloakPermissions.createPermissionGroupMembership(
-      input,
-      session.user?.keycloakId,
-    );
+  createMembership(@Body() input: PermissionGroupMembershipCreateDto, @Session() session: AuthSession) {
+    return this.keycloakPermissions.createPermissionGroupMembership(input, session.user?.keycloakId);
   }
 
   @ApiOperation({ summary: 'Update a direct permission grant' })
@@ -490,11 +441,7 @@ export class KeycloakPermissionsController {
     @Body() input: KeycloakPermissionGrantUpdateDto,
     @Session() session: AuthSession,
   ) {
-    return this.keycloakPermissions.updateGrant(
-      id,
-      input,
-      session.user?.keycloakId,
-    );
+    return this.keycloakPermissions.updateGrant(id, input, session.user?.keycloakId);
   }
 
   @ApiOperation({ summary: 'Update a managed group membership' })
@@ -534,11 +481,7 @@ export class KeycloakPermissionsController {
     @Body() input: PermissionGroupMembershipUpdateDto,
     @Session() session: AuthSession,
   ) {
-    return this.keycloakPermissions.updatePermissionGroupMembership(
-      id,
-      input,
-      session.user?.keycloakId,
-    );
+    return this.keycloakPermissions.updatePermissionGroupMembership(id, input, session.user?.keycloakId);
   }
 
   @ApiOperation({ summary: 'Delete a direct permission grant' })
@@ -562,10 +505,7 @@ export class KeycloakPermissionsController {
   @AccountPermissions(PERMISSION_REVOKE)
   @UseGuards(CsrfGuard)
   @Delete('grants/:id')
-  async deleteGrant(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-  ): Promise<{ deleted: true; id: string }> {
+  async deleteGrant(@Param('id') id: string, @Session() session: AuthSession): Promise<{ deleted: true; id: string }> {
     await this.keycloakPermissions.deleteGrant(id, session.user?.keycloakId);
     return { deleted: true, id };
   }
@@ -595,10 +535,7 @@ export class KeycloakPermissionsController {
     @Param('id') id: string,
     @Session() session: AuthSession,
   ): Promise<{ deleted: true; id: string }> {
-    await this.keycloakPermissions.deletePermissionGroupMembership(
-      id,
-      session.user?.keycloakId,
-    );
+    await this.keycloakPermissions.deletePermissionGroupMembership(id, session.user?.keycloakId);
     return { deleted: true, id };
   }
 
@@ -621,31 +558,21 @@ export class KeycloakPermissionsController {
 @ApiTags('User Permissions')
 @Controller('permissions')
 export class UserPermissionsController {
-  constructor(
-    private readonly keycloakPermissions: KeycloakPermissionsService,
-  ) {}
+  constructor(private readonly keycloakPermissions: KeycloakPermissionsService) {}
 
   @ApiOperation({ summary: 'List current user groups and direct permissions' })
   @Auth()
   @Get('me')
   getSelfServiceAccess(@Session() session: AuthSession) {
-    return this.keycloakPermissions.getSelfServiceAccess(
-      session.user!.keycloakId,
-    );
+    return this.keycloakPermissions.getSelfServiceAccess(session.user!.keycloakId);
   }
 
   @ApiOperation({ summary: 'Remove current user from a managed group' })
   @Auth()
   @UseGuards(CsrfGuard)
   @Delete('me/groups/:id')
-  selfRemoveMembership(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-  ) {
-    return this.keycloakPermissions.selfRemoveMembership(
-      session.user!.keycloakId,
-      id,
-    );
+  selfRemoveMembership(@Param('id') id: string, @Session() session: AuthSession) {
+    return this.keycloakPermissions.selfRemoveMembership(session.user!.keycloakId, id);
   }
 
   @ApiOperation({ summary: 'Remove a direct permission from current user' })
@@ -653,9 +580,6 @@ export class UserPermissionsController {
   @UseGuards(CsrfGuard)
   @Delete('me/grants/:id')
   selfRemoveGrant(@Param('id') id: string, @Session() session: AuthSession) {
-    return this.keycloakPermissions.selfRemoveGrant(
-      session.user!.keycloakId,
-      id,
-    );
+    return this.keycloakPermissions.selfRemoveGrant(session.user!.keycloakId, id);
   }
 }

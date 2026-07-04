@@ -15,15 +15,7 @@ import {
   selector: 'app-student-verification-status',
   templateUrl: './student-verification-status.component.html',
   styleUrls: ['./student-verification-status.component.scss'],
-  imports: [
-    MatIconModule,
-    MatButtonModule,
-    MatCardModule,
-    MatToolbarModule,
-    MatChipsModule,
-    RouterLink,
-    CommonModule,
-  ],
+  imports: [MatIconModule, MatButtonModule, MatCardModule, MatToolbarModule, MatChipsModule, RouterLink, CommonModule],
 })
 export class StudentVerificationStatusComponent implements OnInit {
   private studentVerificationService = inject(StudentVerificationService);

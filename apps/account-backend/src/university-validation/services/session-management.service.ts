@@ -7,8 +7,7 @@ import { CaptchaSession } from '../university-validation.types';
 export class SessionManagementService {
   private readonly logger = new Logger(SessionManagementService.name);
   public readonly sessions = new Map<string, CaptchaSession>();
-  private readonly documentUrl =
-    'https://sistemas.unesp.br/academico/publico/documento.action';
+  private readonly documentUrl = 'https://sistemas.unesp.br/academico/publico/documento.action';
 
   /**
    * Create a new session with cookie jar
@@ -74,12 +73,8 @@ export class SessionManagementService {
         sessionId: session.sessionId,
         pageUrl: session.pageUrl,
         captchaCode: captchaCode.substring(0, 2) + '***', // Security: partial captcha
-        hasHiddenInputs:
-          !!session.hiddenInputs &&
-          Object.keys(session.hiddenInputs).length > 0,
-        hiddenInputsCount: session.hiddenInputs
-          ? Object.keys(session.hiddenInputs).length
-          : 0,
+        hasHiddenInputs: !!session.hiddenInputs && Object.keys(session.hiddenInputs).length > 0,
+        hiddenInputsCount: session.hiddenInputs ? Object.keys(session.hiddenInputs).length : 0,
       });
 
       // Submit the form
@@ -97,16 +92,11 @@ export class SessionManagementService {
         this.logger.debug('Added hidden inputs to form:', {
           hiddenInputKeys: Object.keys(session.hiddenInputs),
           hiddenInputValues: Object.fromEntries(
-            Object.entries(session.hiddenInputs).map(([k, v]) => [
-              k,
-              v.length > 50 ? `${v.substring(0, 50)}...` : v,
-            ]),
+            Object.entries(session.hiddenInputs).map(([k, v]) => [k, v.length > 50 ? `${v.substring(0, 50)}...` : v]),
           ),
         });
       } else {
-        this.logger.warn(
-          'No hidden inputs found in session - this may cause validation failure',
-        );
+        this.logger.warn('No hidden inputs found in session - this may cause validation failure');
       }
 
       // Enhanced debugging of the complete form submission
@@ -117,9 +107,7 @@ export class SessionManagementService {
         captchaCodeLength: captchaCode.length,
         formDataEntries: Array.from(formData.entries()).map(([key, value]) => [
           key,
-          key.includes('codigo') ||
-          key.includes('captcha') ||
-          key.includes('Captcha')
+          key.includes('codigo') || key.includes('captcha') || key.includes('Captcha')
             ? value.substring(0, 2) + '***'
             : value.length > 100
               ? value.substring(0, 100) + '...'
@@ -129,19 +117,15 @@ export class SessionManagementService {
         sessionHasCookies: !!session.cookieJar,
       });
 
-      const submitResponse = await session.axiosInstance!.post<Buffer>(
-        this.documentUrl,
-        formData.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Referer: this.documentUrl,
-            Cookie: await session.cookieJar.getCookieString(this.documentUrl),
-          },
-          responseType: 'arraybuffer',
-          validateStatus: () => true, // Accept all status codes
+      const submitResponse = await session.axiosInstance!.post<Buffer>(this.documentUrl, formData.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Referer: this.documentUrl,
+          Cookie: await session.cookieJar.getCookieString(this.documentUrl),
         },
-      );
+        responseType: 'arraybuffer',
+        validateStatus: () => true, // Accept all status codes
+      });
 
       this.logger.debug('Form submission response:', {
         status: submitResponse.status,
@@ -192,10 +176,8 @@ export class SessionManagementService {
           bodyPreview: bodyText,
           errorDivs,
           formErrors,
-          hasErrorKeyword:
-            bodyText.includes('erro') || bodyText.includes('Erro'),
-          hasValidationKeyword:
-            bodyText.includes('validação') || bodyText.includes('Validação'),
+          hasErrorKeyword: bodyText.includes('erro') || bodyText.includes('Erro'),
+          hasValidationKeyword: bodyText.includes('validação') || bodyText.includes('Validação'),
         });
 
         // Log the form structure if present
@@ -215,10 +197,7 @@ export class SessionManagementService {
         }
 
         // Check for specific validation errors
-        if (
-          htmlContent.includes('Matrícula não encontrada') ||
-          htmlContent.includes('Número de matrícula inválido')
-        ) {
+        if (htmlContent.includes('Matrícula não encontrada') || htmlContent.includes('Número de matrícula inválido')) {
           return {
             success: false,
             error: 'Número de matrícula não encontrado',
@@ -237,10 +216,7 @@ export class SessionManagementService {
         }
 
         // Check for generic validation errors
-        if (
-          htmlContent.includes('Erro na validação') ||
-          htmlContent.includes('Tente novamente')
-        ) {
+        if (htmlContent.includes('Erro na validação') || htmlContent.includes('Tente novamente')) {
           this.logger.debug('Generic validation error detected in HTML');
 
           // Log part of the HTML content for debugging
@@ -249,8 +225,7 @@ export class SessionManagementService {
 
           return {
             success: false,
-            error:
-              'Erro na validação. Verifique os dados informados e tente novamente.',
+            error: 'Erro na validação. Verifique os dados informados e tente novamente.',
           };
         }
 

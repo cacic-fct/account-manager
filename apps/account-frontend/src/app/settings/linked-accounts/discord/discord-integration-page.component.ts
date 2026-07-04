@@ -8,13 +8,7 @@ import { DiscordIntegrationComponent } from '../components/discord-integration.c
 
 @Component({
   selector: 'app-discord-integration-page',
-  imports: [
-    MatToolbarModule,
-    MatIconModule,
-    MatButtonModule,
-    RouterLink,
-    DiscordIntegrationComponent,
-  ],
+  imports: [MatToolbarModule, MatIconModule, MatButtonModule, RouterLink, DiscordIntegrationComponent],
   template: `
     <div class="linked-account-page">
       <mat-toolbar color="primary" class="toolbar">

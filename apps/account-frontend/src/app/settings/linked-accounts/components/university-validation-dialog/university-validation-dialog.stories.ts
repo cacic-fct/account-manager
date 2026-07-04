@@ -3,10 +3,7 @@ import { action } from 'storybook/actions';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import { UniversityValidationDialogComponent } from './university-validation-dialog.component';
-import {
-  authHandlers,
-  universityValidationHandlers,
-} from '../../../../../storybook/mocks/msw-handlers';
+import { authHandlers, universityValidationHandlers } from '../../../../../storybook/mocks/msw-handlers';
 
 const defaultFile = new File(['dummy-pdf'], 'documento.pdf', {
   type: 'application/pdf',

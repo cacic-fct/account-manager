@@ -1,8 +1,4 @@
-import {
-  ExecutionContext,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AccountPermissionService } from '../services/account-permission.service';
 import { DiscordAdminGuard } from './discord-admin.guard';
 
@@ -35,9 +31,7 @@ const createContext = () => {
       Parameters<AccountPermissionService['hasDiscordAdminAccess']>
     >(),
   };
-  const guard = new DiscordAdminGuard(
-    accountPermissionService as unknown as AccountPermissionService,
-  );
+  const guard = new DiscordAdminGuard(accountPermissionService as unknown as AccountPermissionService);
 
   return {
     accountPermissionService,
@@ -50,44 +44,30 @@ describe('DiscordAdminGuard', () => {
     const { accountPermissionService, guard } = createContext();
     accountPermissionService.hasDiscordAdminAccess.mockResolvedValue(true);
 
-    await expect(
-      guard.canActivate(createExecutionContext('user-1')),
-    ).resolves.toBe(true);
+    await expect(guard.canActivate(createExecutionContext('user-1'))).resolves.toBe(true);
 
-    expect(accountPermissionService.hasDiscordAdminAccess).toHaveBeenCalledWith(
-      'user-1',
-    );
+    expect(accountPermissionService.hasDiscordAdminAccess).toHaveBeenCalledWith('user-1');
   });
 
   it('blocks users without Discord admin access', async () => {
     const { accountPermissionService, guard } = createContext();
     accountPermissionService.hasDiscordAdminAccess.mockResolvedValue(false);
 
-    await expect(
-      guard.canActivate(createExecutionContext('user-1')),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext('user-1'))).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('requires an authenticated session', async () => {
     const { accountPermissionService, guard } = createContext();
 
-    await expect(
-      guard.canActivate(createExecutionContext(null)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(
-      accountPermissionService.hasDiscordAdminAccess,
-    ).not.toHaveBeenCalled();
+    await expect(guard.canActivate(createExecutionContext(null))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(accountPermissionService.hasDiscordAdminAccess).not.toHaveBeenCalled();
   });
 
   it('wraps permission lookup failures as forbidden access', async () => {
     const { accountPermissionService, guard } = createContext();
-    accountPermissionService.hasDiscordAdminAccess.mockRejectedValue(
-      new Error('database unavailable'),
-    );
+    accountPermissionService.hasDiscordAdminAccess.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(
-      guard.canActivate(createExecutionContext('user-1')),
-    ).rejects.toMatchObject({
+    await expect(guard.canActivate(createExecutionContext('user-1'))).rejects.toMatchObject({
       response: {
         message: 'Unable to verify Discord admin permission',
       },

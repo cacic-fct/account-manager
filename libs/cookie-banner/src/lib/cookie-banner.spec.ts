@@ -1,9 +1,4 @@
-import {
-  CookieBanner,
-  createCookieBanner,
-  hasAcceptedCookieBanner,
-  saveAcceptedCookieBanner,
-} from './cookie-banner';
+import { CookieBanner, createCookieBanner, hasAcceptedCookieBanner, saveAcceptedCookieBanner } from './cookie-banner';
 
 describe('CookieBanner', () => {
   const cookieStore = new Map<string, string>();
@@ -24,9 +19,7 @@ describe('CookieBanner', () => {
         set cookie(value: string) {
           const [cookiePair, ...attributes] = value.split(';');
           const [name, cookieValue = ''] = cookiePair.split('=');
-          const isExpired = attributes.some(
-            (attribute) => attribute.trim().toLowerCase() === 'max-age=0',
-          );
+          const isExpired = attributes.some((attribute) => attribute.trim().toLowerCase() === 'max-age=0');
 
           if (isExpired) {
             cookieStore.delete(name);
@@ -62,19 +55,14 @@ describe('CookieBanner', () => {
     saveAcceptedCookieBanner();
 
     expect(hasAcceptedCookieBanner()).toBe(true);
-    expect(globalThis.localStorage?.getItem('cacic.cookieBanner.accepted')).toBe(
-      'true',
-    );
+    expect(globalThis.localStorage?.getItem('cacic.cookieBanner.accepted')).toBe('true');
     expect(document.cookie).toContain('cacic_cookie_banner_accepted=true');
   });
 
   it('uses the acceptance cookie before localStorage', () => {
-    document.cookie =
-      'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
+    document.cookie = 'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
 
     expect(hasAcceptedCookieBanner()).toBe(true);
-    expect(
-      globalThis.localStorage?.getItem('cacic.cookieBanner.accepted'),
-    ).toBeNull();
+    expect(globalThis.localStorage?.getItem('cacic.cookieBanner.accepted')).toBeNull();
   });
 });

@@ -7,13 +7,9 @@ import { Prisma } from '@prisma/client';
 
 export const SYNC_ACTOR_ID = 'system:keycloak-permissions-sync';
 
-export const MANAGED_KEYCLOAK_CLIENT_IDS = KEYCLOAK_PERMISSION_CLIENTS.map(
-  (definition) => definition.clientId,
-);
+export const MANAGED_KEYCLOAK_CLIENT_IDS = KEYCLOAK_PERMISSION_CLIENTS.map((definition) => definition.clientId);
 
-export const ACCOUNT_MANAGER_ADMIN_PERMISSION_IDS = [
-  ...ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
-];
+export const ACCOUNT_MANAGER_ADMIN_PERMISSION_IDS = [...ACCOUNT_MANAGER_ADMIN_PERMISSIONS];
 
 export const DB_MANAGED_ROLE_FILTER = {
   notIn: [...HIDDEN_KEYCLOAK_ROLE_NAMES],
@@ -61,10 +57,9 @@ export const GROUP_ROLE_GRANT_SELECT = {
   lastSyncError: true,
 } satisfies Prisma.KeycloakGroupPermissionGrantSelect;
 
-export type GroupRoleGrantRecord =
-  Prisma.KeycloakGroupPermissionGrantGetPayload<{
-    select: typeof GROUP_ROLE_GRANT_SELECT;
-  }>;
+export type GroupRoleGrantRecord = Prisma.KeycloakGroupPermissionGrantGetPayload<{
+  select: typeof GROUP_ROLE_GRANT_SELECT;
+}>;
 
 export const MEMBERSHIP_SELECT = {
   id: true,

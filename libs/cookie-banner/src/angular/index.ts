@@ -12,7 +12,4 @@
 
 export { CookieBannerComponent } from './cookie-banner.component.js';
 
-export type {
-  CookieBannerOptions,
-  CookieBannerAcceptContext,
-} from '../lib/cookie-banner.js';
+export type { CookieBannerOptions, CookieBannerAcceptContext } from '../lib/cookie-banner.js';

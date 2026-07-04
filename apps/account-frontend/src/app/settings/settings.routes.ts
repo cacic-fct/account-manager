@@ -3,36 +3,27 @@ import { Routes } from '@angular/router';
 export const settingsRoutes: Routes = [
   {
     path: '',
-    loadComponent: () =>
-      import('./settings.component').then((m) => m.SettingsComponent),
+    loadComponent: () => import('./settings.component').then((m) => m.SettingsComponent),
   },
   {
     path: 'profile',
-    loadChildren: () =>
-      import('./profile/profile.routes').then((m) => m.profileRoutes),
+    loadChildren: () => import('./profile/profile.routes').then((m) => m.profileRoutes),
   },
   {
     path: 'linked-accounts',
-    loadChildren: () =>
-      import('./linked-accounts/linked-accounts.routes').then(
-        (m) => m.linkedAccountsRoutes,
-      ),
+    loadChildren: () => import('./linked-accounts/linked-accounts.routes').then((m) => m.linkedAccountsRoutes),
   },
   {
     path: 'privacy',
-    loadChildren: () =>
-      import('./privacy/privacy.routes').then((m) => m.privacyRoutes),
+    loadChildren: () => import('./privacy/privacy.routes').then((m) => m.privacyRoutes),
   },
   {
     path: 'security',
-    loadChildren: () =>
-      import('./security/security.routes').then((m) => m.securityRoutes),
+    loadChildren: () => import('./security/security.routes').then((m) => m.securityRoutes),
   },
   {
     path: 'permissions',
     loadComponent: () =>
-      import('./permissions/permissions-self-service.component').then(
-        (m) => m.PermissionsSelfServiceComponent,
-      ),
+      import('./permissions/permissions-self-service.component').then((m) => m.PermissionsSelfServiceComponent),
   },
 ];

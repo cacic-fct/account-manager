@@ -1,8 +1,4 @@
-import {
-  provideZonelessChangeDetection,
-  signal,
-  type WritableSignal,
-} from '@angular/core';
+import { provideZonelessChangeDetection, signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter } from '@angular/router';
@@ -42,8 +38,7 @@ describe('AppComponent', () => {
       },
     };
     acceptCookieBannerCallCount = 0;
-    document.cookie =
-      'cacic_cookie_banner_accepted=; Max-Age=0; path=/; SameSite=Lax';
+    document.cookie = 'cacic_cookie_banner_accepted=; Max-Age=0; path=/; SameSite=Lax';
 
     await TestBed.configureTestingModule({
       imports: [AppComponent],
@@ -107,8 +102,7 @@ describe('AppComponent', () => {
         action: 'show',
       },
     };
-    document.cookie =
-      'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
+    document.cookie = 'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
 
     TestBed.createComponent(AppComponent);
 
@@ -117,8 +111,7 @@ describe('AppComponent', () => {
 
   it('does not sync banner acceptance when the account already accepted it', () => {
     isAuthenticated.set(true);
-    document.cookie =
-      'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
+    document.cookie = 'cacic_cookie_banner_accepted=true; Max-Age=31536000; path=/; SameSite=Lax';
 
     TestBed.createComponent(AppComponent);
 

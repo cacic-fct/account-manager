@@ -78,14 +78,10 @@ export class UserVerificationService {
     extractedEnrollment: string | null;
   }> {
     // Check if fullname matches
-    const nameMatches = await this.pdfProcessingService.checkFullnameInPdf(
-      pdfBuffer,
-      fullname,
-    );
+    const nameMatches = await this.pdfProcessingService.checkFullnameInPdf(pdfBuffer, fullname);
 
     // Extract enrollment number for egressos
-    const extractedEnrollment =
-      await this.pdfProcessingService.extractEnrollmentFromPdf(pdfBuffer, true);
+    const extractedEnrollment = await this.pdfProcessingService.extractEnrollmentFromPdf(pdfBuffer, true);
 
     if (nameMatches && extractedEnrollment) {
       try {
@@ -131,32 +127,22 @@ export class UserVerificationService {
     combinedResult: boolean;
   }> {
     // Step 1: Check enrollment number in PDF
-    const enrollmentMatches =
-      await this.pdfProcessingService.checkEnrollmentInPdf(
-        pdfBuffer,
-        enrollmentNumber,
-      );
+    const enrollmentMatches = await this.pdfProcessingService.checkEnrollmentInPdf(pdfBuffer, enrollmentNumber);
 
     // Step 2: Check fullname in PDF if provided
     let fullnameMatches = true; // Default to true if no fullname to check
 
     if (fullname) {
-      fullnameMatches = await this.pdfProcessingService.checkFullnameInPdf(
-        pdfBuffer,
-        fullname,
-      );
+      fullnameMatches = await this.pdfProcessingService.checkFullnameInPdf(pdfBuffer, fullname);
       this.logger.debug('Fullname verification for Unesp user:', {
         userId,
         fullname,
         fullnameMatches,
       });
     } else {
-      this.logger.warn(
-        'Unesp user has no fullname for secondary verification',
-        {
-          userId,
-        },
-      );
+      this.logger.warn('Unesp user has no fullname for secondary verification', {
+        userId,
+      });
     }
 
     // Both enrollment and fullname must match (or fullname check is skipped if not available)
@@ -190,11 +176,7 @@ export class UserVerificationService {
       await this.keycloakService.setUnespRoleVerified(userId, verified);
 
       if (verified) {
-        await this.keycloakService.verifyUserUnespRole(
-          userId,
-          'university-validation-system',
-          'document',
-        );
+        await this.keycloakService.verifyUserUnespRole(userId, 'university-validation-system', 'document');
       }
 
       this.logger.debug('Verification status updated:', {

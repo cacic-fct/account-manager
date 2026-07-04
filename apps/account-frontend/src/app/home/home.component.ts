@@ -1,11 +1,4 @@
-import {
-  Component,
-  inject,
-  signal,
-  OnInit,
-  OnDestroy,
-  ChangeDetectionStrategy,
-} from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,11 +6,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { AuthService } from '../shared/services/auth/auth.service';
-import {
-  StarPatternGenerator,
-  StarConfig,
-  StarPatternConfig,
-} from './star-pattern-generator';
+import { StarPatternGenerator, StarConfig, StarPatternConfig } from './star-pattern-generator';
 import { ValuePropositionComponent } from './components/value-proposition.component';
 import { StarComponent } from './star.component';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
@@ -50,37 +39,29 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.generateStars();
 
     // Subscribe to authentication state changes
-    this.authSubscription = this.authService.isAuthenticated$.subscribe(
-      (isAuthenticated) => {
-        if (isAuthenticated) {
-          console.log('User authenticated, redirecting to applications');
-          this.isLoggingIn.set(false);
-          this.router.navigate(['/applications']);
-        }
-      },
-    );
+    this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
+      if (isAuthenticated) {
+        console.log('User authenticated, redirecting to applications');
+        this.isLoggingIn.set(false);
+        this.router.navigate(['/applications']);
+      }
+    });
 
     // Subscribe to loading state to reset login button when auth process completes
-    this.loadingSubscription = this.authService.isDoneLoading$.subscribe(
-      (isDoneLoading) => {
-        console.log('Auth isDoneLoading changed:', isDoneLoading);
-        if (isDoneLoading) {
-          console.log('Auth loading completed, resetting login button state');
-          this.isLoggingIn.set(false);
-        }
-      },
-    );
+    this.loadingSubscription = this.authService.isDoneLoading$.subscribe((isDoneLoading) => {
+      console.log('Auth isDoneLoading changed:', isDoneLoading);
+      if (isDoneLoading) {
+        console.log('Auth loading completed, resetting login button state');
+        this.isLoggingIn.set(false);
+      }
+    });
 
     // Listen to router events to detect when user returns from OAuth provider
     this.routerSubscription = this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
         console.log('Navigation completed to:', event.url);
-        if (
-          event.url === '/' ||
-          event.url.includes('code=') ||
-          event.url.includes('error=')
-        ) {
+        if (event.url === '/' || event.url.includes('code=') || event.url.includes('error=')) {
           console.log('Detected OAuth return, resetting login state');
           setTimeout(() => {
             this.isLoggingIn.set(false);

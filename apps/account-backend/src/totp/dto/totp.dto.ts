@@ -1,10 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
-import {
-  TOTP_ALGORITHM,
-  TOTP_DIGITS,
-  TOTP_PERIOD_SECONDS,
-} from '../totp.constants';
+import { TOTP_ALGORITHM, TOTP_DIGITS, TOTP_PERIOD_SECONDS } from '../totp.constants';
 
 export class TotpStatusDto {
   @ApiProperty({
@@ -64,8 +60,7 @@ export class TotpSeedDto {
   primaryEmail!: string;
 
   @ApiProperty({
-    description:
-      'Base32 TOTP seed. Store only while the authenticated session is active.',
+    description: 'Base32 TOTP seed. Store only while the authenticated session is active.',
     example: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
   })
   seed!: string;
@@ -104,8 +99,7 @@ export class M2MTotpValidateDto {
   primaryEmail!: string;
 
   @ApiProperty({
-    description:
-      'Six digit TOTP code. Spaces are accepted for display grouping.',
+    description: 'Six digit TOTP code. Spaces are accepted for display grouping.',
     example: '123 456',
   })
   @IsString()
@@ -116,8 +110,7 @@ export class M2MTotpValidateDto {
 
 export class M2MTotpValidateResponseDto {
   @ApiProperty({
-    description:
-      'Whether the code matched the current step or one adjacent step.',
+    description: 'Whether the code matched the current step or one adjacent step.',
     example: true,
   })
   valid!: boolean;
@@ -129,22 +122,19 @@ export class M2MTotpValidateResponseDto {
   serverTime!: Date;
 
   @ApiPropertyOptional({
-    description:
-      'Keycloak subject for the matched user. Present only when valid is true.',
+    description: 'Keycloak subject for the matched user. Present only when valid is true.',
     example: '018f47b1-5c4e-7c7b-9e6f-0c8c2f7281ad',
   })
   userId?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Canonical primary email for the matched user. Present only when valid is true.',
+    description: 'Canonical primary email for the matched user. Present only when valid is true.',
     example: 'joao.silva@unesp.br',
   })
   primaryEmail?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Matched validation step offset relative to the current 30 second step.',
+    description: 'Matched validation step offset relative to the current 30 second step.',
     example: 0,
   })
   matchedStepOffset?: -1 | 0 | 1;

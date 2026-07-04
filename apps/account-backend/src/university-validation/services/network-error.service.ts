@@ -5,9 +5,7 @@ import { StudentVerificationService } from '../../student-verification/student-v
 export class NetworkErrorService {
   private readonly logger = new Logger(NetworkErrorService.name);
 
-  constructor(
-    private readonly studentVerificationService: StudentVerificationService,
-  ) {}
+  constructor(private readonly studentVerificationService: StudentVerificationService) {}
 
   /**
    * Check if error is a network-related error that should trigger manual fallback
@@ -74,9 +72,7 @@ export class NetworkErrorService {
     ];
 
     // Check error codes in multiple places
-    const codeMatch = networkErrorCodes.find(
-      (code) => errorCode.includes(code) || syscall.includes(code),
-    );
+    const codeMatch = networkErrorCodes.find((code) => errorCode.includes(code) || syscall.includes(code));
     if (codeMatch) {
       this.logger.debug(`isNetworkError: Found matching code: ${codeMatch}`);
       return true;
@@ -93,29 +89,21 @@ export class NetworkErrorService {
       'ENOTFOUND', // Also check for plain error codes in message
     ];
 
-    const messageMatch = networkErrorMessages.find((msg) =>
-      errorMessage.toLowerCase().includes(msg.toLowerCase()),
-    );
+    const messageMatch = networkErrorMessages.find((msg) => errorMessage.toLowerCase().includes(msg.toLowerCase()));
 
     if (messageMatch) {
-      this.logger.debug(
-        `isNetworkError: Found matching message: ${messageMatch}`,
-      );
+      this.logger.debug(`isNetworkError: Found matching message: ${messageMatch}`);
       return true;
     }
 
     // Special check for Axios network errors without response
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (isAxiosError && !err.response && err.request) {
-      this.logger.debug(
-        'isNetworkError: AxiosError with request but no response - likely network error',
-      );
+      this.logger.debug('isNetworkError: AxiosError with request but no response - likely network error');
       return true;
     }
 
-    this.logger.debug(
-      'isNetworkError: No network error patterns matched, returning false',
-    );
+    this.logger.debug('isNetworkError: No network error patterns matched, returning false');
     return false;
   }
 
@@ -146,12 +134,11 @@ export class NetworkErrorService {
       mimetype: 'text/plain',
     } as Express.Multer.File;
 
-    const manualApprovalResult =
-      await this.studentVerificationService.uploadDocument(
-        fallbackDocument,
-        userId,
-        true, // isManualFallback flag
-      );
+    const manualApprovalResult = await this.studentVerificationService.uploadDocument(
+      fallbackDocument,
+      userId,
+      true, // isManualFallback flag
+    );
 
     this.logger.log('Successfully created manual fallback for network error', {
       sessionId,

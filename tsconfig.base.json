@@ -11,9 +11,7 @@
       "@cacic-fct/account-manager-privacy": ["./libs/account-privacy/src/index.ts"],
       "@cacic-fct/account-manager-privacy/*": ["./libs/account-privacy/src/*"],
       "@cacic-fct/account-manager-cookie-banner": ["./libs/cookie-banner/src/index.ts"],
-      "@cacic-fct/account-manager-cookie-banner/angular": [
-        "./libs/cookie-banner/src/angular/index.ts"
-      ],
+      "@cacic-fct/account-manager-cookie-banner/angular": ["./libs/cookie-banner/src/angular/index.ts"],
       "@cacic-fct/account-manager-m2m-contracts": ["./libs/m2m-contracts/src/index.ts"]
     }
   }

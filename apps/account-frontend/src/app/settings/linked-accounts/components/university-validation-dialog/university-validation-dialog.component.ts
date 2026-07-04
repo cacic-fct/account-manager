@@ -2,11 +2,7 @@ import { Component, inject, signal, Inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import {
-  MatDialogModule,
-  MAT_DIALOG_DATA,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -49,25 +45,16 @@ export interface UniversityValidationDialogData {
           } @else {
             @if (captchaImage()) {
               <div class="captcha-container">
-                <img
-                  [src]="captchaImage()"
-                  alt="Código de segurança"
-                  class="captcha-image"
-                />
+                <img [src]="captchaImage()" alt="Código de segurança" class="captcha-image" />
                 <button
                   mat-icon-button
                   (click)="refreshCaptcha()"
                   [disabled]="validating() || cooldownActive()"
                   [matTooltip]="
-                    cooldownActive()
-                      ? 'Aguarde ' + cooldownRemaining() + ' segundos'
-                      : 'Atualizar captcha'
-                  "
-                >
+                    cooldownActive() ? 'Aguarde ' + cooldownRemaining() + ' segundos' : 'Atualizar captcha'
+                  ">
                   @if (cooldownActive()) {
-                    <span class="cooldown-text"
-                      >{{ cooldownRemaining() }}s</span
-                    >
+                    <span class="cooldown-text">{{ cooldownRemaining() }}s</span>
                   } @else {
                     <mat-icon>refresh</mat-icon>
                   }
@@ -81,14 +68,9 @@ export interface UniversityValidationDialogData {
                 matInput
                 [(ngModel)]="captchaCode"
                 [disabled]="validating()"
-                [placeholder]="
-                  captchaImage()
-                    ? 'Digite o código da imagem'
-                    : 'Será solicitado após validação'
-                "
+                [placeholder]="captchaImage() ? 'Digite o código da imagem' : 'Será solicitado após validação'"
                 maxlength="10"
-                (keyup.enter)="validateDocument()"
-              />
+                (keyup.enter)="validateDocument()" />
             </mat-form-field>
 
             @if (errorMessage()) {
@@ -102,18 +84,13 @@ export interface UniversityValidationDialogData {
       </mat-dialog-content>
 
       <mat-dialog-actions align="end">
-        <button mat-button (click)="onCancel()" [disabled]="validating()">
-          Cancelar
-        </button>
+        <button mat-button (click)="onCancel()" [disabled]="validating()">Cancelar</button>
 
         <button
           mat-raised-button
           color="primary"
           (click)="validateDocument()"
-          [disabled]="
-            !captchaCode || validating() || loading() || cooldownActive()
-          "
-        >
+          [disabled]="!captchaCode || validating() || loading() || cooldownActive()">
           @if (validating()) {
             <mat-spinner diameter="20"></mat-spinner>
             Validando...
@@ -215,8 +192,8 @@ export interface UniversityValidationDialogData {
     MatFormFieldModule,
     MatProgressSpinnerModule,
     MatIconModule,
-    MatTooltipModule
-],
+    MatTooltipModule,
+  ],
 })
 export class UniversityValidationDialogComponent {
   private universityValidationService = inject(UniversityValidationService);
@@ -236,14 +213,10 @@ export class UniversityValidationDialogComponent {
   cooldownRemaining = signal(0);
   private cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(
-    @Inject(MAT_DIALOG_DATA) public data: UniversityValidationDialogData,
-  ) {
+  constructor(@Inject(MAT_DIALOG_DATA) public data: UniversityValidationDialogData) {
     // Validate that we have a PDF file
     if (!data.pdfFile) {
-      this.errorMessage.set(
-        'Arquivo PDF não fornecido. Feche este diálogo e tente novamente com um arquivo válido.',
-      );
+      this.errorMessage.set('Arquivo PDF não fornecido. Feche este diálogo e tente novamente com um arquivo válido.');
       return;
     }
 
@@ -260,9 +233,7 @@ export class UniversityValidationDialogComponent {
 
     try {
       // Process PDF to extract auth code and get initial captcha
-      const response = await this.universityValidationService
-        .getAtomicCaptcha(this.data.pdfFile)
-        .toPromise();
+      const response = await this.universityValidationService.getAtomicCaptcha(this.data.pdfFile).toPromise();
 
       if (response) {
         // authCode is no longer sent to frontend for security - stored server-side only
@@ -283,43 +254,27 @@ export class UniversityValidationDialogComponent {
 
       // Categorize the error for the parent component
       let errorType = 'GENERIC_ERROR';
-      let errorMessage =
-        'Erro ao processar PDF. Tente fechar e abrir novamente.';
+      let errorMessage = 'Erro ao processar PDF. Tente fechar e abrir novamente.';
 
       const httpError = error as HttpErrorResponse;
       if (httpError.status === 400) {
         if (httpError.error?.message?.includes('PDF é obrigatório')) {
           errorType = 'PDF_REQUIRED';
           errorMessage = 'Arquivo PDF é obrigatório.';
-        } else if (
-          httpError.error?.message?.includes('Aguarde') &&
-          httpError.error?.message?.includes('segundos')
-        ) {
+        } else if (httpError.error?.message?.includes('Aguarde') && httpError.error?.message?.includes('segundos')) {
           // Handle cooldown error from backend
           errorType = 'COOLDOWN_ACTIVE';
-          errorMessage =
-            httpError.error?.message ||
-            'Aguarde antes de solicitar um novo captcha';
+          errorMessage = httpError.error?.message || 'Aguarde antes de solicitar um novo captcha';
 
           // Sync cooldown status from backend
           this.syncCooldownWithBackend();
         } else if (
-          httpError.error?.message
-            ?.toLowerCase()
-            .includes('auth code not found') ||
-          httpError.error?.message
-            ?.toLowerCase()
-            .includes('código de autenticidade não encontrado') ||
-          httpError.error?.message
-            ?.toLowerCase()
-            .includes('código de autenticidade não encontrado no pdf') ||
-          httpError.error?.message
-            ?.toLowerCase()
-            .includes('authentication code not found') ||
+          httpError.error?.message?.toLowerCase().includes('auth code not found') ||
+          httpError.error?.message?.toLowerCase().includes('código de autenticidade não encontrado') ||
+          httpError.error?.message?.toLowerCase().includes('código de autenticidade não encontrado no pdf') ||
+          httpError.error?.message?.toLowerCase().includes('authentication code not found') ||
           httpError.error?.message?.toLowerCase().includes('autenticidade') ||
-          httpError.message
-            ?.toLowerCase()
-            .includes('código de autenticidade não encontrado')
+          httpError.message?.toLowerCase().includes('código de autenticidade não encontrado')
         ) {
           errorType = 'AUTH_CODE_NOT_FOUND';
           errorMessage =
@@ -333,8 +288,7 @@ export class UniversityValidationDialogComponent {
         }
       } else if (httpError.status === 0) {
         errorType = 'NETWORK_ERROR';
-        errorMessage =
-          'Erro de conectividade. Verifique sua conexão com a internet.';
+        errorMessage = 'Erro de conectividade. Verifique sua conexão com a internet.';
       } else if (httpError.status >= 500) {
         errorType = 'NETWORK_ERROR';
         errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
@@ -386,33 +340,26 @@ export class UniversityValidationDialogComponent {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    this.universityValidationService
-      .refreshCaptcha(currentSessionId)
-      .subscribe({
-        next: (response) => {
-          this.loading.set(false);
-          this.captchaImage.set(response.captchaImage);
-          this.captchaCode = ''; // Clear the input
-          this.syncCooldownWithBackend(); // Update cooldown state
-        },
-        error: (error) => {
-          this.loading.set(false);
-          console.error('Error refreshing captcha:', error);
+    this.universityValidationService.refreshCaptcha(currentSessionId).subscribe({
+      next: (response) => {
+        this.loading.set(false);
+        this.captchaImage.set(response.captchaImage);
+        this.captchaCode = ''; // Clear the input
+        this.syncCooldownWithBackend(); // Update cooldown state
+      },
+      error: (error) => {
+        this.loading.set(false);
+        console.error('Error refreshing captcha:', error);
 
-          if (
-            error.status === 400 &&
-            error.error?.message?.includes('Aguarde')
-          ) {
-            // Handle cooldown error
-            this.errorMessage.set(error.error.message);
-            this.syncCooldownWithBackend();
-          } else {
-            this.errorMessage.set(
-              'Erro ao atualizar captcha. Tente novamente.',
-            );
-          }
-        },
-      });
+        if (error.status === 400 && error.error?.message?.includes('Aguarde')) {
+          // Handle cooldown error
+          this.errorMessage.set(error.error.message);
+          this.syncCooldownWithBackend();
+        } else {
+          this.errorMessage.set('Erro ao atualizar captcha. Tente novamente.');
+        }
+      },
+    });
   }
 
   validateDocument(): void {
@@ -423,9 +370,7 @@ export class UniversityValidationDialogComponent {
 
     // Check if cooldown is active
     if (this.cooldownActive()) {
-      this.errorMessage.set(
-        `Aguarde ${this.cooldownRemaining()} segundos antes de tentar novamente.`,
-      );
+      this.errorMessage.set(`Aguarde ${this.cooldownRemaining()} segundos antes de tentar novamente.`);
       return;
     }
 
@@ -444,104 +389,85 @@ export class UniversityValidationDialogComponent {
       sessionId: sessionIdValue, // Auth code is retrieved from server-side session
     };
 
-    this.universityValidationService
-      .validateDocumentAtomicWithData(validationRequest)
-      .subscribe({
-        next: (result: AtomicValidationResponse) => {
-          this.validating.set(false);
+    this.universityValidationService.validateDocumentAtomicWithData(validationRequest).subscribe({
+      next: (result: AtomicValidationResponse) => {
+        this.validating.set(false);
 
-          if (result.success) {
-            if (result.valid) {
-              this.snackBar.open(
-                'Documento validado com sucesso na universidade!',
-                'Fechar',
-                { duration: 5000 },
-              );
-              this.dialogRef.close({ success: true, validated: true });
-            } else if (result.valid === false) {
-              // Close dialog and let parent show error banner
-              this.dialogRef.close({
-                success: false,
-                error:
-                  'Documento não encontrado ou inválido na base universitária.',
-                errorType: 'INVALID_DOCUMENT',
-              });
-            } else {
-              this.snackBar.open(
-                result.message || 'Documento encontrado na universidade.',
-                'Fechar',
-                { duration: 3000 },
-              );
-              this.dialogRef.close({ success: true, validated: true });
-            }
+        if (result.success) {
+          if (result.valid) {
+            this.snackBar.open('Documento validado com sucesso na universidade!', 'Fechar', { duration: 5000 });
+            this.dialogRef.close({ success: true, validated: true });
+          } else if (result.valid === false) {
+            // Close dialog and let parent show error banner
+            this.dialogRef.close({
+              success: false,
+              error: 'Documento não encontrado ou inválido na base universitária.',
+              errorType: 'INVALID_DOCUMENT',
+            });
           } else {
-            // Check if this is a captcha error (keep modal open) or other error (close and show banner)
-            const isCaptchaError =
-              result.message?.includes('Captcha incorreto') ||
-              result.message?.includes('código de segurança') ||
-              result.needsCaptcha;
+            this.snackBar.open(result.message || 'Documento encontrado na universidade.', 'Fechar', { duration: 3000 });
+            this.dialogRef.close({ success: true, validated: true });
+          }
+        } else {
+          // Check if this is a captcha error (keep modal open) or other error (close and show banner)
+          const isCaptchaError =
+            result.message?.includes('Captcha incorreto') ||
+            result.message?.includes('código de segurança') ||
+            result.needsCaptcha;
 
-            if (isCaptchaError) {
-              // Keep modal open for captcha errors - user can retry
-              if (result.captchaImage) {
-                this.captchaImage.set(result.captchaImage);
-              }
-              if (result.enrollmentNumber) {
-                this.enrollmentNumber.set(result.enrollmentNumber);
-              }
-              this.errorMessage.set(
-                result.message ||
-                  'Código de segurança inválido. Tente novamente.',
-              );
-              this.captchaCode = ''; // Clear captcha input for retry
-
-              // Sync cooldown status after failed captcha attempt
-              this.syncCooldownWithBackend();
-            } else {
-              // Non-captcha errors: close modal and show banner
-              let errorType = 'GENERIC_ERROR';
-              if (result.message?.includes('matrícula não encontrada')) {
-                errorType = 'ENROLLMENT_NOT_FOUND';
-              } else if (result.message?.includes('código de autenticidade')) {
-                errorType = 'AUTH_CODE_NOT_FOUND';
-              } else if (
-                result.message?.includes('conectividade') ||
-                result.message?.includes('rede')
-              ) {
-                errorType = 'NETWORK_ERROR';
-              }
-
-              this.dialogRef.close({
-                success: false,
-                error: result.message || 'Erro na validação.',
-                errorType: errorType,
-              });
+          if (isCaptchaError) {
+            // Keep modal open for captcha errors - user can retry
+            if (result.captchaImage) {
+              this.captchaImage.set(result.captchaImage);
             }
+            if (result.enrollmentNumber) {
+              this.enrollmentNumber.set(result.enrollmentNumber);
+            }
+            this.errorMessage.set(result.message || 'Código de segurança inválido. Tente novamente.');
+            this.captchaCode = ''; // Clear captcha input for retry
+
+            // Sync cooldown status after failed captcha attempt
+            this.syncCooldownWithBackend();
+          } else {
+            // Non-captcha errors: close modal and show banner
+            let errorType = 'GENERIC_ERROR';
+            if (result.message?.includes('matrícula não encontrada')) {
+              errorType = 'ENROLLMENT_NOT_FOUND';
+            } else if (result.message?.includes('código de autenticidade')) {
+              errorType = 'AUTH_CODE_NOT_FOUND';
+            } else if (result.message?.includes('conectividade') || result.message?.includes('rede')) {
+              errorType = 'NETWORK_ERROR';
+            }
+
+            this.dialogRef.close({
+              success: false,
+              error: result.message || 'Erro na validação.',
+              errorType: errorType,
+            });
           }
-        },
-        error: (error: HttpErrorResponse) => {
-          console.error('Validation error:', error);
-          this.validating.set(false);
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('Validation error:', error);
+        this.validating.set(false);
 
-          // Close dialog and show banner for network/server errors
-          const errorType = 'NETWORK_ERROR';
-          let errorMessage = 'Erro interno. Tente novamente.';
+        // Close dialog and show banner for network/server errors
+        const errorType = 'NETWORK_ERROR';
+        let errorMessage = 'Erro interno. Tente novamente.';
 
-          if (error.status === 0) {
-            errorMessage =
-              'Erro de conectividade. Verifique sua conexão com a internet.';
-          } else if (error.status >= 500) {
-            errorMessage =
-              'Erro no servidor. Tente novamente em alguns minutos.';
-          }
+        if (error.status === 0) {
+          errorMessage = 'Erro de conectividade. Verifique sua conexão com a internet.';
+        } else if (error.status >= 500) {
+          errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
+        }
 
-          this.dialogRef.close({
-            success: false,
-            error: errorMessage,
-            errorType: errorType,
-          });
-        },
-      });
+        this.dialogRef.close({
+          success: false,
+          error: errorMessage,
+          errorType: errorType,
+        });
+      },
+    });
   }
 
   private startCooldownTimer(seconds: number): void {
@@ -575,9 +501,7 @@ export class UniversityValidationDialogComponent {
 
   private async syncCooldownWithBackend(): Promise<void> {
     try {
-      const cooldownStatus = await this.universityValidationService
-        .getCooldownStatus()
-        .toPromise();
+      const cooldownStatus = await this.universityValidationService.getCooldownStatus().toPromise();
 
       if (cooldownStatus?.inCooldown && cooldownStatus.remainingSeconds > 0) {
         this.startCooldownTimer(cooldownStatus.remainingSeconds);

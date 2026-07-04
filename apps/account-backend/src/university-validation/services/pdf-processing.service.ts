@@ -66,9 +66,7 @@ export class PdfProcessingService {
           this.logger.debug(`Processing page ${pageNum}`, {
             textItemsCount: textContent.items.length,
             hasStyles: 'styles' in textContent,
-            stylesCount: textContent.styles
-              ? Object.keys(textContent.styles as object).length
-              : 0,
+            stylesCount: textContent.styles ? Object.keys(textContent.styles as object).length : 0,
           });
 
           // Check if this might be an image-based PDF by looking for images
@@ -85,36 +83,26 @@ export class PdfProcessingService {
               );
             }
           } catch (opError) {
-            this.logger.debug(
-              `Could not analyze operators for page ${pageNum}:`,
-              opError,
-            );
+            this.logger.debug(`Could not analyze operators for page ${pageNum}:`, opError);
           }
 
           // Log detailed information about text content structure
           if (textContent.items.length > 0) {
-            const sampleItems = textContent.items
-              .slice(0, 3)
-              .map((item, index: number) => ({
-                index,
-                str: (item as TextItem)?.str,
-                strType: typeof (item as TextItem)?.str,
-                strLength: (item as TextItem)?.str?.length || 0,
-                hasEOL: 'hasEOL' in item,
-                transform: (item as TextItem)?.transform,
-                width: (item as TextItem)?.width,
-                height: (item as TextItem)?.height,
-                itemKeys: item ? Object.keys(item as object) : [],
-                fullItem: item, // Include full item for debugging
-              }));
-            this.logger.debug(
-              `Sample text items from page ${pageNum}:`,
-              sampleItems,
-            );
+            const sampleItems = textContent.items.slice(0, 3).map((item, index: number) => ({
+              index,
+              str: (item as TextItem)?.str,
+              strType: typeof (item as TextItem)?.str,
+              strLength: (item as TextItem)?.str?.length || 0,
+              hasEOL: 'hasEOL' in item,
+              transform: (item as TextItem)?.transform,
+              width: (item as TextItem)?.width,
+              height: (item as TextItem)?.height,
+              itemKeys: item ? Object.keys(item as object) : [],
+              fullItem: item, // Include full item for debugging
+            }));
+            this.logger.debug(`Sample text items from page ${pageNum}:`, sampleItems);
           } else {
-            this.logger.warn(
-              `Page ${pageNum} has no text items - this suggests a scanned/image-based PDF`,
-            );
+            this.logger.warn(`Page ${pageNum} has no text items - this suggests a scanned/image-based PDF`);
           }
 
           // Try different text extraction approaches
@@ -134,9 +122,7 @@ export class PdfProcessingService {
 
           // Method 2: If no text, try to extract from styles or other properties
           if (pageText.trim().length === 0 && textContent.items.length > 0) {
-            this.logger.debug(
-              `Trying alternative text extraction for page ${pageNum}`,
-            );
+            this.logger.debug(`Trying alternative text extraction for page ${pageNum}`);
 
             pageText = textContent.items
               .map((item) => {
@@ -183,8 +169,7 @@ export class PdfProcessingService {
           'PDF.js text extraction resulted in empty text - this might be a scanned/image-based PDF or have compatibility issues with PDF.js',
           {
             documentPages: pdfDocument.numPages,
-            suggestion:
-              'Will fall back to buffer-based text extraction in calling methods',
+            suggestion: 'Will fall back to buffer-based text extraction in calling methods',
           },
         );
         // Return null instead of throwing exception to allow fallback methods
@@ -199,9 +184,7 @@ export class PdfProcessingService {
         throw error;
       }
 
-      throw new BadRequestException(
-        'Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.',
-      );
+      throw new BadRequestException('Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.');
     }
   }
 
@@ -215,9 +198,7 @@ export class PdfProcessingService {
 
       // If PDF.js failed, fall back to simple extraction
       if (pdfText === null) {
-        this.logger.debug(
-          'PDF.js failed, trying simple buffer extraction for auth code',
-        );
+        this.logger.debug('PDF.js failed, trying simple buffer extraction for auth code');
         return this.extractAuthCodeFromPdfSimple(pdfBuffer);
       }
 
@@ -247,10 +228,7 @@ export class PdfProcessingService {
       for (const pattern of altPatterns) {
         const match = pdfText.match(pattern);
         if (match && match[1]) {
-          this.logger.debug(
-            'Found authentication code with alternative pattern:',
-            match[1],
-          );
+          this.logger.debug('Found authentication code with alternative pattern:', match[1]);
           return match[1];
         }
       }
@@ -260,18 +238,13 @@ export class PdfProcessingService {
         'Código de autenticidade não encontrado no PDF. Verifique se o documento é válido e contém um código de autenticidade.',
       );
     } catch (error) {
-      this.logger.error(
-        'Error extracting authentication code from PDF:',
-        error,
-      );
+      this.logger.error('Error extracting authentication code from PDF:', error);
       // If it's already a BadRequestException, re-throw it
       if (error instanceof BadRequestException) {
         throw error;
       }
       // For other errors (PDF processing errors), throw as BadRequestException too
-      throw new BadRequestException(
-        'Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.',
-      );
+      throw new BadRequestException('Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.');
     }
   }
 
@@ -292,10 +265,7 @@ export class PdfProcessingService {
             /Código de autenticidade:\s*([A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4})/i,
           );
           if (codeMatch && codeMatch[1]) {
-            this.logger.debug(
-              `Found authentication code using ${encoding} encoding (fallback):`,
-              codeMatch[1],
-            );
+            this.logger.debug(`Found authentication code using ${encoding} encoding (fallback):`, codeMatch[1]);
             return codeMatch[1];
           }
 
@@ -321,16 +291,11 @@ export class PdfProcessingService {
             }
           }
         } catch (error) {
-          this.logger.debug(
-            `Failed to decode PDF with ${encoding} encoding for auth code:`,
-            error,
-          );
+          this.logger.debug(`Failed to decode PDF with ${encoding} encoding for auth code:`, error);
         }
       }
 
-      this.logger.error(
-        'Authentication code not found in PDF using fallback method',
-      );
+      this.logger.error('Authentication code not found in PDF using fallback method');
       throw new BadRequestException(
         'Código de autenticidade não encontrado no PDF. Verifique se o documento é válido e contém um código de autenticidade.',
       );
@@ -339,38 +304,28 @@ export class PdfProcessingService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(
-        'Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.',
-      );
+      throw new BadRequestException('Erro ao processar arquivo PDF. Verifique se o arquivo é um PDF válido.');
     }
   }
 
   /**
    * Extract enrollment number from PDF using PDF.js
    */
-  async extractEnrollmentFromPdf(
-    pdfBuffer: Buffer,
-    fallbackToSimple = true,
-  ): Promise<string | null> {
+  async extractEnrollmentFromPdf(pdfBuffer: Buffer, fallbackToSimple = true): Promise<string | null> {
     try {
       this.logger.debug('Extracting enrollment number from PDF using PDF.js');
       const pdfText = await this.extractTextFromPdf(pdfBuffer);
 
       // If PDF.js failed, fall back to simple extraction
       if (pdfText === null) {
-        this.logger.debug(
-          'PDF.js failed for enrollment, falling back to simple extraction method',
-        );
+        this.logger.debug('PDF.js failed for enrollment, falling back to simple extraction method');
         if (fallbackToSimple) {
           return this.extractEnrollmentFromPdfSimple(pdfBuffer);
         }
         return null;
       }
 
-      this.logger.debug(
-        'PDF parsed successfully, text length:',
-        pdfText.length,
-      );
+      this.logger.debug('PDF parsed successfully, text length:', pdfText.length);
 
       // Look for common enrollment patterns
       const patterns = [
@@ -383,9 +338,7 @@ export class PdfProcessingService {
       for (const pattern of patterns) {
         const match = pdfText.match(pattern);
         if (match && match[1]) {
-          this.logger.debug(
-            `Found enrollment number '${match[1]}' using pattern ${pattern}`,
-          );
+          this.logger.debug(`Found enrollment number '${match[1]}' using pattern ${pattern}`);
           return match[1];
         }
       }
@@ -404,9 +357,7 @@ export class PdfProcessingService {
 
       // Fallback to simple extraction if enabled
       if (fallbackToSimple) {
-        this.logger.debug(
-          'Falling back to simple extraction method due to error',
-        );
+        this.logger.debug('Falling back to simple extraction method due to error');
         return this.extractEnrollmentFromPdfSimple(pdfBuffer);
       }
 
@@ -444,10 +395,7 @@ export class PdfProcessingService {
             }
           }
         } catch (error) {
-          this.logger.debug(
-            `Failed to decode PDF with ${encoding} encoding:`,
-            error,
-          );
+          this.logger.debug(`Failed to decode PDF with ${encoding} encoding:`, error);
         }
       }
 
@@ -462,10 +410,7 @@ export class PdfProcessingService {
   /**
    * Check if enrollment number exists in PDF content
    */
-  async checkEnrollmentInPdf(
-    pdfBuffer: Buffer,
-    enrollmentNumber: string,
-  ): Promise<boolean> {
+  async checkEnrollmentInPdf(pdfBuffer: Buffer, enrollmentNumber: string): Promise<boolean> {
     try {
       this.logger.debug('Checking enrollment number in PDF using PDF.js', {
         enrollmentNumber,
@@ -475,9 +420,7 @@ export class PdfProcessingService {
 
       // If PDF.js failed, fall back to simple buffer method
       if (pdfText === null) {
-        this.logger.debug(
-          'PDF.js failed for enrollment check, falling back to simple buffer method',
-        );
+        this.logger.debug('PDF.js failed for enrollment check, falling back to simple buffer method');
         return this.checkEnrollmentInPdfFallback(pdfBuffer, enrollmentNumber);
       }
 
@@ -498,9 +441,7 @@ export class PdfProcessingService {
 
       for (const variation of variations) {
         if (pdfText.includes(variation)) {
-          this.logger.debug(
-            `Found enrollment number '${variation}' in PDF using PDF.js`,
-          );
+          this.logger.debug(`Found enrollment number '${variation}' in PDF using PDF.js`);
           return true;
         }
       }
@@ -514,24 +455,18 @@ export class PdfProcessingService {
 
       for (const pattern of patterns) {
         if (pattern.test(pdfText)) {
-          this.logger.debug(
-            `Found enrollment number using pattern ${pattern} in PDF`,
-          );
+          this.logger.debug(`Found enrollment number using pattern ${pattern} in PDF`);
           return true;
         }
       }
 
-      this.logger.debug(
-        `Enrollment number '${enrollmentNumber}' not found in PDF content`,
-      );
+      this.logger.debug(`Enrollment number '${enrollmentNumber}' not found in PDF content`);
       return false;
     } catch (error) {
       this.logger.error('Error checking enrollment in PDF:', error);
 
       // Fallback to simple buffer method if PDF.js fails
-      this.logger.debug(
-        'Falling back to simple buffer method for enrollment check',
-      );
+      this.logger.debug('Falling back to simple buffer method for enrollment check');
       return this.checkEnrollmentInPdfFallback(pdfBuffer, enrollmentNumber);
     }
   }
@@ -539,10 +474,7 @@ export class PdfProcessingService {
   /**
    * Fallback method for enrollment checking using raw buffer
    */
-  private checkEnrollmentInPdfFallback(
-    pdfBuffer: Buffer,
-    enrollmentNumber: string,
-  ): boolean {
+  private checkEnrollmentInPdfFallback(pdfBuffer: Buffer, enrollmentNumber: string): boolean {
     try {
       // Convert buffer to text using multiple encodings
       const encodings = ['latin1', 'utf8'];
@@ -560,17 +492,12 @@ export class PdfProcessingService {
 
           for (const variation of variations) {
             if (pdfText.includes(variation)) {
-              this.logger.debug(
-                `Found enrollment number '${variation}' in PDF using ${encoding} encoding (fallback)`,
-              );
+              this.logger.debug(`Found enrollment number '${variation}' in PDF using ${encoding} encoding (fallback)`);
               return true;
             }
           }
         } catch (error) {
-          this.logger.debug(
-            `Failed to decode PDF with ${encoding} encoding:`,
-            error,
-          );
+          this.logger.debug(`Failed to decode PDF with ${encoding} encoding:`, error);
         }
       }
 
@@ -584,10 +511,7 @@ export class PdfProcessingService {
   /**
    * Check if fullname exists in PDF content
    */
-  async checkFullnameInPdf(
-    pdfBuffer: Buffer,
-    expectedFullname: string,
-  ): Promise<boolean> {
+  async checkFullnameInPdf(pdfBuffer: Buffer, expectedFullname: string): Promise<boolean> {
     try {
       this.logger.debug('Checking fullname in PDF using PDF.js', {
         expectedFullname,
@@ -598,9 +522,7 @@ export class PdfProcessingService {
 
       // If PDF.js failed, fall back to simple buffer method
       if (pdfText === null) {
-        this.logger.debug(
-          'PDF.js failed for fullname check, falling back to simple buffer method',
-        );
+        this.logger.debug('PDF.js failed for fullname check, falling back to simple buffer method');
         return this.checkFullnameInPdfFallback(pdfBuffer, expectedFullname);
       }
 
@@ -613,35 +535,26 @@ export class PdfProcessingService {
       // Look for specific name patterns in Unesp documents
       // Pattern 1: "Nome do Aluno Full Name Registro"
       // Pattern 2: "que Full Name,"
-      const namePatterns = [
-        /Nome do Aluno\s+(.+?)\s+Registro/i,
-        /que\s+([^,]+),/i,
-      ];
+      const namePatterns = [/Nome do Aluno\s+(.+?)\s+Registro/i, /que\s+([^,]+),/i];
 
       let extractedName = '';
       for (const pattern of namePatterns) {
         const match = pdfText.match(pattern);
         if (match && match[1]) {
           extractedName = match[1].trim();
-          this.logger.debug(
-            `Found name using pattern ${pattern}:`,
-            extractedName,
-          );
+          this.logger.debug(`Found name using pattern ${pattern}:`, extractedName);
           break;
         }
       }
 
       if (!extractedName) {
-        this.logger.warn(
-          'Could not extract name from PDF using known patterns',
-        );
+        this.logger.warn('Could not extract name from PDF using known patterns');
         // Fallback to old method if no specific pattern is found
         return this.checkFullnameInPdfFallback(pdfBuffer, expectedFullname);
       }
 
       // Normalize both names for comparison
-      const normalizedExpected =
-        this.normalizeNameForMatching(expectedFullname);
+      const normalizedExpected = this.normalizeNameForMatching(expectedFullname);
       const normalizedExtracted = this.normalizeNameForMatching(extractedName);
 
       this.logger.debug('Name comparison:', {
@@ -673,18 +586,14 @@ export class PdfProcessingService {
 
       // More strict word-by-word comparison
       // All significant words from the expected name must be present in the extracted name
-      const expectedWords = normalizedExpected
-        .split(' ')
-        .filter((word) => word.length > 2); // Only significant words
+      const expectedWords = normalizedExpected.split(' ').filter((word) => word.length > 2); // Only significant words
 
       const extractedWords = normalizedExtracted.split(' ');
       let matchedWords = 0;
 
       for (const expectedWord of expectedWords) {
         const found = extractedWords.some(
-          (extractedWord) =>
-            extractedWord.includes(expectedWord) ||
-            expectedWord.includes(extractedWord),
+          (extractedWord) => extractedWord.includes(expectedWord) || expectedWord.includes(extractedWord),
         );
         if (found) {
           matchedWords++;
@@ -719,9 +628,7 @@ export class PdfProcessingService {
       this.logger.error('Error checking fullname in PDF with PDF.js:', error);
 
       // Fallback to simple buffer method if PDF.js fails
-      this.logger.debug(
-        'Falling back to simple buffer method for fullname check',
-      );
+      this.logger.debug('Falling back to simple buffer method for fullname check');
       return this.checkFullnameInPdfFallback(pdfBuffer, expectedFullname);
     }
   }
@@ -729,17 +636,13 @@ export class PdfProcessingService {
   /**
    * Fallback method for fullname checking using raw buffer
    */
-  private checkFullnameInPdfFallback(
-    pdfBuffer: Buffer,
-    expectedFullname: string,
-  ): boolean {
+  private checkFullnameInPdfFallback(pdfBuffer: Buffer, expectedFullname: string): boolean {
     try {
       // Convert buffer to text using multiple encodings
       const encodings = ['latin1', 'utf8'];
 
       // Normalize the expected fullname for better matching
-      const normalizedExpected =
-        this.normalizeNameForMatching(expectedFullname);
+      const normalizedExpected = this.normalizeNameForMatching(expectedFullname);
 
       this.logger.debug('Checking fullname in PDF using fallback method:', {
         originalName: expectedFullname,
@@ -760,9 +663,7 @@ export class PdfProcessingService {
           }
 
           // Strict word-by-word verification for fallback too
-          const expectedWords = normalizedExpected
-            .split(' ')
-            .filter((word) => word.length > 2);
+          const expectedWords = normalizedExpected.split(' ').filter((word) => word.length > 2);
 
           let matchedWords = 0;
           for (const word of expectedWords) {
@@ -784,10 +685,7 @@ export class PdfProcessingService {
             );
           }
         } catch (error) {
-          this.logger.debug(
-            `Failed to decode PDF with ${encoding} encoding:`,
-            error,
-          );
+          this.logger.debug(`Failed to decode PDF with ${encoding} encoding:`, error);
         }
       }
 
@@ -825,9 +723,7 @@ export class PdfProcessingService {
 
       // If PDF.js failed, fall back to simple extraction
       if (pdfText === null) {
-        this.logger.debug(
-          'PDF.js failed, trying simple buffer extraction for name',
-        );
+        this.logger.debug('PDF.js failed, trying simple buffer extraction for name');
         return this.extractNameFromPdfSimple(pdfBuffer);
       }
 
@@ -851,17 +747,12 @@ export class PdfProcessingService {
         const match = pdfText.match(pattern);
         if (match && match[1]) {
           const extractedName = match[1].trim();
-          this.logger.debug(
-            `Found name using pattern ${pattern}:`,
-            extractedName,
-          );
+          this.logger.debug(`Found name using pattern ${pattern}:`, extractedName);
           return extractedName;
         }
       }
 
-      this.logger.debug(
-        'No name found using PDF.js patterns, trying simple method',
-      );
+      this.logger.debug('No name found using PDF.js patterns, trying simple method');
       return this.extractNameFromPdfSimple(pdfBuffer);
     } catch (error) {
       this.logger.error('Error extracting name from PDF:', error);
@@ -902,20 +793,14 @@ export class PdfProcessingService {
             }
           }
         } catch (error) {
-          this.logger.debug(
-            `Failed to decode PDF with ${encoding} encoding:`,
-            error,
-          );
+          this.logger.debug(`Failed to decode PDF with ${encoding} encoding:`, error);
         }
       }
 
       this.logger.debug('No name found in PDF content using simple method');
       return null;
     } catch (error) {
-      this.logger.error(
-        'Error extracting name from PDF (simple method):',
-        error,
-      );
+      this.logger.error('Error extracting name from PDF (simple method):', error);
       return null;
     }
   }
@@ -923,17 +808,13 @@ export class PdfProcessingService {
   /**
    * Extract filename from Content-Disposition header
    */
-  extractFilenameFromContentDisposition(
-    headers: Record<string, string | string[] | undefined>,
-  ): string | null {
+  extractFilenameFromContentDisposition(headers: Record<string, string | string[] | undefined>): string | null {
     const contentDisposition = headers['content-disposition'] as string;
     if (!contentDisposition) {
       return null;
     }
 
-    const filenameMatch = contentDisposition.match(
-      /filename[^;=\n]*=((['"]).?\2|[^;\n]*)/,
-    );
+    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).?\2|[^;\n]*)/);
     return filenameMatch ? filenameMatch[1].replace(/['"]/g, '') : null;
   }
 
@@ -962,10 +843,7 @@ export class PdfProcessingService {
       for (const pattern of altPatterns) {
         const match = sampleText.match(pattern);
         if (match && match[1]) {
-          this.logger.debug(
-            'Test found authentication code with alternative pattern:',
-            match[1],
-          );
+          this.logger.debug('Test found authentication code with alternative pattern:', match[1]);
           return match[1];
         }
       }

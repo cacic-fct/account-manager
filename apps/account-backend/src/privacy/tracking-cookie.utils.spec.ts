@@ -6,10 +6,7 @@ import {
   CACIC_PURR_COOKIE_NAME,
   CACIC_PURR_QUICK_COOKIE_NAME,
 } from './constants/privacy-directives';
-import {
-  clearCacicTrackingCookies,
-  refreshCacicTrackingCookies,
-} from './tracking-cookie.utils';
+import { clearCacicTrackingCookies, refreshCacicTrackingCookies } from './tracking-cookie.utils';
 
 describe('tracking cookie utilities', () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -91,10 +88,7 @@ describe('tracking cookie utilities', () => {
       CACIC_PURR_COOKIE_NAME,
       CACIC_PURR_QUICK_COOKIE_NAME,
     ]) {
-      expect(clearCookieMock).toHaveBeenCalledWith(
-        cookieName,
-        expect.objectContaining({ domain: '.cacic.dev.br' }),
-      );
+      expect(clearCookieMock).toHaveBeenCalledWith(cookieName, expect.objectContaining({ domain: '.cacic.dev.br' }));
       expect(hasHostOnlyClearCall(clearCookieMock, cookieName)).toBe(true);
     }
   });
@@ -120,22 +114,13 @@ function createResponse(): {
 
 function createConfigService(): ConfigService {
   return {
-    get: jest.fn((key: string) =>
-      key === 'BACKEND_URL' ? 'https://account.cacic.dev.br/api' : undefined,
-    ),
+    get: jest.fn((key: string) => (key === 'BACKEND_URL' ? 'https://account.cacic.dev.br/api' : undefined)),
   } as unknown as ConfigService;
 }
 
-function hasHostOnlyClearCall(
-  clearCookieMock: jest.Mock,
-  cookieName: string,
-): boolean {
+function hasHostOnlyClearCall(clearCookieMock: jest.Mock, cookieName: string): boolean {
   return clearCookieMock.mock.calls.some(([name, options]) => {
-    return (
-      name === cookieName &&
-      isRecord(options) &&
-      !Object.hasOwn(options, 'domain')
-    );
+    return name === cookieName && isRecord(options) && !Object.hasOwn(options, 'domain');
   });
 }
 

@@ -95,9 +95,7 @@ describe('AuthService password login', () => {
   it('posts credentials with the app base path and hydrates authenticated state', async () => {
     const service = TestBed.inject(AuthService);
 
-    const result = await firstValueFrom(
-      service.passwordLogin('aluno@unesp.br', '1', '/settings'),
-    );
+    const result = await firstValueFrom(service.passwordLogin('aluno@unesp.br', '1', '/settings'));
 
     expect(result).toEqual(loginResponse);
     expect(apiService.passwordLogin).toHaveBeenCalledWith({
@@ -119,9 +117,7 @@ describe('AuthService password login', () => {
     apiService.passwordLogin.mockReturnValue(throwError(() => error));
     const service = TestBed.inject(AuthService);
 
-    await expect(
-      firstValueFrom(service.passwordLogin('aluno@unesp.br', 'bad')),
-    ).rejects.toThrow(error);
+    await expect(firstValueFrom(service.passwordLogin('aluno@unesp.br', 'bad'))).rejects.toThrow(error);
 
     expect(service.isLoading()).toBe(false);
   });
@@ -130,9 +126,9 @@ describe('AuthService password login', () => {
     environment.production = true;
     const service = TestBed.inject(AuthService);
 
-    await expect(
-      firstValueFrom(service.passwordLogin('aluno@unesp.br', '1')),
-    ).rejects.toThrow('Password login is available only in development.');
+    await expect(firstValueFrom(service.passwordLogin('aluno@unesp.br', '1'))).rejects.toThrow(
+      'Password login is available only in development.',
+    );
 
     expect(apiService.passwordLogin).not.toHaveBeenCalled();
   });

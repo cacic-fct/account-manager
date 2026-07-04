@@ -1,20 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiOperation,
-  ApiParam,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { M2M_TOTP_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import { TotpService } from './totp.service';
-import {
-  M2MTotpValidateDto,
-  M2MTotpValidateResponseDto,
-  TotpSeedDto,
-} from './dto/totp.dto';
+import { M2MTotpValidateDto, M2MTotpValidateResponseDto, TotpSeedDto } from './dto/totp.dto';
 
 @ApiTags('External API - TOTP')
 @Controller('v1/totp')
@@ -37,13 +26,10 @@ export class TotpApiController {
   })
   @ApiResponse({
     status: 200,
-    description:
-      'Validation result. Failed validations do not disclose user existence.',
+    description: 'Validation result. Failed validations do not disclose user existence.',
     type: M2MTotpValidateResponseDto,
   })
-  validate(
-    @Body() body: M2MTotpValidateDto,
-  ): Promise<M2MTotpValidateResponseDto> {
+  validate(@Body() body: M2MTotpValidateDto): Promise<M2MTotpValidateResponseDto> {
     return this.totpService.validateCode(body.primaryEmail, body.code);
   }
 

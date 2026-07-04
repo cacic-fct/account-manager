@@ -17,18 +17,11 @@
             [identityDocumentLocked]="identityFieldLocks().identityDocument"
             [countryCodeOptions]="countryCodeOptions"
             (phoneInput)="formatPhoneInput()"
-            (phoneBlur)="onPhoneBlur()"
-          />
+            (phoneBlur)="onPhoneBlur()" />
         </div>
 
         <div class="step-actions">
-          <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            matStepperNext
-            [disabled]="personalGroup.invalid"
-          >
+          <button mat-flat-button color="primary" type="button" matStepperNext [disabled]="personalGroup.invalid">
             Continuar
           </button>
         </div>
@@ -44,8 +37,7 @@
             [isEditMode]="isEditMode()"
             [isUserVerified]="isUserVerified()"
             [unespRoleWillReset]="willResetVerification('unespRole')"
-            [enrollmentWillReset]="willResetVerification('enrollmentNumber')"
-          />
+            [enrollmentWillReset]="willResetVerification('enrollmentNumber')" />
         </div>
 
         <div class="step-actions">
@@ -55,9 +47,8 @@
             color="primary"
             type="button"
             (click)="submitProfile()"
-            [disabled]="profileForm.invalid || isSubmitting()"
-          >
-            {{ isSubmitting() ? "Salvando..." : "Salvar" }}
+            [disabled]="profileForm.invalid || isSubmitting()">
+            {{ isSubmitting() ? 'Salvando...' : 'Salvar' }}
           </button>
         </div>
       </mat-step>
@@ -75,8 +66,7 @@
           [identityDocumentLocked]="identityFieldLocks().identityDocument"
           [countryCodeOptions]="countryCodeOptions"
           (phoneInput)="formatPhoneInput()"
-          (phoneBlur)="onPhoneBlur()"
-        />
+          (phoneBlur)="onPhoneBlur()" />
       </section>
       @if (shouldShowUnespRoleSelection()) {
         <section class="form-section">
@@ -89,8 +79,7 @@
             [isEditMode]="isEditMode()"
             [isUserVerified]="isUserVerified()"
             [unespRoleWillReset]="willResetVerification('unespRole')"
-            [enrollmentWillReset]="willResetVerification('enrollmentNumber')"
-          />
+            [enrollmentWillReset]="willResetVerification('enrollmentNumber')" />
         </section>
       }
 
@@ -100,9 +89,8 @@
           color="primary"
           type="button"
           (click)="submitProfile()"
-          [disabled]="profileForm.invalid || isSubmitting()"
-        >
-          {{ isSubmitting() ? "Salvando..." : "Salvar" }}
+          [disabled]="profileForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Salvando...' : 'Salvar' }}
         </button>
       </div>
     </div>

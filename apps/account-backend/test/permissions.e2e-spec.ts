@@ -2,11 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import {
-  AccountManagerPermission,
-  PermissionGroupKey,
-  type PermissionSelfServiceAccess,
-} from '@cacic/shared-types';
+import { AccountManagerPermission, PermissionGroupKey, type PermissionSelfServiceAccess } from '@cacic/shared-types';
 import { AuthGuard } from '../src/auth/guards/auth.guard';
 import { AccountPermissionGuard } from '../src/auth/guards/account-permission.guard';
 import { CsrfGuard } from '../src/auth/csrf/csrf.guard';
@@ -22,9 +18,7 @@ const sessionUser = {
   email: 'alice@example.com',
 };
 
-const attachSession = (context: {
-  switchToHttp: () => { getRequest: () => { session?: unknown } };
-}) => {
+const attachSession = (context: { switchToHttp: () => { getRequest: () => { session?: unknown } } }) => {
   const request = context.switchToHttp().getRequest();
   request.session = {
     user: sessionUser,
@@ -146,46 +140,30 @@ describe('Permissions controllers (e2e)', () => {
   });
 
   it('returns current user group memberships and direct grants', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/api/permissions/me')
-      .expect(200);
+    const response = await request(app.getHttpServer()).get('/api/permissions/me').expect(200);
     const body = response.body as PermissionSelfServiceAccess;
 
     expect(body.memberships).toHaveLength(1);
     expect(body.grants).toHaveLength(1);
-    expect(keycloakPermissions.getSelfServiceAccess).toHaveBeenCalledWith(
-      'user-1',
-    );
+    expect(keycloakPermissions.getSelfServiceAccess).toHaveBeenCalledWith('user-1');
   });
 
   it('lets users remove their own direct grants', async () => {
-    await request(app.getHttpServer())
-      .delete('/api/permissions/me/grants/grant-1')
-      .expect(200)
-      .expect({
-        removed: true,
-        id: 'grant-1',
-      });
+    await request(app.getHttpServer()).delete('/api/permissions/me/grants/grant-1').expect(200).expect({
+      removed: true,
+      id: 'grant-1',
+    });
 
-    expect(keycloakPermissions.selfRemoveGrant).toHaveBeenCalledWith(
-      'user-1',
-      'grant-1',
-    );
+    expect(keycloakPermissions.selfRemoveGrant).toHaveBeenCalledWith('user-1', 'grant-1');
   });
 
   it('lets users remove their own managed group memberships', async () => {
-    await request(app.getHttpServer())
-      .delete('/api/permissions/me/groups/membership-1')
-      .expect(200)
-      .expect({
-        removed: true,
-        id: 'membership-1',
-      });
+    await request(app.getHttpServer()).delete('/api/permissions/me/groups/membership-1').expect(200).expect({
+      removed: true,
+      id: 'membership-1',
+    });
 
-    expect(keycloakPermissions.selfRemoveMembership).toHaveBeenCalledWith(
-      'user-1',
-      'membership-1',
-    );
+    expect(keycloakPermissions.selfRemoveMembership).toHaveBeenCalledWith('user-1', 'membership-1');
   });
 
   it('passes admin group role updates with the session actor id', async () => {
@@ -196,9 +174,7 @@ describe('Permissions controllers (e2e)', () => {
       })
       .expect(200);
 
-    expect(
-      keycloakPermissions.updatePermissionGroupRoleGrants,
-    ).toHaveBeenCalledWith(
+    expect(keycloakPermissions.updatePermissionGroupRoleGrants).toHaveBeenCalledWith(
       PermissionGroupKey.Cacic,
       { permissions: [AccountManagerPermission.PermissionGrantRead] },
       'user-1',

@@ -17,9 +17,7 @@ export class PdfVerificationService {
     // Initialize Python environment asynchronously
     this.initializePythonEnvironment().catch((error) => {
       this.logger.error(
-        `Failed to initialize Python environment: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Failed to initialize Python environment: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     });
@@ -40,17 +38,11 @@ export class PdfVerificationService {
         this.pythonEnvReady = true;
         this.logger.log('Python environment initialized successfully');
       } else {
-        this.logger.error(
-          `Failed to initialize Python environment: ${
-            result.error || 'Unknown error'
-          }`,
-        );
+        this.logger.error(`Failed to initialize Python environment: ${result.error || 'Unknown error'}`);
       }
     } catch (error: unknown) {
       this.logger.error(
-        `Error initializing Python environment: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Error initializing Python environment: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }
@@ -65,9 +57,7 @@ export class PdfVerificationService {
     await this.initializePythonEnvironment();
 
     if (!this.pythonEnvReady || !this.pythonPath) {
-      throw new Error(
-        'Python environment is not available for PDF verification',
-      );
+      throw new Error('Python environment is not available for PDF verification');
     }
 
     return this.pythonPath;
@@ -79,9 +69,7 @@ export class PdfVerificationService {
       const pythonPath = await this.ensurePythonEnvironment();
 
       const scriptPath = this.getScriptPath('verify_pdf.py');
-      const { stdout, stderr } = await execAsync(
-        `"${pythonPath}" "${scriptPath}" "${filePath}"`,
-      );
+      const { stdout, stderr } = await execAsync(`"${pythonPath}" "${scriptPath}" "${filePath}"`);
 
       if (stderr) {
         this.logger.warn(`Python script stderr: ${stderr}`);
@@ -91,9 +79,7 @@ export class PdfVerificationService {
       return result;
     } catch (error: unknown) {
       this.logger.error(
-        `Error executing Python script: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Error executing Python script: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       return {
@@ -103,9 +89,7 @@ export class PdfVerificationService {
     }
   }
 
-  async verifyPdfDocumentFromBuffer(
-    pdfBuffer: Buffer,
-  ): Promise<PdfVerificationResult> {
+  async verifyPdfDocumentFromBuffer(pdfBuffer: Buffer): Promise<PdfVerificationResult> {
     try {
       // Ensure Python environment is ready
       const pythonPath = await this.ensurePythonEnvironment();
@@ -127,14 +111,8 @@ export class PdfVerificationService {
 
         pythonProcess.on('close', (code: number) => {
           if (code !== 0) {
-            this.logger.error(
-              `Python buffer verification process exited with code ${code}. stderr: ${stderr}`,
-            );
-            reject(
-              new Error(
-                `Python process exited with code ${code}. stderr: ${stderr}`,
-              ),
-            );
+            this.logger.error(`Python buffer verification process exited with code ${code}. stderr: ${stderr}`);
+            reject(new Error(`Python process exited with code ${code}. stderr: ${stderr}`));
             return;
           }
 
@@ -142,24 +120,14 @@ export class PdfVerificationService {
             const result = JSON.parse(stdout) as PdfVerificationResult;
             resolve(result);
           } catch (parseError) {
-            const message =
-              parseError instanceof Error
-                ? parseError.message
-                : String(parseError);
-            this.logger.error(
-              `Failed to parse Python script output: ${message}`,
-            );
-            reject(
-              new Error(`Failed to parse Python script output: ${message}`),
-            );
+            const message = parseError instanceof Error ? parseError.message : String(parseError);
+            this.logger.error(`Failed to parse Python script output: ${message}`);
+            reject(new Error(`Failed to parse Python script output: ${message}`));
           }
         });
 
         pythonProcess.on('error', (error: Error) => {
-          this.logger.error(
-            `Failed to start Python process: ${error.message}`,
-            error.stack,
-          );
+          this.logger.error(`Failed to start Python process: ${error.message}`, error.stack);
           reject(new Error(`Failed to start Python process: ${error.message}`));
         });
 
@@ -169,9 +137,7 @@ export class PdfVerificationService {
       });
     } catch (error: unknown) {
       this.logger.error(
-        `Error executing Python script with buffer: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Error executing Python script with buffer: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       return {

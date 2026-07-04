@@ -5,12 +5,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
  */
 @Injectable()
 export class FileValidationService {
-  private readonly ALLOWED_MIME_TYPES = [
-    'application/pdf',
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-  ];
+  private readonly ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
 
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -38,9 +33,7 @@ export class FileValidationService {
     }
 
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        `Tipo de arquivo não permitido. Tipos aceitos: ${allowedTypes.join(', ')}`,
-      );
+      throw new BadRequestException(`Tipo de arquivo não permitido. Tipos aceitos: ${allowedTypes.join(', ')}`);
     }
 
     // Additional security checks
@@ -53,16 +46,12 @@ export class FileValidationService {
   private performSecurityChecks(file: Express.Multer.File): void {
     // Check for potentially dangerous filenames
     if (this.containsSuspiciousFilename(file.originalname)) {
-      throw new BadRequestException(
-        'Nome do arquivo contém caracteres não permitidos.',
-      );
+      throw new BadRequestException('Nome do arquivo contém caracteres não permitidos.');
     }
 
     // Check file header (magic bytes) matches MIME type for basic validation
     if (!this.validateFileHeader(file)) {
-      throw new BadRequestException(
-        'Arquivo não corresponde ao tipo declarado.',
-      );
+      throw new BadRequestException('Arquivo não corresponde ao tipo declarado.');
     }
   }
 

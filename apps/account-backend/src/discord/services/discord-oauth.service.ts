@@ -39,9 +39,7 @@ export class DiscordOAuthService {
 
     const backendUrl = process.env.BACKEND_URL;
     if (!backendUrl) {
-      throw new BadRequestException(
-        'BACKEND_URL environment variable not configured',
-      );
+      throw new BadRequestException('BACKEND_URL environment variable not configured');
     }
 
     const redirectUri = this.discordCallbackUrl(backendUrl);
@@ -93,9 +91,7 @@ export class DiscordOAuthService {
 
     const backendUrl = process.env.BACKEND_URL;
     if (!backendUrl) {
-      throw new BadRequestException(
-        'BACKEND_URL environment variable not configured',
-      );
+      throw new BadRequestException('BACKEND_URL environment variable not configured');
     }
 
     const redirectUri = this.discordCallbackUrl(backendUrl);

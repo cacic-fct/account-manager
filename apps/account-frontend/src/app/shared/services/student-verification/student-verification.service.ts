@@ -21,10 +21,7 @@ export class StudentVerificationService {
   private http = inject(HttpClient);
   private readonly baseUrl = `${getApiBaseUrl()}/student-verification`;
 
-  uploadDocument(
-    file: File,
-    isManualFallback = false,
-  ): Observable<UploadResponse> {
+  uploadDocument(file: File, isManualFallback = false): Observable<UploadResponse> {
     const formData = new FormData();
     formData.append('document', file);
     if (isManualFallback) {
@@ -60,10 +57,7 @@ export class StudentVerificationService {
     );
   }
 
-  rejectDocument(
-    documentId: string,
-    reason: string,
-  ): Observable<VerificationUpdateResponse> {
+  rejectDocument(documentId: string, reason: string): Observable<VerificationUpdateResponse> {
     return this.http.patch<VerificationUpdateResponse>(
       `${this.baseUrl}/admin/${documentId}/verify`,
       {
@@ -80,8 +74,7 @@ export class StudentVerificationService {
    * Generate the URL to open Unesp verification form with pre-filled authentication code
    */
   getUniversityVerificationUrl(authenticationCode: string): string {
-    const baseUrl =
-      'https://sistemas.unesp.br/academico/publico/documento.action';
+    const baseUrl = 'https://sistemas.unesp.br/academico/publico/documento.action';
     return `${baseUrl}?txt_codigo_autenticidade=${encodeURIComponent(authenticationCode)}`;
   }
 }

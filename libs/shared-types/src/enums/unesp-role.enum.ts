@@ -13,14 +13,10 @@ export const UNESP_ROLE_LABELS: Record<UnespRole, string> = {
   [UnespRole.EGRESSO]: 'Egresso',
   [UnespRole.PROFESSOR]: 'Professor',
   [UnespRole.PROFESSOR_SUBSTITUTO]: 'Professor substituto',
-  [UnespRole.SERVIDOR_TECNICO_ADMINISTRATIVO]:
-    'Servidor técnico-administrativo',
+  [UnespRole.SERVIDOR_TECNICO_ADMINISTRATIVO]: 'Servidor técnico-administrativo',
 };
 
-export const STUDENT_ROLES = [
-  UnespRole.ALUNO_GRADUACAO,
-  UnespRole.ALUNO_POS_GRADUACAO,
-] as const;
+export const STUDENT_ROLES = [UnespRole.ALUNO_GRADUACAO, UnespRole.ALUNO_POS_GRADUACAO] as const;
 
 export function isStudentRole(role: UnespRole): boolean {
   return STUDENT_ROLES.includes(role as (typeof STUDENT_ROLES)[number]);

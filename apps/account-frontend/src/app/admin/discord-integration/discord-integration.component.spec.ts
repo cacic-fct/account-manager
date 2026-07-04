@@ -11,8 +11,7 @@ describe('DiscordIntegrationComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DiscordIntegrationComponent],
       providers: [provideRouter([])],
-    })
-    .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(DiscordIntegrationComponent);
     component = fixture.componentInstance;

@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 
 import { StudentVerificationCardComponent } from './student-verification-card.component';
-import {
-  authHandlers,
-  studentVerificationHandlers,
-} from '../../../../storybook/mocks/msw-handlers';
+import { authHandlers, studentVerificationHandlers } from '../../../../storybook/mocks/msw-handlers';
 
 const meta: Meta<StudentVerificationCardComponent> = {
   title: 'Settings/LinkedAccounts/StudentVerificationCard',
@@ -21,10 +18,7 @@ type Story = StoryObj<StudentVerificationCardComponent>;
 export const NotSubmitted: Story = {
   parameters: {
     msw: {
-      handlers: [
-        authHandlers.csrf,
-        studentVerificationHandlers.statusNotSubmitted,
-      ],
+      handlers: [authHandlers.csrf, studentVerificationHandlers.statusNotSubmitted],
     },
   },
 };

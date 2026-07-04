@@ -15,10 +15,7 @@ export class DiscordBotService {
     private readonly discordRoleService: DiscordRoleService,
   ) {}
 
-  async assignNickname(
-    member: GuildMember,
-    newNickname: string | null,
-  ): Promise<void> {
+  async assignNickname(member: GuildMember, newNickname: string | null): Promise<void> {
     const client = member.client;
     const guildId = member.guild.id;
     const discordUserId = member.id;
@@ -51,15 +48,9 @@ export class DiscordBotService {
       }
 
       if (newNickname) {
-        const nameParts = newNickname
-          .split(' ')
-          .map((part) => part.toLowerCase());
-        const fullnameParts = user.fullname
-          .split(' ')
-          .map((part) => part.toLowerCase());
-        const matchingNames = nameParts.filter((part) =>
-          fullnameParts.includes(part),
-        );
+        const nameParts = newNickname.split(' ').map((part) => part.toLowerCase());
+        const fullnameParts = user.fullname.split(' ').map((part) => part.toLowerCase());
+        const matchingNames = nameParts.filter((part) => fullnameParts.includes(part));
 
         if (matchingNames.length >= 2) {
           this.logger.log(
@@ -93,10 +84,7 @@ export class DiscordBotService {
 
       this.logger.log(`Set nickname for ${member.user.username}: ${nickname}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to set nickname for user ${discordUserId}:`,
-        error,
-      );
+      this.logger.error(`Failed to set nickname for user ${discordUserId}:`, error);
     }
   }
 
@@ -125,18 +113,12 @@ export class DiscordBotService {
         return;
       }
 
-      const nickname =
-        user.fullname || user.displayName || user.email.split('@')[0];
+      const nickname = user.fullname || user.displayName || user.email.split('@')[0];
       try {
         await member.setNickname(nickname);
-        this.logger.log(
-          `Set nickname for ${member.user.username}: ${nickname}`,
-        );
+        this.logger.log(`Set nickname for ${member.user.username}: ${nickname}`);
       } catch (error) {
-        this.logger.error(
-          `Failed to set nickname for ${member.user.username}:`,
-          error,
-        );
+        this.logger.error(`Failed to set nickname for ${member.user.username}:`, error);
       }
 
       await this.discordRoleService.assignUserRole(discordLink, {
@@ -151,11 +133,7 @@ export class DiscordBotService {
     }
   }
 
-  async removeUserFromGuild(
-    client: Client,
-    guildId: string,
-    discordUserId: string,
-  ): Promise<void> {
+  async removeUserFromGuild(client: Client, guildId: string, discordUserId: string): Promise<void> {
     try {
       const guild = await this.getGuild(client, guildId);
       if (!guild) {
@@ -166,9 +144,7 @@ export class DiscordBotService {
       const member = await guild.members.fetch(discordUserId);
       if (member) {
         await member.kick('Account deleted from CACiC system');
-        this.logger.log(
-          `Removed user ${member.user.username} from guild due to account deletion`,
-        );
+        this.logger.log(`Removed user ${member.user.username} from guild due to account deletion`);
       }
     } catch (error) {
       this.logger.error(`Error removing user from guild:`, error);
@@ -176,29 +152,20 @@ export class DiscordBotService {
   }
 
   async handleMemberJoin(member: GuildMember): Promise<void> {
-    this.logger.log(
-      `New member joined: ${member.user.username} (${member.id})`,
-    );
+    this.logger.log(`New member joined: ${member.user.username} (${member.id})`);
 
     const discordLink = await this.prisma.discordLink.findFirst({
       where: { discordId: member.id, deleted: false },
     });
 
     if (discordLink && member.client) {
-      await this.assignRoleAndNickname(
-        member.client,
-        member.guild.id,
-        member.id,
-        discordLink,
-      );
+      await this.assignRoleAndNickname(member.client, member.guild.id, member.id, discordLink);
     } else {
       await this.discordRoleService.ensureRegistrationRoleForMember(
         member,
         'discord-member-joined-without-linked-account',
       );
-      this.logger.debug(
-        `No CACiC Discord link found for joined member ${member.id}; registration role ensured`,
-      );
+      this.logger.debug(`No CACiC Discord link found for joined member ${member.id}; registration role ensured`);
     }
   }
 

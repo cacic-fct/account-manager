@@ -1,8 +1,4 @@
-import {
-  AccountManagerPermission,
-  PermissionGroupKey,
-  buildKeycloakPermissionId,
-} from '@cacic/shared-types';
+import { AccountManagerPermission, PermissionGroupKey, buildKeycloakPermissionId } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { KeycloakService } from './keycloak.service';
 import { AccountPermissionService } from './account-permission.service';
@@ -20,10 +16,7 @@ type PrismaMock = {
 };
 
 type KeycloakMock = {
-  getUserRoles: jest.Mock<
-    ReturnType<KeycloakService['getUserRoles']>,
-    Parameters<KeycloakService['getUserRoles']>
-  >;
+  getUserRoles: jest.Mock<ReturnType<KeycloakService['getUserRoles']>, Parameters<KeycloakService['getUserRoles']>>;
   getUserClientRoles: jest.Mock<
     ReturnType<KeycloakService['getUserClientRoles']>,
     Parameters<KeycloakService['getUserClientRoles']>
@@ -57,36 +50,22 @@ type DirectGrantSourceFilter =
       };
     };
 
-const expectDirectOrLegacyMembershipGrantFilter = (
-  filters: DirectGrantSourceFilter[] | undefined,
-): void => {
+const expectDirectOrLegacyMembershipGrantFilter = (filters: DirectGrantSourceFilter[] | undefined): void => {
   expect(filters?.[0]).toEqual({ studentEntityMembershipId: null });
   const legacyMembershipFilter = filters?.[1];
-  if (
-    !legacyMembershipFilter ||
-    !('studentEntityMembership' in legacyMembershipFilter)
-  ) {
+  if (!legacyMembershipFilter || !('studentEntityMembership' in legacyMembershipFilter)) {
     throw new Error('Expected legacy membership grant filter.');
   }
 
-  expect(
-    legacyMembershipFilter.studentEntityMembership.is.deletedAt,
-  ).toBeNull();
-  expect(
-    legacyMembershipFilter.studentEntityMembership.is.mandateStart.lte,
-  ).toBeInstanceOf(Date);
+  expect(legacyMembershipFilter.studentEntityMembership.is.deletedAt).toBeNull();
+  expect(legacyMembershipFilter.studentEntityMembership.is.mandateStart.lte).toBeInstanceOf(Date);
   expect(legacyMembershipFilter.studentEntityMembership.is.OR[0]).toEqual({
     mandateEnd: null,
   });
-  expect(
-    legacyMembershipFilter.studentEntityMembership.is.OR[1].mandateEnd.gt,
-  ).toBeInstanceOf(Date);
+  expect(legacyMembershipFilter.studentEntityMembership.is.OR[1].mandateEnd.gt).toBeInstanceOf(Date);
 };
 
-const getMockArg = <T>(
-  mock: { mock: { calls: [unknown][] } },
-  callIndex = 0,
-): T => {
+const getMockArg = <T>(mock: { mock: { calls: [unknown][] } }, callIndex = 0): T => {
   const call = mock.mock.calls[callIndex];
   if (!call) {
     throw new Error(`Expected mock call ${callIndex} to exist.`);
@@ -113,10 +92,7 @@ const createContext = () => {
   prisma.studentEntityMembership.findMany.mockResolvedValue([]);
 
   const keycloakService: KeycloakMock = {
-    getUserRoles: jest.fn<
-      ReturnType<KeycloakService['getUserRoles']>,
-      Parameters<KeycloakService['getUserRoles']>
-    >(),
+    getUserRoles: jest.fn<ReturnType<KeycloakService['getUserRoles']>, Parameters<KeycloakService['getUserRoles']>>(),
     getUserClientRoles: jest.fn<
       ReturnType<KeycloakService['getUserClientRoles']>,
       Parameters<KeycloakService['getUserClientRoles']>
@@ -150,52 +126,38 @@ describe('AccountPermissionService', () => {
     });
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.PermissionGrantRead,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.PermissionGrantRead]),
     ).resolves.toBe(true);
 
-    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakPermissionGrant.findFirst,
-    );
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakPermissionGrant.findFirst);
     expect(findFirstArgs.where.userId).toBe('user-1');
     expect(findFirstArgs.where.deletedAt).toBeNull();
     expectDirectOrLegacyMembershipGrantFilter(findFirstArgs.where.OR);
-    expect(findFirstArgs.where.permission.in).toEqual([
-      AccountManagerPermission.PermissionGrantRead,
-    ]);
+    expect(findFirstArgs.where.permission.in).toEqual([AccountManagerPermission.PermissionGrantRead]);
     expect(prisma.studentEntityMembership.findMany).not.toHaveBeenCalled();
   });
 
   it('resolves active permission through a group grant', async () => {
     const { prisma, service } = createContext();
-    prisma.studentEntityMembership.findMany.mockResolvedValue([
-      { entity: PermissionGroupKey.Cacic },
-    ]);
+    prisma.studentEntityMembership.findMany.mockResolvedValue([{ entity: PermissionGroupKey.Cacic }]);
     prisma.keycloakGroupPermissionGrant.findFirst.mockResolvedValue({
       id: 'group-grant-1',
     });
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.StudentVerificationReview,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.StudentVerificationReview]),
     ).resolves.toBe(true);
 
     const membershipArgs = getMockArg<{
       where: { userId: string; deletedAt: null };
       select: { entity: true };
     }>(prisma.studentEntityMembership.findMany);
-    const groupGrantArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakGroupPermissionGrant.findFirst,
-    );
+    const groupGrantArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakGroupPermissionGrant.findFirst);
     expect(membershipArgs.where.userId).toBe('user-1');
     expect(groupGrantArgs.where.groupKey).toEqual({
       in: [PermissionGroupKey.Cacic],
     });
-    expect(groupGrantArgs.where.permission.in).toEqual([
-      AccountManagerPermission.StudentVerificationReview,
-    ]);
+    expect(groupGrantArgs.where.permission.in).toEqual([AccountManagerPermission.StudentVerificationReview]);
   });
 
   it('filters legacy membership entities out of group grant lookups', async () => {
@@ -209,14 +171,10 @@ describe('AccountPermissionService', () => {
     });
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.StudentVerificationReview,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.StudentVerificationReview]),
     ).resolves.toBe(true);
 
-    const groupGrantArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakGroupPermissionGrant.findFirst,
-    );
+    const groupGrantArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakGroupPermissionGrant.findFirst);
     expect(groupGrantArgs.where.groupKey).toEqual({
       in: [PermissionGroupKey.Cacic],
     });
@@ -229,35 +187,22 @@ describe('AccountPermissionService', () => {
     });
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.PermissionGrantRead,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.PermissionGrantRead]),
     ).resolves.toBe(true);
 
-    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakPermissionGrant.findFirst,
-    );
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakPermissionGrant.findFirst);
     expectDirectOrLegacyMembershipGrantFilter(findFirstArgs.where.OR);
   });
 
   it('resolves active permission through a Keycloak-only group role mapping', async () => {
     const { keycloakService, prisma, service } = createContext();
-    prisma.studentEntityMembership.findMany.mockResolvedValue([
-      { entity: PermissionGroupKey.Cacic },
-    ]);
-    keycloakService.getGroupClientRoles.mockImplementation(
-      (_groupId, clientId) =>
-        Promise.resolve(
-          clientId === 'cacic-account-manager'
-            ? ['student-verification#review']
-            : [],
-        ),
+    prisma.studentEntityMembership.findMany.mockResolvedValue([{ entity: PermissionGroupKey.Cacic }]);
+    keycloakService.getGroupClientRoles.mockImplementation((_groupId, clientId) =>
+      Promise.resolve(clientId === 'cacic-account-manager' ? ['student-verification#review'] : []),
     );
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.StudentVerificationReview,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.StudentVerificationReview]),
     ).resolves.toBe(true);
 
     expect(keycloakService.getGroupClientRoles).toHaveBeenCalledWith(
@@ -272,19 +217,12 @@ describe('AccountPermissionService', () => {
       { entity: 'LEGACY_GROUP' },
       { entity: PermissionGroupKey.Cacic },
     ]);
-    keycloakService.getGroupClientRoles.mockImplementation(
-      (_groupId, clientId) =>
-        Promise.resolve(
-          clientId === 'cacic-account-manager'
-            ? ['student-verification#review']
-            : [],
-        ),
+    keycloakService.getGroupClientRoles.mockImplementation((_groupId, clientId) =>
+      Promise.resolve(clientId === 'cacic-account-manager' ? ['student-verification#review'] : []),
     );
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.StudentVerificationReview,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.StudentVerificationReview]),
     ).resolves.toBe(true);
 
     expect(keycloakService.getGroupClientRoles).toHaveBeenCalledWith(
@@ -295,33 +233,22 @@ describe('AccountPermissionService', () => {
 
   it('treats failed Keycloak group permission probes as misses', async () => {
     const { keycloakService, prisma, service } = createContext();
-    prisma.studentEntityMembership.findMany.mockResolvedValue([
-      { entity: PermissionGroupKey.Cacic },
-    ]);
-    keycloakService.getGroupClientRoles.mockRejectedValue(
-      new Error('Keycloak down'),
-    );
+    prisma.studentEntityMembership.findMany.mockResolvedValue([{ entity: PermissionGroupKey.Cacic }]);
+    keycloakService.getGroupClientRoles.mockRejectedValue(new Error('Keycloak down'));
 
     await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.StudentVerificationReview,
-      ]),
+      service.hasAnyActivePermission('user-1', [AccountManagerPermission.StudentVerificationReview]),
     ).resolves.toBe(false);
   });
 
   it('ignores db-backed super-admin grants for permission inheritance', async () => {
     const { keycloakService, prisma, service } = createContext();
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        return Promise.resolve(
-          permissions.includes(AccountManagerPermission.SuperAdmin)
-            ? { id: 'grant-super-admin' }
-            : null,
-        );
-      },
-    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      return Promise.resolve(
+        permissions.includes(AccountManagerPermission.SuperAdmin) ? { id: 'grant-super-admin' } : null,
+      );
+    });
 
     await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(false);
     await expect(
@@ -347,33 +274,21 @@ describe('AccountPermissionService', () => {
       id: 'db-access-grant',
     });
 
-    await expect(
-      service.hasAnyActivePermission('user-1', [
-        AccountManagerPermission.Access,
-      ]),
-    ).resolves.toBe(true);
+    await expect(service.hasAnyActivePermission('user-1', [AccountManagerPermission.Access])).resolves.toBe(true);
 
-    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
-      'user-1',
-      'cacic-account-manager',
-    );
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith('user-1', 'cacic-account-manager');
     expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
   });
 
   it('falls back to database permissions when Keycloak bootstrap role lookup fails', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        return Promise.resolve(
-          permissions.includes(AccountManagerPermission.DiscordManagementRead)
-            ? { id: 'grant-1' }
-            : null,
-        );
-      },
-    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      return Promise.resolve(
+        permissions.includes(AccountManagerPermission.DiscordManagementRead) ? { id: 'grant-1' } : null,
+      );
+    });
 
     await expect(service.hasDiscordAdminAccess('user-1')).resolves.toBe(true);
   });
@@ -382,19 +297,12 @@ describe('AccountPermissionService', () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.DiscordManagementRead,
-      ),
-    ).resolves.toBe(false);
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.DiscordManagementRead)).resolves.toBe(
+      false,
+    );
 
-    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakPermissionGrant.findFirst,
-    );
-    expect(findFirstArgs.where.permission.in).toContain(
-      AccountManagerPermission.PermissionGrantAssign,
-    );
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakPermissionGrant.findFirst);
+    expect(findFirstArgs.where.permission.in).toContain(AccountManagerPermission.PermissionGrantAssign);
   });
 
   it('requires db-backed assign and revoke permissions before app role changes', async () => {
@@ -402,199 +310,120 @@ describe('AccountPermissionService', () => {
     keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
     keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
 
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.PermissionGrantAssign,
-      ),
-    ).resolves.toBe(false);
-    await expect(
-      service.canRevokePermission(
-        'actor-1',
-        AccountManagerPermission.PermissionGrantRevoke,
-      ),
-    ).resolves.toBe(false);
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.PermissionGrantAssign)).resolves.toBe(
+      false,
+    );
+    await expect(service.canRevokePermission('actor-1', AccountManagerPermission.PermissionGrantRevoke)).resolves.toBe(
+      false,
+    );
     expect(prisma.keycloakPermissionGrant.findFirst).toHaveBeenCalled();
   });
 
   it('allows client super-admins with db-backed assign and revoke permissions to manage access roles for that app', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
-      Promise.resolve(
-        clientId === 'cacic-event-manager' ? ['super-admin'] : [],
-      ),
+      Promise.resolve(clientId === 'cacic-event-manager' ? ['super-admin'] : []),
     );
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        return Promise.resolve(
-          permissions.includes(
-            AccountManagerPermission.PermissionGrantAssign,
-          ) ||
-            permissions.includes(AccountManagerPermission.PermissionGrantRevoke)
-            ? { id: 'grant-1' }
-            : null,
-        );
-      },
-    );
-    const eventAccessPermission = buildKeycloakPermissionId(
-      'cacic-event-manager',
-      'access',
-    );
-    const eventSuperAdminPermission = buildKeycloakPermissionId(
-      'cacic-event-manager',
-      'super-admin',
-    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      return Promise.resolve(
+        permissions.includes(AccountManagerPermission.PermissionGrantAssign) ||
+          permissions.includes(AccountManagerPermission.PermissionGrantRevoke)
+          ? { id: 'grant-1' }
+          : null,
+      );
+    });
+    const eventAccessPermission = buildKeycloakPermissionId('cacic-event-manager', 'access');
+    const eventSuperAdminPermission = buildKeycloakPermissionId('cacic-event-manager', 'super-admin');
 
-    await expect(
-      service.canAssignPermission('actor-1', eventAccessPermission),
-    ).resolves.toBe(true);
-    await expect(
-      service.canAssignPermission('actor-1', eventSuperAdminPermission),
-    ).resolves.toBe(true);
-    await expect(
-      service.canRevokePermission('actor-1', eventSuperAdminPermission),
-    ).resolves.toBe(true);
-    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
-      'actor-1',
-      'cacic-event-manager',
-    );
+    await expect(service.canAssignPermission('actor-1', eventAccessPermission)).resolves.toBe(true);
+    await expect(service.canAssignPermission('actor-1', eventSuperAdminPermission)).resolves.toBe(true);
+    await expect(service.canRevokePermission('actor-1', eventSuperAdminPermission)).resolves.toBe(true);
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith('actor-1', 'cacic-event-manager');
   });
 
   it('rejects access role assignment without super-admin for the target app', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserClientRoles.mockResolvedValue([]);
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        return Promise.resolve(
-          permissions.includes(AccountManagerPermission.PermissionGrantAssign)
-            ? { id: 'grant-1' }
-            : null,
-        );
-      },
-    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      return Promise.resolve(
+        permissions.includes(AccountManagerPermission.PermissionGrantAssign) ? { id: 'grant-1' } : null,
+      );
+    });
 
-    await expect(
-      service.canAssignPermission('actor-1', AccountManagerPermission.Access),
-    ).resolves.toBe(false);
-    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
-      'actor-1',
-      'cacic-account-manager',
-    );
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.Access)).resolves.toBe(false);
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith('actor-1', 'cacic-account-manager');
   });
 
   it('continues through assign permission checks when Keycloak bootstrap role lookup fails', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        return Promise.resolve(
-          permissions.includes(
-            AccountManagerPermission.PermissionGrantAssign,
-          ) ||
-            permissions.includes(AccountManagerPermission.DiscordManagementRead)
-            ? { id: 'grant-1' }
-            : null,
-        );
-      },
-    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      return Promise.resolve(
+        permissions.includes(AccountManagerPermission.PermissionGrantAssign) ||
+          permissions.includes(AccountManagerPermission.DiscordManagementRead)
+          ? { id: 'grant-1' }
+          : null,
+      );
+    });
 
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.DiscordManagementRead,
-      ),
-    ).resolves.toBe(true);
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.DiscordManagementRead)).resolves.toBe(
+      true,
+    );
   });
 
   it('requires revoke permission before revoking any grant', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.canRevokePermission(
-        'actor-1',
-        AccountManagerPermission.DiscordManagementRead,
-      ),
-    ).resolves.toBe(false);
+    await expect(service.canRevokePermission('actor-1', AccountManagerPermission.DiscordManagementRead)).resolves.toBe(
+      false,
+    );
 
-    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(
-      prisma.keycloakPermissionGrant.findFirst,
-    );
-    expect(findFirstArgs.where.permission.in).toContain(
-      AccountManagerPermission.PermissionGrantRevoke,
-    );
+    const findFirstArgs = getMockArg<PermissionFindFirstArgs>(prisma.keycloakPermissionGrant.findFirst);
+    expect(findFirstArgs.where.permission.in).toContain(AccountManagerPermission.PermissionGrantRevoke);
   });
 
   it('allows Keycloak client super-admins with assign permission to assign db-managed roles for that client', async () => {
     const { keycloakService, prisma, service } = createContext();
-    const eventPermission = buildKeycloakPermissionId(
-      'cacic-event-manager',
-      'events#publish',
-    );
+    const eventPermission = buildKeycloakPermissionId('cacic-event-manager', 'events#publish');
     keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
-      Promise.resolve(
-        clientId === 'cacic-event-manager' ? ['super-admin'] : [],
-      ),
+      Promise.resolve(clientId === 'cacic-event-manager' ? ['super-admin'] : []),
     );
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        if (
-          permissions.includes(AccountManagerPermission.PermissionGrantAssign)
-        ) {
-          return Promise.resolve({ id: 'grant-1' });
-        }
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      if (permissions.includes(AccountManagerPermission.PermissionGrantAssign)) {
+        return Promise.resolve({ id: 'grant-1' });
+      }
 
-        return Promise.resolve(null);
-      },
-    );
+      return Promise.resolve(null);
+    });
 
-    await expect(
-      service.canAssignPermission('actor-1', eventPermission),
-    ).resolves.toBe(true);
-    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
-      'actor-1',
-      'cacic-event-manager',
-    );
+    await expect(service.canAssignPermission('actor-1', eventPermission)).resolves.toBe(true);
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith('actor-1', 'cacic-event-manager');
   });
 
   it('allows non-super-admin assigners to assign only permissions they already hold', async () => {
     const { prisma, service } = createContext();
-    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
-      (args: unknown) => {
-        const permissions = (args as PermissionFindFirstArgs).where.permission
-          .in;
-        if (
-          permissions.includes(
-            AccountManagerPermission.PermissionGrantAssign,
-          ) ||
-          permissions.includes(AccountManagerPermission.DiscordManagementRead)
-        ) {
-          return Promise.resolve({ id: 'grant-1' });
-        }
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation((args: unknown) => {
+      const permissions = (args as PermissionFindFirstArgs).where.permission.in;
+      if (
+        permissions.includes(AccountManagerPermission.PermissionGrantAssign) ||
+        permissions.includes(AccountManagerPermission.DiscordManagementRead)
+      ) {
+        return Promise.resolve({ id: 'grant-1' });
+      }
 
-        return Promise.resolve(null);
-      },
+      return Promise.resolve(null);
+    });
+
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.DiscordManagementRead)).resolves.toBe(
+      true,
     );
-
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.DiscordManagementRead,
-      ),
-    ).resolves.toBe(true);
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.AccountDeletionUpdate,
-      ),
-    ).resolves.toBe(false);
+    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.AccountDeletionUpdate)).resolves.toBe(
+      false,
+    );
   });
 });

@@ -13,10 +13,7 @@ bun add @cacic-fct/account-manager-privacy
 ## Use
 
 ```ts
-import {
-  CacicAccountPrivacyService,
-  provideCacicAccountPrivacy,
-} from '@cacic-fct/account-manager-privacy';
+import { CacicAccountPrivacyService, provideCacicAccountPrivacy } from '@cacic-fct/account-manager-privacy';
 ```
 
 Add the provider to the application config when the account API base URL differs from the default:

@@ -75,8 +75,7 @@ export class StarPatternGenerator {
 
         const opacity = isBrightStar
           ? 0.95 + this.seededRandom() * 0.05
-          : config.minOpacity +
-            this.seededRandom() * (config.maxOpacity - config.minOpacity);
+          : config.minOpacity + this.seededRandom() * (config.maxOpacity - config.minOpacity);
 
         const shouldTwinkle = this.seededRandom() < 0.4;
         const twinkleDelay = this.randomFloat(0, 15);

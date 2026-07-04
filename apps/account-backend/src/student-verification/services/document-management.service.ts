@@ -43,9 +43,7 @@ export class DocumentManagementService {
     }
   }
 
-  async cleanupApprovedDocument(
-    document: StudentVerificationDocument,
-  ): Promise<void> {
+  async cleanupApprovedDocument(document: StudentVerificationDocument): Promise<void> {
     try {
       if (document.s3Key) {
         await this.s3Service.deleteFile(document.s3Key);
@@ -61,14 +59,10 @@ export class DocumentManagementService {
         },
       });
 
-      this.logger.log(
-        `Cleaned up sensitive data for approved document: ${document.id}`,
-      );
+      this.logger.log(`Cleaned up sensitive data for approved document: ${document.id}`);
     } catch (error) {
       this.logger.error(
-        `Failed to cleanup approved document ${document.id}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Failed to cleanup approved document ${document.id}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

@@ -42,53 +42,25 @@ describe('PermissionsComponent', () => {
 
   beforeEach(async () => {
     apiService = {
-      getKeycloakPermissionCatalog: vi
-        .fn()
-        .mockReturnValue(of(mockKeycloakPermissionCatalog)),
-      getPermissionGroupCatalog: vi
-        .fn()
-        .mockReturnValue(of(mockPermissionGroupCatalog)),
+      getKeycloakPermissionCatalog: vi.fn().mockReturnValue(of(mockKeycloakPermissionCatalog)),
+      getPermissionGroupCatalog: vi.fn().mockReturnValue(of(mockPermissionGroupCatalog)),
       getPermissionGroupRoleGrants: vi.fn((groupKey: PermissionGroupKey) =>
-        of(
-          mockPermissionGroupRoleGrants.filter(
-            (grant) => grant.groupKey === groupKey,
-          ),
-        ),
+        of(mockPermissionGroupRoleGrants.filter((grant) => grant.groupKey === groupKey)),
       ),
       getPermissionGroupMemberships: vi.fn((groupKey: PermissionGroupKey) =>
-        of(
-          mockStudentEntityMemberships.filter(
-            (membership) => membership.groupKey === groupKey,
-          ),
-        ),
+        of(mockStudentEntityMemberships.filter((membership) => membership.groupKey === groupKey)),
       ),
-      searchKeycloakPermissionUsers: vi
-        .fn()
-        .mockReturnValue(of(mockKeycloakPermissionUsers.slice(0, 2))),
-      getKeycloakPermissionGrants: vi
-        .fn()
-        .mockReturnValue(of([mockDirectKeycloakPermissionGrant])),
+      searchKeycloakPermissionUsers: vi.fn().mockReturnValue(of(mockKeycloakPermissionUsers.slice(0, 2))),
+      getKeycloakPermissionGrants: vi.fn().mockReturnValue(of([mockDirectKeycloakPermissionGrant])),
       getUserPermissionGroupMemberships: vi.fn((userId: string) =>
-        of(
-          mockStudentEntityMemberships.filter(
-            (membership) => membership.userId === userId,
-          ),
-        ),
+        of(mockStudentEntityMemberships.filter((membership) => membership.userId === userId)),
       ),
       updatePermissionGroupRoleGrants: vi.fn().mockReturnValue(of([])),
       createPermissionGroupMembership: vi.fn().mockReturnValue(of(null)),
-      createKeycloakPermissionGrant: vi
-        .fn()
-        .mockReturnValue(of(mockDirectKeycloakPermissionGrant)),
-      deleteKeycloakPermissionGrant: vi
-        .fn()
-        .mockReturnValue(of({ deleted: true, id: 'grant-1' })),
-      deletePermissionGroupMembership: vi
-        .fn()
-        .mockReturnValue(of({ deleted: true, id: 'membership-1' })),
-      syncKeycloakPermissionGrants: vi
-        .fn()
-        .mockReturnValue(of({ queued: true })),
+      createKeycloakPermissionGrant: vi.fn().mockReturnValue(of(mockDirectKeycloakPermissionGrant)),
+      deleteKeycloakPermissionGrant: vi.fn().mockReturnValue(of({ deleted: true, id: 'grant-1' })),
+      deletePermissionGroupMembership: vi.fn().mockReturnValue(of({ deleted: true, id: 'membership-1' })),
+      syncKeycloakPermissionGrants: vi.fn().mockReturnValue(of({ queued: true })),
     };
 
     await TestBed.configureTestingModule({
@@ -122,9 +94,7 @@ describe('PermissionsComponent', () => {
   it('loads permission catalog and managed groups on init', () => {
     expect(apiService.getKeycloakPermissionCatalog).toHaveBeenCalled();
     expect(apiService.getPermissionGroupCatalog).toHaveBeenCalled();
-    expect(apiService.getPermissionGroupRoleGrants).toHaveBeenCalledWith(
-      PermissionGroupKey.Cacic,
-    );
+    expect(apiService.getPermissionGroupRoleGrants).toHaveBeenCalledWith(PermissionGroupKey.Cacic);
     expect(fixture.nativeElement.textContent).toContain('Permissões');
     expect(fixture.nativeElement.textContent).toContain('CACiC');
   });
@@ -138,15 +108,9 @@ describe('PermissionsComponent', () => {
     component.selectUser(user);
     fixture.detectChanges();
 
-    expect(apiService.searchKeycloakPermissionUsers).toHaveBeenCalledWith(
-      'alice',
-    );
-    expect(apiService.getKeycloakPermissionGrants).toHaveBeenCalledWith(
-      user.id,
-    );
-    expect(apiService.getUserPermissionGroupMemberships).toHaveBeenCalledWith(
-      user.id,
-    );
+    expect(apiService.searchKeycloakPermissionUsers).toHaveBeenCalledWith('alice');
+    expect(apiService.getKeycloakPermissionGrants).toHaveBeenCalledWith(user.id);
+    expect(apiService.getUserPermissionGroupMemberships).toHaveBeenCalledWith(user.id);
     expect(fixture.nativeElement.textContent).toContain(user.displayName);
   });
 });

@@ -34,8 +34,7 @@
         type="button"
         (click)="createRequest()"
         [disabled]="isCreatingRequest() || !canCreateNewRequest()"
-        class="action-button"
-      >
+        class="action-button">
         @if (isCreatingRequest()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else if (!canCreateNewRequest()) {
@@ -112,8 +111,7 @@
                       type="button"
                       (click)="downloadFile(request)"
                       matTooltip="Baixar arquivo"
-                      aria-label="Baixar arquivo LGPD"
-                    >
+                      aria-label="Baixar arquivo LGPD">
                       <mat-icon>download</mat-icon>
                     </button>
                   } @else if (isExpired(request)) {
@@ -148,12 +146,7 @@
       }
     </mat-card-content>
     <mat-card-actions>
-      <button
-        mat-button
-        type="button"
-        (click)="refreshRequests()"
-        [disabled]="isLoading()"
-      >
+      <button mat-button type="button" (click)="refreshRequests()" [disabled]="isLoading()">
         <mat-icon>refresh</mat-icon>
         Atualizar
       </button>
@@ -167,13 +160,12 @@
     </mat-card-header>
     <mat-card-content>
       <p>
-        A conta é desativada imediatamente. Para prevenir fraude, invasões e
-        exclusões indevidas, os dados ficam retidos por 1 ano antes da exclusão
-        definitiva.
+        A conta é desativada imediatamente. Para prevenir fraude, invasões e exclusões indevidas, os dados ficam retidos
+        por 1 ano antes da exclusão definitiva.
       </p>
       <p>
-        Sistemas integrados serão avisados para agendar a exclusão e poderão
-        cancelar o processo se a conta for reativada pela administração.
+        Sistemas integrados serão avisados para agendar a exclusão e poderão cancelar o processo se a conta for
+        reativada pela administração.
       </p>
     </mat-card-content>
     <mat-card-actions>
@@ -183,8 +175,7 @@
         type="button"
         (click)="openDeleteAccountDialog()"
         [disabled]="isDeletingAccount()"
-        class="action-button"
-      >
+        class="action-button">
         @if (isDeletingAccount()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else {

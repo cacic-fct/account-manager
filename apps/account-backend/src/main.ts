@@ -1,32 +1,20 @@
 import { NestFactory } from '@nestjs/core';
-import {
-  INestApplication,
-  ValidationPipe,
-  Logger,
-  LogLevel,
-} from '@nestjs/common';
+import { INestApplication, ValidationPipe, Logger, LogLevel } from '@nestjs/common';
 import { AppModule } from './app.module';
 import session, { Store } from 'express-session';
 import RedisStoreModule from 'connect-redis';
 import { createClient } from 'redis';
-import {
-  DocumentBuilder,
-  SwaggerModule,
-  SwaggerCustomOptions,
-} from '@nestjs/swagger';
+import { DocumentBuilder, SwaggerModule, SwaggerCustomOptions } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { API_GLOBAL_PREFIX, createAppConfig } from './config/app.config';
 import * as express from 'express';
 import type { Express, NextFunction, Request, Response } from 'express';
 
-type RedisStoreConstructor = new (options: {
-  client: unknown;
-  prefix: string;
-}) => Store;
+type RedisStoreConstructor = new (options: { client: unknown; prefix: string }) => Store;
 
 const RedisStore =
-  (RedisStoreModule as unknown as { RedisStore?: RedisStoreConstructor })
-    .RedisStore ?? (RedisStoreModule as unknown as RedisStoreConstructor);
+  (RedisStoreModule as unknown as { RedisStore?: RedisStoreConstructor }).RedisStore ??
+  (RedisStoreModule as unknown as RedisStoreConstructor);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -166,10 +154,7 @@ void bootstrap().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
 
-  bootstrapFailureLogger.fatal(
-    `Failed to bootstrap application: ${message}`,
-    stack,
-  );
+  bootstrapFailureLogger.fatal(`Failed to bootstrap application: ${message}`, stack);
   process.exit(1);
 });
 
@@ -185,8 +170,7 @@ function setupSwagger(app: INestApplication<any>): void {
     .addTag('Health Check', 'System health and status endpoints')
     .addCookieAuth()
     .build();
-  const documentFactory = () =>
-    SwaggerModule.createDocument(app, swaggerConfig);
+  const documentFactory = () => SwaggerModule.createDocument(app, swaggerConfig);
   const swaggerCustomOptions: SwaggerCustomOptions = {
     useGlobalPrefix: true,
     swaggerOptions: {
@@ -198,11 +182,7 @@ function setupSwagger(app: INestApplication<any>): void {
   SwaggerModule.setup('swagger', app, documentFactory, swaggerCustomOptions);
 }
 
-function setupTrackingCors(
-  app: INestApplication,
-  configService: ConfigService,
-  corsOrigins: string[],
-): void {
+function setupTrackingCors(app: INestApplication, configService: ConfigService, corsOrigins: string[]): void {
   const allowedOrigins = new Set([
     'https://account.cacic.dev.br',
     'https://cacic.dev.br',
@@ -214,33 +194,24 @@ function setupTrackingCors(
     ...readOriginList(configService.get<string>('CACIC_TRACKING_CORS_ORIGINS')),
   ]);
 
-  app.use(
-    '/api/tracking',
-    (request: Request, response: Response, next: NextFunction) => {
-      const origin = request.headers.origin;
+  app.use('/api/tracking', (request: Request, response: Response, next: NextFunction) => {
+    const origin = request.headers.origin;
 
-      if (origin && allowedOrigins.has(origin)) {
-        response.setHeader('Access-Control-Allow-Origin', origin);
-        response.setHeader('Access-Control-Allow-Credentials', 'true');
-        response.setHeader(
-          'Access-Control-Allow-Headers',
-          'Accept, Content-Type',
-        );
-        response.setHeader(
-          'Access-Control-Allow-Methods',
-          'GET, POST, OPTIONS',
-        );
-        response.setHeader('Vary', 'Origin');
-      }
+    if (origin && allowedOrigins.has(origin)) {
+      response.setHeader('Access-Control-Allow-Origin', origin);
+      response.setHeader('Access-Control-Allow-Credentials', 'true');
+      response.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type');
+      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.setHeader('Vary', 'Origin');
+    }
 
-      if (request.method === 'OPTIONS') {
-        response.sendStatus(204);
-        return;
-      }
+    if (request.method === 'OPTIONS') {
+      response.sendStatus(204);
+      return;
+    }
 
-      next();
-    },
-  );
+    next();
+  });
 }
 
 function readOriginList(value: string | undefined): string[] {

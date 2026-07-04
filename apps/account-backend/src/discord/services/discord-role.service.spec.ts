@@ -1,11 +1,7 @@
 import type { DiscordLink } from '@prisma/client';
 import type { Client, GuildMember, Role } from 'discord.js';
 import { ConfigService } from '@nestjs/config';
-import {
-  PERMISSION_GROUP_DISCORD_ROLE_IDS,
-  PermissionGroupKey,
-  UnespRole,
-} from '@cacic/shared-types';
+import { PERMISSION_GROUP_DISCORD_ROLE_IDS, PermissionGroupKey, UnespRole } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserService } from '../../auth/services/user.service';
 import { UserProfile } from '../../auth/interfaces/auth.interface';
@@ -13,10 +9,7 @@ import { DiscordClientService } from './discord-client.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { DiscordManagedRoleOverridesService } from './discord-managed-role-overrides.service';
-import {
-  DISCORD_MANAGED_ROLES,
-  DISCORD_REGISTRATION_ROLE,
-} from '../constants/discord-managed-roles';
+import { DISCORD_MANAGED_ROLES, DISCORD_REGISTRATION_ROLE } from '../constants/discord-managed-roles';
 import { DiscordRoleService } from './discord-role.service';
 
 type PrismaMock = {
@@ -51,9 +44,7 @@ type KeycloakServiceMock = {
 
 type ManagedRoleOverridesServiceMock = {
   getOverrideCategoryForUser: jest.Mock<
-    ReturnType<
-      DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
-    >,
+    ReturnType<DiscordManagedRoleOverridesService['getOverrideCategoryForUser']>,
     Parameters<DiscordManagedRoleOverridesService['getOverrideCategoryForUser']>
   >;
 };
@@ -67,9 +58,7 @@ type MockMember = {
 
 const createdAt = new Date('2026-06-23T12:00:00.000Z');
 
-const createDiscordLink = (
-  overrides: Partial<DiscordLink> = {},
-): DiscordLink => ({
+const createDiscordLink = (overrides: Partial<DiscordLink> = {}): DiscordLink => ({
   id: '00000000-0000-7000-8000-000000000001',
   userId: 'user-1',
   discordId: 'discord-1',
@@ -110,23 +99,16 @@ const createUser = (overrides: Partial<UserProfile> = {}): UserProfile => ({
 
 const createRole = (roleId: string): Role => ({ id: roleId }) as Role;
 
-const createMember = (
-  memberId: string,
-  initialRoleIds: readonly string[],
-): MockMember => {
+const createMember = (memberId: string, initialRoleIds: readonly string[]): MockMember => {
   const roleIds = new Set(initialRoleIds);
-  const add = jest
-    .fn<Promise<void>, [string, string | undefined]>()
-    .mockImplementation((roleId) => {
-      roleIds.add(roleId);
-      return Promise.resolve();
-    });
-  const remove = jest
-    .fn<Promise<void>, [string, string | undefined]>()
-    .mockImplementation((roleId) => {
-      roleIds.delete(roleId);
-      return Promise.resolve();
-    });
+  const add = jest.fn<Promise<void>, [string, string | undefined]>().mockImplementation((roleId) => {
+    roleIds.add(roleId);
+    return Promise.resolve();
+  });
+  const remove = jest.fn<Promise<void>, [string, string | undefined]>().mockImplementation((roleId) => {
+    roleIds.delete(roleId);
+    return Promise.resolve();
+  });
   const roles = {
     add,
     remove,
@@ -143,9 +125,7 @@ const createMember = (
     cache: {
       get: jest.fn<Role, [string]>((roleId) => createRole(roleId)),
     },
-    fetch: jest.fn<Promise<Role | null>, [string]>((roleId) =>
-      Promise.resolve(createRole(roleId)),
-    ),
+    fetch: jest.fn<Promise<Role | null>, [string]>((roleId) => Promise.resolve(createRole(roleId))),
   };
   const member = {
     id: memberId,
@@ -172,17 +152,13 @@ const createContext = (members: readonly GuildMember[]) => {
           }
 
           const member = guildMembers.get(memberId);
-          return member
-            ? Promise.resolve(member)
-            : Promise.reject(new Error('Unknown Guild Member'));
+          return member ? Promise.resolve(member) : Promise.reject(new Error('Unknown Guild Member'));
         }),
     },
   };
   const client = {
     guilds: {
-      fetch: jest
-        .fn<Promise<typeof guild>, [string]>()
-        .mockResolvedValue(guild),
+      fetch: jest.fn<Promise<typeof guild>, [string]>().mockResolvedValue(guild),
     },
   } as unknown as Client;
   const prisma: PrismaMock = {
@@ -201,14 +177,10 @@ const createContext = (members: readonly GuildMember[]) => {
     getClient: jest.fn<Client, []>().mockReturnValue(client),
   };
   const configService: ConfigServiceMock = {
-    get: jest.fn<string | undefined, [string]>((key) =>
-      key === 'DISCORD_GUILD_ID' ? 'guild-1' : undefined,
-    ),
+    get: jest.fn<string | undefined, [string]>((key) => (key === 'DISCORD_GUILD_ID' ? 'guild-1' : undefined)),
   };
   const featureFlags: FeatureFlagServiceMock = {
-    isUndergraduateUnespRoleVerificationDisabled: jest
-      .fn<Promise<boolean>, []>()
-      .mockResolvedValue(false),
+    isUndergraduateUnespRoleVerificationDisabled: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
   };
   const keycloakService: KeycloakServiceMock = {
     isRealmReachable: jest.fn<Promise<boolean>, []>().mockResolvedValue(true),
@@ -216,12 +188,8 @@ const createContext = (members: readonly GuildMember[]) => {
   const managedRoleOverrides: ManagedRoleOverridesServiceMock = {
     getOverrideCategoryForUser: jest
       .fn<
-        ReturnType<
-          DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
-        >,
-        Parameters<
-          DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
-        >
+        ReturnType<DiscordManagedRoleOverridesService['getOverrideCategoryForUser']>,
+        Parameters<DiscordManagedRoleOverridesService['getOverrideCategoryForUser']>
       >()
       .mockResolvedValue(null),
   };
@@ -249,19 +217,12 @@ const createContext = (members: readonly GuildMember[]) => {
 
 describe('DiscordRoleService managed-role enforcement', () => {
   it('removes app-managed roles from unlinked members and ignores unrelated members', async () => {
-    const staleMember = createMember('discord-stale', [
-      DISCORD_MANAGED_ROLES.student.roleId,
-    ]);
+    const staleMember = createMember('discord-stale', [DISCORD_MANAGED_ROLES.student.roleId]);
     const unrelatedMember = createMember('discord-unrelated', []);
-    const { prisma, service } = createContext([
-      staleMember.member,
-      unrelatedMember.member,
-    ]);
+    const { prisma, service } = createContext([staleMember.member, unrelatedMember.member]);
     prisma.discordLink.findMany.mockResolvedValue([]);
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toEqual({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toEqual({
       checked: 1,
       linkedSynced: 0,
       invalidLinkedCleaned: 0,
@@ -269,14 +230,8 @@ describe('DiscordRoleService managed-role enforcement', () => {
       registrationEnsured: 1,
       failed: 0,
     });
-    expect(staleMember.remove).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.student.roleId,
-      'test-hard-enforcement',
-    );
-    expect(staleMember.add).toHaveBeenCalledWith(
-      DISCORD_REGISTRATION_ROLE.roleId,
-      'test-hard-enforcement',
-    );
+    expect(staleMember.remove).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.student.roleId, 'test-hard-enforcement');
+    expect(staleMember.add).toHaveBeenCalledWith(DISCORD_REGISTRATION_ROLE.roleId, 'test-hard-enforcement');
     expect(unrelatedMember.add).not.toHaveBeenCalled();
     expect(unrelatedMember.remove).not.toHaveBeenCalled();
   });
@@ -286,15 +241,11 @@ describe('DiscordRoleService managed-role enforcement', () => {
       DISCORD_MANAGED_ROLES.unesp.roleId,
       DISCORD_REGISTRATION_ROLE.roleId,
     ]);
-    const { prisma, service, userService } = createContext([
-      linkedMember.member,
-    ]);
+    const { prisma, service, userService } = createContext([linkedMember.member]);
     prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
     userService.findByKeycloakId.mockResolvedValue(createUser());
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toEqual({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toEqual({
       checked: 1,
       linkedSynced: 1,
       invalidLinkedCleaned: 0,
@@ -302,18 +253,9 @@ describe('DiscordRoleService managed-role enforcement', () => {
       registrationEnsured: 0,
       failed: 0,
     });
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.unesp.roleId,
-      'test-hard-enforcement',
-    );
-    expect(linkedMember.add).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.student.roleId,
-      'test-hard-enforcement',
-    );
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      DISCORD_REGISTRATION_ROLE.roleId,
-      'test-hard-enforcement',
-    );
+    expect(linkedMember.remove).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.unesp.roleId, 'test-hard-enforcement');
+    expect(linkedMember.add).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.student.roleId, 'test-hard-enforcement');
+    expect(linkedMember.remove).toHaveBeenCalledWith(DISCORD_REGISTRATION_ROLE.roleId, 'test-hard-enforcement');
     expect(prisma.discordLink.update).toHaveBeenCalledWith({
       where: { id: '00000000-0000-7000-8000-000000000001' },
       data: { assignedRole: 'student' },
@@ -322,33 +264,20 @@ describe('DiscordRoleService managed-role enforcement', () => {
   });
 
   it('uses an admin override before computed role eligibility', async () => {
-    const linkedMember = createMember('discord-1', [
-      DISCORD_MANAGED_ROLES.student.roleId,
-    ]);
-    const { managedRoleOverrides, prisma, service, userService } =
-      createContext([linkedMember.member]);
-    managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue(
-      'visitor',
-    );
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.student.roleId]);
+    const { managedRoleOverrides, prisma, service, userService } = createContext([linkedMember.member]);
+    managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue('visitor');
     prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
     userService.findByKeycloakId.mockResolvedValue(createUser());
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toMatchObject({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toMatchObject({
       checked: 1,
       linkedSynced: 1,
       staleManagedRolesRemoved: 1,
       failed: 0,
     });
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.student.roleId,
-      'test-hard-enforcement',
-    );
-    expect(linkedMember.add).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-      'test-hard-enforcement',
-    );
+    expect(linkedMember.remove).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.student.roleId, 'test-hard-enforcement');
+    expect(linkedMember.add).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.visitor.roleId, 'test-hard-enforcement');
     expect(prisma.discordLink.update).toHaveBeenCalledWith({
       where: { id: '00000000-0000-7000-8000-000000000001' },
       data: { assignedRole: 'visitor' },
@@ -356,18 +285,12 @@ describe('DiscordRoleService managed-role enforcement', () => {
   });
 
   it('cleans verified links whose local account no longer exists instead of assigning visitor', async () => {
-    const linkedMember = createMember('discord-1', [
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-    ]);
-    const { prisma, service, userService } = createContext([
-      linkedMember.member,
-    ]);
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.visitor.roleId]);
+    const { prisma, service, userService } = createContext([linkedMember.member]);
     prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
     userService.findByKeycloakId.mockResolvedValue(null);
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toEqual({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toEqual({
       checked: 1,
       linkedSynced: 0,
       invalidLinkedCleaned: 1,
@@ -379,14 +302,8 @@ describe('DiscordRoleService managed-role enforcement', () => {
       where: { id: '00000000-0000-7000-8000-000000000001' },
       data: { assignedRole: null },
     });
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-      'test-hard-enforcement',
-    );
-    expect(linkedMember.add).toHaveBeenCalledWith(
-      DISCORD_REGISTRATION_ROLE.roleId,
-      'test-hard-enforcement',
-    );
+    expect(linkedMember.remove).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.visitor.roleId, 'test-hard-enforcement');
+    expect(linkedMember.add).toHaveBeenCalledWith(DISCORD_REGISTRATION_ROLE.roleId, 'test-hard-enforcement');
   });
 
   it('removes permission-group roles while cleaning links whose local account no longer exists', async () => {
@@ -394,22 +311,13 @@ describe('DiscordRoleService managed-role enforcement', () => {
     if (!groupRoleId) {
       throw new Error('Expected at least one permission group Discord role.');
     }
-    const linkedMember = createMember('discord-1', [
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-      groupRoleId,
-    ]);
-    const { prisma, service, userService } = createContext([
-      linkedMember.member,
-    ]);
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.visitor.roleId, groupRoleId]);
+    const { prisma, service, userService } = createContext([linkedMember.member]);
     prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
-    prisma.studentEntityMembership.findMany.mockResolvedValue([
-      { entity: PermissionGroupKey.Cacic },
-    ]);
+    prisma.studentEntityMembership.findMany.mockResolvedValue([{ entity: PermissionGroupKey.Cacic }]);
     userService.findByKeycloakId.mockResolvedValue(null);
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toEqual({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toEqual({
       checked: 1,
       linkedSynced: 0,
       invalidLinkedCleaned: 1,
@@ -418,23 +326,13 @@ describe('DiscordRoleService managed-role enforcement', () => {
       failed: 0,
     });
 
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-      'test-hard-enforcement',
-    );
-    expect(linkedMember.remove).toHaveBeenCalledWith(
-      groupRoleId,
-      'test-hard-enforcement',
-    );
+    expect(linkedMember.remove).toHaveBeenCalledWith(DISCORD_MANAGED_ROLES.visitor.roleId, 'test-hard-enforcement');
+    expect(linkedMember.remove).toHaveBeenCalledWith(groupRoleId, 'test-hard-enforcement');
   });
 
   it('does not mutate Discord roles when assigning while Keycloak is unreachable', async () => {
-    const linkedMember = createMember('discord-1', [
-      DISCORD_MANAGED_ROLES.unesp.roleId,
-    ]);
-    const { prisma, service, userService, keycloakService } = createContext([
-      linkedMember.member,
-    ]);
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.unesp.roleId]);
+    const { prisma, service, userService, keycloakService } = createContext([linkedMember.member]);
     keycloakService.isRealmReachable.mockResolvedValue(false);
 
     await expect(
@@ -459,18 +357,12 @@ describe('DiscordRoleService managed-role enforcement', () => {
   });
 
   it('skips destructive guild enforcement while Keycloak is unreachable', async () => {
-    const linkedMember = createMember('discord-1', [
-      DISCORD_MANAGED_ROLES.visitor.roleId,
-    ]);
-    const { prisma, service, keycloakService } = createContext([
-      linkedMember.member,
-    ]);
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.visitor.roleId]);
+    const { prisma, service, keycloakService } = createContext([linkedMember.member]);
     keycloakService.isRealmReachable.mockResolvedValue(false);
     prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
 
-    await expect(
-      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
-    ).resolves.toEqual({
+    await expect(service.syncAllGuildMemberRoleState('test-hard-enforcement')).resolves.toEqual({
       checked: 0,
       linkedSynced: 0,
       invalidLinkedCleaned: 0,

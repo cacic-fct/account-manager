@@ -11,35 +11,23 @@ import { AccountPermissionService } from '../src/auth/services/account-permissio
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import { API_GLOBAL_PREFIX } from '../src/config/app.config';
-import {
-  createAuthTestConfigService,
-  createKeycloakUser,
-  createUserServiceFake,
-} from './auth-test-helpers';
+import { createAuthTestConfigService, createKeycloakUser, createUserServiceFake } from './auth-test-helpers';
 
 describe('Authentication (fast e2e)', () => {
   let app: INestApplication<App>;
   let keycloakService: {
-    getAuthUrl: jest.Mock<
-      ReturnType<KeycloakService['getAuthUrl']>,
-      Parameters<KeycloakService['getAuthUrl']>
-    >;
+    getAuthUrl: jest.Mock<ReturnType<KeycloakService['getAuthUrl']>, Parameters<KeycloakService['getAuthUrl']>>;
     exchangePasswordForTokens: jest.Mock<
       ReturnType<KeycloakService['exchangePasswordForTokens']>,
       Parameters<KeycloakService['exchangePasswordForTokens']>
     >;
-    getUserInfo: jest.Mock<
-      ReturnType<KeycloakService['getUserInfo']>,
-      Parameters<KeycloakService['getUserInfo']>
-    >;
+    getUserInfo: jest.Mock<ReturnType<KeycloakService['getUserInfo']>, Parameters<KeycloakService['getUserInfo']>>;
   };
 
   beforeAll(async () => {
     keycloakService = {
       getAuthUrl: jest.fn((_redirectUri, state, options) => {
-        const url = new URL(
-          'http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth',
-        );
+        const url = new URL('http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth');
         url.searchParams.set('client_id', 'cacic-account-manager');
         url.searchParams.set('state', state);
         url.searchParams.set('code_challenge', options.codeChallenge);
@@ -63,29 +51,28 @@ describe('Authentication (fast e2e)', () => {
           refresh_expires_in: 3600,
         });
       }),
-      getUserInfo: jest.fn<
-        ReturnType<KeycloakService['getUserInfo']>,
-        Parameters<KeycloakService['getUserInfo']>
-      >((token) => {
-        const email = token.replace('access-token:', '');
-        if (email === 'externo@gmail.com') {
+      getUserInfo: jest.fn<ReturnType<KeycloakService['getUserInfo']>, Parameters<KeycloakService['getUserInfo']>>(
+        (token) => {
+          const email = token.replace('access-token:', '');
+          if (email === 'externo@gmail.com') {
+            return Promise.resolve(
+              createKeycloakUser({
+                sub: '44444444-4444-4444-4444-444444444444',
+                email,
+                name: 'Usuario Externo',
+              }),
+            );
+          }
+
           return Promise.resolve(
             createKeycloakUser({
-              sub: '44444444-4444-4444-4444-444444444444',
-              email,
-              name: 'Usuario Externo',
+              sub: '22222222-2222-2222-2222-222222222222',
+              email: 'aluno@unesp.br',
+              name: 'Aluno Unesp',
             }),
           );
-        }
-
-        return Promise.resolve(
-          createKeycloakUser({
-            sub: '22222222-2222-2222-2222-222222222222',
-            email: 'aluno@unesp.br',
-            name: 'Aluno Unesp',
-          }),
-        );
-      }),
+        },
+      ),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -108,9 +95,7 @@ describe('Authentication (fast e2e)', () => {
         {
           provide: AccountPermissionService,
           useValue: {
-            hasAccountManagerSuperAdminAccess: jest
-              .fn()
-              .mockResolvedValue(false),
+            hasAccountManagerSuperAdminAccess: jest.fn().mockResolvedValue(false),
             hasAccountManagerAdminAccess: jest.fn().mockResolvedValue(false),
           },
         },
@@ -155,9 +140,7 @@ describe('Authentication (fast e2e)', () => {
 
     const location = new URL(response.headers.location);
     expect(location.origin).toBe('http://keycloak.test');
-    expect(location.searchParams.get('client_id')).toBe(
-      'cacic-account-manager',
-    );
+    expect(location.searchParams.get('client_id')).toBe('cacic-account-manager');
     expect(location.searchParams.get('prompt')).toBe('none');
     expect(location.searchParams.get('state')).toBeTruthy();
     expect(location.searchParams.get('code_challenge')).toBeTruthy();
@@ -181,10 +164,7 @@ describe('Authentication (fast e2e)', () => {
         redirectUrl: 'http://localhost:4200/app/settings',
       });
 
-    expect(keycloakService.exchangePasswordForTokens).toHaveBeenCalledWith(
-      'aluno@unesp.br',
-      '1',
-    );
+    expect(keycloakService.exchangePasswordForTokens).toHaveBeenCalledWith('aluno@unesp.br', '1');
     await agent.get('/api/auth/check').expect(200).expect({
       isAuthenticated: true,
       isOnboarded: true,

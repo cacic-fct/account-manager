@@ -18,20 +18,17 @@ export class ValuePropositionComponent {
     {
       icon: 'school',
       title: 'Vínculo estudantil verificável',
-      description:
-        'Confirme a elegibilidade acadêmica uma vez e use esse estado nos serviços CACiC.',
+      description: 'Confirme a elegibilidade acadêmica uma vez e use esse estado nos serviços CACiC.',
     },
     {
       icon: 'hub',
       title: 'Acesso unificado',
-      description:
-        'Entre com Google e mantenha perfil, permissões e aplicativos autorizados alinhados.',
+      description: 'Entre com Google e mantenha perfil, permissões e aplicativos autorizados alinhados.',
     },
     {
       icon: 'privacy_tip',
       title: 'Privacidade centralizada',
-      description:
-        'Revise consentimentos, dados pessoais, integrações e solicitações LGPD no mesmo lugar.',
+      description: 'Revise consentimentos, dados pessoais, integrações e solicitações LGPD no mesmo lugar.',
     },
   ];
 }

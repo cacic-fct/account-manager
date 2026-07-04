@@ -12,13 +12,7 @@ import {
   UseGuards,
   Logger,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, timingSafeEqual } from 'crypto';
@@ -38,11 +32,7 @@ import {
   LogoutRequestDto,
   LogoutResponseDto,
 } from './dto/user-profile.dto';
-import {
-  KeycloakUser,
-  SessionUser,
-  UserProfile,
-} from './interfaces/auth.interface';
+import { KeycloakUser, SessionUser, UserProfile } from './interfaces/auth.interface';
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { CsrfGuard, SkipCsrf } from './csrf/csrf.guard';
 import { CurrentUserGuard } from './guards/current-user.guard';
@@ -51,10 +41,7 @@ import { AccountPermissionService } from './services/account-permission.service'
 import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
 import { TotpService } from '../totp/totp.service';
-import {
-  redirectAfterSessionSave,
-  saveSession,
-} from './session-redirect.utils';
+import { redirectAfterSessionSave, saveSession } from './session-redirect.utils';
 
 const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
 
@@ -162,17 +149,12 @@ export class AuthController {
 
   private resolveFrontendPath(path: string): string {
     const frontendUrl = new URL(this.appConfig.frontendUrl);
-    const basePath = frontendUrl.pathname.endsWith('/')
-      ? frontendUrl.pathname
-      : `${frontendUrl.pathname}/`;
+    const basePath = frontendUrl.pathname.endsWith('/') ? frontendUrl.pathname : `${frontendUrl.pathname}/`;
     const baseRoot = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
 
     if (basePath !== '/' && path !== baseRoot && !path.startsWith(basePath)) {
       const pathWithoutLeadingSlash = path.replace(/^\/+/, '');
-      return new URL(
-        `${basePath}${pathWithoutLeadingSlash}`,
-        frontendUrl.origin,
-      ).toString();
+      return new URL(`${basePath}${pathWithoutLeadingSlash}`, frontendUrl.origin).toString();
     }
 
     if (basePath !== '/' && path === baseRoot) {
@@ -186,12 +168,9 @@ export class AuthController {
     return `${this.appConfig.apiBaseUrl}/auth/callback`;
   }
 
-  private resolveSafePostLogoutRedirectUri(
-    postLogoutRedirectUri?: string,
-  ): string {
+  private resolveSafePostLogoutRedirectUri(postLogoutRedirectUri?: string): string {
     const resolvedUrl =
-      this.resolveSafeReturnUrl(postLogoutRedirectUri) ??
-      new URL(this.appConfig.frontendUrl).toString();
+      this.resolveSafeReturnUrl(postLogoutRedirectUri) ?? new URL(this.appConfig.frontendUrl).toString();
 
     const normalizedUrl = new URL(resolvedUrl);
     normalizedUrl.username = '';
@@ -227,18 +206,12 @@ export class AuthController {
       return Date.now() + tokens.refresh_expires_in * 1000;
     }
 
-    const refreshTokenExpiresAt = this.resolveJwtExpiresAt(
-      tokens.refresh_token,
-    );
+    const refreshTokenExpiresAt = this.resolveJwtExpiresAt(tokens.refresh_token);
     if (refreshTokenExpiresAt) {
       return refreshTokenExpiresAt;
     }
 
-    if (
-      typeof tokens.expires_in === 'number' &&
-      Number.isFinite(tokens.expires_in) &&
-      tokens.expires_in > 0
-    ) {
+    if (typeof tokens.expires_in === 'number' && Number.isFinite(tokens.expires_in) && tokens.expires_in > 0) {
       return Date.now() + tokens.expires_in * 1000;
     }
 
@@ -256,13 +229,9 @@ export class AuthController {
     }
 
     try {
-      const claims = JSON.parse(
-        Buffer.from(payload, 'base64url').toString('utf8'),
-      ) as { exp?: unknown };
+      const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: unknown };
 
-      return typeof claims.exp === 'number' && Number.isFinite(claims.exp)
-        ? claims.exp * 1000
-        : null;
+      return typeof claims.exp === 'number' && Number.isFinite(claims.exp) ? claims.exp * 1000 : null;
     } catch {
       return null;
     }
@@ -292,10 +261,7 @@ export class AuthController {
     user = await this.userService.findByKeycloakId(keycloakUser.sub);
 
     if (!user) {
-      throw new HttpException(
-        'Failed to create or find user',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException('Failed to create or find user', HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     await this.ensureDefaultTotpSeed(user);
@@ -303,9 +269,7 @@ export class AuthController {
     let isOnboarded = user.isOnboarded;
 
     try {
-      const onboardingStatus = await this.userService.checkOnboardingStatus(
-        user.keycloakId,
-      );
+      const onboardingStatus = await this.userService.checkOnboardingStatus(user.keycloakId);
 
       isOnboarded = user.isOnboarded && !onboardingStatus.needsOnboarding;
       this.logger.debug(`${context} - user onboarding status`, {
@@ -316,16 +280,10 @@ export class AuthController {
       });
     } catch (error) {
       if (error instanceof KeycloakConnectionException) {
-        this.logger.error(
-          `${context} - Keycloak connection error during onboarding check`,
-          error,
-        );
+        this.logger.error(`${context} - Keycloak connection error during onboarding check`, error);
         isOnboarded = false;
       } else {
-        this.logger.error(
-          `${context} - error checking onboarding status`,
-          error,
-        );
+        this.logger.error(`${context} - error checking onboarding status`, error);
       }
     }
 
@@ -364,8 +322,7 @@ export class AuthController {
     }
 
     const configured =
-      this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ENABLED') ??
-      process.env.KEYCLOAK_PASSWORD_LOGIN_ENABLED;
+      this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ENABLED') ?? process.env.KEYCLOAK_PASSWORD_LOGIN_ENABLED;
 
     if (configured !== undefined) {
       const normalized = configured.trim().toLowerCase();
@@ -382,19 +339,14 @@ export class AuthController {
     return process.env.NODE_ENV !== 'production';
   }
 
-  private resolvePostLoginRedirectUrl(
-    isOnboarded: boolean,
-    requestedReturnUrl?: string,
-  ): string {
+  private resolvePostLoginRedirectUrl(isOnboarded: boolean, requestedReturnUrl?: string): string {
     const returnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
 
     if (isOnboarded && returnUrl) {
       return returnUrl;
     }
 
-    return isOnboarded
-      ? `${this.appConfig.frontendUrl}applications`
-      : `${this.appConfig.frontendUrl}onboarding`;
+    return isOnboarded ? `${this.appConfig.frontendUrl}applications` : `${this.appConfig.frontendUrl}onboarding`;
   }
 
   @ApiOperation({
@@ -403,8 +355,7 @@ export class AuthController {
   })
   @ApiQuery({
     name: 'ru',
-    description:
-      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    description: 'Optional post-login return URL. Must be a relative path or allowed origin.',
     required: false,
     example: 'https://other-app.example.com/path',
   })
@@ -436,8 +387,7 @@ export class AuthController {
   })
   @ApiQuery({
     name: 'returnTo',
-    description:
-      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    description: 'Optional post-login return URL. Must be a relative path or allowed origin.',
     required: false,
     example: '/app/applications',
   })
@@ -525,15 +475,13 @@ export class AuthController {
   })
   @ApiQuery({
     name: 'ru',
-    description:
-      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    description: 'Optional post-login return URL. Must be a relative path or allowed origin.',
     required: false,
     example: '/applications',
   })
   @ApiResponse({
     status: 302,
-    description:
-      'Redirects to Keycloak for silent SSO or back to the application when no SSO session exists',
+    description: 'Redirects to Keycloak for silent SSO or back to the application when no SSO session exists',
   })
   @SkipCsrf()
   @Get('silent-login')
@@ -604,35 +552,18 @@ export class AuthController {
   ): Promise<PasswordLoginResponseDto> {
     if (!this.isPasswordLoginEnabled()) {
       throw new HttpException(
-        process.env.NODE_ENV === 'production'
-          ? 'Not found'
-          : 'Password login is disabled',
-        process.env.NODE_ENV === 'production'
-          ? HttpStatus.NOT_FOUND
-          : HttpStatus.FORBIDDEN,
+        process.env.NODE_ENV === 'production' ? 'Not found' : 'Password login is disabled',
+        process.env.NODE_ENV === 'production' ? HttpStatus.NOT_FOUND : HttpStatus.FORBIDDEN,
       );
     }
 
     try {
       const email = body.email.trim().toLowerCase();
-      const tokens = await this.keycloakService.exchangePasswordForTokens(
-        email,
-        body.password,
-      );
-      const keycloakUser = await this.keycloakService.getUserInfo(
-        tokens.access_token,
-      );
-      const sessionUser = await this.createSessionFromKeycloakUser(
-        session,
-        tokens,
-        keycloakUser,
-        'Password login',
-      );
+      const tokens = await this.keycloakService.exchangePasswordForTokens(email, body.password);
+      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
+      const sessionUser = await this.createSessionFromKeycloakUser(session, tokens, keycloakUser, 'Password login');
 
-      const redirectUrl = this.resolvePostLoginRedirectUrl(
-        sessionUser.isOnboarded,
-        body.returnTo,
-      );
+      const redirectUrl = this.resolvePostLoginRedirectUrl(sessionUser.isOnboarded, body.returnTo);
 
       if (sessionUser.isOnboarded) {
         delete session.redirectTo;
@@ -651,17 +582,13 @@ export class AuthController {
         email: body.email,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new HttpException(
-        'Invalid email or password',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
     }
   }
 
   @ApiOperation({
     summary: 'OAuth callback',
-    description:
-      'Handles OAuth callback from Keycloak, exchanges code for tokens, and creates/updates user',
+    description: 'Handles OAuth callback from Keycloak, exchanges code for tokens, and creates/updates user',
   })
   @ApiQuery({
     name: 'code',
@@ -685,8 +612,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 403,
-    description:
-      'Forbidden - Invalid or missing state parameter (CSRF protection)',
+    description: 'Forbidden - Invalid or missing state parameter (CSRF protection)',
   })
   @ApiResponse({
     status: 500,
@@ -703,19 +629,12 @@ export class AuthController {
   ) {
     try {
       if (oauthError) {
-        if (
-          !state ||
-          !session.oauthState ||
-          !this.secureCompare(state, session.oauthState)
-        ) {
+        if (!state || !session.oauthState || !this.secureCompare(state, session.oauthState)) {
           this.logger.warn('OAuth error callback CSRF validation failed', {
             stateProvided: !!state,
             sessionStateExists: !!session.oauthState,
           });
-          throw new HttpException(
-            'Invalid or missing state parameter',
-            HttpStatus.FORBIDDEN,
-          );
+          throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
         }
 
         const wasSilentLogin = !!session.silentLogin;
@@ -735,19 +654,12 @@ export class AuthController {
         this.logger.warn('OAuth callback returned an error', {
           error: oauthError,
         });
-        await redirectAfterSessionSave(
-          session,
-          res,
-          `${this.appConfig.frontendUrl}login?error=auth_failed`,
-        );
+        await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}login?error=auth_failed`);
         return;
       }
 
       if (!code) {
-        throw new HttpException(
-          'Authorization code missing',
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new HttpException('Authorization code missing', HttpStatus.BAD_REQUEST);
       }
 
       // CSRF Protection: Validate state parameter
@@ -756,10 +668,7 @@ export class AuthController {
           stateProvided: !!state,
           sessionStateExists: !!session.oauthState,
         });
-        throw new HttpException(
-          'Invalid or missing state parameter',
-          HttpStatus.FORBIDDEN,
-        );
+        throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
       }
 
       // Use constant-time comparison to prevent timing attacks
@@ -768,10 +677,7 @@ export class AuthController {
           receivedState: state.substring(0, 10) + '...',
           expectedState: session.oauthState.substring(0, 10) + '...',
         });
-        throw new HttpException(
-          'State parameter mismatch',
-          HttpStatus.FORBIDDEN,
-        );
+        throw new HttpException('State parameter mismatch', HttpStatus.FORBIDDEN);
       }
 
       // Clear the state from session after successful validation
@@ -781,14 +687,8 @@ export class AuthController {
       delete session.silentLogin;
 
       const redirectUri = this.authCallbackUrl();
-      const tokens = await this.keycloakService.exchangeCodeForTokens(
-        code,
-        redirectUri,
-        codeVerifier,
-      );
-      const keycloakUser = await this.keycloakService.getUserInfo(
-        tokens.access_token,
-      );
+      const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
+      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
 
       this.logger.debug('Auth callback - Keycloak user data', {
         sub: keycloakUser.sub,
@@ -810,24 +710,18 @@ export class AuthController {
       user = await this.userService.findByKeycloakId(keycloakUser.sub);
 
       if (!user) {
-        throw new HttpException(
-          'Failed to create or find user',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+        throw new HttpException('Failed to create or find user', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
       // Check actual onboarding status based on required attributes
       try {
-        const onboardingStatus = await this.userService.checkOnboardingStatus(
-          user.keycloakId,
-        );
+        const onboardingStatus = await this.userService.checkOnboardingStatus(user.keycloakId);
 
         this.logger.debug('Auth callback - user onboarding status', {
           userId: user.keycloakId,
           userIsOnboarded: user.isOnboarded,
           onboardingStatusNeedsOnboarding: onboardingStatus.needsOnboarding,
-          finalIsOnboarded:
-            user.isOnboarded && !onboardingStatus.needsOnboarding,
+          finalIsOnboarded: user.isOnboarded && !onboardingStatus.needsOnboarding,
         });
 
         session.user = {
@@ -871,10 +765,7 @@ export class AuthController {
         // For connection errors, assume the user needs onboarding to be safe
         // This prevents incorrectly redirecting already-onboarded users to the main app
         if (error instanceof KeycloakConnectionException) {
-          this.logger.error(
-            'Keycloak connection error during callback, redirecting to onboarding for safety',
-            error,
-          );
+          this.logger.error('Keycloak connection error during callback, redirecting to onboarding for safety', error);
 
           session.user = {
             id: user.id,
@@ -888,19 +779,12 @@ export class AuthController {
           this.applyKeycloakSessionLifetime(session, tokens);
 
           // Redirect to onboarding to be safe - the onboarding page will show an error
-          await redirectAfterSessionSave(
-            session,
-            res,
-            `${this.appConfig.frontendUrl}onboarding`,
-          );
+          await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}onboarding`);
           return;
         }
 
         // For other errors, fall back to the user's stored onboarding status
-        this.logger.error(
-          'Error checking onboarding status during callback',
-          error,
-        );
+        this.logger.error('Error checking onboarding status during callback', error);
 
         session.user = {
           id: user.id,
@@ -917,12 +801,9 @@ export class AuthController {
         const returnUrl = session.redirectTo;
 
         if (!needsOnboarding && returnUrl) {
-          this.logger.debug(
-            'Redirecting user after callback fallback to return_url',
-            {
-              returnUrl,
-            },
-          );
+          this.logger.debug('Redirecting user after callback fallback to return_url', {
+            returnUrl,
+          });
           delete session.redirectTo;
           await redirectAfterSessionSave(session, res, returnUrl);
           return;
@@ -948,18 +829,13 @@ export class AuthController {
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
-      await redirectAfterSessionSave(
-        session,
-        res,
-        `${this.appConfig.frontendUrl}login?error=auth_failed`,
-      );
+      await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}login?error=auth_failed`);
     }
   }
 
   @ApiOperation({
     summary: 'Get current user',
-    description:
-      'Returns the profile information of the currently authenticated user',
+    description: 'Returns the profile information of the currently authenticated user',
   })
   @ApiResponse({
     status: 200,
@@ -976,8 +852,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 503,
-    description:
-      'Service Unavailable - Unable to connect to authentication service',
+    description: 'Service Unavailable - Unable to connect to authentication service',
   })
   @Auth()
   @SkipCsrf()
@@ -990,9 +865,7 @@ export class AuthController {
 
     try {
       // Always check current onboarding status to ensure accuracy
-      const onboardingStatus = await this.userService.checkOnboardingStatus(
-        user.keycloakId,
-      );
+      const onboardingStatus = await this.userService.checkOnboardingStatus(user.keycloakId);
 
       const userDto = await this.userService.toDto(user);
       // Override the isOnboarded status with the current check result
@@ -1012,10 +885,7 @@ export class AuthController {
       }
 
       // For other errors, fallback to the user's stored onboarding status
-      this.logger.error(
-        'Error checking onboarding status in getCurrentUser',
-        error,
-      );
+      this.logger.error('Error checking onboarding status in getCurrentUser', error);
       const userDto = await this.userService.toDto(user);
       // Keep the existing session status as fallback
       userDto.isOnboarded = session.user!.isOnboarded;
@@ -1025,8 +895,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Update user profile',
-    description:
-      'Updates user profile information and completes onboarding if all required fields are provided',
+    description: 'Updates user profile information and completes onboarding if all required fields are provided',
   })
   @ApiBody({
     type: CreateUserProfileDto,
@@ -1052,10 +921,7 @@ export class AuthController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('profile')
-  async updateProfile(
-    @Body() updateData: CreateUserProfileDto,
-    @Session() session: AuthSession,
-  ) {
+  async updateProfile(@Body() updateData: CreateUserProfileDto, @Session() session: AuthSession) {
     const updatedUser = await this.userService.updateProfile(
       session.user!.id, // Safe to use ! because AuthGuard ensures user exists
       updateData,
@@ -1066,9 +932,7 @@ export class AuthController {
 
     try {
       // Check if onboarding is now complete
-      const onboardingStatus = await this.userService.checkOnboardingStatus(
-        session.user!.keycloakId,
-      );
+      const onboardingStatus = await this.userService.checkOnboardingStatus(session.user!.keycloakId);
 
       // Update session
       if (session.user) {
@@ -1090,18 +954,12 @@ export class AuthController {
     } catch (error) {
       // For connection errors, throw them so the client gets a proper error response
       if (error instanceof KeycloakConnectionException) {
-        this.logger.error(
-          'Keycloak connection error after profile update',
-          error,
-        );
+        this.logger.error('Keycloak connection error after profile update', error);
         throw error;
       }
 
       // For other errors, return the updated user with uncertain onboarding status
-      this.logger.error(
-        'Error checking onboarding status after profile update',
-        error,
-      );
+      this.logger.error('Error checking onboarding status after profile update', error);
       const userDto = await this.userService.toDto(updatedUser);
       // Keep existing session status as fallback
       userDto.isOnboarded = session.user!.isOnboarded;
@@ -1111,8 +969,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Consume post-onboarding redirect',
-    description:
-      'Returns and clears the pending post-login redirect URL after onboarding is completed.',
+    description: 'Returns and clears the pending post-login redirect URL after onboarding is completed.',
   })
   @ApiResponse({
     status: 200,
@@ -1123,8 +980,7 @@ export class AuthController {
         redirectUrl: {
           type: 'string',
           nullable: true,
-          description:
-            'Validated redirect URL or null when no redirect is pending',
+          description: 'Validated redirect URL or null when no redirect is pending',
         },
       },
     },
@@ -1163,8 +1019,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Logout user',
-    description:
-      'Logs out the user by destroying the session and invalidating tokens',
+    description: 'Logs out the user by destroying the session and invalidating tokens',
   })
   @ApiResponse({
     status: 200,
@@ -1174,15 +1029,10 @@ export class AuthController {
   @ApiBody({
     type: LogoutRequestDto,
     required: false,
-    description:
-      'Optional logout redirect target. Must be a relative path or allowed origin.',
+    description: 'Optional logout redirect target. Must be a relative path or allowed origin.',
   })
   @Post('logout')
-  logout(
-    @Session() session: AuthSession,
-    @Body() body: LogoutRequestDto | undefined,
-    @Res() res: Response,
-  ) {
+  logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
     const logoutUrl = this.keycloakService.getEndSessionUrl(
       this.resolveSafePostLogoutRedirectUri(body?.postLogoutRedirectUri),
       session.idToken,
@@ -1200,8 +1050,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Check authentication status',
-    description:
-      'Returns the current authentication and onboarding status of the user',
+    description: 'Returns the current authentication and onboarding status of the user',
   })
   @ApiResponse({
     status: 200,
@@ -1214,8 +1063,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 503,
-    description:
-      'Service Unavailable - Unable to connect to authentication service',
+    description: 'Service Unavailable - Unable to connect to authentication service',
   })
   @Auth()
   @SkipCsrf()
@@ -1256,10 +1104,7 @@ export class AuthController {
         throw error;
       }
 
-      this.logger.error(
-        'Error checking onboarding status in auth check',
-        error,
-      );
+      this.logger.error('Error checking onboarding status in auth check', error);
       // For other errors, fallback to session data
       return {
         isAuthenticated: true,
@@ -1270,8 +1115,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Check Unesp role requirement',
-    description:
-      'Checks if the authenticated user should see Unesp role selection during onboarding.',
+    description: 'Checks if the authenticated user should see Unesp role selection during onboarding.',
   })
   @ApiResponse({
     status: 200,
@@ -1295,8 +1139,7 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Get onboarding status',
-    description:
-      'Returns detailed onboarding status including missing fields for the authenticated user.',
+    description: 'Returns detailed onboarding status including missing fields for the authenticated user.',
   })
   @ApiResponse({
     status: 200,
@@ -1309,8 +1152,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 503,
-    description:
-      'Service Unavailable - Unable to connect to authentication service',
+    description: 'Service Unavailable - Unable to connect to authentication service',
   })
   @Auth()
   @SkipCsrf()
@@ -1330,17 +1172,13 @@ export class AuthController {
 
       // For other errors, return a generic server error
       this.logger.error('Unexpected error checking onboarding status', error);
-      throw new HttpException(
-        'Unable to verify user onboarding status',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException('Unable to verify user onboarding status', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @ApiOperation({
     summary: 'Get user applications',
-    description:
-      'Returns a list of applications available to the authenticated user from Keycloak.',
+    description: 'Returns a list of applications available to the authenticated user from Keycloak.',
   })
   @ApiResponse({
     status: 200,
@@ -1370,8 +1208,7 @@ export class AuthController {
         name: app.name || app.clientId,
         description: app.description || `Access ${app.name || app.clientId}`,
         url: app.baseUrl || app.adminUrl,
-        iconUrl:
-          app.attributes?.['logo_uri'] || '/app/assets/default-app-icon.svg',
+        iconUrl: app.attributes?.['logo_uri'] || '/app/assets/default-app-icon.svg',
         category: app.attributes?.['category'] || 'Application',
         enabled: app.enabled,
       }));
@@ -1384,10 +1221,7 @@ export class AuthController {
       return applications;
     } catch (error) {
       this.logger.error('Error getting user applications', error);
-      throw new HttpException(
-        'Failed to retrieve applications',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException('Failed to retrieve applications', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -1450,15 +1284,8 @@ export class AuthController {
         };
       }
 
-      const hasSuperAdminAccess =
-        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
-          userId,
-        );
-      const isAdmin =
-        hasSuperAdminAccess ||
-        (await this.accountPermissionService.hasAccountManagerAdminAccess(
-          userId,
-        ));
+      const hasSuperAdminAccess = await this.accountPermissionService.hasAccountManagerSuperAdminAccess(userId);
+      const isAdmin = hasSuperAdminAccess || (await this.accountPermissionService.hasAccountManagerAdminAccess(userId));
       const adminGroups = hasSuperAdminAccess
         ? [AccountManagerPermission.SuperAdmin]
         : isAdmin

@@ -7,13 +7,7 @@ import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-role-selection',
-  imports: [
-    DiscordRoleSelectionComponent,
-    MatToolbarModule,
-    MatIconModule,
-    RouterLink,
-    MatButtonModule,
-  ],
+  imports: [DiscordRoleSelectionComponent, MatToolbarModule, MatIconModule, RouterLink, MatButtonModule],
   templateUrl: './role-selection.component.html',
   styleUrl: './role-selection.component.scss',
 })

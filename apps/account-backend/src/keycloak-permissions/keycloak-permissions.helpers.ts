@@ -34,39 +34,22 @@ export function normalizePermission(permission: string): string {
     throw new BadRequestException(`Permissão inválida: ${permission}.`);
   }
 
-  if (
-    !MANAGED_KEYCLOAK_CLIENT_IDS.some(
-      (clientId) => clientId === parsedPermission.clientId,
-    )
-  ) {
-    throw new BadRequestException(
-      `Cliente Keycloak inválido: ${parsedPermission.clientId}.`,
-    );
+  if (!MANAGED_KEYCLOAK_CLIENT_IDS.some((clientId) => clientId === parsedPermission.clientId)) {
+    throw new BadRequestException(`Cliente Keycloak inválido: ${parsedPermission.clientId}.`);
   }
 
   if (isHiddenRole(parsedPermission.roleName)) {
     throw new BadRequestException(`Permissão inválida: ${permission}.`);
   }
 
-  return buildKeycloakPermissionId(
-    parsedPermission.clientId,
-    parsedPermission.roleName,
-  );
+  return buildKeycloakPermissionId(parsedPermission.clientId, parsedPermission.roleName);
 }
 
-export function normalizePermissionList(
-  permissions: readonly string[],
-): string[] {
-  return [
-    ...new Set(
-      permissions.map((permission) => normalizePermission(permission)),
-    ),
-  ];
+export function normalizePermissionList(permissions: readonly string[]): string[] {
+  return [...new Set(permissions.map((permission) => normalizePermission(permission)))];
 }
 
-export function normalizePermissionGroupKey(
-  groupKey: string,
-): PermissionGroupKey {
+export function normalizePermissionGroupKey(groupKey: string): PermissionGroupKey {
   const normalizedGroupKey = groupKey.trim().toUpperCase();
   if (!PERMISSION_GROUP_SET.has(normalizedGroupKey as PermissionGroupKey)) {
     throw new BadRequestException(`Grupo inválido: ${groupKey}.`);
@@ -75,12 +58,8 @@ export function normalizePermissionGroupKey(
   return normalizedGroupKey as PermissionGroupKey;
 }
 
-export function getPermissionGroupDefinition(
-  groupKey: PermissionGroupKey,
-): PermissionGroupDefinition {
-  const definition = PERMISSION_GROUP_CATALOG.find(
-    (candidate) => candidate.key === groupKey,
-  );
+export function getPermissionGroupDefinition(groupKey: PermissionGroupKey): PermissionGroupDefinition {
+  const definition = PERMISSION_GROUP_CATALOG.find((candidate) => candidate.key === groupKey);
   if (!definition) {
     throw new BadRequestException(`Grupo inválido: ${groupKey}.`);
   }
@@ -104,23 +83,11 @@ export function normalizeValidityWindow(
   validFrom: string | Date | null | undefined,
   validUntil: string | Date | null | undefined,
 ): NormalizedValidityWindow {
-  const normalizedValidFrom = normalizeOptionalDate(
-    validFrom,
-    'início da validade',
-  );
-  const normalizedValidUntil = normalizeOptionalDate(
-    validUntil,
-    'fim da validade',
-  );
+  const normalizedValidFrom = normalizeOptionalDate(validFrom, 'início da validade');
+  const normalizedValidUntil = normalizeOptionalDate(validUntil, 'fim da validade');
 
-  if (
-    normalizedValidFrom &&
-    normalizedValidUntil &&
-    normalizedValidUntil.getTime() <= normalizedValidFrom.getTime()
-  ) {
-    throw new BadRequestException(
-      'O fim da validade precisa ser posterior ao início.',
-    );
+  if (normalizedValidFrom && normalizedValidUntil && normalizedValidUntil.getTime() <= normalizedValidFrom.getTime()) {
+    throw new BadRequestException('O fim da validade precisa ser posterior ao início.');
   }
 
   return {
@@ -129,17 +96,12 @@ export function normalizeValidityWindow(
   };
 }
 
-export function normalizeMandateWindow(
-  validFrom: string,
-  validUntil?: string | null,
-): NormalizedMandateWindow {
+export function normalizeMandateWindow(validFrom: string, validUntil?: string | null): NormalizedMandateWindow {
   const mandateStart = normalizeRequiredDate(validFrom, 'início do vínculo');
   const mandateEnd = normalizeOptionalDate(validUntil, 'fim do vínculo');
 
   if (mandateEnd && mandateEnd.getTime() <= mandateStart.getTime()) {
-    throw new BadRequestException(
-      'O fim do vínculo precisa ser posterior ao início.',
-    );
+    throw new BadRequestException('O fim do vínculo precisa ser posterior ao início.');
   }
 
   return { mandateStart, mandateEnd };
@@ -156,63 +118,40 @@ export function isGrantExpired(grant: GrantRecord, now: Date): boolean {
   return !!grant.validUntil && grant.validUntil.getTime() <= now.getTime();
 }
 
-export function isGroupRoleGrantActive(
-  grant: GroupRoleGrantRecord,
-  now: Date,
-): boolean {
+export function isGroupRoleGrantActive(grant: GroupRoleGrantRecord, now: Date): boolean {
   return (
     (!grant.validFrom || grant.validFrom.getTime() <= now.getTime()) &&
     (!grant.validUntil || grant.validUntil.getTime() > now.getTime())
   );
 }
 
-export function isGroupRoleGrantExpired(
-  grant: GroupRoleGrantRecord,
-  now: Date,
-): boolean {
+export function isGroupRoleGrantExpired(grant: GroupRoleGrantRecord, now: Date): boolean {
   return !!grant.validUntil && grant.validUntil.getTime() <= now.getTime();
 }
 
-export function isMembershipActive(
-  membership: MembershipRecord,
-  now: Date,
-): boolean {
+export function isMembershipActive(membership: MembershipRecord, now: Date): boolean {
   return (
     membership.mandateStart.getTime() <= now.getTime() &&
     (!membership.mandateEnd || membership.mandateEnd.getTime() > now.getTime())
   );
 }
 
-export function isMembershipExpired(
-  membership: MembershipRecord,
-  now: Date,
-): boolean {
-  return (
-    !!membership.mandateEnd && membership.mandateEnd.getTime() <= now.getTime()
-  );
+export function isMembershipExpired(membership: MembershipRecord, now: Date): boolean {
+  return !!membership.mandateEnd && membership.mandateEnd.getTime() <= now.getTime();
 }
 
 export function hasSameValidityWindow(
   grant: Pick<GrantRecord, 'validFrom' | 'validUntil'>,
   validity: NormalizedValidityWindow,
 ): boolean {
-  return (
-    sameInstant(grant.validFrom, validity.validFrom) &&
-    sameInstant(grant.validUntil, validity.validUntil)
-  );
+  return sameInstant(grant.validFrom, validity.validFrom) && sameInstant(grant.validUntil, validity.validUntil);
 }
 
-export function mapKeycloakUser(
-  user: KeycloakUserData,
-): KeycloakPermissionUser {
+export function mapKeycloakUser(user: KeycloakUserData): KeycloakPermissionUser {
   const fullName =
-    user.attributes?.['fullName']?.[0] ??
-    [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ??
-    '';
+    user.attributes?.['fullName']?.[0] ?? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ?? '';
   const displayName = fullName || user.email || user.username || user.id;
-  const identityDocument =
-    user.attributes?.['identity-document']?.[0] ??
-    user.attributes?.['identityDocument']?.[0];
+  const identityDocument = user.attributes?.['identity-document']?.[0] ?? user.attributes?.['identityDocument']?.[0];
 
   return {
     id: user.id,
@@ -247,9 +186,7 @@ export function mapGrant(grant: GrantRecord): KeycloakPermissionGrant {
   };
 }
 
-export function mapGroupRoleGrant(
-  grant: GroupRoleGrantRecord,
-): PermissionGroupRoleGrant {
+export function mapGroupRoleGrant(grant: GroupRoleGrantRecord): PermissionGroupRoleGrant {
   return {
     id: grant.id,
     groupKey: grant.groupKey as PermissionGroupKey,
@@ -269,12 +206,8 @@ export function mapGroupRoleGrant(
   };
 }
 
-export function mapMembership(
-  membership: MembershipRecord,
-): PermissionGroupMembership {
-  const group = getPermissionGroupDefinition(
-    membership.entity as PermissionGroupKey,
-  );
+export function mapMembership(membership: MembershipRecord): PermissionGroupMembership {
+  const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
 
   return {
     id: membership.id,
@@ -298,9 +231,7 @@ export function mapMembership(
 }
 
 export function fallbackAccountManagerDefinitions(): KeycloakPermissionDefinition[] {
-  const client = KEYCLOAK_PERMISSION_CLIENTS.find(
-    (definition) => definition.clientId === 'cacic-account-manager',
-  );
+  const client = KEYCLOAK_PERMISSION_CLIENTS.find((definition) => definition.clientId === 'cacic-account-manager');
 
   return ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG.map((roleName) => ({
     permission: buildKeycloakPermissionId('cacic-account-manager', roleName),
@@ -333,9 +264,7 @@ export function getRoleLabel(roleName: string): string {
 }
 
 export function isHiddenRole(roleName: string): boolean {
-  return HIDDEN_KEYCLOAK_ROLE_NAMES.includes(
-    roleName as (typeof HIDDEN_KEYCLOAK_ROLE_NAMES)[number],
-  );
+  return HIDDEN_KEYCLOAK_ROLE_NAMES.includes(roleName as (typeof HIDDEN_KEYCLOAK_ROLE_NAMES)[number]);
 }
 
 export function isDbManagedRole(roleName: string): boolean {
@@ -351,28 +280,20 @@ function normalizeRequiredDate(value: string, fieldLabel: string): Date {
   return date;
 }
 
-function normalizeOptionalDate(
-  value: string | Date | null | undefined,
-  fieldLabel: string,
-): Date | null {
+function normalizeOptionalDate(value: string | Date | null | undefined, fieldLabel: string): Date | null {
   if (!value) {
     return null;
   }
 
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new BadRequestException(
-      `Informe uma data válida para ${fieldLabel}.`,
-    );
+    throw new BadRequestException(`Informe uma data válida para ${fieldLabel}.`);
   }
 
   return date;
 }
 
-function getValidityStatus(
-  validFrom: Date | null,
-  validUntil: Date | null,
-): KeycloakPermissionGrantStatus {
+function getValidityStatus(validFrom: Date | null, validUntil: Date | null): KeycloakPermissionGrantStatus {
   const now = Date.now();
   if (validUntil && validUntil.getTime() <= now) {
     return 'expired';
@@ -385,10 +306,7 @@ function getValidityStatus(
   return 'active';
 }
 
-function getMembershipStatus(
-  validFrom: Date,
-  validUntil: Date | null,
-): PermissionGroupMembershipStatus {
+function getMembershipStatus(validFrom: Date, validUntil: Date | null): PermissionGroupMembershipStatus {
   const now = Date.now();
   if (validUntil && validUntil.getTime() <= now) {
     return 'expired';
@@ -401,10 +319,7 @@ function getMembershipStatus(
   return 'active';
 }
 
-function sameInstant(
-  left: Date | string | null | undefined,
-  right: Date | string | null | undefined,
-): boolean {
+function sameInstant(left: Date | string | null | undefined, right: Date | string | null | undefined): boolean {
   const leftTime = left ? new Date(left).getTime() : null;
   const rightTime = right ? new Date(right).getTime() : null;
   return leftTime === rightTime;

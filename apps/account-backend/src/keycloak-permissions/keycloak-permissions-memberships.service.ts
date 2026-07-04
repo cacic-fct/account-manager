@@ -47,31 +47,21 @@ export class KeycloakPermissionsMembershipsService {
     private readonly sync: KeycloakPermissionsSyncService,
   ) {}
 
-  async listPermissionGroupMemberships(
-    groupKey?: PermissionGroupKey,
-  ): Promise<PermissionGroupMembership[]> {
-    const normalizedGroupKey = groupKey
-      ? normalizePermissionGroupKey(groupKey)
-      : null;
+  async listPermissionGroupMemberships(groupKey?: PermissionGroupKey): Promise<PermissionGroupMembership[]> {
+    const normalizedGroupKey = groupKey ? normalizePermissionGroupKey(groupKey) : null;
     const memberships = await this.prisma.studentEntityMembership.findMany({
       where: {
         deletedAt: null,
         ...(normalizedGroupKey ? { entity: normalizedGroupKey } : {}),
       },
       select: MEMBERSHIP_SELECT,
-      orderBy: [
-        { entity: 'asc' },
-        { mandateEnd: 'desc' },
-        { userDisplayName: 'asc' },
-      ],
+      orderBy: [{ entity: 'asc' }, { mandateEnd: 'desc' }, { userDisplayName: 'asc' }],
     });
 
     return memberships.map((membership) => mapMembership(membership));
   }
 
-  async listUserMemberships(
-    userId: string,
-  ): Promise<PermissionGroupMembership[]> {
+  async listUserMemberships(userId: string): Promise<PermissionGroupMembership[]> {
     const memberships = await this.prisma.studentEntityMembership.findMany({
       where: {
         userId,
@@ -98,24 +88,19 @@ export class KeycloakPermissionsMembershipsService {
     const validity = normalizeMandateWindow(input.validFrom, input.validUntil);
     const user = await this.keycloakService.getUserBasicInfo(userId);
     if (!user) {
-      throw new NotFoundException(
-        `Usuário ${userId} não foi encontrado no Keycloak.`,
-      );
+      throw new NotFoundException(`Usuário ${userId} não foi encontrado no Keycloak.`);
     }
 
-    const existingMembership =
-      await this.prisma.studentEntityMembership.findFirst({
-        where: {
-          userId,
-          entity: groupKey,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
+    const existingMembership = await this.prisma.studentEntityMembership.findFirst({
+      where: {
+        userId,
+        entity: groupKey,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
     if (existingMembership) {
-      throw new ConflictException(
-        'Essa pessoa já possui um vínculo ativo nesse grupo.',
-      );
+      throw new ConflictException('Essa pessoa já possui um vínculo ativo nesse grupo.');
     }
     if (!actorId) {
       throw new ForbiddenException('Authentication required');
@@ -141,9 +126,7 @@ export class KeycloakPermissionsMembershipsService {
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException(
-          'Essa pessoa já possui um vínculo ativo nesse grupo.',
-        );
+        throw new ConflictException('Essa pessoa já possui um vínculo ativo nesse grupo.');
       }
 
       throw error;
@@ -172,24 +155,18 @@ export class KeycloakPermissionsMembershipsService {
     const willBeActive =
       validity.mandateStart.getTime() <= now.getTime() &&
       (!validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime());
-    const willProvideAccess =
-      !validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime();
+    const willProvideAccess = !validity.mandateEnd || validity.mandateEnd.getTime() > now.getTime();
     const isShorteningActiveAccess =
       wasActive &&
       willBeActive &&
       !!validity.mandateEnd &&
-      (!existingMembership.mandateEnd ||
-        validity.mandateEnd.getTime() <
-          existingMembership.mandateEnd.getTime());
+      (!existingMembership.mandateEnd || validity.mandateEnd.getTime() < existingMembership.mandateEnd.getTime());
     const extendsActiveAccess =
       wasActive &&
       willBeActive &&
       (!validity.mandateEnd ||
-        (!!existingMembership.mandateEnd &&
-          validity.mandateEnd.getTime() >
-            existingMembership.mandateEnd.getTime()));
-    const grantsOrExtendsAccess =
-      (!wasActive && willProvideAccess) || extendsActiveAccess;
+        (!!existingMembership.mandateEnd && validity.mandateEnd.getTime() > existingMembership.mandateEnd.getTime()));
+    const grantsOrExtendsAccess = (!wasActive && willProvideAccess) || extendsActiveAccess;
     const groupKey = existingMembership.entity as PermissionGroupKey;
 
     if (!actorId) {
@@ -239,26 +216,17 @@ export class KeycloakPermissionsMembershipsService {
     },
   ): Promise<void> {
     const membership = await this.getMembershipRecordOrThrow(id);
-    const group = getPermissionGroupDefinition(
-      membership.entity as PermissionGroupKey,
-    );
+    const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
     if (options.enforceActorPermission !== false) {
       if (!actorId) {
         throw new ForbiddenException('Authentication required');
       }
-      await this.assertActorCanRevokeGroupPermissions(
-        actorId,
-        membership.entity as PermissionGroupKey,
-      );
+      await this.assertActorCanRevokeGroupPermissions(actorId, membership.entity as PermissionGroupKey);
       await this.assertActorCanRevokeLinkedGrants(actorId, membership);
     }
     const now = new Date();
 
-    await this.keycloakService.removeUserFromGroupId(
-      membership.userId,
-      group.keycloakGroupId,
-      group.keycloakGroupPath,
-    );
+    await this.keycloakService.removeUserFromGroupId(membership.userId, group.keycloakGroupId, group.keycloakGroupPath);
     await this.prisma.studentEntityMembership.update({
       where: { id },
       data: {
@@ -275,10 +243,7 @@ export class KeycloakPermissionsMembershipsService {
     );
   }
 
-  async selfRemoveMembership(
-    userId: string,
-    membershipId: string,
-  ): Promise<PermissionSelfRemovalResult> {
+  async selfRemoveMembership(userId: string, membershipId: string): Promise<PermissionSelfRemovalResult> {
     const membership = await this.prisma.studentEntityMembership.findFirst({
       where: {
         id: membershipId,
@@ -289,9 +254,7 @@ export class KeycloakPermissionsMembershipsService {
     });
 
     if (!membership) {
-      throw new NotFoundException(
-        `Vínculo ${membershipId} não foi encontrado.`,
-      );
+      throw new NotFoundException(`Vínculo ${membershipId} não foi encontrado.`);
     }
 
     await this.deletePermissionGroupMembership(membershipId, userId, {
@@ -300,17 +263,9 @@ export class KeycloakPermissionsMembershipsService {
     return { removed: true, id: membershipId };
   }
 
-  private async assertActorCanAssignGroupPermissions(
-    actorId: string,
-    groupKey: PermissionGroupKey,
-  ): Promise<void> {
+  private async assertActorCanAssignGroupPermissions(actorId: string, groupKey: PermissionGroupKey): Promise<void> {
     for (const permission of await this.listActiveGroupPermissions(groupKey)) {
-      if (
-        !(await this.accountPermissionService.canAssignPermission(
-          actorId,
-          permission,
-        ))
-      ) {
+      if (!(await this.accountPermissionService.canAssignPermission(actorId, permission))) {
         throw new ForbiddenException(
           'Você não pode vincular pessoas a um grupo que concede permissões que você não possui.',
         );
@@ -318,17 +273,9 @@ export class KeycloakPermissionsMembershipsService {
     }
   }
 
-  private async assertActorCanRevokeGroupPermissions(
-    actorId: string,
-    groupKey: PermissionGroupKey,
-  ): Promise<void> {
+  private async assertActorCanRevokeGroupPermissions(actorId: string, groupKey: PermissionGroupKey): Promise<void> {
     for (const permission of await this.listActiveGroupPermissions(groupKey)) {
-      if (
-        !(await this.accountPermissionService.canRevokePermission(
-          actorId,
-          permission,
-        ))
-      ) {
+      if (!(await this.accountPermissionService.canRevokePermission(actorId, permission))) {
         throw new ForbiddenException(
           'Você não pode remover pessoas de um grupo que concede permissões que você não pode revogar.',
         );
@@ -336,17 +283,9 @@ export class KeycloakPermissionsMembershipsService {
     }
   }
 
-  private async assertActorCanRevokeLinkedGrants(
-    actorId: string,
-    membership: MembershipRecord,
-  ): Promise<void> {
+  private async assertActorCanRevokeLinkedGrants(actorId: string, membership: MembershipRecord): Promise<void> {
     for (const grant of this.getDbManagedLinkedPermissionGrants(membership)) {
-      if (
-        !(await this.accountPermissionService.canRevokePermission(
-          actorId,
-          grant.permission,
-        ))
-      ) {
+      if (!(await this.accountPermissionService.canRevokePermission(actorId, grant.permission))) {
         throw new ForbiddenException(
           'Você não pode remover vínculos com permissões legadas que você não pode revogar.',
         );
@@ -354,9 +293,7 @@ export class KeycloakPermissionsMembershipsService {
     }
   }
 
-  private async listActiveGroupPermissions(
-    groupKey: PermissionGroupKey,
-  ): Promise<string[]> {
+  private async listActiveGroupPermissions(groupKey: PermissionGroupKey): Promise<string[]> {
     const now = new Date();
     const group = getPermissionGroupDefinition(groupKey);
     const [dbGrants, keycloakPermissions] = await Promise.all([
@@ -373,9 +310,7 @@ export class KeycloakPermissionsMembershipsService {
 
     return [
       ...new Set([
-        ...dbGrants
-          .filter((grant) => isGroupRoleGrantActive(grant, now))
-          .map((grant) => grant.permission),
+        ...dbGrants.filter((grant) => isGroupRoleGrantActive(grant, now)).map((grant) => grant.permission),
         ...keycloakPermissions.map((permission) => permission.permission),
       ]),
     ];
@@ -388,11 +323,7 @@ export class KeycloakPermissionsMembershipsService {
   ): Promise<void> {
     for (const grant of this.getDbManagedLinkedPermissionGrants(membership)) {
       if (isGrantActive(grant, now)) {
-        await this.keycloakService.removeUserClientRoles(
-          grant.userId,
-          [grant.roleName],
-          grant.clientId,
-        );
+        await this.keycloakService.removeUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
       }
 
       await this.prisma.keycloakPermissionGrant.update({
@@ -407,12 +338,8 @@ export class KeycloakPermissionsMembershipsService {
     }
   }
 
-  private getDbManagedLinkedPermissionGrants(
-    membership: MembershipRecord,
-  ): MembershipRecord['permissionGrants'] {
-    return membership.permissionGrants.filter(
-      (grant) => !grant.deletedAt && isDbManagedRole(grant.roleName),
-    );
+  private getDbManagedLinkedPermissionGrants(membership: MembershipRecord): MembershipRecord['permissionGrants'] {
+    return membership.permissionGrants.filter((grant) => !grant.deletedAt && isDbManagedRole(grant.roleName));
   }
 
   private async shortenLinkedPermissionGrants(
@@ -424,10 +351,7 @@ export class KeycloakPermissionsMembershipsService {
     }
 
     for (const grant of membership.permissionGrants) {
-      if (
-        grant.validUntil &&
-        grant.validUntil.getTime() <= membership.mandateEnd.getTime()
-      ) {
+      if (grant.validUntil && grant.validUntil.getTime() <= membership.mandateEnd.getTime()) {
         continue;
       }
 
@@ -442,15 +366,11 @@ export class KeycloakPermissionsMembershipsService {
     }
   }
 
-  private async getMembershipOrThrow(
-    id: string,
-  ): Promise<PermissionGroupMembership> {
+  private async getMembershipOrThrow(id: string): Promise<PermissionGroupMembership> {
     return mapMembership(await this.getMembershipRecordOrThrow(id));
   }
 
-  private async getMembershipRecordOrThrow(
-    id: string,
-  ): Promise<MembershipRecord> {
+  private async getMembershipRecordOrThrow(id: string): Promise<MembershipRecord> {
     const membership = await this.prisma.studentEntityMembership.findFirst({
       where: {
         id,
@@ -467,11 +387,6 @@ export class KeycloakPermissionsMembershipsService {
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'P2002'
-    );
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 }

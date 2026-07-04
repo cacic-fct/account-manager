@@ -9,13 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  FormGroup,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,11 +19,7 @@ import { AuthService } from '../../services/auth/auth.service';
 import { PhoneValidationService } from '../../services/phone-validation.service';
 import { ApiService } from '../../services/api.service';
 import type { CreateUserProfile, User } from '@cacic/shared-types';
-import {
-  UnespRole,
-  getUnespRoleOptions,
-  isStudentRole,
-} from '@cacic/shared-types';
+import { UnespRole, getUnespRoleOptions, isStudentRole } from '@cacic/shared-types';
 import { VerificationResetConfirmDialogComponent } from './verification-reset-confirm-dialog.component';
 import { ConfirmationDialogComponent } from '../confirmation-dialog.component';
 import {
@@ -157,10 +147,7 @@ export class ProfileFormComponent implements OnInit {
       countryCode: ['BR', Validators.required],
       passportCountry: ['BR'],
       phone: ['', [Validators.required, this.phoneValidator.bind(this)]],
-      identityDocument: [
-        '',
-        [Validators.required, this.identityDocumentValidator.bind(this)],
-      ],
+      identityDocument: ['', [Validators.required, this.identityDocumentValidator.bind(this)]],
       isForeigner: [false],
     }),
     academic: this.fb.group({
@@ -180,9 +167,7 @@ export class ProfileFormComponent implements OnInit {
   // Computed properties
   showEnrollmentNumber = computed(() => {
     const unespRole = this.unespRoleValue();
-    return (
-      !!unespRole && isStudentRole(unespRole as UnespRole) && this.isUnespUser()
-    );
+    return !!unespRole && isStudentRole(unespRole as UnespRole) && this.isUnespUser();
   });
 
   isEnrollmentNumberRequired = computed(() => {
@@ -211,31 +196,22 @@ export class ProfileFormComponent implements OnInit {
     const initial = this.initialData();
 
     const rawPhone = initial.phone || currentUser?.phone || '';
-    const phoneParseResult = this.phoneValidationService.parsePhoneValue(
-      rawPhone,
-      initial.countryCode || 'BR',
-    );
+    const phoneParseResult = this.phoneValidationService.parsePhoneValue(rawPhone, initial.countryCode || 'BR');
 
     const formData: ProfileFormSnapshot = {
       personal: {
-        fullname:
-          initial.fullname ||
-          currentUser?.fullname ||
-          currentUser?.displayName ||
-          '',
+        fullname: initial.fullname || currentUser?.fullname || currentUser?.displayName || '',
         phone: this.phoneValidationService.formatToNational(
           phoneParseResult.nationalNumber || '',
           phoneParseResult.country || 'BR',
         ),
         passportCountry: initial.passportCountry || '',
         isForeigner: initial.isForeigner ?? currentUser?.isForeigner ?? false,
-        identityDocument:
-          initial.identityDocument || currentUser?.identityDocument || '',
+        identityDocument: initial.identityDocument || currentUser?.identityDocument || '',
         countryCode: phoneParseResult.country || '',
       },
       academic: {
-        enrollmentNumber:
-          initial.enrollmentNumber || currentUser?.enrollmentNumber || '',
+        enrollmentNumber: initial.enrollmentNumber || currentUser?.enrollmentNumber || '',
         unespRole: initial.unespRole || currentUser?.unespRole || '',
       },
     };
@@ -288,44 +264,33 @@ export class ProfileFormComponent implements OnInit {
       this.updatePassportCountryRules();
 
       if (!this.personalGroup.get('isForeigner')?.value) {
-        this.personalGroup
-          .get('passportCountry')
-          ?.setValue('BR', { emitEvent: false });
+        this.personalGroup.get('passportCountry')?.setValue('BR', { emitEvent: false });
       }
     });
 
     // Watch country code changes so validation and formatted output use the selected region
-    this.personalGroup
-      .get('countryCode')
-      ?.valueChanges.subscribe((countryCode: string | null) => {
-        const currentCountry = countryCode || 'BR';
-        this.countryCodeValue.set(currentCountry);
+    this.personalGroup.get('countryCode')?.valueChanges.subscribe((countryCode: string | null) => {
+      const currentCountry = countryCode || 'BR';
+      this.countryCodeValue.set(currentCountry);
 
-        const phoneControl = this.personalGroup.get('phone');
-        const currentValue = phoneControl?.value || '';
-        const formattedValue = this.phoneValidationService.formatToNational(
-          currentValue,
-          currentCountry,
-        );
+      const phoneControl = this.personalGroup.get('phone');
+      const currentValue = phoneControl?.value || '';
+      const formattedValue = this.phoneValidationService.formatToNational(currentValue, currentCountry);
 
-        if (formattedValue !== currentValue) {
-          phoneControl?.setValue(formattedValue, { emitEvent: false });
-        }
+      if (formattedValue !== currentValue) {
+        phoneControl?.setValue(formattedValue, { emitEvent: false });
+      }
 
-        this.personalGroup.get('phone')?.updateValueAndValidity();
-      });
+      this.personalGroup.get('phone')?.updateValueAndValidity();
+    });
 
     // Watch unespRole changes to update enrollment number validation and signal
-    this.academicGroup
-      .get('unespRole')
-      ?.valueChanges.subscribe((role: string | null) => {
-        const roleValue = role || '';
-        this.applyEnrollmentRules(roleValue);
-      });
+    this.academicGroup.get('unespRole')?.valueChanges.subscribe((role: string | null) => {
+      const roleValue = role || '';
+      this.applyEnrollmentRules(roleValue);
+    });
 
-    this.applyEnrollmentRules(
-      this.academicGroup.get('unespRole')?.value?.toString() || '',
-    );
+    this.applyEnrollmentRules(this.academicGroup.get('unespRole')?.value?.toString() || '');
     this.updatePassportCountryRules();
 
     // Initial emission
@@ -337,9 +302,7 @@ export class ProfileFormComponent implements OnInit {
   private loadUnespRoleRequirement(): void {
     this.apiService.checkUnespRoleRequired().subscribe({
       next: (response) => {
-        this.shouldShowUnespRoleSelection.set(
-          response.shouldShowUnespRoleSelection,
-        );
+        this.shouldShowUnespRoleSelection.set(response.shouldShowUnespRoleSelection);
       },
       error: (error) => {
         this.logger.error('Error checking Unesp role requirement', error);
@@ -354,25 +317,13 @@ export class ProfileFormComponent implements OnInit {
     const personal = snapshot.personal;
     const academic = snapshot.academic;
 
-    const fullname = isUnespUser
-      ? currentUser?.fullname || currentUser?.displayName || ''
-      : personal.fullname;
+    const fullname = isUnespUser ? currentUser?.fullname || currentUser?.displayName || '' : personal.fullname;
 
-    const phone = this.phoneValidationService.formatToInternational(
-      personal.phone,
-      personal.countryCode || 'BR',
-    );
+    const phone = this.phoneValidationService.formatToInternational(personal.phone, personal.countryCode || 'BR');
 
-    const unespRole = academic.unespRole
-      ? (academic.unespRole as UnespRole)
-      : undefined;
-    const enrollmentNumber =
-      unespRole && isStudentRole(unespRole)
-        ? academic.enrollmentNumber || undefined
-        : undefined;
-    const passportCountry = personal.isForeigner
-      ? personal.passportCountry || 'BR'
-      : undefined;
+    const unespRole = academic.unespRole ? (academic.unespRole as UnespRole) : undefined;
+    const enrollmentNumber = unespRole && isStudentRole(unespRole) ? academic.enrollmentNumber || undefined : undefined;
+    const passportCountry = personal.isForeigner ? personal.passportCountry || 'BR' : undefined;
 
     const data: ProfileFormData = {
       fullname,
@@ -400,12 +351,8 @@ export class ProfileFormComponent implements OnInit {
   phoneValidator(control: AbstractControl): ValidationErrors | null {
     if (!control.value) return null;
 
-    const countryCode =
-      this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
-    const isValid = this.phoneValidationService.isValidInternationalPhone(
-      control.value,
-      countryCode,
-    );
+    const countryCode = this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
+    const isValid = this.phoneValidationService.isValidInternationalPhone(control.value, countryCode);
     return isValid ? null : { invalidPhone: true };
   }
 
@@ -415,32 +362,23 @@ export class ProfileFormComponent implements OnInit {
   }
 
   private maybeShowFixedLineWarning(): void {
-    const countryCode =
-      this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
-    const phoneValue = this.personalGroup
-      .get('phone')
-      ?.value?.toString()
-      .trim();
+    const countryCode = this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
+    const phoneValue = this.personalGroup.get('phone')?.value?.toString().trim();
 
     if (!phoneValue) {
       this.logger.debug('No phone number entered, skipping fixed line check');
       return;
     }
 
-    const normalizedCountry = (
-      isSupportedCountry(countryCode) ? countryCode : 'BR'
-    ) as CountryCode;
+    const normalizedCountry = (isSupportedCountry(countryCode) ? countryCode : 'BR') as CountryCode;
 
     const parsed = parsePhoneNumberFromString(phoneValue, normalizedCountry);
 
     if (!parsed?.isValid()) {
-      this.logger.debug(
-        'Invalid phone number entered, skipping fixed line check',
-        {
-          phoneValue,
-          countryCode,
-        },
-      );
+      this.logger.debug('Invalid phone number entered, skipping fixed line check', {
+        phoneValue,
+        countryCode,
+      });
       return;
     }
 
@@ -455,13 +393,10 @@ export class ProfileFormComponent implements OnInit {
     }
 
     if (this.fixedLineDialogShownFor === parsed.number) {
-      this.logger.debug(
-        'Fixed line warning already shown for this number, skipping dialog',
-        {
-          phoneValue,
-          countryCode,
-        },
-      );
+      this.logger.debug('Fixed line warning already shown for this number, skipping dialog', {
+        phoneValue,
+        countryCode,
+      });
       return;
     }
 
@@ -506,14 +441,10 @@ export class ProfileFormComponent implements OnInit {
   }
 
   formatPhoneInput(): void {
-    const countryCode =
-      this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
+    const countryCode = this.personalGroup.get('countryCode')?.value || this.countryCodeValue();
     const phoneControl = this.personalGroup.get('phone');
     const currentValue = phoneControl?.value || '';
-    const formattedValue = this.phoneValidationService.formatToNational(
-      currentValue,
-      countryCode,
-    );
+    const formattedValue = this.phoneValidationService.formatToNational(currentValue, countryCode);
 
     if (formattedValue !== currentValue) {
       phoneControl?.setValue(formattedValue, { emitEvent: false });
@@ -547,9 +478,7 @@ export class ProfileFormComponent implements OnInit {
     this.savingChange.emit(true);
 
     try {
-      const updatedUser = await firstValueFrom(
-        this.apiService.updateProfile(profileData),
-      );
+      const updatedUser = await firstValueFrom(this.apiService.updateProfile(profileData));
 
       this.authService.updateCurrentUser(updatedUser);
       this.saveSuccess.emit(updatedUser);
@@ -614,17 +543,13 @@ export class ProfileFormComponent implements OnInit {
     }
 
     const currentFormData = this.getFormData();
-    const hasVerificationSensitiveChanges =
-      this.hasVerificationSensitiveChanges(currentFormData);
+    const hasVerificationSensitiveChanges = this.hasVerificationSensitiveChanges(currentFormData);
 
     if (hasVerificationSensitiveChanges) {
-      const dialogRef = this.dialog.open(
-        VerificationResetConfirmDialogComponent,
-        {
-          width: '500px',
-          disableClose: true,
-        },
-      );
+      const dialogRef = this.dialog.open(VerificationResetConfirmDialogComponent, {
+        width: '500px',
+        disableClose: true,
+      });
 
       const confirmed = await firstValueFrom(dialogRef.afterClosed());
       return confirmed === true;
@@ -664,11 +589,8 @@ export class ProfileFormComponent implements OnInit {
   /**
    * Check if the form changes include verification-sensitive fields
    */
-  private hasVerificationSensitiveChanges(
-    currentData: ProfileFormData,
-  ): boolean {
-    const enrollmentChanged =
-      this.initialEnrollmentNumber !== currentData.enrollmentNumber;
+  private hasVerificationSensitiveChanges(currentData: ProfileFormData): boolean {
+    const enrollmentChanged = this.initialEnrollmentNumber !== currentData.enrollmentNumber;
     const unespRoleChanged = this.initialUnespRole !== currentData.unespRole;
 
     return enrollmentChanged || unespRoleChanged;
@@ -685,20 +607,15 @@ export class ProfileFormComponent implements OnInit {
     return {
       fullname: snapshot.personal.fullname,
       countryCode: snapshot.personal.countryCode,
-      passportCountry: snapshot.personal.isForeigner
-        ? snapshot.personal.passportCountry
-        : undefined,
+      passportCountry: snapshot.personal.isForeigner ? snapshot.personal.passportCountry : undefined,
       phone: snapshot.personal.phone,
       identityDocument: snapshot.personal.identityDocument,
       isForeigner: snapshot.personal.isForeigner,
       enrollmentNumber:
-        snapshot.academic.unespRole &&
-        isStudentRole(snapshot.academic.unespRole as UnespRole)
+        snapshot.academic.unespRole && isStudentRole(snapshot.academic.unespRole as UnespRole)
           ? snapshot.academic.enrollmentNumber || undefined
           : undefined,
-      unespRole: snapshot.academic.unespRole
-        ? (snapshot.academic.unespRole as UnespRole)
-        : undefined,
+      unespRole: snapshot.academic.unespRole ? (snapshot.academic.unespRole as UnespRole) : undefined,
     };
   }
 
@@ -769,10 +686,7 @@ export class ProfileFormComponent implements OnInit {
     const isForeigner = !!this.personalGroup.get('isForeigner')?.value;
 
     if (isForeigner) {
-      passportCountryControl?.setValidators([
-        Validators.required,
-        this.passportCountryValidator.bind(this),
-      ]);
+      passportCountryControl?.setValidators([Validators.required, this.passportCountryValidator.bind(this)]);
 
       if (!passportCountryControl?.value) {
         passportCountryControl?.setValue('BR', { emitEvent: false });

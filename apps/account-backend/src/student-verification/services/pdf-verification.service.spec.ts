@@ -42,9 +42,9 @@ describe('PdfVerificationService', () => {
 
     await flushPromises();
 
-    await expect(
-      (service as unknown as ServiceInternals).ensurePythonEnvironment(),
-    ).resolves.toBe('/tmp/scripts/venv/bin/python');
+    await expect((service as unknown as ServiceInternals).ensurePythonEnvironment()).resolves.toBe(
+      '/tmp/scripts/venv/bin/python',
+    );
     expect(mockExecAsync).toHaveBeenCalledTimes(1);
   });
 });

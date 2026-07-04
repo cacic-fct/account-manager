@@ -32,12 +32,7 @@ import {
   DeleteAccountRequestDto,
   DeleteAccountResponseDto,
 } from './dto/delete-account.dto';
-import {
-  AccountDeletionJob,
-  LGPD_JOBS,
-  LGPD_QUEUE,
-  ProcessDataRequestJob,
-} from './lgpd.queue';
+import { AccountDeletionJob, LGPD_JOBS, LGPD_QUEUE, ProcessDataRequestJob } from './lgpd.queue';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { UserService } from '../auth/services/user.service';
 import { JwtService } from '../auth/jwt/jwt.service';
@@ -65,9 +60,7 @@ export class LgpdService {
     private discordLinkService: DiscordLinkService,
     private s3Service: S3Service,
     @InjectQueue(LGPD_QUEUE)
-    private readonly lgpdQueue: Queue<
-      ProcessDataRequestJob | AccountDeletionJob
-    >,
+    private readonly lgpdQueue: Queue<ProcessDataRequestJob | AccountDeletionJob>,
   ) {}
 
   async createRequest(userId: string, email: string): Promise<LgpdRequestDto> {
@@ -79,11 +72,7 @@ export class LgpdService {
     const existingRequest = await this.prisma.lgpdRequest.findFirst({
       where: {
         userId,
-        OR: [
-          { status: 'pending' },
-          { status: 'processing' },
-          { createdAt: { gt: oneDayAgo } },
-        ],
+        OR: [{ status: 'pending' }, { status: 'processing' }, { createdAt: { gt: oneDayAgo } }],
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -109,23 +98,15 @@ export class LgpdService {
         { jobId: `lgpd-data-${saved.id}` },
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to enqueue LGPD data request ${saved.id}`,
-        error,
-      );
+      this.logger.error(`Failed to enqueue LGPD data request ${saved.id}`, error);
       await this.prisma.lgpdRequest.update({
         where: { id: saved.id },
         data: {
           status: 'failed',
-          errorMessage: this.serializeFailureDetails(
-            'lgpdQueue.add.process-data-request',
-            error,
-          ),
+          errorMessage: this.serializeFailureDetails('lgpdQueue.add.process-data-request', error),
         },
       });
-      throw new InternalServerErrorException(
-        'Não foi possível enfileirar a solicitação de dados.',
-      );
+      throw new InternalServerErrorException('Não foi possível enfileirar a solicitação de dados.');
     }
 
     return this.toDto(saved);
@@ -159,18 +140,13 @@ export class LgpdService {
     return requests.map((request) => this.toListDto(request));
   }
 
-  async downloadFile(
-    id: string,
-    userId: string,
-  ): Promise<{ stream: Readable; fileName: string }> {
+  async downloadFile(id: string, userId: string): Promise<{ stream: Readable; fileName: string }> {
     const request = await this.prisma.lgpdRequest.findFirst({
       where: { id, userId, status: 'completed' },
     });
 
     if (!request) {
-      throw new NotFoundException(
-        'Arquivo não encontrado ou solicitação não concluída',
-      );
+      throw new NotFoundException('Arquivo não encontrado ou solicitação não concluída');
     }
 
     this.validateUserOwnership(request.userId, userId);
@@ -220,10 +196,7 @@ export class LgpdService {
 
       const userData = await this.collectUserData(request.userId);
 
-      const { s3Key, fileName, fileSize } = await this.createAndUploadZipFile(
-        request.userId,
-        userData,
-      );
+      const { s3Key, fileName, fileSize } = await this.createAndUploadZipFile(request.userId, userData);
 
       await this.prisma.lgpdRequest.update({
         where: { id: requestId },
@@ -241,8 +214,7 @@ export class LgpdService {
         where: { id: requestId },
         data: {
           status: 'failed',
-          errorMessage:
-            error instanceof Error ? error.message : 'Unknown error',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
         },
       });
     }
@@ -270,8 +242,7 @@ export class LgpdService {
         };
       }
 
-      const keycloakAttributes =
-        await this.keycloakService.getUserAttributes(userId);
+      const keycloakAttributes = await this.keycloakService.getUserAttributes(userId);
       if (keycloakAttributes) {
         data.atributos_cacic_sso = keycloakAttributes;
       }
@@ -308,8 +279,7 @@ export class LgpdService {
       }));
 
       try {
-        const discordLinks =
-          await this.discordLinkService.getAllDiscordLinksForUser(userId, true);
+        const discordLinks = await this.discordLinkService.getAllDiscordLinksForUser(userId, true);
         data.contas_discord_vinculadas = discordLinks.map((link) => ({
           id: link.id,
           discord_id: link.discordId,
@@ -333,10 +303,7 @@ export class LgpdService {
         };
       }
 
-      const externalData = await this.collectExternalData(
-        userId,
-        userProfile?.email || '',
-      );
+      const externalData = await this.collectExternalData(userId, userProfile?.email || '');
       Object.assign(data, externalData);
     } catch (error) {
       this.logger.error('Error collecting user data', error);
@@ -350,19 +317,13 @@ export class LgpdService {
     return data;
   }
 
-  private async collectExternalData(
-    userId: string,
-    email: string,
-  ): Promise<Record<string, any>> {
+  private async collectExternalData(userId: string, email: string): Promise<Record<string, any>> {
     const externalData: Record<string, any> = {};
-    const backends = this.getExternalLgpdBackends().filter(
-      (backend) => backend.dataUrl,
-    );
+    const backends = this.getExternalLgpdBackends().filter((backend) => backend.dataUrl);
 
     await Promise.all(
       backends.map(async (backend) => {
-        const category =
-          backend.category || this.normalizeCategoryName(backend.name);
+        const category = backend.category || this.normalizeCategoryName(backend.name);
 
         try {
           const response = await fetch(backend.dataUrl!, {
@@ -378,10 +339,7 @@ export class LgpdService {
 
           externalData[category] = (await response.json()) as unknown;
         } catch (error) {
-          this.logger.error(
-            `Error collecting external LGPD data from ${backend.name}`,
-            error,
-          );
+          this.logger.error(`Error collecting external LGPD data from ${backend.name}`, error);
           externalData[category] = {
             erro: `Erro ao coletar dados de ${backend.name}`,
             detalhes: error instanceof Error ? error.message : 'Unknown error',
@@ -412,9 +370,7 @@ export class LgpdService {
         createdAt: timestamp,
       })
       .catch((error) => {
-        throw new Error(
-          `Failed to upload to S3: ${this.getErrorMessage(error)}`,
-        );
+        throw new Error(`Failed to upload to S3: ${this.getErrorMessage(error)}`);
       });
 
     archive.on('error', (error) => {
@@ -431,20 +387,16 @@ export class LgpdService {
 
     Object.entries(userData).forEach(([category, data]) => {
       if (category === 'event_manager' && this.isRecord(data)) {
-        Object.entries(data).forEach(
-          ([eventManagerCategory, eventManagerData]) => {
-            archive.append(JSON.stringify(eventManagerData, null, 2), {
-              name: `event_manager/${eventManagerCategory}.json`,
-            });
-          },
-        );
+        Object.entries(data).forEach(([eventManagerCategory, eventManagerData]) => {
+          archive.append(JSON.stringify(eventManagerData, null, 2), {
+            name: `event_manager/${eventManagerCategory}.json`,
+          });
+        });
         return;
       }
 
       const jsonContent = JSON.stringify(data, null, 2);
-      const fileNameInZip = cacicSsoCategories.includes(category)
-        ? `cacic-sso/${category}.json`
-        : `${category}.json`;
+      const fileNameInZip = cacicSsoCategories.includes(category) ? `cacic-sso/${category}.json` : `${category}.json`;
 
       archive.append(jsonContent, { name: fileNameInZip });
     });
@@ -473,9 +425,7 @@ export class LgpdService {
       };
     } catch (error) {
       archive.destroy();
-      uploadStream.destroy(
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      uploadStream.destroy(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -496,9 +446,7 @@ export class LgpdService {
         try {
           await this.s3Service.deleteFile(request.s3Key);
           deletedRequestIds.push(request.id);
-          this.logger.debug(
-            `Deleted expired LGPD file from S3: ${request.s3Key}`,
-          );
+          this.logger.debug(`Deleted expired LGPD file from S3: ${request.s3Key}`);
         } catch (error) {
           this.logger.error(`Error deleting S3 file ${request.s3Key}`, error);
         }
@@ -543,9 +491,7 @@ export class LgpdService {
     });
 
     if (result.count > 0) {
-      this.logger.warn(
-        `Expired ${result.count} stale active LGPD request(s)${userId ? ` for user ${userId}` : ''}`,
-      );
+      this.logger.warn(`Expired ${result.count} stale active LGPD request(s)${userId ? ` for user ${userId}` : ''}`);
     }
 
     return result.count;
@@ -578,9 +524,7 @@ export class LgpdService {
     dto: DeleteAccountRequestDto,
   ): Promise<DeleteAccountResponseDto> {
     if (dto.confirmation !== 'DELETE') {
-      throw new BadRequestException(
-        'Para confirmar a exclusão da conta, digite "DELETE" no campo de confirmação.',
-      );
+      throw new BadRequestException('Para confirmar a exclusão da conta, digite "DELETE" no campo de confirmação.');
     }
 
     const existingRequest = await this.prisma.deleteAccountRequest.findFirst({
@@ -592,9 +536,7 @@ export class LgpdService {
     });
 
     if (existingRequest) {
-      throw new BadRequestException(
-        'Você já tem uma solicitação de exclusão de conta pendente.',
-      );
+      throw new BadRequestException('Você já tem uma solicitação de exclusão de conta pendente.');
     }
 
     const scheduledHardDeleteAt = new Date();
@@ -630,31 +572,20 @@ export class LgpdService {
         try {
           await softDeleteJob.remove();
         } catch (removeError) {
-          this.logger.error(
-            `Failed to remove soft deletion job for request ${saved.id}`,
-            removeError,
-          );
+          this.logger.error(`Failed to remove soft deletion job for request ${saved.id}`, removeError);
         }
         throw error;
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to enqueue account deletion request ${saved.id}`,
-        error,
-      );
+      this.logger.error(`Failed to enqueue account deletion request ${saved.id}`, error);
       await this.prisma.deleteAccountRequest.update({
         where: { id: saved.id },
         data: {
           status: 'failed',
-          errorMessage: this.serializeFailureDetails(
-            'lgpdQueue.add.account-deletion',
-            error,
-          ),
+          errorMessage: this.serializeFailureDetails('lgpdQueue.add.account-deletion', error),
         },
       });
-      throw new InternalServerErrorException(
-        'Não foi possível enfileirar a solicitação de exclusão de conta.',
-      );
+      throw new InternalServerErrorException('Não foi possível enfileirar a solicitação de exclusão de conta.');
     }
 
     return {
@@ -698,9 +629,7 @@ export class LgpdService {
           notifiedServices,
           [this.toAccountDeletionFailure('keycloak', 'setUserEnabled', error)],
           softDeletionServices.filter(
-            (service) =>
-              !notifiedServices.includes(service) &&
-              service !== 'keycloak.setUserEnabled',
+            (service) => !notifiedServices.includes(service) && service !== 'keycloak.setUserEnabled',
           ),
         );
         return;
@@ -713,10 +642,7 @@ export class LgpdService {
             accountDeletionRequested: ['true'],
             accountDeletionRequestId: [request.id],
             accountDeletionScheduledHardDeleteAt: [
-              (
-                request.scheduledHardDeleteAt ||
-                new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-              ).toISOString(),
+              (request.scheduledHardDeleteAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)).toISOString(),
             ],
           },
           { skipValidation: true },
@@ -726,17 +652,9 @@ export class LgpdService {
         await this.markAccountDeletionFailed(
           requestId,
           notifiedServices,
-          [
-            this.toAccountDeletionFailure(
-              'keycloak',
-              'updateUserAttributes',
-              error,
-            ),
-          ],
+          [this.toAccountDeletionFailure('keycloak', 'updateUserAttributes', error)],
           softDeletionServices.filter(
-            (service) =>
-              !notifiedServices.includes(service) &&
-              service !== 'keycloak.updateUserAttributes',
+            (service) => !notifiedServices.includes(service) && service !== 'keycloak.updateUserAttributes',
           ),
         );
         return;
@@ -749,17 +667,9 @@ export class LgpdService {
         await this.markAccountDeletionFailed(
           requestId,
           notifiedServices,
-          [
-            this.toAccountDeletionFailure(
-              'external-backends',
-              'schedule',
-              error,
-            ),
-          ],
+          [this.toAccountDeletionFailure('external-backends', 'schedule', error)],
           softDeletionServices.filter(
-            (service) =>
-              !notifiedServices.includes(service) &&
-              service !== 'external-backends.schedule',
+            (service) => !notifiedServices.includes(service) && service !== 'external-backends.schedule',
           ),
         );
         return;
@@ -785,10 +695,7 @@ export class LgpdService {
         data: {
           status: 'failed',
           servicesNotified: [],
-          errorMessage: this.serializeFailureDetails(
-            'processAccountSoftDeletion',
-            error,
-          ),
+          errorMessage: this.serializeFailureDetails('processAccountSoftDeletion', error),
         },
       });
     }
@@ -823,9 +730,7 @@ export class LgpdService {
         notifiedServices.push('external-backends.delete');
       } catch (error) {
         this.logger.error('Error notifying external hard deletion', error);
-        failures.push(
-          this.toAccountDeletionFailure('external-backends', 'delete', error),
-        );
+        failures.push(this.toAccountDeletionFailure('external-backends', 'delete', error));
       }
 
       try {
@@ -833,13 +738,7 @@ export class LgpdService {
         notifiedServices.push('application-data.deleteUserApplicationData');
       } catch (error) {
         this.logger.error('Error deleting application data', error);
-        failures.push(
-          this.toAccountDeletionFailure(
-            'application-data',
-            'deleteUserApplicationData',
-            error,
-          ),
-        );
+        failures.push(this.toAccountDeletionFailure('application-data', 'deleteUserApplicationData', error));
       }
 
       if (failures.some((failure) => failure.service === 'application-data')) {
@@ -850,9 +749,7 @@ export class LgpdService {
             servicesNotified: notifiedServices,
             errorMessage: this.serializeAccountDeletionFailures(
               failures,
-              hardDeletionServices.filter(
-                (service) => !notifiedServices.includes(service),
-              ),
+              hardDeletionServices.filter((service) => !notifiedServices.includes(service)),
             ),
           },
         });
@@ -864,13 +761,7 @@ export class LgpdService {
         notifiedServices.push('user-service.deleteUserData');
       } catch (error) {
         this.logger.error('Error deleting user data from user service', error);
-        failures.push(
-          this.toAccountDeletionFailure(
-            'user-service',
-            'deleteUserData',
-            error,
-          ),
-        );
+        failures.push(this.toAccountDeletionFailure('user-service', 'deleteUserData', error));
       }
 
       try {
@@ -878,9 +769,7 @@ export class LgpdService {
         notifiedServices.push('keycloak.deleteUser');
       } catch (error) {
         this.logger.error('Error deleting user from Keycloak', error);
-        failures.push(
-          this.toAccountDeletionFailure('keycloak', 'deleteUser', error),
-        );
+        failures.push(this.toAccountDeletionFailure('keycloak', 'deleteUser', error));
       }
 
       if (failures.length > 0) {
@@ -891,9 +780,7 @@ export class LgpdService {
             servicesNotified: notifiedServices,
             errorMessage: this.serializeAccountDeletionFailures(
               failures,
-              hardDeletionServices.filter(
-                (service) => !notifiedServices.includes(service),
-              ),
+              hardDeletionServices.filter((service) => !notifiedServices.includes(service)),
             ),
           },
         });
@@ -919,19 +806,13 @@ export class LgpdService {
         data: {
           status: 'failed',
           servicesNotified: [],
-          errorMessage: this.serializeFailureDetails(
-            'processAccountHardDeletion',
-            error,
-          ),
+          errorMessage: this.serializeFailureDetails('processAccountHardDeletion', error),
         },
       });
     }
   }
 
-  private async deleteUserApplicationData(
-    userId: string,
-    currentDeleteRequestId: string,
-  ): Promise<void> {
+  private async deleteUserApplicationData(userId: string, currentDeleteRequestId: string): Promise<void> {
     const [lgpdRequests, studentDocuments] = await Promise.all([
       this.prisma.lgpdRequest.findMany({
         where: { userId },
@@ -952,16 +833,12 @@ export class LgpdService {
           this.logger.debug(`Deleted LGPD file from S3: ${request.s3Key}`);
         } catch (error) {
           this.logger.error(`Error deleting S3 file ${request.s3Key}`, error);
-          fileDeletionFailures.push(
-            `lgpd:${request.id}:${this.getErrorMessage(error)}`,
-          );
+          fileDeletionFailures.push(`lgpd:${request.id}:${this.getErrorMessage(error)}`);
         }
       }
 
       if (request.filePath) {
-        this.logger.verbose(
-          `Legacy file path found during deletion: ${request.filePath}`,
-        );
+        this.logger.verbose(`Legacy file path found during deletion: ${request.filePath}`);
       }
     }
 
@@ -969,21 +846,15 @@ export class LgpdService {
       if (document.s3Key) {
         try {
           await this.s3Service.deleteFile(document.s3Key);
-          this.logger.debug(
-            `Deleted student verification file from S3: ${document.s3Key}`,
-          );
+          this.logger.debug(`Deleted student verification file from S3: ${document.s3Key}`);
         } catch (error) {
           this.logger.error(`Error deleting S3 file ${document.s3Key}`, error);
-          fileDeletionFailures.push(
-            `student-verification:${document.id}:${this.getErrorMessage(error)}`,
-          );
+          fileDeletionFailures.push(`student-verification:${document.id}:${this.getErrorMessage(error)}`);
         }
       }
 
       if (document.filePath) {
-        this.logger.verbose(
-          `Legacy file path found during deletion: ${document.filePath}`,
-        );
+        this.logger.verbose(`Legacy file path found during deletion: ${document.filePath}`);
       }
     }
 
@@ -1034,9 +905,7 @@ export class LgpdService {
     });
   }
 
-  async getPendingAccountDeletionRequests(): Promise<
-    AdminDeleteAccountRequestDto[]
-  > {
+  async getPendingAccountDeletionRequests(): Promise<AdminDeleteAccountRequestDto[]> {
     const requests = await this.prisma.deleteAccountRequest.findMany({
       where: {
         status: { in: ['pending', 'processing', 'failed'] },
@@ -1046,14 +915,10 @@ export class LgpdService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return requests.map((request) =>
-      this.toAdminDeleteAccountRequestDto(request),
-    );
+    return requests.map((request) => this.toAdminDeleteAccountRequestDto(request));
   }
 
-  async undoAccountDeletionRequest(
-    requestId: string,
-  ): Promise<AdminDeleteAccountRequestDto> {
+  async undoAccountDeletionRequest(requestId: string): Promise<AdminDeleteAccountRequestDto> {
     const request = await this.prisma.deleteAccountRequest.findUnique({
       where: { id: requestId },
     });
@@ -1086,9 +951,7 @@ export class LgpdService {
     return this.toAdminDeleteAccountRequestDto(updated);
   }
 
-  async deleteAccountNow(
-    requestId: string,
-  ): Promise<AdminDeleteAccountRequestDto> {
+  async deleteAccountNow(requestId: string): Promise<AdminDeleteAccountRequestDto> {
     const request = await this.prisma.deleteAccountRequest.findUnique({
       where: { id: requestId },
     });
@@ -1109,23 +972,15 @@ export class LgpdService {
         { jobId: `lgpd-hard-delete-now-${requestId}-${Date.now()}` },
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to enqueue immediate hard deletion request ${requestId}`,
-        error,
-      );
+      this.logger.error(`Failed to enqueue immediate hard deletion request ${requestId}`, error);
       await this.prisma.deleteAccountRequest.update({
         where: { id: requestId },
         data: {
           status: 'failed',
-          errorMessage: this.serializeFailureDetails(
-            'lgpdQueue.add.hard-delete-now',
-            error,
-          ),
+          errorMessage: this.serializeFailureDetails('lgpdQueue.add.hard-delete-now', error),
         },
       });
-      throw new InternalServerErrorException(
-        'Não foi possível enfileirar a exclusão imediata da conta.',
-      );
+      throw new InternalServerErrorException('Não foi possível enfileirar a exclusão imediata da conta.');
     }
 
     const updated = await this.prisma.deleteAccountRequest.findUniqueOrThrow({
@@ -1144,11 +999,7 @@ export class LgpdService {
     await Promise.all(
       backends.map(async (backend) => {
         const url =
-          action === 'cancel'
-            ? backend.cancelUrl
-            : action === 'delete'
-              ? backend.deleteUrl
-              : backend.scheduleUrl;
+          action === 'cancel' ? backend.cancelUrl : action === 'delete' ? backend.deleteUrl : backend.scheduleUrl;
 
         if (!url) return;
 
@@ -1176,9 +1027,7 @@ export class LgpdService {
         }
 
         if (!response.ok) {
-          throw new Error(
-            `${backend.name} returned ${response.status} ${response.statusText}`,
-          );
+          throw new Error(`${backend.name} returned ${response.status} ${response.statusText}`);
         }
       }),
     );
@@ -1200,19 +1049,12 @@ export class LgpdService {
       data: {
         status: 'failed',
         servicesNotified: notifiedServices,
-        errorMessage: this.serializeAccountDeletionFailures(
-          failures,
-          remainingServices,
-        ),
+        errorMessage: this.serializeAccountDeletionFailures(failures, remainingServices),
       },
     });
   }
 
-  private toAccountDeletionFailure(
-    service: string,
-    operation: string,
-    error: unknown,
-  ): AccountDeletionFailure {
+  private toAccountDeletionFailure(service: string, operation: string, error: unknown): AccountDeletionFailure {
     return {
       service,
       operation,
@@ -1220,10 +1062,7 @@ export class LgpdService {
     };
   }
 
-  private serializeAccountDeletionFailures(
-    failures: AccountDeletionFailure[],
-    remainingServices: string[],
-  ): string {
+  private serializeAccountDeletionFailures(failures: AccountDeletionFailure[], remainingServices: string[]): string {
     return JSON.stringify({
       failures,
       remainingServices,
@@ -1244,10 +1083,7 @@ export class LgpdService {
   }
 
   private isTimeoutError(error: unknown): boolean {
-    return (
-      error instanceof Error &&
-      (error.name === 'TimeoutError' || error.name === 'AbortError')
-    );
+    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
   }
 
   private getExternalDeletionBackends(): {
@@ -1294,9 +1130,7 @@ export class LgpdService {
     audience?: string;
     category?: string;
   }[] {
-    const raw =
-      process.env.LGPD_EXTERNAL_BACKENDS ||
-      process.env.LGPD_DATA_EXTERNAL_BACKENDS;
+    const raw = process.env.LGPD_EXTERNAL_BACKENDS || process.env.LGPD_DATA_EXTERNAL_BACKENDS;
     if (!raw) return [];
 
     try {
@@ -1333,9 +1167,7 @@ export class LgpdService {
     }
   }
 
-  private async externalHeaders(backend: {
-    audience?: string;
-  }): Promise<Record<string, string>> {
+  private async externalHeaders(backend: { audience?: string }): Promise<Record<string, string>> {
     const token = await this.jwtService.getClientCredentialsToken({
       audience: backend.audience,
     });
@@ -1358,9 +1190,7 @@ export class LgpdService {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 
-  private toAdminDeleteAccountRequestDto(
-    request: DeleteAccountRequest,
-  ): AdminDeleteAccountRequestDto {
+  private toAdminDeleteAccountRequestDto(request: DeleteAccountRequest): AdminDeleteAccountRequestDto {
     return {
       id: request.id,
       userId: request.userId,
@@ -1403,14 +1233,9 @@ export class LgpdService {
     };
   }
 
-  private validateUserOwnership(
-    requestUserId: string,
-    sessionUserId: string,
-  ): void {
+  private validateUserOwnership(requestUserId: string, sessionUserId: string): void {
     if (requestUserId !== sessionUserId) {
-      throw new Error(
-        'Acesso negado: usuário não pode acessar dados de outro usuário',
-      );
+      throw new Error('Acesso negado: usuário não pode acessar dados de outro usuário');
     }
   }
 }

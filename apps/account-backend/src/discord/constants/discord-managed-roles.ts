@@ -35,19 +35,11 @@ export const DISCORD_MANAGED_ROLES = {
     roleId: '533902369692581909',
     roleName: 'Visitante externo',
   },
-} as const satisfies Record<
-  DiscordManagedRoleCategory,
-  DiscordManagedRoleDefinition
->;
+} as const satisfies Record<DiscordManagedRoleCategory, DiscordManagedRoleDefinition>;
 
-export const DISCORD_MANAGED_ROLE_IDS: string[] = Object.values(
-  DISCORD_MANAGED_ROLES,
-).map((role) => role.roleId);
+export const DISCORD_MANAGED_ROLE_IDS: string[] = Object.values(DISCORD_MANAGED_ROLES).map((role) => role.roleId);
 
-export const DISCORD_AUTOMATED_ROLE_IDS = [
-  ...DISCORD_MANAGED_ROLE_IDS,
-  DISCORD_REGISTRATION_ROLE.roleId,
-];
+export const DISCORD_AUTOMATED_ROLE_IDS = [...DISCORD_MANAGED_ROLE_IDS, DISCORD_REGISTRATION_ROLE.roleId];
 
 export function getDiscordManagedRoleForUser(
   user: UserProfile | null,
@@ -67,8 +59,7 @@ export function getDiscordManagedRoleCategory(
   if (
     user &&
     isComputerScienceStudent(user) &&
-    (user?.unespRoleVerified ||
-      options.skipUndergraduateUnespRoleVerification === true)
+    (user?.unespRoleVerified || options.skipUndergraduateUnespRoleVerification === true)
   ) {
     return 'student';
   }
@@ -76,9 +67,7 @@ export function getDiscordManagedRoleCategory(
   return 'unesp';
 }
 
-export function checkComputerScienceEnrollmentPattern(
-  enrollmentNumber?: string,
-): boolean {
+export function checkComputerScienceEnrollmentPattern(enrollmentNumber?: string): boolean {
   const normalizedEnrollmentNumber = enrollmentNumber?.replace(/\D/g, '');
 
   if (!normalizedEnrollmentNumber || normalizedEnrollmentNumber.length < 4) {
@@ -93,9 +82,7 @@ function hasUnespEmail(user: UserProfile | null): boolean {
     return false;
   }
 
-  return [user.email, ...(user.secondaryEmails ?? [])].some((email) =>
-    isUnespEmail(email),
-  );
+  return [user.email, ...(user.secondaryEmails ?? [])].some((email) => isUnespEmail(email));
 }
 
 function isComputerScienceStudent(user: UserProfile): boolean {

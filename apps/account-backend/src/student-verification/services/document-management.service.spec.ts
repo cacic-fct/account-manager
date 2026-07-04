@@ -7,10 +7,7 @@ import { Readable } from 'stream';
 
 type PrismaMock = {
   studentVerificationDocument: {
-    findUnique: jest.Mock<
-      Promise<StudentVerificationDocument | null>,
-      [unknown]
-    >;
+    findUnique: jest.Mock<Promise<StudentVerificationDocument | null>, [unknown]>;
     update: jest.Mock<Promise<unknown>, [unknown]>;
   };
 };
@@ -22,9 +19,7 @@ type S3Mock = {
 
 const createdAt = new Date('2026-06-17T12:00:00.000Z');
 
-const createDocument = (
-  overrides: Partial<StudentVerificationDocument> = {},
-): StudentVerificationDocument => ({
+const createDocument = (overrides: Partial<StudentVerificationDocument> = {}): StudentVerificationDocument => ({
   id: 'document-1',
   userId: 'user-1',
   originalFileName: 'proof.pdf',
@@ -48,16 +43,10 @@ const createDocument = (
 });
 
 const createContext = () => {
-  const findUnique = jest.fn<
-    Promise<StudentVerificationDocument | null>,
-    [unknown]
-  >();
+  const findUnique = jest.fn<Promise<StudentVerificationDocument | null>, [unknown]>();
   const update = jest.fn<Promise<unknown>, [unknown]>();
   update.mockResolvedValue({});
-  const downloadFile = jest.fn<
-    ReturnType<S3Service['downloadFile']>,
-    [unknown]
-  >();
+  const downloadFile = jest.fn<ReturnType<S3Service['downloadFile']>, [unknown]>();
   const deleteFile = jest.fn<ReturnType<S3Service['deleteFile']>, [unknown]>();
   downloadFile.mockResolvedValue({
     stream: Readable.from('file'),
@@ -77,10 +66,7 @@ const createContext = () => {
     deleteFile,
   };
 
-  const service = new DocumentManagementService(
-    prisma as unknown as PrismaService,
-    s3Service as unknown as S3Service,
-  );
+  const service = new DocumentManagementService(prisma as unknown as PrismaService, s3Service as unknown as S3Service);
 
   return {
     service,
@@ -102,33 +88,21 @@ describe('DocumentManagementService', () => {
       mimeType: 'application/pdf',
       originalFileName: 'proof.pdf',
     });
-    expect(s3Service.downloadFile).toHaveBeenCalledWith(
-      'student-verification/user-1/generated-proof.pdf',
-    );
+    expect(s3Service.downloadFile).toHaveBeenCalledWith('student-verification/user-1/generated-proof.pdf');
   });
 
   it('rejects document file downloads when metadata or storage is missing', async () => {
     const { service, prisma, s3Service } = createContext();
     prisma.studentVerificationDocument.findUnique.mockResolvedValueOnce(null);
 
-    await expect(service.getDocumentFile('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(service.getDocumentFile('missing')).rejects.toBeInstanceOf(NotFoundException);
 
-    prisma.studentVerificationDocument.findUnique.mockResolvedValueOnce(
-      createDocument({ s3Key: null }),
-    );
-    await expect(service.getDocumentFile('document-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    prisma.studentVerificationDocument.findUnique.mockResolvedValueOnce(createDocument({ s3Key: null }));
+    await expect(service.getDocumentFile('document-1')).rejects.toBeInstanceOf(NotFoundException);
 
-    prisma.studentVerificationDocument.findUnique.mockResolvedValueOnce(
-      createDocument(),
-    );
+    prisma.studentVerificationDocument.findUnique.mockResolvedValueOnce(createDocument());
     s3Service.downloadFile.mockRejectedValueOnce(new Error('storage down'));
-    await expect(service.getDocumentFile('document-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(service.getDocumentFile('document-1')).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('removes approved document storage and sensitive fields', async () => {
@@ -137,9 +111,7 @@ describe('DocumentManagementService', () => {
 
     await service.cleanupApprovedDocument(document);
 
-    expect(s3Service.deleteFile).toHaveBeenCalledWith(
-      'student-verification/user-1/generated-proof.pdf',
-    );
+    expect(s3Service.deleteFile).toHaveBeenCalledWith('student-verification/user-1/generated-proof.pdf');
     expect(prisma.studentVerificationDocument.update).toHaveBeenCalledWith({
       where: { id: 'document-1' },
       data: {
@@ -172,23 +144,15 @@ describe('DocumentManagementService', () => {
 
   it('logs cleanup failures without throwing', async () => {
     const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.update.mockRejectedValue(
-      new Error('database unavailable'),
-    );
+    prisma.studentVerificationDocument.update.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(
-      service.cleanupApprovedDocument(createDocument()),
-    ).resolves.toBeUndefined();
+    await expect(service.cleanupApprovedDocument(createDocument())).resolves.toBeUndefined();
   });
 
   it('logs non-Error cleanup failures without throwing', async () => {
     const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.update.mockRejectedValue(
-      'database unavailable',
-    );
+    prisma.studentVerificationDocument.update.mockRejectedValue('database unavailable');
 
-    await expect(
-      service.cleanupApprovedDocument(createDocument()),
-    ).resolves.toBeUndefined();
+    await expect(service.cleanupApprovedDocument(createDocument())).resolves.toBeUndefined();
   });
 });

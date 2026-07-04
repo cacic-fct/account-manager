@@ -62,9 +62,7 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     return this.catalog.listPermissionGroups();
   }
 
-  listPermissionGroupRoleGrants(
-    groupKey: PermissionGroupKey,
-  ): Promise<PermissionGroupRoleGrant[]> {
+  listPermissionGroupRoleGrants(groupKey: PermissionGroupKey): Promise<PermissionGroupRoleGrant[]> {
     return this.groupRoles.listPermissionGroupRoleGrants(groupKey);
   }
 
@@ -73,20 +71,14 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     input: PermissionGroupRoleGrantUpdateRequest,
     actorId?: string,
   ): Promise<PermissionGroupRoleGrant[]> {
-    return this.groupRoles.updatePermissionGroupRoleGrants(
-      groupKey,
-      input,
-      actorId,
-    );
+    return this.groupRoles.updatePermissionGroupRoleGrants(groupKey, input, actorId);
   }
 
   searchUsers(query: string): Promise<KeycloakPermissionUser[]> {
     return this.grants.searchUsers(query);
   }
 
-  listPermissionGroupMemberships(
-    groupKey?: PermissionGroupKey,
-  ): Promise<PermissionGroupMembership[]> {
+  listPermissionGroupMemberships(groupKey?: PermissionGroupKey): Promise<PermissionGroupMembership[]> {
     return this.memberships.listPermissionGroupMemberships(groupKey);
   }
 
@@ -117,10 +109,7 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     return this.grants.listUserGrants(userId);
   }
 
-  createGrant(
-    input: KeycloakPermissionGrantCreateRequest,
-    actorId?: string,
-  ): Promise<KeycloakPermissionGrant> {
+  createGrant(input: KeycloakPermissionGrantCreateRequest, actorId?: string): Promise<KeycloakPermissionGrant> {
     return this.grants.createGrant(input, actorId);
   }
 
@@ -136,9 +125,7 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     return this.grants.deleteGrant(id, actorId);
   }
 
-  async getSelfServiceAccess(
-    userId: string,
-  ): Promise<PermissionSelfServiceAccess> {
+  async getSelfServiceAccess(userId: string): Promise<PermissionSelfServiceAccess> {
     const [memberships, grants] = await Promise.all([
       this.memberships.listUserMemberships(userId),
       this.grants.listUserGrants(userId),
@@ -147,17 +134,11 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
     return { memberships, grants };
   }
 
-  selfRemoveMembership(
-    userId: string,
-    membershipId: string,
-  ): Promise<PermissionSelfRemovalResult> {
+  selfRemoveMembership(userId: string, membershipId: string): Promise<PermissionSelfRemovalResult> {
     return this.memberships.selfRemoveMembership(userId, membershipId);
   }
 
-  selfRemoveGrant(
-    userId: string,
-    grantId: string,
-  ): Promise<PermissionSelfRemovalResult> {
+  selfRemoveGrant(userId: string, grantId: string): Promise<PermissionSelfRemovalResult> {
     return this.grants.selfRemoveGrant(userId, grantId);
   }
 

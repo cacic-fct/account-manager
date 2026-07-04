@@ -8,13 +8,7 @@ import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 
 @Component({
   selector: 'app-linked-accounts',
-  imports: [
-    MatToolbarModule,
-    MatIconModule,
-    MatButtonModule,
-    MatListModule,
-    RouterLink,
-  ],
+  imports: [MatToolbarModule, MatIconModule, MatButtonModule, MatListModule, RouterLink],
   templateUrl: './linked-accounts.component.html',
   styleUrl: './linked-accounts.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

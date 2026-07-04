@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 
 import { DiscordRoleSelectionComponent } from './discord-role-selection.component';
-import {
-  authHandlers,
-  discordHandlers,
-} from '../../../../../../storybook/mocks/msw-handlers';
+import { authHandlers, discordHandlers } from '../../../../../../storybook/mocks/msw-handlers';
 
 const meta: Meta<DiscordRoleSelectionComponent> = {
   title: 'Settings/LinkedAccounts/DiscordRoleSelection',
@@ -47,11 +44,7 @@ export const CooldownErrorOnSave: Story = {
 export const Loading: Story = {
   parameters: {
     msw: {
-      handlers: [
-        authHandlers.csrf,
-        discordHandlers.selectableRoles,
-        discordHandlers.userRoles,
-      ],
+      handlers: [authHandlers.csrf, discordHandlers.selectableRoles, discordHandlers.userRoles],
     },
   },
   play: async () => {

@@ -1,10 +1,4 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsString,
-  Matches,
-  ValidateIf,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString, Matches, ValidateIf } from 'class-validator';
 import type {
   StudentVerificationStatusResponse,
   StudentVerificationUpdateRequest,
@@ -20,12 +14,7 @@ export class UploadResponseDto implements StudentVerificationUploadResponse {
 }
 
 export class VerificationStatusDto implements StudentVerificationStatusResponse {
-  status!:
-    | 'pending'
-    | 'approved'
-    | 'rejected'
-    | 'not_submitted'
-    | 'not_required';
+  status!: 'pending' | 'approved' | 'rejected' | 'not_submitted' | 'not_required';
   submissionDate?: Date;
   verificationDate?: Date;
   rejectionReason?: string;

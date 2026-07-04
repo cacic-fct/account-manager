@@ -22,16 +22,11 @@ export class PhoneValidationService {
     return isSupportedCountry(countryCode) ? countryCode : 'BR';
   }
 
-  parsePhoneValue(
-    phone: string,
-    defaultCountry = 'BR',
-  ): ParsedPhoneValue {
+  parsePhoneValue(phone: string, defaultCountry = 'BR'): ParsedPhoneValue {
     const normalizedCountry = this.normalizeCountryCode(defaultCountry);
     const cleaned = phone?.trim() || '';
 
-    const parsed =
-      parsePhoneNumberFromString(cleaned) ||
-      parsePhoneNumberFromString(cleaned, normalizedCountry);
+    const parsed = parsePhoneNumberFromString(cleaned) || parsePhoneNumberFromString(cleaned, normalizedCountry);
 
     if (parsed) {
       return {
@@ -45,9 +40,7 @@ export class PhoneValidationService {
     return {
       country: normalizedCountry,
       nationalNumber: digits,
-      e164: digits
-        ? `+${getCountryCallingCode(normalizedCountry)}${digits}`
-        : '',
+      e164: digits ? `+${getCountryCallingCode(normalizedCountry)}${digits}` : '',
     };
   }
 
@@ -63,10 +56,7 @@ export class PhoneValidationService {
   }
 
   // Validate international phone number using libphonenumber-js
-  isValidInternationalPhone(
-    phone: string,
-    countryCode = 'BR',
-  ): boolean {
+  isValidInternationalPhone(phone: string, countryCode = 'BR'): boolean {
     if (!phone) {
       return false;
     }
@@ -93,8 +83,7 @@ export class PhoneValidationService {
 
     const normalizedCountry = this.normalizeCountryCode(countryCode);
     const parsed =
-      parsePhoneNumberFromString(phone.trim()) ||
-      parsePhoneNumberFromString(phone.trim(), normalizedCountry);
+      parsePhoneNumberFromString(phone.trim()) || parsePhoneNumberFromString(phone.trim(), normalizedCountry);
 
     if (parsed?.isValid()) {
       return parsed.formatNational();

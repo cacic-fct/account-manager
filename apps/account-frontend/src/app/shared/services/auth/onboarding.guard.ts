@@ -1,10 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import {
-  CanActivate,
-  ActivatedRouteSnapshot,
-  RouterStateSnapshot,
-  Router,
-} from '@angular/router';
+import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { AuthService } from './auth.service';
@@ -17,10 +12,7 @@ export class OnboardingGuard implements CanActivate {
   private router = inject(Router);
   private routeCache = inject(RouteCacheService);
 
-  canActivate(
-    route: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot,
-  ): Observable<boolean> {
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> {
     return this.authService.isDoneLoading$.pipe(
       switchMap(() => {
         const isAuthenticated = this.authService.isAuthenticated();
@@ -60,9 +52,7 @@ export class OnboardingGuard implements CanActivate {
             });
 
             if (isOnboarded) {
-              console.log(
-                'User already onboarded (cached), redirecting to applications',
-              );
+              console.log('User already onboarded (cached), redirecting to applications');
               setTimeout(() => {
                 this.router.navigateByUrl('/applications');
               }, 0);
@@ -70,9 +60,7 @@ export class OnboardingGuard implements CanActivate {
             }
 
             // Allow access to onboarding if we can't verify status
-            console.log(
-              'Cannot verify onboarding status, allowing access to onboarding',
-            );
+            console.log('Cannot verify onboarding status, allowing access to onboarding');
             return of(true);
           }),
         );
@@ -85,17 +73,11 @@ export class OnboardingGuard implements CanActivate {
     );
   }
 
-  private handleOnboardingAccess(
-    user: User,
-    isAuthenticated: boolean,
-  ): Observable<boolean> {
+  private handleOnboardingAccess(user: User, isAuthenticated: boolean): Observable<boolean> {
     return of(this.handleOnboardingAccessSync(user, isAuthenticated));
   }
 
-  private handleOnboardingAccessSync(
-    user: User,
-    isAuthenticated: boolean,
-  ): boolean {
+  private handleOnboardingAccessSync(user: User, isAuthenticated: boolean): boolean {
     const isOnboarded = user.isOnboarded;
 
     console.log('OnboardingGuard check with user data:', {

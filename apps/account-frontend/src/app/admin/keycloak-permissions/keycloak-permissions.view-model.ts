@@ -12,9 +12,7 @@ export type PermissionClientGroup = {
   permissions: KeycloakPermissionDefinition[];
 };
 
-export function groupPermissionsByClient(
-  catalog: readonly KeycloakPermissionDefinition[],
-): PermissionClientGroup[] {
+export function groupPermissionsByClient(catalog: readonly KeycloakPermissionDefinition[]): PermissionClientGroup[] {
   const groups = new Map<string, PermissionClientGroup>();
 
   for (const permission of catalog) {
@@ -33,20 +31,12 @@ export function groupPermissionsByClient(
 
   return [...groups.values()].map((group) => ({
     ...group,
-    permissions: group.permissions.sort((left, right) =>
-      left.label.localeCompare(right.label),
-    ),
+    permissions: group.permissions.sort((left, right) => left.label.localeCompare(right.label)),
   }));
 }
 
-export function activeGroupPermissions(
-  grants: readonly PermissionGroupRoleGrant[],
-): Set<string> {
-  return new Set(
-    grants
-      .filter((grant) => grant.status !== 'expired')
-      .map((grant) => grant.permission),
-  );
+export function activeGroupPermissions(grants: readonly PermissionGroupRoleGrant[]): Set<string> {
+  return new Set(grants.filter((grant) => grant.status !== 'expired').map((grant) => grant.permission));
 }
 
 export function availableDirectPermissions(
@@ -57,32 +47,19 @@ export function availableDirectPermissions(
   return catalog.filter((permission) => !granted.has(permission.permission));
 }
 
-export function getPermissionLabel(
-  catalog: readonly KeycloakPermissionDefinition[],
-  permission: string,
-): string {
-  return (
-    catalog.find((definition) => definition.permission === permission)?.label ??
-    permission
-  );
+export function getPermissionLabel(catalog: readonly KeycloakPermissionDefinition[], permission: string): string {
+  return catalog.find((definition) => definition.permission === permission)?.label ?? permission;
 }
 
-export function getPermissionClientLabel(
-  catalog: readonly KeycloakPermissionDefinition[],
-  permission: string,
-): string {
+export function getPermissionClientLabel(catalog: readonly KeycloakPermissionDefinition[], permission: string): string {
   return (
-    catalog.find((definition) => definition.permission === permission)
-      ?.clientLabel ??
+    catalog.find((definition) => definition.permission === permission)?.clientLabel ??
     permission.split(':')[0] ??
     permission
   );
 }
 
-export function getGroupLabel(
-  groups: readonly PermissionGroupDefinition[],
-  groupKey: string,
-): string {
+export function getGroupLabel(groups: readonly PermissionGroupDefinition[], groupKey: string): string {
   return groups.find((group) => group.key === groupKey)?.label ?? groupKey;
 }
 
@@ -96,22 +73,15 @@ export function getStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-export function formatValidity(item: {
-  validFrom?: string | null;
-  validUntil?: string | null;
-}): string {
+export function formatValidity(item: { validFrom?: string | null; validUntil?: string | null }): string {
   const start = item.validFrom ? formatDate(item.validFrom) : 'agora';
   const end = item.validUntil ? formatDate(item.validUntil) : 'sem fim';
   return `${start} até ${end}`;
 }
 
-export function formatMembership(
-  membership: PermissionGroupMembership,
-): string {
+export function formatMembership(membership: PermissionGroupMembership): string {
   const start = formatDate(membership.validFrom);
-  const end = membership.validUntil
-    ? formatDate(membership.validUntil)
-    : 'sem fim definido';
+  const end = membership.validUntil ? formatDate(membership.validUntil) : 'sem fim definido';
   return `${start} até ${end}`;
 }
 

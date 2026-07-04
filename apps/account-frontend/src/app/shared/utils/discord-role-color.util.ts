@@ -1,6 +1,4 @@
-export function normalizeDiscordRoleColor(
-  color: string | null | undefined,
-): string {
+export function normalizeDiscordRoleColor(color: string | null | undefined): string {
   const trimmed = color?.trim();
 
   if (!trimmed || trimmed === '#000000') {
@@ -19,9 +17,7 @@ export function normalizeDiscordRoleColor(
   return '#99aab5';
 }
 
-export function getReadableDiscordRoleTextColor(
-  color: string | null | undefined,
-): '#000000' | '#ffffff' {
+export function getReadableDiscordRoleTextColor(color: string | null | undefined): '#000000' | '#ffffff' {
   const luminance = getRelativeLuminance(normalizeDiscordRoleColor(color));
   const contrastWithBlack = (luminance + 0.05) / 0.05;
   const contrastWithWhite = 1.05 / (luminance + 0.05);
@@ -34,14 +30,10 @@ function getRelativeLuminance(color: string): number {
   const green = parseInt(color.slice(3, 5), 16);
   const blue = parseInt(color.slice(5, 7), 16);
 
-  const [linearRed, linearGreen, linearBlue] = [red, green, blue].map(
-    (channel) => {
-      const value = channel / 255;
-      return value <= 0.03928
-        ? value / 12.92
-        : Math.pow((value + 0.055) / 1.055, 2.4);
-    },
-  );
+  const [linearRed, linearGreen, linearBlue] = [red, green, blue].map((channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  });
 
   return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue;
 }

@@ -62,11 +62,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     PrismaModule,
     NecordModule.forRoot({
       token: discordBotToken,
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-      ],
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages],
       development: [discordGuildId],
     }),
   ],

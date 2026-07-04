@@ -1,22 +1,6 @@
-import {
-  Controller,
-  Get,
-  Delete,
-  Query,
-  Param,
-  Session,
-  Res,
-  Logger,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Delete, Query, Param, Session, Res, Logger, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiQuery,
-  ApiParam,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig, AppConfig } from '../config/app.config';
@@ -25,10 +9,7 @@ import { DiscordLinkService } from './services/discord-link.service';
 import { Auth } from '../auth/guards/auth.decorator';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
-import {
-  DiscordLinkStatusDto,
-  UnlinkDiscordResponseDto,
-} from './dto/discord-link.dto';
+import { DiscordLinkStatusDto, UnlinkDiscordResponseDto } from './dto/discord-link.dto';
 
 interface AuthSession {
   user?: SessionUser;
@@ -83,10 +64,9 @@ export class DiscordController {
   @Auth()
   @Get('auth-url')
   getDiscordAuthUrl(@Session() session: AuthSession): { authUrl: string } {
-    const oauthData: { authUrl: string; state: string } =
-      this.discordOAuthService.getDiscordAuthUrl(
-        session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
-      );
+    const oauthData: { authUrl: string; state: string } = this.discordOAuthService.getDiscordAuthUrl(
+      session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
+    );
     session.discordOAuthState = oauthData.state;
     return { authUrl: oauthData.authUrl };
   }
@@ -119,31 +99,21 @@ export class DiscordController {
   ) {
     try {
       if (!code || !state) {
-        return res.redirect(
-          this.discordIntegrationUrl({ error: 'missing_parameters' }),
-        );
+        return res.redirect(this.discordIntegrationUrl({ error: 'missing_parameters' }));
       }
 
       if (!session.discordOAuthState) {
-        return res.redirect(
-          this.discordIntegrationUrl({ error: 'invalid_state' }),
-        );
+        return res.redirect(this.discordIntegrationUrl({ error: 'invalid_state' }));
       }
 
-      this.discordOAuthService.verifyOAuthState(
-        state,
-        session.discordOAuthState,
-      );
+      this.discordOAuthService.verifyOAuthState(state, session.discordOAuthState);
       delete session.discordOAuthState;
 
       // Process the OAuth callback
-      await this.discordLinkService.linkDiscordAccount(
-        session.user!.keycloakId,
-        {
-          code,
-          state,
-        },
-      );
+      await this.discordLinkService.linkDiscordAccount(session.user!.keycloakId, {
+        code,
+        state,
+      });
 
       return res.redirect(this.discordIntegrationUrl({ success: 'true' }));
     } catch (error) {
@@ -161,8 +131,7 @@ export class DiscordController {
 
   @ApiOperation({
     summary: 'Get Discord link status',
-    description:
-      'Get the Discord link status for the authenticated user, including invite links for eligible users',
+    description: 'Get the Discord link status for the authenticated user, including invite links for eligible users',
   })
   @ApiResponse({
     status: 200,
@@ -175,9 +144,7 @@ export class DiscordController {
   })
   @Auth()
   @Get('status')
-  async getDiscordLinkStatus(
-    @Session() session: AuthSession,
-  ): Promise<DiscordLinkStatusDto> {
+  async getDiscordLinkStatus(@Session() session: AuthSession): Promise<DiscordLinkStatusDto> {
     return await this.discordLinkService.getDiscordLinkStatus(
       session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
     );
@@ -220,10 +187,7 @@ export class DiscordController {
   }
 
   private discordIntegrationUrl(query: Record<string, string>): string {
-    const url = new URL(
-      LINKED_ACCOUNT_ROUTE_PATHS.discord,
-      this.appConfig.frontendUrl,
-    );
+    const url = new URL(LINKED_ACCOUNT_ROUTE_PATHS.discord, this.appConfig.frontendUrl);
     url.search = new URLSearchParams(query).toString();
     return url.toString();
   }

@@ -11,8 +11,7 @@ describe('LinkedAccountsComponent', () => {
     await TestBed.configureTestingModule({
       imports: [LinkedAccountsComponent],
       providers: [provideRouter([])],
-    })
-    .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(LinkedAccountsComponent);
     component = fixture.componentInstance;

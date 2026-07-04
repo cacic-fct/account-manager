@@ -9,9 +9,7 @@
   <mat-card>
     <mat-card-header>
       <mat-card-title>Solicitações pendentes</mat-card-title>
-      <mat-card-subtitle>
-        Contas desativadas com exclusão definitiva agendada
-      </mat-card-subtitle>
+      <mat-card-subtitle> Contas desativadas com exclusão definitiva agendada </mat-card-subtitle>
     </mat-card-header>
 
     <mat-card-content>
@@ -70,20 +68,10 @@
                 @if (actionRequestId() === request.id) {
                   <mat-spinner diameter="28"></mat-spinner>
                 } @else {
-                  <button
-                    mat-icon-button
-                    color="primary"
-                    matTooltip="Reativar conta"
-                    (click)="confirmUndo(request)"
-                  >
+                  <button mat-icon-button color="primary" matTooltip="Reativar conta" (click)="confirmUndo(request)">
                     <mat-icon>undo</mat-icon>
                   </button>
-                  <button
-                    mat-icon-button
-                    color="warn"
-                    matTooltip="Excluir agora"
-                    (click)="confirmDeleteNow(request)"
-                  >
+                  <button mat-icon-button color="warn" matTooltip="Excluir agora" (click)="confirmDeleteNow(request)">
                     <mat-icon>delete_forever</mat-icon>
                   </button>
                 }

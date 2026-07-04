@@ -1,23 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
-import type {
-  AccountMergeRequest,
-  AccountMergeUserScore,
-  ExternalAccountMergeScore,
-} from '@cacic/shared-types';
+import type { AccountMergeRequest, AccountMergeUserScore, ExternalAccountMergeScore } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  KeycloakFederatedIdentity,
-  KeycloakService,
-} from '../services/keycloak.service';
+import { KeycloakFederatedIdentity, KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { JwtService } from '../jwt/jwt.service';
 import {
@@ -55,15 +43,10 @@ export class AccountLinkingService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     @InjectQueue(ACCOUNT_MERGE_QUEUE)
-    private readonly accountMergeQueue: Queue<
-      ScoreAndMergeJob | DeliverExternalNotificationJob
-    >,
+    private readonly accountMergeQueue: Queue<ScoreAndMergeJob | DeliverExternalNotificationJob>,
   ) {}
 
-  async createMergeRequest(
-    requesterUserId: string,
-    candidateUserId: string,
-  ): Promise<AccountMergeRequest> {
+  async createMergeRequest(requesterUserId: string, candidateUserId: string): Promise<AccountMergeRequest> {
     if (requesterUserId === candidateUserId) {
       throw new BadRequestException('Account is already linked to this user');
     }
@@ -95,10 +78,7 @@ export class AccountLinkingService {
     return this.toDto(request, primaryEmailOptions);
   }
 
-  async getRequest(
-    requestId: string,
-    sessionUserId: string,
-  ): Promise<AccountMergeRequest> {
+  async getRequest(requestId: string, sessionUserId: string): Promise<AccountMergeRequest> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
     });
@@ -107,11 +87,7 @@ export class AccountLinkingService {
       throw new NotFoundException('Merge request not found');
     }
 
-    return this.toDto(
-      request,
-      undefined,
-      await this.getNotificationSummary(request.id),
-    );
+    return this.toDto(request, undefined, await this.getNotificationSummary(request.id));
   }
 
   async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {
@@ -123,9 +99,7 @@ export class AccountLinkingService {
       throw new NotFoundException('Merge request not found');
     }
 
-    if (
-      !['pending', 'pending_score', 'pending_merge'].includes(request.status)
-    ) {
+    if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
       return;
     }
 
@@ -196,9 +170,7 @@ export class AccountLinkingService {
       primaryUserId: updated.primaryUserId || updated.requesterUserId,
       mergedUserId: updated.secondaryUserId || updated.candidateUserId,
       primaryEmail: normalizedPrimaryEmail,
-      secondaryEmails: emailOptions.filter(
-        (email) => email !== normalizedPrimaryEmail,
-      ),
+      secondaryEmails: emailOptions.filter((email) => email !== normalizedPrimaryEmail),
     };
   }
 
@@ -217,25 +189,13 @@ export class AccountLinkingService {
     }
 
     try {
-      const decision = await this.scoreMergeCandidates(
-        request.requesterUserId,
-        request.candidateUserId,
-      );
-      const primaryAttributes = await this.keycloakService.getUserAttributes(
-        decision.primaryUserId,
-      );
-      const secondaryAttributes = await this.keycloakService.getUserAttributes(
-        decision.secondaryUserId,
-      );
+      const decision = await this.scoreMergeCandidates(request.requesterUserId, request.candidateUserId);
+      const primaryAttributes = await this.keycloakService.getUserAttributes(decision.primaryUserId);
+      const secondaryAttributes = await this.keycloakService.getUserAttributes(decision.secondaryUserId);
       const emailOptions = await this.getEmailOptionsForRequest(request);
-      const secondaryEmails = emailOptions.filter(
-        (email) => email !== request.selectedPrimaryEmail,
-      );
+      const secondaryEmails = emailOptions.filter((email) => email !== request.selectedPrimaryEmail);
 
-      await this.transferFederatedIdentities(
-        decision.primaryUserId,
-        decision.secondaryUserId,
-      );
+      await this.transferFederatedIdentities(decision.primaryUserId, decision.secondaryUserId);
 
       await this.keycloakService.updateUserAttributes(
         decision.primaryUserId,
@@ -261,27 +221,17 @@ export class AccountLinkingService {
         },
         { skipValidation: true },
       );
-      await this.keycloakService.setUserEnabled(
-        decision.secondaryUserId,
-        false,
-      );
+      await this.keycloakService.setUserEnabled(decision.secondaryUserId, false);
 
       const { notifications, updated } = await this.prisma.$transaction(
         async (tx) => {
-          await this.transferLocalData(
-            tx,
-            decision.primaryUserId,
-            decision.secondaryUserId,
-          );
+          await this.transferLocalData(tx, decision.primaryUserId, decision.secondaryUserId);
 
-          const notifications = await this.createExternalMergeNotifications(
-            tx,
-            {
-              mergeRequestId: request.id,
-              oldUserId: decision.secondaryUserId,
-              newUserId: decision.primaryUserId,
-            },
-          );
+          const notifications = await this.createExternalMergeNotifications(tx, {
+            mergeRequestId: request.id,
+            oldUserId: decision.secondaryUserId,
+            newUserId: decision.primaryUserId,
+          });
 
           const updated = await tx.accountMergeRequest.update({
             where: { id: request.id },
@@ -290,10 +240,8 @@ export class AccountLinkingService {
               primaryUserId: decision.primaryUserId,
               secondaryUserId: decision.secondaryUserId,
               secondaryEmails,
-              scoreBreakdown:
-                decision.scores as unknown as Prisma.InputJsonValue,
-              externalScores:
-                decision.externalScores as unknown as Prisma.InputJsonValue,
+              scoreBreakdown: decision.scores as unknown as Prisma.InputJsonValue,
+              externalScores: decision.externalScores as unknown as Prisma.InputJsonValue,
               completedAt: notifications.length > 0 ? null : new Date(),
             },
           });
@@ -338,33 +286,24 @@ export class AccountLinkingService {
         );
 
         if (failedEnqueues.length > 0) {
-          failedNotificationIds = failedEnqueues.map(
-            ({ notificationId }) => notificationId,
-          );
+          failedNotificationIds = failedEnqueues.map(({ notificationId }) => notificationId);
           throw new Error(
             failedEnqueues
               .map(({ notificationId, error }) => {
-                const message =
-                  error instanceof Error
-                    ? error.message
-                    : 'Unknown queue error';
+                const message = error instanceof Error ? error.message : 'Unknown queue error';
                 return `${notificationId}: ${message}`;
               })
               .join('; '),
           );
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown queue error';
+        const errorMessage = error instanceof Error ? error.message : 'Unknown queue error';
 
-        this.logger.error(
-          'Failed to enqueue account merge external notification jobs',
-          {
-            requestId,
-            notificationIds: failedNotificationIds,
-            errorMessage,
-          },
-        );
+        this.logger.error('Failed to enqueue account merge external notification jobs', {
+          requestId,
+          notificationIds: failedNotificationIds,
+          errorMessage,
+        });
 
         if (failedNotificationIds.length > 0) {
           await this.prisma.accountMergeExternalNotification.updateMany({
@@ -386,19 +325,15 @@ export class AccountLinkingService {
         });
       }
     } catch (error) {
-      await this.failMerge(
-        requestId,
-        error instanceof Error ? error.message : 'Unknown merge error',
-      );
+      await this.failMerge(requestId, error instanceof Error ? error.message : 'Unknown merge error');
       throw error;
     }
   }
 
   async deliverExternalNotification(notificationId: string): Promise<void> {
-    const notification =
-      await this.prisma.accountMergeExternalNotification.findUnique({
-        where: { id: notificationId },
-      });
+    const notification = await this.prisma.accountMergeExternalNotification.findUnique({
+      where: { id: notificationId },
+    });
 
     if (!notification || notification.status === 'completed') {
       return;
@@ -439,15 +374,11 @@ export class AccountLinkingService {
             completedAt: new Date(),
           },
         });
-        await this.completeMergeIfNotificationsFinished(
-          notification.mergeRequestId,
-        );
+        await this.completeMergeIfNotificationsFinished(notification.mergeRequestId);
         return;
       }
 
-      throw new Error(
-        `Invalid acknowledgement: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Invalid acknowledgement: ${response.status} ${response.statusText}`);
     } catch (error) {
       const delay = this.getNotificationRetryDelayMs(attemptCount);
       const nextAttemptAt = new Date(Date.now() + delay);
@@ -475,10 +406,7 @@ export class AccountLinkingService {
     }
   }
 
-  private async scoreMergeCandidates(
-    firstUserId: string,
-    secondUserId: string,
-  ): Promise<MergeDecision> {
+  private async scoreMergeCandidates(firstUserId: string, secondUserId: string): Promise<MergeDecision> {
     const [firstScore, secondScore, externalScores] = await Promise.all([
       this.scoreUser(firstUserId),
       this.scoreUser(secondUserId),
@@ -515,14 +443,7 @@ export class AccountLinkingService {
   }
 
   private async scoreUser(userId: string): Promise<AccountMergeUserScore> {
-    const [
-      profile,
-      attributes,
-      discordLinks,
-      approvedDocument,
-      pendingDocument,
-      groups,
-    ] = await Promise.all([
+    const [profile, attributes, discordLinks, approvedDocument, pendingDocument, groups] = await Promise.all([
       this.userService.findByKeycloakId(userId),
       this.keycloakService.getUserAttributes(userId),
       this.prisma.discordLink.findMany({
@@ -554,20 +475,11 @@ export class AccountLinkingService {
     add('Student status verified', profile?.unespRoleVerified ? 30 : 0);
     add('External user verified', profile?.externalUserVerified ? 15 : 0);
     add('Full name locked by verification', profile?.fullNameLocked ? 5 : 0);
-    add(
-      'Verified Discord accounts',
-      Math.min(discordLinks.filter((link) => link.isVerified).length * 15, 45),
-    );
+    add('Verified Discord accounts', Math.min(discordLinks.filter((link) => link.isVerified).length * 15, 45));
     add('Approved student document', approvedDocument ? 20 : 0);
-    add(
-      'Pending student document',
-      !approvedDocument && pendingDocument ? 5 : 0,
-    );
+    add('Pending student document', !approvedDocument && pendingDocument ? 5 : 0);
     add('Keycloak group memberships', Math.min(groups.length * 3, 12));
-    add(
-      'Has secondary emails',
-      this.parseEmails(attributes.secondary_emails).length * 2,
-    );
+    add('Has secondary emails', this.parseEmails(attributes.secondary_emails).length * 2);
 
     const createdAt = profile?.createdAt?.getTime();
     if (createdAt && createdAt < Date.now() - 180 * 24 * 60 * 60 * 1000) {
@@ -583,12 +495,8 @@ export class AccountLinkingService {
     };
   }
 
-  private async getExternalScores(
-    userIds: string[],
-  ): Promise<ExternalAccountMergeScore[]> {
-    const backends = this.getExternalBackends().filter(
-      (backend) => backend.scoreUrl,
-    );
+  private async getExternalScores(userIds: string[]): Promise<ExternalAccountMergeScore[]> {
+    const backends = this.getExternalBackends().filter((backend) => backend.scoreUrl);
 
     return Promise.all(
       backends.map(async (backend) => {
@@ -629,9 +537,7 @@ export class AccountLinkingService {
     },
   ) {
     const occurredAt = new Date().toISOString();
-    const backends = this.getExternalBackends().filter(
-      (backend) => backend.mergeUrl,
-    );
+    const backends = this.getExternalBackends().filter((backend) => backend.mergeUrl);
 
     return Promise.all(
       backends.map((backend) => {
@@ -661,9 +567,7 @@ export class AccountLinkingService {
     );
   }
 
-  private async completeMergeIfNotificationsFinished(
-    mergeRequestId: string,
-  ): Promise<void> {
+  private async completeMergeIfNotificationsFinished(mergeRequestId: string): Promise<void> {
     const pending = await this.prisma.accountMergeExternalNotification.count({
       where: {
         mergeRequestId,
@@ -702,10 +606,7 @@ export class AccountLinkingService {
     return { pending, completed, failed };
   }
 
-  private async failMerge(
-    requestId: string,
-    errorMessage: string,
-  ): Promise<void> {
+  private async failMerge(requestId: string, errorMessage: string): Promise<void> {
     this.logger.error('Account merge workflow failed', {
       requestId,
       errorMessage,
@@ -720,10 +621,7 @@ export class AccountLinkingService {
   }
 
   private getNotificationRetryDelayMs(attemptCount: number): number {
-    return Math.min(
-      this.initialRetryDelayMs * Math.max(attemptCount, 1) ** 2,
-      this.maxRetryDelayMs,
-    );
+    return Math.min(this.initialRetryDelayMs * Math.max(attemptCount, 1) ** 2, this.maxRetryDelayMs);
   }
 
   private async readJsonResponse(response: Response): Promise<unknown> {
@@ -808,29 +706,20 @@ export class AccountLinkingService {
     }
   }
 
-  private async transferFederatedIdentities(
-    primaryUserId: string,
-    secondaryUserId: string,
-  ): Promise<void> {
+  private async transferFederatedIdentities(primaryUserId: string, secondaryUserId: string): Promise<void> {
     const [primaryIdentities, secondaryIdentities] = await Promise.all([
       this.keycloakService.getFederatedIdentities(primaryUserId),
       this.keycloakService.getFederatedIdentities(secondaryUserId),
     ]);
 
-    const primaryKeys = new Set(
-      primaryIdentities.map((identity) => this.identityKey(identity)),
-    );
+    const primaryKeys = new Set(primaryIdentities.map((identity) => this.identityKey(identity)));
 
     for (const identity of secondaryIdentities) {
       if (primaryKeys.has(this.identityKey(identity))) {
         continue;
       }
 
-      await this.moveFederatedIdentity(
-        secondaryUserId,
-        primaryUserId,
-        identity,
-      );
+      await this.moveFederatedIdentity(secondaryUserId, primaryUserId, identity);
     }
   }
 
@@ -839,22 +728,14 @@ export class AccountLinkingService {
     toUserId: string,
     identity: KeycloakFederatedIdentity,
   ): Promise<void> {
-    await this.keycloakService.removeFederatedIdentity(
-      fromUserId,
-      identity.identityProvider,
-    );
+    await this.keycloakService.removeFederatedIdentity(fromUserId, identity.identityProvider);
 
     try {
       await this.keycloakService.addFederatedIdentity(toUserId, identity);
     } catch (error) {
       await this.keycloakService
         .addFederatedIdentity(fromUserId, identity)
-        .catch((restoreError) =>
-          this.logger.error(
-            'Failed to restore federated identity',
-            restoreError,
-          ),
-        );
+        .catch((restoreError) => this.logger.error('Failed to restore federated identity', restoreError));
       throw error;
     }
   }
@@ -888,19 +769,10 @@ export class AccountLinkingService {
       'createdAt',
     ].forEach(fillIfBlank);
 
-    const booleanKeys = [
-      'isOnboarded',
-      'isForeigner',
-      'unespRoleVerified',
-      'externalUserVerified',
-      'fullNameLocked',
-    ];
+    const booleanKeys = ['isOnboarded', 'isForeigner', 'unespRoleVerified', 'externalUserVerified', 'fullNameLocked'];
 
     for (const key of booleanKeys) {
-      if (
-        primaryAttributes[key]?.[0] === 'true' ||
-        secondaryAttributes[key]?.[0] === 'true'
-      ) {
+      if (primaryAttributes[key]?.[0] === 'true' || secondaryAttributes[key]?.[0] === 'true') {
         merged[key] = ['true'];
       }
     }
@@ -942,12 +814,7 @@ export class AccountLinkingService {
     requesterUserId: string;
     candidateUserId: string;
   }): Promise<string[]> {
-    const [
-      requesterAttributes,
-      candidateAttributes,
-      requesterBasic,
-      candidateBasic,
-    ] = await Promise.all([
+    const [requesterAttributes, candidateAttributes, requesterBasic, candidateBasic] = await Promise.all([
       this.keycloakService.getUserAttributes(request.requesterUserId),
       this.keycloakService.getUserAttributes(request.candidateUserId),
       this.keycloakService.getUserBasicInfo(request.requesterUserId),
@@ -978,9 +845,7 @@ export class AccountLinkingService {
           try {
             const parsed = JSON.parse(trimmed) as unknown;
             if (Array.isArray(parsed)) {
-              return parsed.filter(
-                (item): item is string => typeof item === 'string',
-              );
+              return parsed.filter((item): item is string => typeof item === 'string');
             }
           } catch {
             return [trimmed];
@@ -994,9 +859,7 @@ export class AccountLinkingService {
   }
 
   private uniqueStrings(values: string[]): string[] {
-    return Array.from(
-      new Set(values.map((value) => value.trim()).filter(Boolean)),
-    );
+    return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
   }
 
   private identityKey(identity: KeycloakFederatedIdentity): string {
@@ -1004,9 +867,7 @@ export class AccountLinkingService {
   }
 
   private getExternalBackends(): ExternalMergeBackend[] {
-    const raw =
-      process.env.ACCOUNT_MERGE_EXTERNAL_BACKENDS ||
-      process.env.ACCOUNT_LINKING_EXTERNAL_BACKENDS;
+    const raw = process.env.ACCOUNT_MERGE_EXTERNAL_BACKENDS || process.env.ACCOUNT_LINKING_EXTERNAL_BACKENDS;
 
     if (!raw) {
       return [];
@@ -1019,9 +880,7 @@ export class AccountLinkingService {
       }
 
       return parsed
-        .filter((item): item is ExternalMergeBackend =>
-          this.isExternalMergeBackend(item),
-        )
+        .filter((item): item is ExternalMergeBackend => this.isExternalMergeBackend(item))
         .map((item) => ({
           name: item.name,
           scoreUrl: item.scoreUrl,
@@ -1034,9 +893,7 @@ export class AccountLinkingService {
     }
   }
 
-  private async externalHeaders(
-    backend: ExternalMergeBackend,
-  ): Promise<Record<string, string>> {
+  private async externalHeaders(backend: ExternalMergeBackend): Promise<Record<string, string>> {
     const token = await this.jwtService.getClientCredentialsToken({
       audience: backend.audience,
     });
@@ -1047,10 +904,7 @@ export class AccountLinkingService {
     };
   }
 
-  private normalizeExternalScores(
-    payload: unknown,
-    userIds: string[],
-  ): Record<string, number> {
+  private normalizeExternalScores(payload: unknown, userIds: string[]): Record<string, number> {
     const scores: Record<string, number> = {};
 
     if (payload && typeof payload === 'object' && 'scores' in payload) {
@@ -1067,17 +921,9 @@ export class AccountLinkingService {
 
     if (Array.isArray(payload)) {
       for (const item of payload) {
-        if (
-          item &&
-          typeof item === 'object' &&
-          'userId' in item &&
-          'score' in item
-        ) {
+        if (item && typeof item === 'object' && 'userId' in item && 'score' in item) {
           const record = item as Record<string, unknown>;
-          if (
-            typeof record.userId === 'string' &&
-            typeof record.score === 'number'
-          ) {
+          if (typeof record.userId === 'string' && typeof record.score === 'number') {
             scores[record.userId] = record.score;
           }
         }
@@ -1118,10 +964,7 @@ export class AccountLinkingService {
       : [];
     const emailOptions =
       primaryEmailOptions ||
-      this.uniqueStrings([
-        ...scores.map((score) => score.email).filter(Boolean),
-        ...request.secondaryEmails,
-      ]);
+      this.uniqueStrings([...scores.map((score) => score.email).filter(Boolean), ...request.secondaryEmails]);
 
     return {
       id: request.id,
@@ -1149,15 +992,10 @@ export class AccountLinkingService {
     },
     sessionUserId: string,
   ): boolean {
-    return (
-      request.requesterUserId === sessionUserId ||
-      request.primaryUserId === sessionUserId
-    );
+    return request.requesterUserId === sessionUserId || request.primaryUserId === sessionUserId;
   }
 
-  private isExternalMergeBackend(
-    value: unknown,
-  ): value is ExternalMergeBackend {
+  private isExternalMergeBackend(value: unknown): value is ExternalMergeBackend {
     if (!value || typeof value !== 'object') {
       return false;
     }

@@ -10,8 +10,7 @@
     matTooltip="Atualizar"
     aria-label="Atualizar"
     [disabled]="loading()"
-    (click)="refresh()"
-  >
+    (click)="refresh()">
     <mat-icon>refresh</mat-icon>
   </button>
 </mat-toolbar>
@@ -60,8 +59,7 @@
                         color="warn"
                         matTooltip="Remover vínculo"
                         aria-label="Remover vínculo"
-                        (click)="confirmRemoveMembership(membership)"
-                      >
+                        (click)="confirmRemoveMembership(membership)">
                         <mat-icon>logout</mat-icon>
                       </button>
                     }
@@ -103,8 +101,7 @@
                         color="warn"
                         matTooltip="Remover permissão"
                         aria-label="Remover permissão"
-                        (click)="confirmRemoveGrant(grant)"
-                      >
+                        (click)="confirmRemoveGrant(grant)">
                         <mat-icon>delete</mat-icon>
                       </button>
                     }

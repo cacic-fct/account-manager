@@ -1,18 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../auth/services/user.service';
@@ -90,12 +78,8 @@ export class TotpService {
       digits: TOTP_DIGITS,
       periodSeconds: TOTP_PERIOD_SECONDS,
       serverTime: new Date(),
-      ...(user?.totpSecretCreatedAt
-        ? { createdAt: user.totpSecretCreatedAt }
-        : {}),
-      ...(user?.totpSecretRotatedAt
-        ? { rotatedAt: user.totpSecretRotatedAt }
-        : {}),
+      ...(user?.totpSecretCreatedAt ? { createdAt: user.totpSecretCreatedAt } : {}),
+      ...(user?.totpSecretRotatedAt ? { rotatedAt: user.totpSecretRotatedAt } : {}),
     };
   }
 
@@ -163,10 +147,7 @@ export class TotpService {
     });
   }
 
-  async validateCode(
-    primaryEmail: string,
-    rawCode: string,
-  ): Promise<TotpValidationResult> {
+  async validateCode(primaryEmail: string, rawCode: string): Promise<TotpValidationResult> {
     const normalizedEmail = this.normalizeEmail(primaryEmail);
     const code = this.normalizeCode(rawCode);
     const serverTime = new Date();
@@ -186,11 +167,7 @@ export class TotpService {
     const seed = this.decryptSeed(user);
     const now = Date.now();
 
-    for (
-      let offset = -TOTP_VALIDATION_WINDOW_STEPS;
-      offset <= TOTP_VALIDATION_WINDOW_STEPS;
-      offset += 1
-    ) {
+    for (let offset = -TOTP_VALIDATION_WINDOW_STEPS; offset <= TOTP_VALIDATION_WINDOW_STEPS; offset += 1) {
       const timestamp = now + offset * TOTP_PERIOD_SECONDS * 1000;
       const expectedCode = this.generateCode(seed, timestamp);
       if (this.safeCodeEquals(code, expectedCode)) {
@@ -250,14 +227,9 @@ export class TotpService {
   }
 
   private hasEncryptedSeed(
-    user: Pick<
-      User,
-      'totpSecretEncrypted' | 'totpSecretIv' | 'totpSecretAuthTag'
-    >,
+    user: Pick<User, 'totpSecretEncrypted' | 'totpSecretIv' | 'totpSecretAuthTag'>,
   ): user is User & Required<EncryptedSeed> {
-    return Boolean(
-      user.totpSecretEncrypted && user.totpSecretIv && user.totpSecretAuthTag,
-    );
+    return Boolean(user.totpSecretEncrypted && user.totpSecretIv && user.totpSecretAuthTag);
   }
 
   private toSeedResult(user: User, seed: string): TotpSeedResult {
@@ -279,10 +251,7 @@ export class TotpService {
   private encryptSeed(seed: string): EncryptedSeed {
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey(), iv);
-    const encrypted = Buffer.concat([
-      cipher.update(seed, 'utf8'),
-      cipher.final(),
-    ]);
+    const encrypted = Buffer.concat([cipher.update(seed, 'utf8'), cipher.final()]);
     const authTag = cipher.getAuthTag();
 
     return {
@@ -293,28 +262,20 @@ export class TotpService {
   }
 
   private decryptSeed(user: Required<EncryptedSeed>): string {
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      this.encryptionKey(),
-      Buffer.from(user.totpSecretIv, 'base64'),
-    );
+    const decipher = createDecipheriv('aes-256-gcm', this.encryptionKey(), Buffer.from(user.totpSecretIv, 'base64'));
     decipher.setAuthTag(Buffer.from(user.totpSecretAuthTag, 'base64'));
 
-    return Buffer.concat([
-      decipher.update(Buffer.from(user.totpSecretEncrypted, 'base64')),
-      decipher.final(),
-    ]).toString('utf8');
+    return Buffer.concat([decipher.update(Buffer.from(user.totpSecretEncrypted, 'base64')), decipher.final()]).toString(
+      'utf8',
+    );
   }
 
   private encryptionKey(): Buffer {
     const secret =
-      this.configService.get<string>('TOTP_SECRET_ENCRYPTION_KEY') ??
-      this.configService.get<string>('SESSION_SECRET');
+      this.configService.get<string>('TOTP_SECRET_ENCRYPTION_KEY') ?? this.configService.get<string>('SESSION_SECRET');
 
     if (!secret) {
-      this.logger.error(
-        'TOTP_SECRET_ENCRYPTION_KEY or SESSION_SECRET is required',
-      );
+      this.logger.error('TOTP_SECRET_ENCRYPTION_KEY or SESSION_SECRET is required');
       throw new Error('TOTP encryption key is not configured');
     }
 
@@ -389,8 +350,6 @@ export class TotpService {
     const bufferA = Buffer.from(a);
     const bufferB = Buffer.from(b);
 
-    return (
-      bufferA.length === bufferB.length && timingSafeEqual(bufferA, bufferB)
-    );
+    return bufferA.length === bufferB.length && timingSafeEqual(bufferA, bufferB);
   }
 }

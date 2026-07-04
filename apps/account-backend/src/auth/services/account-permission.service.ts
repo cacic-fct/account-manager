@@ -20,11 +20,7 @@ export class AccountPermissionService {
     private readonly keycloakService: KeycloakService,
   ) {}
 
-  async hasAnyActivePermission(
-    userId: string,
-    permissions: readonly string[],
-    now = new Date(),
-  ): Promise<boolean> {
+  async hasAnyActivePermission(userId: string, permissions: readonly string[], now = new Date()): Promise<boolean> {
     const normalizedPermissions = this.normalizePermissionList(permissions);
     if (normalizedPermissions.length === 0) {
       return false;
@@ -34,24 +30,14 @@ export class AccountPermissionService {
       return true;
     }
 
-    if (
-      await this.hasAnyKeycloakBackedPermission(userId, normalizedPermissions)
-    ) {
+    if (await this.hasAnyKeycloakBackedPermission(userId, normalizedPermissions)) {
       return true;
     }
 
-    return this.hasAnyDirectOrGroupPermission(
-      userId,
-      this.getDbManagedPermissions(normalizedPermissions),
-      now,
-    );
+    return this.hasAnyDirectOrGroupPermission(userId, this.getDbManagedPermissions(normalizedPermissions), now);
   }
 
-  async hasAllActivePermissions(
-    userId: string,
-    permissions: readonly string[],
-    now = new Date(),
-  ): Promise<boolean> {
+  async hasAllActivePermissions(userId: string, permissions: readonly string[], now = new Date()): Promise<boolean> {
     const normalizedPermissions = this.normalizePermissionList(permissions);
     if (normalizedPermissions.length === 0) {
       return false;
@@ -61,22 +47,12 @@ export class AccountPermissionService {
       return true;
     }
 
-    const keycloakBackedPermissions = normalizedPermissions.filter(
-      isKeycloakBackedPermission,
-    );
-    const dbManagedPermissions = this.getDbManagedPermissions(
-      normalizedPermissions,
-    );
+    const keycloakBackedPermissions = normalizedPermissions.filter(isKeycloakBackedPermission);
+    const dbManagedPermissions = this.getDbManagedPermissions(normalizedPermissions);
     const [keycloakResults, dbResults] = await Promise.all([
+      Promise.all(keycloakBackedPermissions.map((permission) => this.hasKeycloakBackedPermission(userId, permission))),
       Promise.all(
-        keycloakBackedPermissions.map((permission) =>
-          this.hasKeycloakBackedPermission(userId, permission),
-        ),
-      ),
-      Promise.all(
-        dbManagedPermissions.map((permission) =>
-          this.hasAnyDirectOrGroupPermission(userId, [permission], now),
-        ),
+        dbManagedPermissions.map((permission) => this.hasAnyDirectOrGroupPermission(userId, [permission], now)),
       ),
     ]);
 
@@ -96,60 +72,32 @@ export class AccountPermissionService {
     return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
   }
 
-  async hasAccountManagerAdminAccess(
-    userId: string,
-    now = new Date(),
-  ): Promise<boolean> {
-    return this.hasAnyActivePermission(
-      userId,
-      ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
-      now,
-    );
+  async hasAccountManagerAdminAccess(userId: string, now = new Date()): Promise<boolean> {
+    return this.hasAnyActivePermission(userId, ACCOUNT_MANAGER_ADMIN_PERMISSIONS, now);
   }
 
-  async hasDiscordAdminAccess(
-    userId: string,
-    now = new Date(),
-  ): Promise<boolean> {
+  async hasDiscordAdminAccess(userId: string, now = new Date()): Promise<boolean> {
     return (
       (await this.hasAccountManagerSuperAdminAccess(userId)) ||
       (await this.hasAnyActivePermission(
         userId,
-        [
-          AccountManagerPermission.DiscordManagementRead,
-          AccountManagerPermission.DiscordManagementUpdate,
-        ],
+        [AccountManagerPermission.DiscordManagementRead, AccountManagerPermission.DiscordManagementUpdate],
         now,
       ))
     );
   }
 
-  async canAssignPermission(
-    actorId: string,
-    permission: string,
-    now = new Date(),
-  ): Promise<boolean> {
+  async canAssignPermission(actorId: string, permission: string, now = new Date()): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
     if (!parsedPermission) {
       return false;
     }
 
-    if (
-      !(await this.hasAnyDirectOrGroupPermission(
-        actorId,
-        [AccountManagerPermission.PermissionGrantAssign],
-        now,
-      ))
-    ) {
+    if (!(await this.hasAnyDirectOrGroupPermission(actorId, [AccountManagerPermission.PermissionGrantAssign], now))) {
       return false;
     }
 
-    if (
-      await this.hasClientSuperAdminPermission(
-        actorId,
-        parsedPermission.clientId,
-      )
-    ) {
+    if (await this.hasClientSuperAdminPermission(actorId, parsedPermission.clientId)) {
       return true;
     }
 
@@ -160,32 +108,17 @@ export class AccountPermissionService {
     return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
   }
 
-  async canRevokePermission(
-    actorId: string,
-    permission: string,
-    now = new Date(),
-  ): Promise<boolean> {
+  async canRevokePermission(actorId: string, permission: string, now = new Date()): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
     if (!parsedPermission) {
       return false;
     }
 
-    if (
-      !(await this.hasAnyDirectOrGroupPermission(
-        actorId,
-        [AccountManagerPermission.PermissionGrantRevoke],
-        now,
-      ))
-    ) {
+    if (!(await this.hasAnyDirectOrGroupPermission(actorId, [AccountManagerPermission.PermissionGrantRevoke], now))) {
       return false;
     }
 
-    if (
-      await this.hasClientSuperAdminPermission(
-        actorId,
-        parsedPermission.clientId,
-      )
-    ) {
+    if (await this.hasClientSuperAdminPermission(actorId, parsedPermission.clientId)) {
       return true;
     }
 
@@ -196,15 +129,9 @@ export class AccountPermissionService {
     return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
   }
 
-  async hasClientSuperAdminPermission(
-    userId: string,
-    clientId: string,
-  ): Promise<boolean> {
+  async hasClientSuperAdminPermission(userId: string, clientId: string): Promise<boolean> {
     try {
-      const userRoles = await this.keycloakService.getUserClientRoles(
-        userId,
-        clientId,
-      );
+      const userRoles = await this.keycloakService.getUserClientRoles(userId, clientId);
       return userRoles.includes(AccountManagerKeycloakRole.SuperAdmin);
     } catch {
       return false;
@@ -225,32 +152,22 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (
-      await this.hasAnyDirectPermissionGrant(userId, dbManagedPermissions, now)
-    ) {
+    if (await this.hasAnyDirectPermissionGrant(userId, dbManagedPermissions, now)) {
       return true;
     }
 
-    if (
-      await this.hasAnyGroupPermissionGrant(userId, dbManagedPermissions, now)
-    ) {
+    if (await this.hasAnyGroupPermissionGrant(userId, dbManagedPermissions, now)) {
       return true;
     }
 
     try {
-      return await this.hasAnyKeycloakGroupPermissionGrant(
-        userId,
-        dbManagedPermissions,
-        now,
-      );
+      return await this.hasAnyKeycloakGroupPermissionGrant(userId, dbManagedPermissions, now);
     } catch {
       return false;
     }
   }
 
-  private async hasKeycloakSuperAdminBootstrapFallbackAccess(
-    userId: string,
-  ): Promise<boolean> {
+  private async hasKeycloakSuperAdminBootstrapFallbackAccess(userId: string): Promise<boolean> {
     try {
       return await this.hasKeycloakSuperAdminBootstrapAccess(userId);
     } catch {
@@ -317,8 +234,7 @@ export class AccountPermissionService {
         continue;
       }
 
-      const clientRoles =
-        permissionsByClient.get(parsedPermission.clientId) ?? new Set<string>();
+      const clientRoles = permissionsByClient.get(parsedPermission.clientId) ?? new Set<string>();
       clientRoles.add(parsedPermission.roleName);
       permissionsByClient.set(parsedPermission.clientId, clientRoles);
     }
@@ -339,10 +255,7 @@ export class AccountPermissionService {
           continue;
         }
 
-        const groupRoles = await this.keycloakService.getGroupClientRoles(
-          group.keycloakGroupId,
-          client.clientId,
-        );
+        const groupRoles = await this.keycloakService.getGroupClientRoles(group.keycloakGroupId, client.clientId);
         if (groupRoles.some((roleName) => expectedRoles.has(roleName))) {
           return true;
         }
@@ -367,13 +280,7 @@ export class AccountPermissionService {
       select: { entity: true },
     });
 
-    const groupKeys = [
-      ...new Set(
-        memberships
-          .map((membership) => membership.entity)
-          .filter(isPermissionGroupKey),
-      ),
-    ];
+    const groupKeys = [...new Set(memberships.map((membership) => membership.entity).filter(isPermissionGroupKey))];
     if (groupKeys.length === 0) {
       return false;
     }
@@ -394,56 +301,34 @@ export class AccountPermissionService {
 
   private normalizePermissionList(permissions: readonly string[]): string[] {
     return [
-      ...new Set(
-        permissions
-          .map((permission) => permission.trim())
-          .filter((permission) => permission.length > 0),
-      ),
+      ...new Set(permissions.map((permission) => permission.trim()).filter((permission) => permission.length > 0)),
     ];
   }
 
   private getDbManagedPermissions(permissions: readonly string[]): string[] {
-    return permissions.filter(
-      (permission) => !isKeycloakBackedPermission(permission),
-    );
+    return permissions.filter((permission) => !isKeycloakBackedPermission(permission));
   }
 
-  private async hasAnyKeycloakBackedPermission(
-    userId: string,
-    permissions: readonly string[],
-  ): Promise<boolean> {
-    const keycloakBackedPermissions = permissions.filter(
-      isKeycloakBackedPermission,
-    );
+  private async hasAnyKeycloakBackedPermission(userId: string, permissions: readonly string[]): Promise<boolean> {
+    const keycloakBackedPermissions = permissions.filter(isKeycloakBackedPermission);
     if (keycloakBackedPermissions.length === 0) {
       return false;
     }
 
     const results = await Promise.all(
-      keycloakBackedPermissions.map((permission) =>
-        this.hasKeycloakBackedPermission(userId, permission),
-      ),
+      keycloakBackedPermissions.map((permission) => this.hasKeycloakBackedPermission(userId, permission)),
     );
     return results.some(Boolean);
   }
 
-  private async hasKeycloakBackedPermission(
-    userId: string,
-    permission: string,
-  ): Promise<boolean> {
+  private async hasKeycloakBackedPermission(userId: string, permission: string): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
-    if (
-      !parsedPermission ||
-      !isKeycloakBackedRoleName(parsedPermission.roleName)
-    ) {
+    if (!parsedPermission || !isKeycloakBackedRoleName(parsedPermission.roleName)) {
       return false;
     }
 
     try {
-      const userRoles = await this.keycloakService.getUserClientRoles(
-        userId,
-        parsedPermission.clientId,
-      );
+      const userRoles = await this.keycloakService.getUserClientRoles(userId, parsedPermission.clientId);
       return userRoles.includes(parsedPermission.roleName);
     } catch {
       return false;

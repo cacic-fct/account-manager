@@ -18,13 +18,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -50,10 +44,7 @@ const PDF_UPLOAD_OPTIONS = {
     callback: (error: Error | null, acceptFile: boolean) => void,
   ) => {
     if (file.mimetype !== 'application/pdf') {
-      callback(
-        new BadRequestException('Tipo de arquivo não permitido. Envie um PDF.'),
-        false,
-      );
+      callback(new BadRequestException('Tipo de arquivo não permitido. Envie um PDF.'), false);
       return;
     }
 
@@ -80,14 +71,11 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     this.logger.debug(`Body:`, {
       body,
       bodyType: typeof body,
-      bodyKeys:
-        body && typeof body === 'object' ? Object.keys(body) : 'not object',
+      bodyKeys: body && typeof body === 'object' ? Object.keys(body) : 'not object',
       bodyStringified: JSON.stringify(body),
     });
 
-    return next
-      .handle()
-      .pipe(tap(() => this.logger.debug(`Request completed successfully`)));
+    return next.handle().pipe(tap(() => this.logger.debug(`Request completed successfully`)));
   }
 }
 
@@ -178,9 +166,7 @@ export class UniversityValidationController {
       if (session.user?.id) {
         const userProfile = await this.userService.findById(session.user.id);
         enrollmentNumber = userProfile?.enrollmentNumber;
-        this.logger.debug(
-          `Retrieved enrollment number for user ${session.user.id}: ${enrollmentNumber}`,
-        );
+        this.logger.debug(`Retrieved enrollment number for user ${session.user.id}: ${enrollmentNumber}`);
       } else {
         this.logger.warn('No authenticated user found in session');
       }
@@ -190,10 +176,7 @@ export class UniversityValidationController {
     }
 
     // Extract authCode from PDF
-    const authCode =
-      await this.universityValidationService.extractAuthCodeFromPdf(
-        pdfFile.buffer,
-      );
+    const authCode = await this.universityValidationService.extractAuthCodeFromPdf(pdfFile.buffer);
 
     if (!authCode) {
       throw new BadRequestException(
@@ -202,16 +185,12 @@ export class UniversityValidationController {
     }
 
     // Extract enrollment number from PDF
-    const pdfEnrollmentNumber =
-      await this.universityValidationService.extractEnrollmentFromPdf(
-        pdfFile.buffer,
-      );
+    const pdfEnrollmentNumber = await this.universityValidationService.extractEnrollmentFromPdf(pdfFile.buffer);
 
     // Use PDF enrollment if available, otherwise fall back to user's enrollment
     const sessionEnrollmentNumber = pdfEnrollmentNumber || enrollmentNumber;
 
-    const sessionId =
-      session.universityValidationId || Math.random().toString(36).substring(2);
+    const sessionId = session.universityValidationId || Math.random().toString(36).substring(2);
     session.universityValidationId = sessionId;
 
     const captchaSession = await this.universityValidationService.getCaptcha(
@@ -293,8 +272,7 @@ export class UniversityValidationController {
   @Post('validate-atomic')
   @ApiOperation({
     summary: 'Atomic validation - get captcha and validate in one flow',
-    description:
-      'This endpoint handles captcha and validation atomically to avoid server-side session issues',
+    description: 'This endpoint handles captcha and validation atomically to avoid server-side session issues',
   })
   @ApiResponse({
     status: 200,
@@ -353,11 +331,8 @@ export class UniversityValidationController {
 
       // CRITICAL: Always fetch fresh user attributes from Keycloak to avoid caching issues
       // This ensures validation uses the most up-to-date enrollment number
-      this.logger.debug(
-        'Fetching fresh user attributes from Keycloak to avoid cache',
-      );
-      const freshAttributes =
-        await this.keycloakService.getUserAttributes(userId);
+      this.logger.debug('Fetching fresh user attributes from Keycloak to avoid cache');
+      const freshAttributes = await this.keycloakService.getUserAttributes(userId);
       const enrollmentNumber = freshAttributes.enrollmentNumber?.[0];
 
       this.logger.debug('Fresh enrollment number from Keycloak:', {
@@ -432,8 +407,7 @@ export class UniversityValidationController {
   @UseInterceptors(FileInterceptor('pdfFile', PDF_UPLOAD_OPTIONS))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description:
-      'Upload PDF file to extract authCode and get initial captcha for atomic flow',
+    description: 'Upload PDF file to extract authCode and get initial captcha for atomic flow',
     type: 'multipart/form-data',
     schema: {
       type: 'object',
@@ -447,8 +421,7 @@ export class UniversityValidationController {
   })
   @ApiOperation({
     summary: 'Get captcha for atomic validation flow',
-    description:
-      'Processes PDF to extract auth code and returns initial captcha image',
+    description: 'Processes PDF to extract auth code and returns initial captcha image',
   })
   @ApiResponse({
     status: 200,
@@ -486,16 +459,10 @@ export class UniversityValidationController {
       }
 
       // Extract auth code from PDF
-      const authCode =
-        await this.universityValidationService.extractAuthCodeFromPdf(
-          file.buffer,
-        );
+      const authCode = await this.universityValidationService.extractAuthCodeFromPdf(file.buffer);
 
       // Extract enrollment number from PDF
-      const enrollmentNumber =
-        await this.universityValidationService.extractEnrollmentFromPdf(
-          file.buffer,
-        );
+      const enrollmentNumber = await this.universityValidationService.extractEnrollmentFromPdf(file.buffer);
 
       if (!authCode) {
         throw new BadRequestException(
@@ -504,8 +471,7 @@ export class UniversityValidationController {
       }
 
       // Generate a session ID
-      const sessionId =
-        Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
 
       // Get captcha and create session with both auth code and enrollment
       const session = await this.universityValidationService.getCaptcha(
@@ -516,9 +482,7 @@ export class UniversityValidationController {
       );
 
       if (!session.captchaImageBase64) {
-        throw new InternalServerErrorException(
-          'Não foi possível obter a imagem do captcha',
-        );
+        throw new InternalServerErrorException('Não foi possível obter a imagem do captcha');
       }
 
       // Record captcha request attempt to start cooldown for next request
@@ -532,10 +496,7 @@ export class UniversityValidationController {
       this.logger.error('Error in atomic captcha:', error);
 
       // Handle network error that triggered manual fallback
-      if (
-        error instanceof Error &&
-        error.message === 'NETWORK_ERROR_MANUAL_FALLBACK'
-      ) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR_MANUAL_FALLBACK') {
         const networkError = error as Error & {
           fallbackToManual: boolean;
           manualApprovalId: string;
@@ -544,9 +505,7 @@ export class UniversityValidationController {
 
         this.logger.warn('Network error triggered manual fallback', {
           manualApprovalId: networkError.manualApprovalId,
-          originalError: (
-            networkError.originalError as { message?: string; code?: string }
-          )?.message,
+          originalError: (networkError.originalError as { message?: string; code?: string })?.message,
         });
 
         throw new BadRequestException({
@@ -615,15 +574,10 @@ export class UniversityValidationController {
 
     try {
       // Get a new captcha for the existing session
-      const newSession = await this.universityValidationService.refreshCaptcha(
-        sessionId,
-        userId,
-      );
+      const newSession = await this.universityValidationService.refreshCaptcha(sessionId, userId);
 
       if (!newSession.captchaImageBase64) {
-        throw new InternalServerErrorException(
-          'Não foi possível obter a nova imagem do captcha',
-        );
+        throw new InternalServerErrorException('Não foi possível obter a nova imagem do captcha');
       }
 
       // Record captcha request attempt to start cooldown for next request
@@ -644,8 +598,7 @@ export class UniversityValidationController {
         });
 
         throw new BadRequestException({
-          message:
-            'Erro de conexão com o servidor da universidade durante a atualização do captcha.',
+          message: 'Erro de conexão com o servidor da universidade durante a atualização do captcha.',
           isNetworkError: true,
         });
       }

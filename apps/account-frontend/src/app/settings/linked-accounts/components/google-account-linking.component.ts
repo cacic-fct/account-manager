@@ -1,11 +1,4 @@
-import {
-  Component,
-  OnDestroy,
-  OnInit,
-  computed,
-  inject,
-  signal
-} from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -57,15 +50,11 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   private pollTimer?: number;
   protected readonly primaryScore = computed(() => {
     const request = this.mergeRequest();
-    return request?.scores.find(
-      (score) => score.userId === request.primaryUserId,
-    );
+    return request?.scores.find((score) => score.userId === request.primaryUserId);
   });
   protected readonly secondaryScore = computed(() => {
     const request = this.mergeRequest();
-    return request?.scores.find(
-      (score) => score.userId === request.secondaryUserId,
-    );
+    return request?.scores.find((score) => score.userId === request.secondaryUserId);
   });
 
   ngOnInit(): void {
@@ -121,28 +110,22 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
     }
 
     this.isConfirming.set(true);
-    this.apiService
-      .confirmAccountMerge(request.id, { primaryEmail })
-      .subscribe({
-        next: (response) => {
-          this.isConfirming.set(false);
-          this.mergeRequest.set(response.request);
-          this.startPolling(response.request.id);
-          this.snackBar.open(
-            'Unificação iniciada. Vamos acompanhar por aqui.',
-            'OK',
-            {
-              duration: 6000,
-            },
-          );
-        },
-        error: () => {
-          this.isConfirming.set(false);
-          this.snackBar.open('Não foi possível concluir a unificação.', 'OK', {
-            duration: 7000,
-          });
-        },
-      });
+    this.apiService.confirmAccountMerge(request.id, { primaryEmail }).subscribe({
+      next: (response) => {
+        this.isConfirming.set(false);
+        this.mergeRequest.set(response.request);
+        this.startPolling(response.request.id);
+        this.snackBar.open('Unificação iniciada. Vamos acompanhar por aqui.', 'OK', {
+          duration: 6000,
+        });
+      },
+      error: () => {
+        this.isConfirming.set(false);
+        this.snackBar.open('Não foi possível concluir a unificação.', 'OK', {
+          duration: 7000,
+        });
+      },
+    });
   }
 
   protected cancelMerge(): void {
@@ -213,9 +196,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         this.selectedPrimaryEmail.set(
           request.selectedPrimaryEmail ||
             request.primaryEmailOptions[0] ||
-            request.scores.find(
-              (score) => score.userId === request.primaryUserId,
-            )?.email ||
+            request.scores.find((score) => score.userId === request.primaryUserId)?.email ||
             '',
         );
         this.isLoading.set(false);
@@ -225,13 +206,9 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.isLoading.set(false);
-        this.snackBar.open(
-          'Solicitação de unificação expirada ou inválida.',
-          'OK',
-          {
-            duration: 7000,
-          },
-        );
+        this.snackBar.open('Solicitação de unificação expirada ou inválida.', 'OK', {
+          duration: 7000,
+        });
         this.clearQueryParams();
       },
     });
@@ -245,20 +222,18 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.apiService
-        .getAccountMergeRequest(this.activeMergeRequestId)
-        .subscribe({
-          next: (request) => {
-            this.mergeRequest.set(request);
-            if (!this.isProcessing(request)) {
-              this.stopPolling();
-              if (request.status === 'completed') {
-                this.authService.refresh();
-                this.clearQueryParams();
-              }
+      this.apiService.getAccountMergeRequest(this.activeMergeRequestId).subscribe({
+        next: (request) => {
+          this.mergeRequest.set(request);
+          if (!this.isProcessing(request)) {
+            this.stopPolling();
+            if (request.status === 'completed') {
+              this.authService.refresh();
+              this.clearQueryParams();
             }
-          },
-        });
+          }
+        },
+      });
     }, 10000);
   }
 

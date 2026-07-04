@@ -12,9 +12,7 @@
         <mat-icon>school</mat-icon>
         Documentos Pendentes de Verificação
       </mat-card-title>
-      <mat-card-subtitle>
-        Gerencie os documentos enviados pelos estudantes
-      </mat-card-subtitle>
+      <mat-card-subtitle> Gerencie os documentos enviados pelos estudantes </mat-card-subtitle>
     </mat-card-header>
 
     <mat-card-content>
@@ -59,17 +57,12 @@
               <td mat-cell *matCellDef="let document">
                 @if (document.authenticationCode) {
                   <div class="auth-code-cell">
-                    <code class="auth-code">{{
-                      document.authenticationCode
-                    }}</code>
+                    <code class="auth-code">{{ document.authenticationCode }}</code>
                     <button
                       mat-icon-button
-                      (click)="
-                        openUniversityVerification(document.authenticationCode)
-                      "
+                      (click)="openUniversityVerification(document.authenticationCode)"
                       matTooltip="Verificar no site da universidade"
-                      class="verify-button"
-                    >
+                      class="verify-button">
                       <mat-icon>open_in_new</mat-icon>
                     </button>
                   </div>
@@ -83,7 +76,7 @@
             <ng-container matColumnDef="submissionDate">
               <th mat-header-cell *matHeaderCellDef>Data de Envio</th>
               <td mat-cell *matCellDef="let document">
-                {{ document.createdAt | date: "dd/MM/yyyy HH:mm" }}
+                {{ document.createdAt | date: 'dd/MM/yyyy HH:mm' }}
               </td>
             </ng-container>
 
@@ -102,30 +95,16 @@
               <th mat-header-cell *matHeaderCellDef>Ações</th>
               <td mat-cell *matCellDef="let document">
                 <div class="action-buttons">
-                  <button
-                    mat-icon-button
-                    (click)="downloadDocument(document.id)"
-                    matTooltip="Baixar documento"
-                  >
+                  <button mat-icon-button (click)="downloadDocument(document.id)" matTooltip="Baixar documento">
                     <mat-icon>download</mat-icon>
                   </button>
 
-                  @if (document.status === "pending") {
-                    <button
-                      mat-icon-button
-                      color="primary"
-                      (click)="approveDocument(document.id)"
-                      matTooltip="Aprovar"
-                    >
+                  @if (document.status === 'pending') {
+                    <button mat-icon-button color="primary" (click)="approveDocument(document.id)" matTooltip="Aprovar">
                       <mat-icon>check</mat-icon>
                     </button>
 
-                    <button
-                      mat-icon-button
-                      color="warn"
-                      (click)="rejectDocument(document.id)"
-                      matTooltip="Rejeitar"
-                    >
+                    <button mat-icon-button color="warn" (click)="rejectDocument(document.id)" matTooltip="Rejeitar">
                       <mat-icon>close</mat-icon>
                     </button>
                   }

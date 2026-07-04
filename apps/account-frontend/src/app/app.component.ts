@@ -1,9 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import {
-  CookieBannerComponent,
-  CookieBannerOptions,
-} from '@cacic-fct/account-manager-cookie-banner/angular';
+import { CookieBannerComponent, CookieBannerOptions } from '@cacic-fct/account-manager-cookie-banner/angular';
 import { hasAcceptedCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
 import { MatIconRegistry } from '@angular/material/icon';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
@@ -73,9 +70,7 @@ export class AppComponent {
     };
   }
 
-  private syncAuthenticatedCookieBannerAcceptance(
-    directives: PrivacyDirectives,
-  ): void {
+  private syncAuthenticatedCookieBannerAcceptance(directives: PrivacyDirectives): void {
     if (
       !this.authService.isAuthenticated() ||
       !hasAcceptedCookieBanner() ||

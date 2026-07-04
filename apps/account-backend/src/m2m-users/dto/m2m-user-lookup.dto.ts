@@ -41,8 +41,7 @@ export class M2MUserEnrollmentLookupDto implements M2MUserEnrollmentLookupReques
 
 export class M2MUserIdentifierLookupItemDto implements M2MUserIdentifierLookupItem {
   @ApiProperty({
-    description:
-      'Opaque caller-provided identifier used only to correlate matched users.',
+    description: 'Opaque caller-provided identifier used only to correlate matched users.',
     example: 'member-1',
   })
   @IsString()
@@ -117,10 +116,7 @@ export class M2MUserEnrollmentLookupResponseDto implements M2MUserEnrollmentLook
   users!: M2MUserProfileDto[];
 }
 
-export class M2MUserIdentifierLookupMatchDto
-  extends M2MUserProfileDto
-  implements M2MUserIdentifierLookupMatch
-{
+export class M2MUserIdentifierLookupMatchDto extends M2MUserProfileDto implements M2MUserIdentifierLookupMatch {
   @ApiProperty({
     description: 'Opaque caller-provided identifier for this match.',
     example: 'member-1',

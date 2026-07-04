@@ -10,8 +10,7 @@
     matTooltip="Atualizar"
     aria-label="Atualizar"
     [disabled]="loading()"
-    (click)="refresh()"
-  >
+    (click)="refresh()">
     <mat-icon>refresh</mat-icon>
   </button>
 </mat-toolbar>
@@ -37,15 +36,14 @@
                 class="group-option"
                 [class.selected]="selectedRole()?.category === role.category"
                 [attr.aria-pressed]="selectedRole()?.category === role.category"
-                (click)="overrideForm.controls.roleCategory.setValue(role.category)"
-              >
+                (click)="overrideForm.controls.roleCategory.setValue(role.category)">
                 <span class="group-icon">
                   <mat-icon>
                     @switch (role.category) {
-                      @case ("student") {
+                      @case ('student') {
                         school
                       }
-                      @case ("unesp") {
+                      @case ('unesp') {
                         account_balance
                       }
                       @default {
@@ -89,8 +87,7 @@
             [selectedUser]="selectedUser()"
             [users]="users()"
             (search)="searchUsers()"
-            (userSelected)="selectUser($event)"
-          />
+            (userSelected)="selectUser($event)" />
 
           @if (selectedUser(); as user) {
             <div class="selected-person">
@@ -107,11 +104,7 @@
             </div>
           }
 
-          <form
-            class="override-form"
-            [formGroup]="overrideForm"
-            (ngSubmit)="saveOverride()"
-          >
+          <form class="override-form" [formGroup]="overrideForm" (ngSubmit)="saveOverride()">
             <mat-form-field appearance="outline">
               <mat-label>Cargo forçado</mat-label>
               <mat-select formControlName="roleCategory">
@@ -121,7 +114,7 @@
                   </mat-option>
                 }
               </mat-select>
-              @if (overrideForm.controls.roleCategory.hasError("required")) {
+              @if (overrideForm.controls.roleCategory.hasError('required')) {
                 <mat-error>Selecione o cargo gerenciado.</mat-error>
               }
             </mat-form-field>
@@ -138,27 +131,17 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Motivo</mat-label>
-              <textarea
-                matInput
-                formControlName="reason"
-                rows="3"
-                maxlength="500"
-              ></textarea>
+              <textarea matInput formControlName="reason" rows="3" maxlength="500"></textarea>
               <mat-hint>Visível para auditoria administrativa.</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Dados do override</mat-label>
-              <textarea
-                matInput
-                formControlName="dataJson"
-                rows="6"
-                spellcheck="false"
-              ></textarea>
+              <textarea matInput formControlName="dataJson" rows="6" spellcheck="false"></textarea>
               <mat-hint>JSON opcional com ticket, origem ou observações estruturadas.</mat-hint>
-              @if (overrideForm.controls.dataJson.hasError("json")) {
+              @if (overrideForm.controls.dataJson.hasError('json')) {
                 <mat-error>Informe um JSON válido.</mat-error>
-              } @else if (overrideForm.controls.dataJson.hasError("jsonObject")) {
+              } @else if (overrideForm.controls.dataJson.hasError('jsonObject')) {
                 <mat-error>O JSON precisa ser um objeto.</mat-error>
               }
             </mat-form-field>
@@ -172,8 +155,7 @@
                 mat-flat-button
                 color="primary"
                 type="submit"
-                [disabled]="saving() || (!selectedUser() && !editingOverride())"
-              >
+                [disabled]="saving() || (!selectedUser() && !editingOverride())">
                 @if (saving()) {
                   <mat-spinner diameter="20"></mat-spinner>
                 } @else {
@@ -206,16 +188,14 @@
           } @else {
             <div class="record-list">
               @for (override of overrides(); track override.id) {
-                <div
-                  class="record-row"
-                  [class.selected]="editingOverride()?.id === override.id"
-                >
+                <div class="record-row" [class.selected]="editingOverride()?.id === override.id">
                   <button
                     type="button"
                     class="record-select"
                     (click)="selectOverride(override)"
-                    [attr.aria-label]="'Editar override de ' + (override.userDisplayName || override.userEmail || override.userId)"
-                  >
+                    [attr.aria-label]="
+                      'Editar override de ' + (override.userDisplayName || override.userEmail || override.userId)
+                    ">
                     <span class="record-main">
                       <strong>
                         {{ override.userDisplayName || override.userEmail || override.userId }}
@@ -233,9 +213,10 @@
                         type="button"
                         color="warn"
                         matTooltip="Remover override"
-                        [attr.aria-label]="'Remover override de ' + (override.userDisplayName || override.userEmail || override.userId)"
-                        (click)="confirmDeleteOverride(override)"
-                      >
+                        [attr.aria-label]="
+                          'Remover override de ' + (override.userDisplayName || override.userEmail || override.userId)
+                        "
+                        (click)="confirmDeleteOverride(override)">
                         <mat-icon>delete</mat-icon>
                       </button>
                     }

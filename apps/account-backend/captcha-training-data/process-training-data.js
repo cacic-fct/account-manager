@@ -15,25 +15,23 @@
  *   --help           Show this help message
  */
 
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
 const TRAINING_DATA_PATH = path.join(__dirname);
 
 function showStats() {
-  console.log("📊 Training Data Statistics\n");
+  console.log('📊 Training Data Statistics\n');
 
   const files = fs.readdirSync(TRAINING_DATA_PATH);
-  const jsonFiles = files.filter((f) => f.endsWith(".json"));
-  const imageFiles = files.filter((f) => f.endsWith(".jpg"));
+  const jsonFiles = files.filter((f) => f.endsWith('.json'));
+  const imageFiles = files.filter((f) => f.endsWith('.jpg'));
 
   console.log(`📁 Total JSON files: ${jsonFiles.length}`);
   console.log(`🖼️  Total image files: ${imageFiles.length}`);
 
   if (jsonFiles.length === 0) {
-    console.log(
-      "ℹ️  No training data found yet. Wait for successful captcha validations.",
-    );
+    console.log('ℹ️  No training data found yet. Wait for successful captcha validations.');
     return;
   }
 
@@ -41,9 +39,7 @@ function showStats() {
   const metadata = jsonFiles
     .map((file) => {
       try {
-        return JSON.parse(
-          fs.readFileSync(path.join(TRAINING_DATA_PATH, file), "utf8"),
-        );
+        return JSON.parse(fs.readFileSync(path.join(TRAINING_DATA_PATH, file), 'utf8'));
       } catch (error) {
         console.warn(`⚠️  Could not parse ${file}: ${error.message}`);
         return null;
@@ -62,91 +58,70 @@ function showStats() {
   console.log(`   • Max length: ${Math.max(...inputLengths)} characters`);
 
   console.log(`\n🖼️  Image Statistics:`);
-  console.log(
-    `   • Average size: ${(imageSizes.reduce((a, b) => a + b, 0) / imageSizes.length / 1024).toFixed(1)} KB`,
-  );
-  console.log(
-    `   • Min size: ${(Math.min(...imageSizes) / 1024).toFixed(1)} KB`,
-  );
-  console.log(
-    `   • Max size: ${(Math.max(...imageSizes) / 1024).toFixed(1)} KB`,
-  );
+  console.log(`   • Average size: ${(imageSizes.reduce((a, b) => a + b, 0) / imageSizes.length / 1024).toFixed(1)} KB`);
+  console.log(`   • Min size: ${(Math.min(...imageSizes) / 1024).toFixed(1)} KB`);
+  console.log(`   • Max size: ${(Math.max(...imageSizes) / 1024).toFixed(1)} KB`);
 
   // Show recent entries
-  const recent = metadata
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .slice(0, 5);
+  const recent = metadata.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5);
 
   console.log(`\n🕐 Recent Entries:`);
   recent.forEach((entry, i) => {
-    console.log(
-      `   ${i + 1}. "${entry.userInput}" (${new Date(entry.timestamp).toLocaleString()})`,
-    );
+    console.log(`   ${i + 1}. "${entry.userInput}" (${new Date(entry.timestamp).toLocaleString()})`);
   });
 }
 
 function exportToCsv() {
-  console.log("📤 Exporting training data to CSV...\n");
+  console.log('📤 Exporting training data to CSV...\n');
 
   const files = fs.readdirSync(TRAINING_DATA_PATH);
-  const jsonFiles = files.filter((f) => f.endsWith(".json"));
+  const jsonFiles = files.filter((f) => f.endsWith('.json'));
 
   if (jsonFiles.length === 0) {
-    console.log("ℹ️  No training data found to export.");
+    console.log('ℹ️  No training data found to export.');
     return;
   }
 
-  const csvHeaders = [
-    "timestamp",
-    "userInput",
-    "imagePath",
-    "imageSize",
-    "inputLength",
-    "sessionId",
-  ];
-  const csvRows = [csvHeaders.join(",")];
+  const csvHeaders = ['timestamp', 'userInput', 'imagePath', 'imageSize', 'inputLength', 'sessionId'];
+  const csvRows = [csvHeaders.join(',')];
 
   jsonFiles.forEach((file) => {
     try {
-      const metadata = JSON.parse(
-        fs.readFileSync(path.join(TRAINING_DATA_PATH, file), "utf8"),
-      );
+      const metadata = JSON.parse(fs.readFileSync(path.join(TRAINING_DATA_PATH, file), 'utf8'));
       const row = [
         metadata.timestamp,
         `"${metadata.userInput}"`,
         `"${metadata.imagePath}"`,
         metadata.imageSize,
         metadata.inputLength,
-        metadata.sessionId.substring(0, 8) + "***",
+        metadata.sessionId.substring(0, 8) + '***',
       ];
-      csvRows.push(row.join(","));
+      csvRows.push(row.join(','));
     } catch (error) {
       console.warn(`⚠️  Could not process ${file}: ${error.message}`);
     }
   });
 
-  const csvContent = csvRows.join("\n");
-  const csvPath = path.join(TRAINING_DATA_PATH, "training_data_export.csv");
+  const csvContent = csvRows.join('\n');
+  const csvPath = path.join(TRAINING_DATA_PATH, 'training_data_export.csv');
   fs.writeFileSync(csvPath, csvContent);
 
   console.log(`✅ Exported ${jsonFiles.length} entries to: ${csvPath}`);
 }
 
 function verifyData() {
-  console.log("🔍 Verifying training data integrity...\n");
+  console.log('🔍 Verifying training data integrity...\n');
 
   const files = fs.readdirSync(TRAINING_DATA_PATH);
-  const jsonFiles = files.filter((f) => f.endsWith(".json"));
-  const imageFiles = files.filter((f) => f.endsWith(".jpg"));
+  const jsonFiles = files.filter((f) => f.endsWith('.json'));
+  const imageFiles = files.filter((f) => f.endsWith('.jpg'));
 
   let errors = 0;
   let verified = 0;
 
   jsonFiles.forEach((jsonFile) => {
     try {
-      const metadata = JSON.parse(
-        fs.readFileSync(path.join(TRAINING_DATA_PATH, jsonFile), "utf8"),
-      );
+      const metadata = JSON.parse(fs.readFileSync(path.join(TRAINING_DATA_PATH, jsonFile), 'utf8'));
       const expectedImageFile = path.basename(metadata.imagePath);
 
       if (!imageFiles.includes(expectedImageFile)) {
@@ -157,9 +132,7 @@ function verifyData() {
         const imageSize = fs.statSync(imagePath).size;
 
         if (imageSize !== metadata.imageSize) {
-          console.log(
-            `⚠️  Size mismatch for ${expectedImageFile}: expected ${metadata.imageSize}, got ${imageSize}`,
-          );
+          console.log(`⚠️  Size mismatch for ${expectedImageFile}: expected ${metadata.imageSize}, got ${imageSize}`);
           errors++;
         } else {
           verified++;
@@ -207,14 +180,14 @@ For AI training preparation:
 // Main execution
 const args = process.argv.slice(2);
 
-if (args.length === 0 || args.includes("--help")) {
+if (args.length === 0 || args.includes('--help')) {
   showHelp();
-} else if (args.includes("--stats")) {
+} else if (args.includes('--stats')) {
   showStats();
-} else if (args.includes("--export-csv")) {
+} else if (args.includes('--export-csv')) {
   exportToCsv();
-} else if (args.includes("--verify")) {
+} else if (args.includes('--verify')) {
   verifyData();
 } else {
-  console.log("❌ Unknown option. Use --help for available options.");
+  console.log('❌ Unknown option. Use --help for available options.');
 }

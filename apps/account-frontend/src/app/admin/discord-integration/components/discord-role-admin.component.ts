@@ -1,19 +1,7 @@
-import {
-  Component,
-  OnInit,
-  signal,
-  inject,
-  computed,
-  ChangeDetectionStrategy,
-} from '@angular/core';
+import { Component, OnInit, signal, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 
-import {
-  ReactiveFormsModule,
-  FormBuilder,
-  FormArray,
-  FormControl,
-} from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -80,13 +68,9 @@ export class DiscordRoleAdminComponent implements OnInit {
   private lastClickedIndex: { section: string; index: number } | null = null;
 
   // Computed properties
-  rolesWithPermissions = computed(
-    () => this.selectableRoles()?.rolesWithPermissions || [],
-  );
+  rolesWithPermissions = computed(() => this.selectableRoles()?.rolesWithPermissions || []);
 
-  rolesWithoutPermissions = computed(
-    () => this.selectableRoles()?.rolesWithoutPermissions || [],
-  );
+  rolesWithoutPermissions = computed(() => this.selectableRoles()?.rolesWithoutPermissions || []);
 
   hasChanges = computed(() => {
     const roles = this.selectableRoles();
@@ -152,9 +136,7 @@ export class DiscordRoleAdminComponent implements OnInit {
   }
 
   private setupFormArrays(roles: SelectableRoles): void {
-    const enabledRoleIds = new Set(
-      roles.selectableRoles.map((role) => role.id),
-    );
+    const enabledRoleIds = new Set(roles.selectableRoles.map((role) => role.id));
 
     // Store initial selected IDs for change detection
     this.initialSelectedIds.set(new Set(enabledRoleIds));
@@ -166,9 +148,7 @@ export class DiscordRoleAdminComponent implements OnInit {
     // Add controls for roles with permissions
     roles.rolesWithPermissions.forEach((role) => {
       const isSelectable = this.isRoleSelectable(role);
-      const initialValue = !isSelectable
-        ? false
-        : enabledRoleIds.has(role.id);
+      const initialValue = !isSelectable ? false : enabledRoleIds.has(role.id);
       const control = new FormControl({
         value: initialValue,
         disabled: !isSelectable,
@@ -180,9 +160,7 @@ export class DiscordRoleAdminComponent implements OnInit {
     // Add controls for roles without permissions
     roles.rolesWithoutPermissions.forEach((role) => {
       const isSelectable = this.isRoleSelectable(role);
-      const initialValue = !isSelectable
-        ? false
-        : enabledRoleIds.has(role.id);
+      const initialValue = !isSelectable ? false : enabledRoleIds.has(role.id);
       const control = new FormControl({
         value: initialValue,
         disabled: !isSelectable,
@@ -195,34 +173,18 @@ export class DiscordRoleAdminComponent implements OnInit {
     this.roleForm.markAsPristine();
   }
 
-  getControlForRole(
-    roleType: 'withPermissions' | 'withoutPermissions',
-    index: number,
-  ): FormControl {
-    const array =
-      roleType === 'withPermissions'
-        ? this.rolesWithPermissionsArray
-        : this.rolesWithoutPermissionsArray;
+  getControlForRole(roleType: 'withPermissions' | 'withoutPermissions', index: number): FormControl {
+    const array = roleType === 'withPermissions' ? this.rolesWithPermissionsArray : this.rolesWithoutPermissionsArray;
     return array.at(index) as FormControl;
   }
 
-  isRoleSelected(
-    roleType: 'withPermissions' | 'withoutPermissions',
-    index: number,
-  ): boolean {
+  isRoleSelected(roleType: 'withPermissions' | 'withoutPermissions', index: number): boolean {
     return this.getControlForRole(roleType, index).value || false;
   }
 
-  handleRoleClick(
-    event: Event,
-    index: number,
-    section: 'rolesWithPermissions' | 'rolesWithoutPermissions',
-  ): void {
+  handleRoleClick(event: Event, index: number, section: 'rolesWithPermissions' | 'rolesWithoutPermissions'): void {
     const mouseEvent = event as MouseEvent;
-    const roles =
-      section === 'rolesWithPermissions'
-        ? this.rolesWithPermissions()
-        : this.rolesWithoutPermissions();
+    const roles = section === 'rolesWithPermissions' ? this.rolesWithPermissions() : this.rolesWithoutPermissions();
     const currentRole = roles[index];
 
     if (!currentRole || !this.isRoleSelectable(currentRole)) {
@@ -230,16 +192,10 @@ export class DiscordRoleAdminComponent implements OnInit {
     }
 
     const formArray =
-      section === 'rolesWithPermissions'
-        ? this.rolesWithPermissionsArray
-        : this.rolesWithoutPermissionsArray;
+      section === 'rolesWithPermissions' ? this.rolesWithPermissionsArray : this.rolesWithoutPermissionsArray;
 
     // If shift is held and we have a previous anchor in the same section
-    if (
-      mouseEvent.shiftKey &&
-      this.lastClickedIndex &&
-      this.lastClickedIndex.section === section
-    ) {
+    if (mouseEvent.shiftKey && this.lastClickedIndex && this.lastClickedIndex.section === section) {
       // Prevent the default checkbox behavior
       event.preventDefault();
       event.stopPropagation();
@@ -278,21 +234,12 @@ export class DiscordRoleAdminComponent implements OnInit {
     }
   }
 
-  isAnchorPoint(
-    index: number,
-    section: 'rolesWithPermissions' | 'rolesWithoutPermissions',
-  ): boolean {
-    if (
-      this.lastClickedIndex?.section !== section ||
-      this.lastClickedIndex?.index !== index
-    ) {
+  isAnchorPoint(index: number, section: 'rolesWithPermissions' | 'rolesWithoutPermissions'): boolean {
+    if (this.lastClickedIndex?.section !== section || this.lastClickedIndex?.index !== index) {
       return false;
     }
 
-    const roles =
-      section === 'rolesWithPermissions'
-        ? this.rolesWithPermissions()
-        : this.rolesWithoutPermissions();
+    const roles = section === 'rolesWithPermissions' ? this.rolesWithPermissions() : this.rolesWithoutPermissions();
     const role = roles[index];
 
     return role ? this.isRoleSelectable(role) : false;
@@ -368,14 +315,8 @@ export class DiscordRoleAdminComponent implements OnInit {
     return changes;
   }
 
-  private findRoleById(
-    roleId: string,
-    roles: SelectableRoles,
-  ): DiscordRole | undefined {
-    return [
-      ...roles.rolesWithPermissions,
-      ...roles.rolesWithoutPermissions,
-    ].find((role) => role.id === roleId);
+  private findRoleById(roleId: string, roles: SelectableRoles): DiscordRole | undefined {
+    return [...roles.rolesWithPermissions, ...roles.rolesWithoutPermissions].find((role) => role.id === roleId);
   }
 
   private hexToNumber(hexColor: string): number {
@@ -388,29 +329,23 @@ export class DiscordRoleAdminComponent implements OnInit {
     this.isSaving.set(true);
     const selectedIds = this.getSelectedRoleIds();
 
-    this.apiService
-      .updateDiscordRoleSelection({ enabledRoleIds: selectedIds })
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Cargos atualizados.', 'Fechar', {
-            duration: 3000,
-          });
+    this.apiService.updateDiscordRoleSelection({ enabledRoleIds: selectedIds }).subscribe({
+      next: () => {
+        this.snackBar.open('Cargos atualizados.', 'Fechar', {
+          duration: 3000,
+        });
 
-          // Update the initial state to reflect the changes
-          this.initialSelectedIds.set(new Set(selectedIds));
-          this.roleForm.markAsPristine();
-          this.isSaving.set(false);
-        },
-        error: (error: HttpErrorResponse) => {
-          console.error('Error updating role selection:', error);
-          this.snackBar.open(
-            'Não foi possível salvar os cargos.',
-            'Fechar',
-            { duration: 5000 },
-          );
-          this.isSaving.set(false);
-        },
-      });
+        // Update the initial state to reflect the changes
+        this.initialSelectedIds.set(new Set(selectedIds));
+        this.roleForm.markAsPristine();
+        this.isSaving.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('Error updating role selection:', error);
+        this.snackBar.open('Não foi possível salvar os cargos.', 'Fechar', { duration: 5000 });
+        this.isSaving.set(false);
+      },
+    });
   }
 
   private getSelectedRoleIds(): string[] {
@@ -421,20 +356,14 @@ export class DiscordRoleAdminComponent implements OnInit {
 
     // Check roles with permissions
     roles.rolesWithPermissions.forEach((role, index) => {
-      if (
-        this.isRoleSelectable(role) &&
-        this.rolesWithPermissionsArray.at(index)?.value
-      ) {
+      if (this.isRoleSelectable(role) && this.rolesWithPermissionsArray.at(index)?.value) {
         selectedIds.push(role.id);
       }
     });
 
     // Check roles without permissions
     roles.rolesWithoutPermissions.forEach((role, index) => {
-      if (
-        this.isRoleSelectable(role) &&
-        this.rolesWithoutPermissionsArray.at(index)?.value
-      ) {
+      if (this.isRoleSelectable(role) && this.rolesWithoutPermissionsArray.at(index)?.value) {
         selectedIds.push(role.id);
       }
     });
@@ -459,11 +388,7 @@ export class DiscordRoleAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         console.error('Error syncing Discord roles:', error);
-        this.snackBar.open(
-          'Não foi possível sincronizar os cargos.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.snackBar.open('Não foi possível sincronizar os cargos.', 'Fechar', { duration: 5000 });
         this.isSyncing.set(false);
       },
     });
@@ -475,5 +400,4 @@ export class DiscordRoleAdminComponent implements OnInit {
       this.setupFormArrays(roles);
     }
   }
-
 }

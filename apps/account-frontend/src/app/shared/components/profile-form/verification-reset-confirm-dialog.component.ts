@@ -17,22 +17,19 @@ import { MatIconModule } from '@angular/material/icon';
       <mat-dialog-content class="dialog-content">
         <p>
           As alterações que você está fazendo no seu
-          <strong>Registro Acadêmico (RA)</strong> ou
-          <strong>Vínculo com a Unesp</strong> irão invalidar seu status de
+          <strong>Registro Acadêmico (RA)</strong> ou <strong>Vínculo com a Unesp</strong> irão invalidar seu status de
           verificação atual.
         </p>
         <p>
-          Isso significa que você precisará refazer o processo de verificação de
-          documentos para manter acesso a recursos que requerem verificação.
+          Isso significa que você precisará refazer o processo de verificação de documentos para manter acesso a
+          recursos que requerem verificação.
         </p>
         <p class="emphasis">Tem certeza de que deseja continuar?</p>
       </mat-dialog-content>
 
       <mat-dialog-actions class="dialog-actions">
         <button mat-button (click)="onCancel()">Cancelar</button>
-        <button mat-flat-button color="warn" (click)="onConfirm()">
-          Confirmar alterações
-        </button>
+        <button mat-flat-button color="warn" (click)="onConfirm()">Confirmar alterações</button>
       </mat-dialog-actions>
     </div>
   `,
@@ -81,9 +78,7 @@ import { MatIconModule } from '@angular/material/icon';
   ],
 })
 export class VerificationResetConfirmDialogComponent {
-  private dialogRef = inject(
-    MatDialogRef<VerificationResetConfirmDialogComponent>,
-  );
+  private dialogRef = inject(MatDialogRef<VerificationResetConfirmDialogComponent>);
 
   onCancel(): void {
     this.dialogRef.close(false);

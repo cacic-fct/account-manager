@@ -50,9 +50,7 @@ const defaultKeycloakPermissionsStoryState: KeycloakPermissionsStoryState = {
 
 let keycloakPermissionsStoryState = defaultKeycloakPermissionsStoryState;
 
-export const setKeycloakPermissionsStoryState = (
-  state: Partial<KeycloakPermissionsStoryState>,
-): void => {
+export const setKeycloakPermissionsStoryState = (state: Partial<KeycloakPermissionsStoryState>): void => {
   keycloakPermissionsStoryState = {
     ...defaultKeycloakPermissionsStoryState,
     ...state,
@@ -70,9 +68,7 @@ const getMembershipsForRoster = (groupKey: PermissionGroupKey) => {
     return [];
   }
 
-  const memberships = mockStudentEntityMemberships.filter(
-    (membership) => membership.groupKey === groupKey,
-  );
+  const memberships = mockStudentEntityMemberships.filter((membership) => membership.groupKey === groupKey);
 
   if (keycloakPermissionsStoryState.rosterMode !== 'large') {
     return memberships;
@@ -80,21 +76,13 @@ const getMembershipsForRoster = (groupKey: PermissionGroupKey) => {
 
   const extraMembers = mockKeycloakPermissionUsers
     .slice(5)
-    .map((user, index) =>
-      createMockStudentEntityMembership(
-        user,
-        groupKey,
-        index + memberships.length + 1,
-      ),
-    );
+    .map((user, index) => createMockStudentEntityMembership(user, groupKey, index + memberships.length + 1));
 
   return [...memberships, ...extraMembers];
 };
 
 const getUserMemberships = (userId: string) =>
-  mockStudentEntityMemberships.filter(
-    (membership) => membership.userId === userId,
-  );
+  mockStudentEntityMemberships.filter((membership) => membership.userId === userId);
 
 const getUserGrants = (userId: string) => {
   if (userId === mockKeycloakPermissionUsers[0]?.id) {
@@ -104,10 +92,7 @@ const getUserGrants = (userId: string) => {
   return [];
 };
 
-const searchPermissionUsers = (
-  users: KeycloakPermissionUser[],
-  query: string,
-) => {
+const searchPermissionUsers = (users: KeycloakPermissionUser[], query: string) => {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return users;
@@ -121,9 +106,7 @@ const searchPermissionUsers = (
 };
 
 export const authHandlers = {
-  csrf: http.get(`${API_BASE}/csrf/token`, () =>
-    HttpResponse.json({ csrfToken: 'storybook-csrf-token' }),
-  ),
+  csrf: http.get(`${API_BASE}/csrf/token`, () => HttpResponse.json({ csrfToken: 'storybook-csrf-token' })),
 };
 
 export const privacyHandlers = {
@@ -149,45 +132,32 @@ export const privacyHandlers = {
       },
     }),
   ),
-  acceptCookieBanner: http.post(`${API_BASE}/privacy/cookie-banner/accept`, () =>
-    HttpResponse.json({ ok: true }),
-  ),
+  acceptCookieBanner: http.post(`${API_BASE}/privacy/cookie-banner/accept`, () => HttpResponse.json({ ok: true })),
 };
 
 export const profileHandlers = {
-  shouldShowUnespRoleSelection: http.get(
-    `${API_BASE}/auth/unesp-role-required`,
-    () => HttpResponse.json({ shouldShowUnespRoleSelection: true }),
+  shouldShowUnespRoleSelection: http.get(`${API_BASE}/auth/unesp-role-required`, () =>
+    HttpResponse.json({ shouldShowUnespRoleSelection: true }),
   ),
-  shouldHideUnespRoleSelection: http.get(
-    `${API_BASE}/auth/unesp-role-required`,
-    () => HttpResponse.json({ shouldShowUnespRoleSelection: false }),
+  shouldHideUnespRoleSelection: http.get(`${API_BASE}/auth/unesp-role-required`, () =>
+    HttpResponse.json({ shouldShowUnespRoleSelection: false }),
   ),
 };
 
 export const discordHandlers = {
-  linked: http.get(`${API_BASE}/discord/status`, () =>
-    HttpResponse.json(mockDiscordStatusLinked),
-  ),
-  notLinked: http.get(`${API_BASE}/discord/status`, () =>
-    HttpResponse.json(mockDiscordStatusNotLinked),
-  ),
+  linked: http.get(`${API_BASE}/discord/status`, () => HttpResponse.json(mockDiscordStatusLinked)),
+  notLinked: http.get(`${API_BASE}/discord/status`, () => HttpResponse.json(mockDiscordStatusNotLinked)),
   delayed: http.get(`${API_BASE}/discord/status`, async () => {
     await delay(1500);
     return HttpResponse.json(mockDiscordStatusLinked);
   }),
   error: http.get(`${API_BASE}/discord/status`, () =>
-    HttpResponse.json(
-      { message: 'Erro ao carregar status do Discord' },
-      { status: 500 },
-    ),
+    HttpResponse.json({ message: 'Erro ao carregar status do Discord' }, { status: 500 }),
   ),
   selectableRoles: http.get(`${API_BASE}/discord/roles/selectable`, () =>
     HttpResponse.json(mockRoles.filter((role) => role.isEnabled && !role.isBlacklisted)),
   ),
-  userRoles: http.get(`${API_BASE}/discord/roles/user`, () =>
-    HttpResponse.json(mockUserRoles),
-  ),
+  userRoles: http.get(`${API_BASE}/discord/roles/user`, () => HttpResponse.json(mockUserRoles)),
   updateUserRolesSuccess: http.put(`${API_BASE}/discord/roles/user`, async () => {
     await delay(600);
     return HttpResponse.json({
@@ -205,42 +175,28 @@ export const discordHandlers = {
       { status: 429 },
     ),
   ),
-  adminStatus: http.get(`${API_BASE}/discord/admin/status`, () =>
-    HttpResponse.json({ isAdmin: true }),
-  ),
-  adminStatusForbidden: http.get(`${API_BASE}/discord/admin/status`, () =>
-    HttpResponse.json({ isAdmin: false }),
-  ),
+  adminStatus: http.get(`${API_BASE}/discord/admin/status`, () => HttpResponse.json({ isAdmin: true })),
+  adminStatusForbidden: http.get(`${API_BASE}/discord/admin/status`, () => HttpResponse.json({ isAdmin: false })),
   adminStatusDelayed: http.get(`${API_BASE}/discord/admin/status`, async () => {
     await delay(1200);
     return HttpResponse.json({ isAdmin: true });
   }),
-  serverSettings: http.get(`${API_BASE}/discord/admin/settings`, () =>
-    HttpResponse.json(mockServerSettings),
-  ),
-  updateServerSettingSuccess: http.put(
-    `${API_BASE}/discord/admin/settings/:key`,
-    async ({ params, request }) => {
-      const body = (await request.json()) as { value?: string };
-      return HttpResponse.json({
-        id: `setting_${String(params['key'])}`,
-        key: String(params['key']),
-        value: body.value ?? '',
-        description: 'Configuração atualizada pelo Storybook',
-        updatedAt: new Date('2026-06-16T12:00:00.000Z'),
-      });
-    },
-  ),
-  adminRoles: http.get(`${API_BASE}/discord/roles/admin`, () =>
-    HttpResponse.json(mockAdminSelectableRoles),
-  ),
-  updateRoleSelectionSuccess: http.put(
-    `${API_BASE}/discord/roles/admin/selection`,
-    async () => {
-      await delay(500);
-      return HttpResponse.json({ message: 'Cargos atualizados com sucesso' });
-    },
-  ),
+  serverSettings: http.get(`${API_BASE}/discord/admin/settings`, () => HttpResponse.json(mockServerSettings)),
+  updateServerSettingSuccess: http.put(`${API_BASE}/discord/admin/settings/:key`, async ({ params, request }) => {
+    const body = (await request.json()) as { value?: string };
+    return HttpResponse.json({
+      id: `setting_${String(params['key'])}`,
+      key: String(params['key']),
+      value: body.value ?? '',
+      description: 'Configuração atualizada pelo Storybook',
+      updatedAt: new Date('2026-06-16T12:00:00.000Z'),
+    });
+  }),
+  adminRoles: http.get(`${API_BASE}/discord/roles/admin`, () => HttpResponse.json(mockAdminSelectableRoles)),
+  updateRoleSelectionSuccess: http.put(`${API_BASE}/discord/roles/admin/selection`, async () => {
+    await delay(500);
+    return HttpResponse.json({ message: 'Cargos atualizados com sucesso' });
+  }),
   syncRolesSuccess: http.post(`${API_BASE}/discord/roles/admin/sync`, async () => {
     await delay(500);
     return HttpResponse.json({ message: 'Cargos sincronizados com sucesso' });
@@ -251,10 +207,7 @@ export const keycloakPermissionHandlers = [
   http.get(`${API_BASE}/admin/permissions/catalog`, async () => {
     await delayForStory();
     if (keycloakPermissionsStoryState.failureMode === 'catalog') {
-      return HttpResponse.json(
-        { message: 'Falha ao carregar catalogo de permissoes' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Falha ao carregar catalogo de permissoes' }, { status: 500 });
     }
 
     return HttpResponse.json(mockKeycloakPermissionCatalog);
@@ -263,45 +216,27 @@ export const keycloakPermissionHandlers = [
     await delayForStory();
     return HttpResponse.json(mockPermissionGroupCatalog);
   }),
-  http.get(
-    `${API_BASE}/admin/permissions/groups/:groupKey/role-grants`,
-    async ({ params }) => {
-      await delayForStory();
-      const groupKey = String(params['groupKey']) as PermissionGroupKey;
-      return HttpResponse.json(
-        mockPermissionGroupRoleGrants.filter(
-          (grant) => grant.groupKey === groupKey,
-        ),
-      );
-    },
-  ),
-  http.put(
-    `${API_BASE}/admin/permissions/groups/:groupKey/role-grants`,
-    async ({ params, request }) => {
-      await delayForStory();
-      if (keycloakPermissionsStoryState.failureMode === 'save') {
-        return HttpResponse.json(
-          { message: 'Falha ao salvar permissoes do grupo' },
-          { status: 500 },
-        );
-      }
+  http.get(`${API_BASE}/admin/permissions/groups/:groupKey/role-grants`, async ({ params }) => {
+    await delayForStory();
+    const groupKey = String(params['groupKey']) as PermissionGroupKey;
+    return HttpResponse.json(mockPermissionGroupRoleGrants.filter((grant) => grant.groupKey === groupKey));
+  }),
+  http.put(`${API_BASE}/admin/permissions/groups/:groupKey/role-grants`, async ({ params, request }) => {
+    await delayForStory();
+    if (keycloakPermissionsStoryState.failureMode === 'save') {
+      return HttpResponse.json({ message: 'Falha ao salvar permissoes do grupo' }, { status: 500 });
+    }
 
-      const groupKey = String(params['groupKey']) as PermissionGroupKey;
-      const body = (await request.json()) as PermissionGroupRoleGrantUpdateRequest;
-      return HttpResponse.json(
-        body.permissions.map((permission, index) =>
-          createMockPermissionGroupRoleGrant(groupKey, permission, index + 10),
-        ),
-      );
-    },
-  ),
+    const groupKey = String(params['groupKey']) as PermissionGroupKey;
+    const body = (await request.json()) as PermissionGroupRoleGrantUpdateRequest;
+    return HttpResponse.json(
+      body.permissions.map((permission, index) => createMockPermissionGroupRoleGrant(groupKey, permission, index + 10)),
+    );
+  }),
   http.get(`${API_BASE}/admin/permissions/users`, async ({ request }) => {
     await delayForStory();
     if (keycloakPermissionsStoryState.searchMode === 'error') {
-      return HttpResponse.json(
-        { message: 'Falha ao buscar usuarios' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Falha ao buscar usuarios' }, { status: 500 });
     }
 
     if (keycloakPermissionsStoryState.searchMode === 'empty') {
@@ -309,46 +244,32 @@ export const keycloakPermissionHandlers = [
     }
 
     const query = new URL(request.url).searchParams.get('query') ?? '';
-    return HttpResponse.json(
-      searchPermissionUsers(mockKeycloakPermissionUsers, query),
-    );
+    return HttpResponse.json(searchPermissionUsers(mockKeycloakPermissionUsers, query));
   }),
-  http.get(
-    `${API_BASE}/admin/permissions/users/:userId/grants`,
-    async ({ params }) => {
-      await delayForStory();
-      return HttpResponse.json(getUserGrants(String(params['userId'])));
-    },
-  ),
-  http.get(
-    `${API_BASE}/admin/permissions/users/:userId/group-memberships`,
-    async ({ params }) => {
-      await delayForStory();
-      return HttpResponse.json(getUserMemberships(String(params['userId'])));
-    },
-  ),
+  http.get(`${API_BASE}/admin/permissions/users/:userId/grants`, async ({ params }) => {
+    await delayForStory();
+    return HttpResponse.json(getUserGrants(String(params['userId'])));
+  }),
+  http.get(`${API_BASE}/admin/permissions/users/:userId/group-memberships`, async ({ params }) => {
+    await delayForStory();
+    return HttpResponse.json(getUserMemberships(String(params['userId'])));
+  }),
   http.get(`${API_BASE}/admin/permissions/groups/memberships`, async ({ request }) => {
     await delayForStory();
     const groupKey =
-      (new URL(request.url).searchParams.get('groupKey') as PermissionGroupKey) ??
-      PermissionGroupKey.Cacic;
+      (new URL(request.url).searchParams.get('groupKey') as PermissionGroupKey) ?? PermissionGroupKey.Cacic;
 
     return HttpResponse.json(getMembershipsForRoster(groupKey));
   }),
   http.post(`${API_BASE}/admin/permissions/grants`, async ({ request }) => {
     await delayForStory();
     if (keycloakPermissionsStoryState.failureMode === 'save') {
-      return HttpResponse.json(
-        { message: 'Falha ao conceder permissao' },
-        { status: 500 },
-      );
+      return HttpResponse.json({ message: 'Falha ao conceder permissao' }, { status: 500 });
     }
 
     const body = (await request.json()) as KeycloakPermissionGrantCreateRequest;
     const user =
-      mockKeycloakPermissionUsers.find(
-        (candidate) => candidate.id === body.userId,
-      ) ?? mockKeycloakPermissionUsers[0];
+      mockKeycloakPermissionUsers.find((candidate) => candidate.id === body.userId) ?? mockKeycloakPermissionUsers[0];
 
     return HttpResponse.json(
       createMockKeycloakPermissionGrant(user, body.permission, 20, {
@@ -357,63 +278,43 @@ export const keycloakPermissionHandlers = [
       }),
     );
   }),
-  http.post(
-    `${API_BASE}/admin/permissions/groups/memberships`,
-    async ({ request }) => {
-      await delayForStory();
-      if (keycloakPermissionsStoryState.failureMode === 'save') {
-        return HttpResponse.json(
-          { message: 'Falha ao salvar vinculo' },
-          { status: 500 },
-        );
-      }
+  http.post(`${API_BASE}/admin/permissions/groups/memberships`, async ({ request }) => {
+    await delayForStory();
+    if (keycloakPermissionsStoryState.failureMode === 'save') {
+      return HttpResponse.json({ message: 'Falha ao salvar vinculo' }, { status: 500 });
+    }
 
-      const body = (await request.json()) as PermissionGroupMembershipCreateRequest;
-      const user =
-        mockKeycloakPermissionUsers.find(
-          (candidate) => candidate.id === body.userId,
-        ) ?? mockKeycloakPermissionUsers[0];
+    const body = (await request.json()) as PermissionGroupMembershipCreateRequest;
+    const user =
+      mockKeycloakPermissionUsers.find((candidate) => candidate.id === body.userId) ?? mockKeycloakPermissionUsers[0];
 
-      return HttpResponse.json({
-        ...createMockStudentEntityMembership(user, body.groupKey, 16),
-        validFrom: body.validFrom,
-        validUntil: body.validUntil ?? null,
-      });
-    },
-  ),
-  http.put(
-    `${API_BASE}/admin/permissions/groups/memberships/:id`,
-    async ({ params, request }) => {
-      await delayForStory();
-      if (keycloakPermissionsStoryState.failureMode === 'save') {
-        return HttpResponse.json(
-          { message: 'Falha ao salvar vinculo' },
-          { status: 500 },
-        );
-      }
+    return HttpResponse.json({
+      ...createMockStudentEntityMembership(user, body.groupKey, 16),
+      validFrom: body.validFrom,
+      validUntil: body.validUntil ?? null,
+    });
+  }),
+  http.put(`${API_BASE}/admin/permissions/groups/memberships/:id`, async ({ params, request }) => {
+    await delayForStory();
+    if (keycloakPermissionsStoryState.failureMode === 'save') {
+      return HttpResponse.json({ message: 'Falha ao salvar vinculo' }, { status: 500 });
+    }
 
-      const body = (await request.json()) as PermissionGroupMembershipUpdateRequest;
-      const existingMembership =
-        mockStudentEntityMemberships.find(
-          (membership) => membership.id === params['id'],
-        ) ?? mockStudentEntityMemberships[0];
-      const user =
-        mockKeycloakPermissionUsers.find(
-          (candidate) => candidate.id === existingMembership.userId,
-        ) ?? mockKeycloakPermissionUsers[0];
+    const body = (await request.json()) as PermissionGroupMembershipUpdateRequest;
+    const existingMembership =
+      mockStudentEntityMemberships.find((membership) => membership.id === params['id']) ??
+      mockStudentEntityMemberships[0];
+    const user =
+      mockKeycloakPermissionUsers.find((candidate) => candidate.id === existingMembership.userId) ??
+      mockKeycloakPermissionUsers[0];
 
-      return HttpResponse.json({
-        ...createMockStudentEntityMembership(
-          user,
-          existingMembership.groupKey,
-          17,
-        ),
-        id: String(params['id']),
-        validFrom: body.validFrom,
-        validUntil: body.validUntil ?? null,
-      });
-    },
-  ),
+    return HttpResponse.json({
+      ...createMockStudentEntityMembership(user, existingMembership.groupKey, 17),
+      id: String(params['id']),
+      validFrom: body.validFrom,
+      validUntil: body.validUntil ?? null,
+    });
+  }),
   http.put(`${API_BASE}/admin/permissions/grants/:id`, async () => {
     await delayForStory();
     return HttpResponse.json(mockDirectKeycloakPermissionGrant);
@@ -422,13 +323,10 @@ export const keycloakPermissionHandlers = [
     await delayForStory();
     return HttpResponse.json({ deleted: true, id: String(params['id']) });
   }),
-  http.delete(
-    `${API_BASE}/admin/permissions/groups/memberships/:id`,
-    async ({ params }) => {
-      await delayForStory();
-      return HttpResponse.json({ deleted: true, id: String(params['id']) });
-    },
-  ),
+  http.delete(`${API_BASE}/admin/permissions/groups/memberships/:id`, async ({ params }) => {
+    await delayForStory();
+    return HttpResponse.json({ deleted: true, id: String(params['id']) });
+  }),
   http.post(`${API_BASE}/admin/permissions/sync`, async () => {
     await delayForStory();
     return HttpResponse.json({ queued: true });

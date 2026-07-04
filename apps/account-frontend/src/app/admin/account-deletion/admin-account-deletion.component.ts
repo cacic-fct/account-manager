@@ -10,10 +10,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import {
-  ApiService,
-  AdminDeleteAccountRequest,
-} from '../../shared/services/api.service';
+import { ApiService, AdminDeleteAccountRequest } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 
 @Component({
@@ -40,14 +37,7 @@ export class AdminAccountDeletionComponent implements OnInit {
   protected requests = signal<AdminDeleteAccountRequest[]>([]);
   protected loading = signal(true);
   protected actionRequestId = signal<string | null>(null);
-  protected displayedColumns = [
-    'email',
-    'createdAt',
-    'softDeletedAt',
-    'scheduledHardDeleteAt',
-    'status',
-    'actions',
-  ];
+  protected displayedColumns = ['email', 'createdAt', 'softDeletedAt', 'scheduledHardDeleteAt', 'status', 'actions'];
 
   ngOnInit(): void {
     this.loadRequests();
@@ -61,11 +51,7 @@ export class AdminAccountDeletionComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.snackBar.open(
-          'Erro ao carregar solicitações de exclusão.',
-          'Fechar',
-          { duration: 5000 },
-        );
+        this.snackBar.open('Erro ao carregar solicitações de exclusão.', 'Fechar', { duration: 5000 });
         this.loading.set(false);
       },
     });

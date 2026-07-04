@@ -8,13 +8,7 @@ import { StudentVerificationCardComponent } from '../components/student-verifica
 
 @Component({
   selector: 'app-student-verification-page',
-  imports: [
-    MatToolbarModule,
-    MatIconModule,
-    MatButtonModule,
-    RouterLink,
-    StudentVerificationCardComponent,
-  ],
+  imports: [MatToolbarModule, MatIconModule, MatButtonModule, RouterLink, StudentVerificationCardComponent],
   template: `
     <div class="linked-account-page">
       <mat-toolbar color="primary" class="toolbar">

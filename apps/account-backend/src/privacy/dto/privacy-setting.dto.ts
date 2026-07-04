@@ -1,14 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsBoolean,
-  IsIn,
-  IsObject,
-  IsOptional,
-  ValidateNested,
-} from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsObject, IsOptional, ValidateNested } from 'class-validator';
 import {
   BulkUpdatePrivacySettingsByType,
   M2MBulkPrivacySettingsRequest,

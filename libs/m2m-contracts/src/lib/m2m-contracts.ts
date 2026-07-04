@@ -8,15 +8,13 @@ export const M2M_PRIVACY_ROLES = {
   WRITE: 'privacy:write',
 } as const;
 
-export type M2MPrivacyRole =
-  (typeof M2M_PRIVACY_ROLES)[keyof typeof M2M_PRIVACY_ROLES];
+export type M2MPrivacyRole = (typeof M2M_PRIVACY_ROLES)[keyof typeof M2M_PRIVACY_ROLES];
 
 export const M2M_USER_ROLES = {
   READ: 'users:read',
 } as const;
 
-export type M2MUserRole =
-  (typeof M2M_USER_ROLES)[keyof typeof M2M_USER_ROLES];
+export type M2MUserRole = (typeof M2M_USER_ROLES)[keyof typeof M2M_USER_ROLES];
 
 export type M2MUserIdentifierType = 'cpf' | 'phone' | 'email';
 
@@ -58,8 +56,7 @@ export const M2M_TOTP_ROLES = {
   RELAY: 'totp:relay',
 } as const;
 
-export type M2MTotpRole =
-  (typeof M2M_TOTP_ROLES)[keyof typeof M2M_TOTP_ROLES];
+export type M2MTotpRole = (typeof M2M_TOTP_ROLES)[keyof typeof M2M_TOTP_ROLES];
 
 export const TOTP_ALGORITHM = 'SHA512' as const;
 export const TOTP_DIGITS = 6 as const;
@@ -112,12 +109,9 @@ export const PRIVACY_SETTING_TYPES = {
   COOKIE_BANNER_ACCEPTED: 'cookie_banner_accepted',
 } as const;
 
-export const PRIVACY_SETTING_TYPE_VALUES = Object.values(
-  PRIVACY_SETTING_TYPES,
-);
+export const PRIVACY_SETTING_TYPE_VALUES = Object.values(PRIVACY_SETTING_TYPES);
 
-export type PrivacySettingTypeValue =
-  (typeof PRIVACY_SETTING_TYPES)[keyof typeof PRIVACY_SETTING_TYPES];
+export type PrivacySettingTypeValue = (typeof PRIVACY_SETTING_TYPES)[keyof typeof PRIVACY_SETTING_TYPES];
 
 export interface PrivacySettings {
   analytics_tracking: boolean;
@@ -198,18 +192,11 @@ export const PRIVACY_DIRECTIVE_TYPES = {
   DATA_PERFORMANCE_MONITORING: 'data_performance_monitoring',
 } as const;
 
-export type PrivacyDirectiveType =
-  (typeof PRIVACY_DIRECTIVE_TYPES)[keyof typeof PRIVACY_DIRECTIVE_TYPES];
+export type PrivacyDirectiveType = (typeof PRIVACY_DIRECTIVE_TYPES)[keyof typeof PRIVACY_DIRECTIVE_TYPES];
 
-export type PrivacyUiDirectiveType = Extract<
-  PrivacyDirectiveType,
-  `ui_${string}`
->;
+export type PrivacyUiDirectiveType = Extract<PrivacyDirectiveType, `ui_${string}`>;
 
-export type PrivacyDataDirectiveType = Extract<
-  PrivacyDirectiveType,
-  `data_${string}`
->;
+export type PrivacyDataDirectiveType = Extract<PrivacyDirectiveType, `data_${string}`>;
 
 export const DIRECTIVE_VALUES = {
   SHOW: 'show',
@@ -218,16 +205,11 @@ export const DIRECTIVE_VALUES = {
   ALLOW: 'allow',
 } as const;
 
-export type DirectiveValue =
-  (typeof DIRECTIVE_VALUES)[keyof typeof DIRECTIVE_VALUES];
+export type DirectiveValue = (typeof DIRECTIVE_VALUES)[keyof typeof DIRECTIVE_VALUES];
 
-export type PrivacyUiDirectiveValue =
-  | typeof DIRECTIVE_VALUES.SHOW
-  | typeof DIRECTIVE_VALUES.HIDE;
+export type PrivacyUiDirectiveValue = typeof DIRECTIVE_VALUES.SHOW | typeof DIRECTIVE_VALUES.HIDE;
 
-export type PrivacyDataDirectiveValue =
-  | typeof DIRECTIVE_VALUES.ALLOW
-  | typeof DIRECTIVE_VALUES.BLOCK;
+export type PrivacyDataDirectiveValue = typeof DIRECTIVE_VALUES.ALLOW | typeof DIRECTIVE_VALUES.BLOCK;
 
 export interface PrivacyDirectiveMetadata {
   reason?: string;
@@ -242,13 +224,9 @@ export interface PrivacyDirective {
   metadata?: PrivacyDirectiveMetadata;
 }
 
-export type PrivacyDirectiveUiMap = Partial<
-  Record<PrivacyUiDirectiveType, PrivacyUiDirectiveValue>
->;
+export type PrivacyDirectiveUiMap = Partial<Record<PrivacyUiDirectiveType, PrivacyUiDirectiveValue>>;
 
-export type PrivacyDirectiveDataMap = Partial<
-  Record<PrivacyDataDirectiveType, PrivacyDataDirectiveValue>
->;
+export type PrivacyDirectiveDataMap = Partial<Record<PrivacyDataDirectiveType, PrivacyDataDirectiveValue>>;
 
 export interface PrivacyDirectivesResponse {
   directives: PrivacyDirective[];
@@ -261,8 +239,7 @@ export const PRIVACY_HEADER_NAME = 'X-CACIC-Privacy-Directives' as const;
 export const CACIC_PURR_COOKIE_NAME = 'cacic-purr' as const;
 export const CACIC_PURR_QUICK_COOKIE_NAME = 'cacic-purr-quick' as const;
 export const CACIC_ANALYTICS_ID_COOKIE_NAME = 'cacic-analytics-id' as const;
-export const CACIC_ANALYTICS_CONSENT_COOKIE_NAME =
-  'cacic-analytics-consent' as const;
+export const CACIC_ANALYTICS_CONSENT_COOKIE_NAME = 'cacic-analytics-consent' as const;
 
 export interface CacicPurrCookiePayload {
   directives: Partial<Record<PrivacyDirectiveType, DirectiveValue>>;
@@ -320,10 +297,8 @@ export const M2M_USER_ROUTE_TEMPLATES = {
 
 export const M2M_TOTP_ROUTES = {
   validate: () => `${M2M_API_PREFIX}/v1/totp/validate`,
-  seedRelay: (userId: string) =>
-    `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
-  ensureSeed: (userId: string) =>
-    `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
+  seedRelay: (userId: string) => `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
+  ensureSeed: (userId: string) => `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
 } as const;
 
 export const M2M_USER_ROUTES = {
@@ -332,30 +307,14 @@ export const M2M_USER_ROUTES = {
 } as const;
 
 export const M2M_PRIVACY_ROUTES = {
-  userSettings: (userId: string) =>
-    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/settings`,
+  userSettings: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/settings`,
   userSetting: (userId: string, settingType: PrivacySettingTypeValue) =>
-    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(
-      userId,
-    )}/setting/${settingType}`,
-  cookieConsent: (userId: string) =>
-    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(
-      userId,
-    )}/cookie-consent`,
-  bulkSettings: (userId: string) =>
-    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(
-      userId,
-    )}/settings/bulk`,
-  directives: (userId: string) =>
-    `${M2M_API_PREFIX}/privacy-directives?userId=${encodeQueryValue(userId)}`,
-  uiDirectives: (userId: string) =>
-    `${M2M_API_PREFIX}/privacy-directives/ui?userId=${encodeQueryValue(
-      userId,
-    )}`,
-  dataDirectives: (userId: string) =>
-    `${M2M_API_PREFIX}/privacy-directives/data?userId=${encodeQueryValue(
-      userId,
-    )}`,
+    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/setting/${settingType}`,
+  cookieConsent: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/cookie-consent`,
+  bulkSettings: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/settings/bulk`,
+  directives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives?userId=${encodeQueryValue(userId)}`,
+  uiDirectives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives/ui?userId=${encodeQueryValue(userId)}`,
+  dataDirectives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives/data?userId=${encodeQueryValue(userId)}`,
 } as const;
 
 function encodePathSegment(value: string): string {
@@ -374,11 +333,7 @@ type SubtleCryptoLike = {
     extractable: false,
     keyUsages: ['sign'],
   ) => Promise<unknown>;
-  sign: (
-    algorithm: 'HMAC',
-    key: unknown,
-    data: ArrayBuffer,
-  ) => Promise<ArrayBuffer>;
+  sign: (algorithm: 'HMAC', key: unknown, data: ArrayBuffer) => Promise<ArrayBuffer>;
 };
 
 export interface GenerateTotpCodeOptions {
@@ -396,16 +351,8 @@ export async function generateTotpCode({
 }: GenerateTotpCodeOptions): Promise<string> {
   const counter = Math.floor(timestamp / 1000 / periodSeconds);
   const keyData = decodeBase32(seed);
-  const key = await resolveSubtleCrypto().importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-512' },
-    false,
-    ['sign'],
-  );
-  const signature = new Uint8Array(
-    await resolveSubtleCrypto().sign('HMAC', key, counterToBuffer(counter)),
-  );
+  const key = await resolveSubtleCrypto().importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+  const signature = new Uint8Array(await resolveSubtleCrypto().sign('HMAC', key, counterToBuffer(counter)));
   const offset = signature[signature.length - 1] & 0x0f;
   const binary =
     ((signature[offset] & 0x7f) << 24) |
@@ -419,15 +366,10 @@ export async function generateTotpCode({
 
 export function formatTotpCode(code: string): string {
   const normalizedCode = code.replace(/\D/g, '').slice(0, TOTP_DIGITS);
-  return normalizedCode.length <= 3
-    ? normalizedCode
-    : `${normalizedCode.slice(0, 3)} ${normalizedCode.slice(3)}`;
+  return normalizedCode.length <= 3 ? normalizedCode : `${normalizedCode.slice(0, 3)} ${normalizedCode.slice(3)}`;
 }
 
-export function getTotpRemainingSeconds(
-  timestamp = Date.now(),
-  periodSeconds = TOTP_PERIOD_SECONDS,
-): number {
+export function getTotpRemainingSeconds(timestamp = Date.now(), periodSeconds = TOTP_PERIOD_SECONDS): number {
   const elapsedSeconds = Math.floor(timestamp / 1000) % periodSeconds;
   return periodSeconds - elapsedSeconds;
 }
@@ -470,9 +412,7 @@ function counterToBuffer(counter: number): ArrayBuffer {
 }
 
 function resolveSubtleCrypto(): SubtleCryptoLike {
-  const cryptoLike = globalThis.crypto as
-    | { subtle?: SubtleCryptoLike }
-    | undefined;
+  const cryptoLike = globalThis.crypto as { subtle?: SubtleCryptoLike } | undefined;
 
   if (!cryptoLike?.subtle) {
     throw new Error('Web Crypto API is not available.');

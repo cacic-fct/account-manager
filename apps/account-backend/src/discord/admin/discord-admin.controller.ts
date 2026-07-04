@@ -1,30 +1,12 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Post,
-  Param,
-  Body,
-  Session,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiParam,
-  ApiBody,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller, Get, Put, Post, Param, Body, Session, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { DiscordSettingsService } from '../services/discord-settings.service';
 import { DiscordLinkService } from '../services/discord-link.service';
 import { AccountPermissions, Auth } from '../../auth/guards/auth.decorator';
 import { AccountPermissionService } from '../../auth/services/account-permission.service';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
 import { AccountManagerPermission } from '@cacic/shared-types';
-import {
-  ServerSettingDto,
-  UpdateServerSettingDto,
-} from '../dto/server-settings.dto';
+import { ServerSettingDto, UpdateServerSettingDto } from '../dto/server-settings.dto';
 
 interface AuthSession {
   user?: SessionUser;
@@ -51,8 +33,7 @@ export class DiscordAdminController {
 
   @ApiOperation({
     summary: 'Check admin status',
-    description:
-      'Check if the current user has an active Discord admin permission grant.',
+    description: 'Check if the current user has an active Discord admin permission grant.',
   })
   @ApiResponse({
     status: 200,
@@ -73,9 +54,7 @@ export class DiscordAdminController {
   })
   @Auth()
   @Get('status')
-  async getAdminStatus(
-    @Session() session: AuthSession,
-  ): Promise<{ isAdmin: boolean }> {
+  async getAdminStatus(@Session() session: AuthSession): Promise<{ isAdmin: boolean }> {
     try {
       const userId = session.user?.keycloakId;
       if (!userId) {
@@ -84,8 +63,7 @@ export class DiscordAdminController {
         };
       }
 
-      const isAdmin =
-        await this.accountPermissionService.hasDiscordAdminAccess(userId);
+      const isAdmin = await this.accountPermissionService.hasDiscordAdminAccess(userId);
       return {
         isAdmin,
       };
@@ -148,17 +126,13 @@ export class DiscordAdminController {
   @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
   @UseGuards(CsrfGuard)
   @Put('settings/:key')
-  async updateServerSetting(
-    @Param('key') key: string,
-    @Body() dto: UpdateServerSettingDto,
-  ): Promise<ServerSettingDto> {
+  async updateServerSetting(@Param('key') key: string, @Body() dto: UpdateServerSettingDto): Promise<ServerSettingDto> {
     return await this.discordSettingsService.updateServerSetting(key, dto);
   }
 
   @ApiOperation({
     summary: 'Get all Discord links for user (including deleted)',
-    description:
-      'Get all Discord links for a user, including soft-deleted ones - Admin only',
+    description: 'Get all Discord links for a user, including soft-deleted ones - Admin only',
   })
   @ApiParam({
     name: 'userId',
@@ -176,10 +150,7 @@ export class DiscordAdminController {
   @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
   @Get('user/:userId/links')
   async getAllUserDiscordLinks(@Param('userId') userId: string) {
-    const links = await this.discordLinkService.getAllDiscordLinksForUser(
-      userId,
-      true,
-    );
+    const links = await this.discordLinkService.getAllDiscordLinksForUser(userId, true);
     return { links };
   }
 
@@ -212,8 +183,7 @@ export class DiscordAdminController {
   @UseGuards(CsrfGuard)
   @Post('links/:linkId/restore')
   async restoreDiscordLink(@Param('linkId') linkId: string) {
-    const restoredLink =
-      await this.discordLinkService.restoreDiscordLink(linkId);
+    const restoredLink = await this.discordLinkService.restoreDiscordLink(linkId);
     return {
       message: 'Discord link restored successfully',
       link: restoredLink,

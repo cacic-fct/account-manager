@@ -54,8 +54,7 @@ export class ErrorTrackingService {
 
     // Log to console in dev mode
     if (isDevMode()) {
-      const errorObj =
-        error instanceof Error ? error : new Error(String(error));
+      const errorObj = error instanceof Error ? error : new Error(String(error));
       console.error(`[ErrorTracking] ${severity.toUpperCase()}: ${message}`, {
         context,
         error: errorObj,
@@ -80,11 +79,7 @@ export class ErrorTrackingService {
   /**
    * Track a critical error that needs immediate attention
    */
-  trackCritical(
-    message: string,
-    error: unknown,
-    context: ErrorContext = {},
-  ): void {
+  trackCritical(message: string, error: unknown, context: ErrorContext = {}): void {
     this.trackError(message, error, context, 'critical');
   }
 
@@ -116,10 +111,7 @@ export class ErrorTrackingService {
     return JSON.stringify(
       this.errorLog.map((log) => ({
         ...log,
-        error:
-          log.error instanceof Error
-            ? { message: log.error.message, stack: log.error.stack }
-            : log.error,
+        error: log.error instanceof Error ? { message: log.error.message, stack: log.error.stack } : log.error,
       })),
       null,
       2,

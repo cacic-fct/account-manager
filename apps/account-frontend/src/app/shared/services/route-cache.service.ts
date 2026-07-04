@@ -94,8 +94,7 @@ export class RouteCacheService {
     missingFields: string[];
   }> {
     const now = Date.now();
-    const isExpired =
-      now - this.cache.onboardingTimestamp > this.CACHE_DURATION;
+    const isExpired = now - this.cache.onboardingTimestamp > this.CACHE_DURATION;
 
     // Return cached data if available and not expired
     if (this.cache.onboardingStatus && !isExpired) {
@@ -103,23 +102,18 @@ export class RouteCacheService {
     }
 
     // Fetch fresh onboarding status
-    return this.http
-      .get<OnboardingStatus>(`${this.baseUrl}/auth/onboarding-status`)
-      .pipe(
-        tap((status) => {
-          this.cache.onboardingStatus = status;
-          this.cache.onboardingTimestamp = now;
-        }),
-        shareReplay(1),
-        catchError((error) => {
-          this.logger.error(
-            'Error fetching onboarding status for route guard',
-            error,
-          );
-          // Return safe default
-          return of({ needsOnboarding: true, missingFields: [] });
-        }),
-      );
+    return this.http.get<OnboardingStatus>(`${this.baseUrl}/auth/onboarding-status`).pipe(
+      tap((status) => {
+        this.cache.onboardingStatus = status;
+        this.cache.onboardingTimestamp = now;
+      }),
+      shareReplay(1),
+      catchError((error) => {
+        this.logger.error('Error fetching onboarding status for route guard', error);
+        // Return safe default
+        return of({ needsOnboarding: true, missingFields: [] });
+      }),
+    );
   }
 
   /**

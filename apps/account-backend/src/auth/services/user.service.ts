@@ -1,18 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  Optional,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { UserProfile, KeycloakUser } from '../interfaces/auth.interface';
 import { CreateUserProfileDto, UserProfileDto } from '../dto/user-profile.dto';
 import { KeycloakService } from './keycloak.service';
 import { KeycloakConnectionException } from '../exceptions/keycloak-connection.exception';
-import {
-  UnespRole,
-  isProfessorEmail,
-  isStudentRole,
-} from '../enums/unesp-role.enum';
+import { UnespRole, isProfessorEmail, isStudentRole } from '../enums/unesp-role.enum';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { AccountManagerPermission } from '@cacic/shared-types';
@@ -69,23 +60,16 @@ export class UserService {
   }
 
   private validatePhone(phone: string): string {
-    const parsed =
-      parsePhoneNumberFromString(phone.trim()) ||
-      parsePhoneNumberFromString(phone.trim(), 'BR');
+    const parsed = parsePhoneNumberFromString(phone.trim()) || parsePhoneNumberFromString(phone.trim(), 'BR');
 
     if (!parsed || !parsed.isValid()) {
-      throw new BadRequestException(
-        'Invalid phone number format. Please use a valid international phone number.',
-      );
+      throw new BadRequestException('Invalid phone number format. Please use a valid international phone number.');
     }
 
     return parsed.number;
   }
 
-  private normalizeIdentityDocument(
-    identityDocument: string,
-    isForeigner: boolean,
-  ): string {
+  private normalizeIdentityDocument(identityDocument: string, isForeigner: boolean): string {
     const trimmed = identityDocument.trim();
     return isForeigner ? trimmed : trimmed.replace(/\D/g, '');
   }
@@ -99,39 +83,25 @@ export class UserService {
     isForeigner: boolean;
   } {
     const currentFullName = currentAttributes.fullName?.[0]?.trim() || '';
-    const currentIdentityDocument =
-      currentAttributes['identity-document']?.[0]?.trim() || '';
+    const currentIdentityDocument = currentAttributes['identity-document']?.[0]?.trim() || '';
     const currentIsForeigner = currentAttributes.isForeigner?.[0] === 'true';
-    const effectiveIsForeigner = currentIdentityDocument
-      ? currentIsForeigner
-      : updateData.isForeigner;
-    const hasRegisteredIdentity =
-      currentFullName !== '' || currentIdentityDocument !== '';
+    const effectiveIsForeigner = currentIdentityDocument ? currentIsForeigner : updateData.isForeigner;
+    const hasRegisteredIdentity = currentFullName !== '' || currentIdentityDocument !== '';
 
     if (!hasRegisteredIdentity) {
       return {
         fullName: updateData.fullname.trim(),
-        identityDocument: this.normalizeIdentityDocument(
-          updateData.identityDocument,
-          updateData.isForeigner,
-        ),
+        identityDocument: this.normalizeIdentityDocument(updateData.identityDocument, updateData.isForeigner),
         isForeigner: updateData.isForeigner,
       };
     }
 
     if (currentFullName && updateData.fullname.trim() !== currentFullName) {
-      throw new BadRequestException(
-        'Nome completo não pode ser alterado após o cadastro.',
-      );
+      throw new BadRequestException('Nome completo não pode ser alterado após o cadastro.');
     }
 
-    if (
-      currentIdentityDocument &&
-      currentIsForeigner !== updateData.isForeigner
-    ) {
-      throw new BadRequestException(
-        'Tipo de documento não pode ser alterado após o cadastro.',
-      );
+    if (currentIdentityDocument && currentIsForeigner !== updateData.isForeigner) {
+      throw new BadRequestException('Tipo de documento não pode ser alterado após o cadastro.');
     }
 
     const normalizedCurrentIdentityDocument = this.normalizeIdentityDocument(
@@ -143,10 +113,7 @@ export class UserService {
       effectiveIsForeigner,
     );
 
-    if (
-      normalizedCurrentIdentityDocument &&
-      normalizedIncomingIdentityDocument !== normalizedCurrentIdentityDocument
-    ) {
+    if (normalizedCurrentIdentityDocument && normalizedIncomingIdentityDocument !== normalizedCurrentIdentityDocument) {
       throw new BadRequestException(
         currentIsForeigner
           ? 'Documento de identidade não pode ser alterado após o cadastro.'
@@ -156,8 +123,7 @@ export class UserService {
 
     return {
       fullName: currentFullName || updateData.fullname.trim(),
-      identityDocument:
-        currentIdentityDocument || normalizedIncomingIdentityDocument,
+      identityDocument: currentIdentityDocument || normalizedIncomingIdentityDocument,
       isForeigner: effectiveIsForeigner,
     };
   }
@@ -165,14 +131,12 @@ export class UserService {
   async findByKeycloakId(keycloakId: string): Promise<UserProfile | null> {
     try {
       // First check if the user exists in Keycloak
-      const userBasicInfo =
-        await this.keycloakService.getUserBasicInfo(keycloakId);
+      const userBasicInfo = await this.keycloakService.getUserBasicInfo(keycloakId);
       if (!userBasicInfo) {
         return null;
       }
 
-      const attributes =
-        await this.keycloakService.getUserAttributes(keycloakId);
+      const attributes = await this.keycloakService.getUserAttributes(keycloakId);
 
       // If no email in attributes but user exists, use the basic info email
       const userEmail = attributes.email?.[0] || userBasicInfo.email;
@@ -181,11 +145,7 @@ export class UserService {
         return null;
       }
 
-      const profile = this.attributesToUserProfile(
-        keycloakId,
-        attributes,
-        userBasicInfo,
-      );
+      const profile = this.attributesToUserProfile(keycloakId, attributes, userBasicInfo);
       await this.upsertLeanUser(profile);
       return profile;
     } catch (error) {
@@ -201,9 +161,7 @@ export class UserService {
         return null;
       }
 
-      const attributes = await this.keycloakService.getUserAttributes(
-        keycloakUser.id,
-      );
+      const attributes = await this.keycloakService.getUserAttributes(keycloakUser.id);
       const profile = this.attributesToUserProfile(keycloakUser.id, attributes);
       await this.upsertLeanUser(profile);
       return profile;
@@ -227,13 +185,9 @@ export class UserService {
       hasPicture: !!keycloakUser.picture,
     });
 
-    const isUnespUser = await this.isUnespUser(
-      keycloakUser.email,
-      keycloakUser.sub,
-    );
+    const isUnespUser = await this.isUnespUser(keycloakUser.email, keycloakUser.sub);
     const displayName =
-      keycloakUser.name ||
-      `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
+      keycloakUser.name || `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
 
     // Determine initial Unesp role (professors get auto-assigned)
     const unespRole = this.determineUnespRole(keycloakUser.email);
@@ -270,32 +224,20 @@ export class UserService {
       this.logger.debug('User attributes updated successfully', {
         userId: keycloakUser.sub,
       });
-      const profile = this.attributesToUserProfile(
-        keycloakUser.sub,
-        attributes,
-      );
+      const profile = this.attributesToUserProfile(keycloakUser.sub, attributes);
       await this.upsertLeanUser(profile);
       return profile;
     } catch (error) {
-      this.logger.error(
-        'Error updating user attributes during creation',
-        error,
-      );
+      this.logger.error('Error updating user attributes during creation', error);
       // If updating attributes fails, still return a basic user profile
       // This ensures the user can still log in and complete onboarding later
-      const profile = this.attributesToUserProfile(
-        keycloakUser.sub,
-        attributes,
-      );
+      const profile = this.attributesToUserProfile(keycloakUser.sub, attributes);
       await this.upsertLeanUser(profile);
       return profile;
     }
   }
 
-  async updateProfile(
-    userId: string,
-    updateData: CreateUserProfileDto,
-  ): Promise<UserProfile> {
+  async updateProfile(userId: string, updateData: CreateUserProfileDto): Promise<UserProfile> {
     try {
       this.logger.debug('Updating profile for user', { userId });
 
@@ -306,8 +248,7 @@ export class UserService {
         throw new Error('User not found');
       }
 
-      const currentAttributes =
-        await this.keycloakService.getUserAttributes(userId);
+      const currentAttributes = await this.keycloakService.getUserAttributes(userId);
 
       this.logger.debug('Current user attributes retrieved', {
         userId,
@@ -318,10 +259,11 @@ export class UserService {
       // But we know the user exists from the previous check
       const userEmail = currentAttributes.email?.[0] || userBasicInfo.email;
       if (!userEmail) {
-        this.logger.error(
-          'User found but has no email in basic info or attributes',
-          { userId, userBasicInfo, currentAttributes },
-        );
+        this.logger.error('User found but has no email in basic info or attributes', {
+          userId,
+          userBasicInfo,
+          currentAttributes,
+        });
         throw new Error('User found but missing email information');
       }
 
@@ -338,24 +280,15 @@ export class UserService {
       });
 
       if (missingRequiredFields.length > 0) {
-        this.logger.error(
-          'Cannot mark user as onboarded - missing required fields',
-          {
-            userId,
-            missingRequiredFields,
-            updateData,
-          },
-        );
-        throw new Error(
-          `Missing required fields: ${missingRequiredFields.join(', ')}`,
-        );
+        this.logger.error('Cannot mark user as onboarded - missing required fields', {
+          userId,
+          missingRequiredFields,
+          updateData,
+        });
+        throw new Error(`Missing required fields: ${missingRequiredFields.join(', ')}`);
       }
 
-      const immutableIdentityFields =
-        this.assertRegisteredIdentityFieldsUnchanged(
-          currentAttributes,
-          updateData,
-        );
+      const immutableIdentityFields = this.assertRegisteredIdentityFieldsUnchanged(currentAttributes, updateData);
 
       // Validate phone number using libphonenumber-js and normalize to E.164
       updateData.phone = this.validatePhone(updateData.phone);
@@ -364,11 +297,7 @@ export class UserService {
       const isFullNameLocked = currentAttributes.fullNameLocked?.[0] === 'true';
       const currentFullName = currentAttributes.fullName?.[0];
 
-      if (
-        isFullNameLocked &&
-        currentFullName &&
-        updateData.fullname !== currentFullName
-      ) {
+      if (isFullNameLocked && currentFullName && updateData.fullname !== currentFullName) {
         throw new Error(
           'Nome completo não pode ser alterado após verificação por documento. Entre em contato com o suporte se necessário.',
         );
@@ -378,9 +307,7 @@ export class UserService {
       const updatedAttributes: Record<string, string[]> = {
         email: currentAttributes.email || [userBasicInfo.email],
         username: currentAttributes.username || [userBasicInfo.email],
-        displayName: currentAttributes.displayName || [
-          userBasicInfo.email.split('@')[0],
-        ],
+        displayName: currentAttributes.displayName || [userBasicInfo.email.split('@')[0]],
         ...currentAttributes,
         // Preserve registered identity fields once they have stored values.
         fullName:
@@ -403,19 +330,13 @@ export class UserService {
       const currentUnespRole = currentAttributes.unespRole?.[0];
       const currentEnrollmentNumber = currentAttributes.enrollmentNumber?.[0];
       let shouldInvalidateVerification = false;
-      const normalizedEnrollmentNumber =
-        updateData.enrollmentNumber?.trim() || '';
+      const normalizedEnrollmentNumber = updateData.enrollmentNumber?.trim() || '';
       const hasEnrollmentInput = normalizedEnrollmentNumber.length > 0;
       const effectiveUnespRole =
-        (isUnespUser
-          ? updateData.unespRole || (currentUnespRole as UnespRole | undefined)
-          : undefined) || undefined;
+        (isUnespUser ? updateData.unespRole || (currentUnespRole as UnespRole | undefined) : undefined) || undefined;
 
       // Enforce enrollment number only for student roles
-      if (
-        hasEnrollmentInput &&
-        (!effectiveUnespRole || !isStudentRole(effectiveUnespRole))
-      ) {
+      if (hasEnrollmentInput && (!effectiveUnespRole || !isStudentRole(effectiveUnespRole))) {
         throw new Error('Enrollment number can only be set for student roles');
       }
 
@@ -424,19 +345,13 @@ export class UserService {
         updatedAttributes.enrollmentNumber = [normalizedEnrollmentNumber];
 
         // Check if enrollment number is changing
-        if (
-          currentEnrollmentNumber &&
-          currentEnrollmentNumber !== normalizedEnrollmentNumber
-        ) {
+        if (currentEnrollmentNumber && currentEnrollmentNumber !== normalizedEnrollmentNumber) {
           shouldInvalidateVerification = true;
-          this.logger.debug(
-            'Enrollment number changed, will invalidate verification',
-            {
-              userId,
-              from: currentEnrollmentNumber,
-              to: normalizedEnrollmentNumber,
-            },
-          );
+          this.logger.debug('Enrollment number changed, will invalidate verification', {
+            userId,
+            from: currentEnrollmentNumber,
+            to: normalizedEnrollmentNumber,
+          });
         }
       }
 
@@ -445,35 +360,22 @@ export class UserService {
         updatedAttributes.unespRole = [updateData.unespRole];
 
         // Check if Unesp role is changing
-        if (
-          currentUnespRole &&
-          currentUnespRole !== updateData.unespRole.toString()
-        ) {
+        if (currentUnespRole && currentUnespRole !== updateData.unespRole.toString()) {
           shouldInvalidateVerification = true;
-          this.logger.debug(
-            'Unesp role changed, will invalidate verification',
-            {
-              userId,
-              from: currentUnespRole,
-              to: updateData.unespRole,
-            },
-          );
+          this.logger.debug('Unesp role changed, will invalidate verification', {
+            userId,
+            from: currentUnespRole,
+            to: updateData.unespRole,
+          });
         }
 
         // Validate enrollment number is required for student roles
-        if (
-          isStudentRole(updateData.unespRole) &&
-          !hasEnrollmentInput &&
-          !currentEnrollmentNumber
-        ) {
+        if (isStudentRole(updateData.unespRole) && !hasEnrollmentInput && !currentEnrollmentNumber) {
           throw new Error('Enrollment number is required for student roles');
         }
 
         // Clear stale enrollment when switching away from student roles
-        if (
-          currentUnespRole !== updateData.unespRole.toString() &&
-          !isStudentRole(updateData.unespRole)
-        ) {
+        if (currentUnespRole !== updateData.unespRole.toString() && !isStudentRole(updateData.unespRole)) {
           updatedAttributes.enrollmentNumber = [''];
 
           if (currentEnrollmentNumber) {
@@ -484,10 +386,7 @@ export class UserService {
 
       // Invalidate verification if critical attributes changed
       if (shouldInvalidateVerification) {
-        this.logger.debug(
-          'Invalidating Unesp role verification due to critical attribute changes',
-          { userId },
-        );
+        this.logger.debug('Invalidating Unesp role verification due to critical attribute changes', { userId });
         updatedAttributes.unespRoleVerified = ['false'];
       }
 
@@ -496,15 +395,9 @@ export class UserService {
         updatedAttributes.createdAt = [new Date().toISOString()];
       }
 
-      await this.keycloakService.updateUserAttributes(
-        userId,
-        updatedAttributes,
-      );
+      await this.keycloakService.updateUserAttributes(userId, updatedAttributes);
 
-      const updatedProfile = this.attributesToUserProfile(
-        userId,
-        updatedAttributes,
-      );
+      const updatedProfile = this.attributesToUserProfile(userId, updatedAttributes);
       await this.upsertLeanUser(updatedProfile);
       await this.notifyProfileUpdated(updatedProfile);
 
@@ -535,10 +428,7 @@ export class UserService {
 
       return await this.isUnespUser(userBasicInfo.email, userId);
     } catch (error) {
-      this.logger.error(
-        'Error checking Unesp role selection requirement',
-        error,
-      );
+      this.logger.error('Error checking Unesp role selection requirement', error);
       return false;
     }
   }
@@ -549,15 +439,11 @@ export class UserService {
     let adminGroups: string[] = [];
 
     try {
-      const hasSuperAdminAccess =
-        await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
-          user.keycloakId,
-        );
+      const hasSuperAdminAccess = await this.accountPermissionService.hasAccountManagerSuperAdminAccess(
+        user.keycloakId,
+      );
       isAdmin =
-        hasSuperAdminAccess ||
-        (await this.accountPermissionService.hasAccountManagerAdminAccess(
-          user.keycloakId,
-        ));
+        hasSuperAdminAccess || (await this.accountPermissionService.hasAccountManagerAdminAccess(user.keycloakId));
 
       if (hasSuperAdminAccess) {
         adminGroups = [AccountManagerPermission.SuperAdmin];
@@ -628,18 +514,14 @@ export class UserService {
       // User is considered onboarded ONLY if:
       // 1. They are explicitly marked as onboarded AND
       // 2. They have all required fields filled
-      const isFullyOnboarded =
-        isOnboardedFlag === 'true' && missingFields.length === 0;
+      const isFullyOnboarded = isOnboardedFlag === 'true' && missingFields.length === 0;
 
       // If they're marked as onboarded but missing fields, reset their onboarded status
       if (isOnboardedFlag === 'true' && missingFields.length > 0) {
-        this.logger.warn(
-          'User marked as onboarded but missing required fields, resetting onboarded flag',
-          {
-            userId,
-            missingFields,
-          },
-        );
+        this.logger.warn('User marked as onboarded but missing required fields, resetting onboarded flag', {
+          userId,
+          missingFields,
+        });
 
         // Reset the onboarded flag since they don't actually have all required data
         await this.keycloakService.updateUserAttributes(userId, {
@@ -663,10 +545,7 @@ export class UserService {
     } catch (error) {
       // If it's a connection error to Keycloak, re-throw it so the controller can handle it appropriately
       if (error instanceof KeycloakConnectionException) {
-        this.logger.error(
-          'Keycloak connection error while checking onboarding status',
-          error,
-        );
+        this.logger.error('Keycloak connection error while checking onboarding status', error);
         throw error;
       }
 
@@ -679,9 +558,7 @@ export class UserService {
   /**
    * Update user data from Keycloak OAuth (refresh profile picture, display name, etc.)
    */
-  async updateFromKeycloakOAuth(
-    keycloakUser: KeycloakUser,
-  ): Promise<UserProfile> {
+  async updateFromKeycloakOAuth(keycloakUser: KeycloakUser): Promise<UserProfile> {
     try {
       this.logger.debug('Updating user data from Keycloak OAuth', {
         sub: keycloakUser.sub,
@@ -692,9 +569,7 @@ export class UserService {
       });
 
       // Get current user attributes
-      const currentAttributes = await this.keycloakService.getUserAttributes(
-        keycloakUser.sub,
-      );
+      const currentAttributes = await this.keycloakService.getUserAttributes(keycloakUser.sub);
 
       this.logger.debug('Current user attributes before update', {
         currentPicture: currentAttributes.picture?.[0],
@@ -704,8 +579,7 @@ export class UserService {
 
       // Always update display name and picture from OAuth
       const displayName =
-        keycloakUser.name ||
-        `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
+        keycloakUser.name || `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
 
       const updatedAttributes: Record<string, string[]> = {
         ...currentAttributes,
@@ -722,10 +596,7 @@ export class UserService {
       });
 
       // For Unesp users, also update fullName if it's empty or if we got a new name from OAuth
-      const isUnespUser = await this.isUnespUser(
-        keycloakUser.email,
-        keycloakUser.sub,
-      );
+      const isUnespUser = await this.isUnespUser(keycloakUser.email, keycloakUser.sub);
       if (isUnespUser && displayName) {
         // Only update fullName if it's currently empty or if this is a substantial update
         const currentFullName = currentAttributes.fullName?.[0];
@@ -740,10 +611,7 @@ export class UserService {
         { skipValidation: true }, // Skip validation since we're just updating OAuth data
       );
 
-      const profile = this.attributesToUserProfile(
-        keycloakUser.sub,
-        updatedAttributes,
-      );
+      const profile = this.attributesToUserProfile(keycloakUser.sub, updatedAttributes);
       await this.upsertLeanUser(profile);
       return profile;
     } catch (error) {
@@ -763,10 +631,7 @@ export class UserService {
 
       const user = await this.keycloakService.getUserBasicInfo(userId);
       if (!user) {
-        this.logger.warn(
-          'User not found in Keycloak, may have been already deleted',
-          { userId },
-        );
+        this.logger.warn('User not found in Keycloak, may have been already deleted', { userId });
         return;
       }
 
@@ -784,18 +649,12 @@ export class UserService {
         picture: [''],
       };
 
-      await this.keycloakService.updateUserAttributes(
-        userId,
-        clearedAttributes,
-        { skipValidation: true },
-      );
+      await this.keycloakService.updateUserAttributes(userId, clearedAttributes, { skipValidation: true });
 
       this.logger.log('User data successfully cleared', { userId });
     } catch (error) {
       this.logger.error('Error deleting user data', error);
-      throw new Error(
-        `Failed to delete user data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      throw new Error(`Failed to delete user data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -857,10 +716,7 @@ export class UserService {
       return value ? value === 'true' : defaultValue;
     };
 
-    const getDateFirst = (
-      key: string,
-      defaultValue: Date = new Date(),
-    ): Date => {
+    const getDateFirst = (key: string, defaultValue: Date = new Date()): Date => {
       const value = attributes[key]?.[0];
       return value ? new Date(value) : defaultValue;
     };
@@ -919,9 +775,7 @@ export class UserService {
             try {
               const parsed = JSON.parse(trimmed) as unknown;
               if (Array.isArray(parsed)) {
-                return parsed.filter(
-                  (item): item is string => typeof item === 'string',
-                );
+                return parsed.filter((item): item is string => typeof item === 'string');
               }
             } catch {
               return [trimmed];

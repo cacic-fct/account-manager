@@ -13,11 +13,7 @@
           <div class="toggle-item">
             <div class="toggle-info">
               <div class="toggle-header">
-                <mat-icon
-                  [class]="
-                    'toggle-icon ' + (toggle.enabled ? 'enabled' : 'disabled')
-                  "
-                >
+                <mat-icon [class]="'toggle-icon ' + (toggle.enabled ? 'enabled' : 'disabled')">
                   {{ toggle.icon }}
                 </mat-icon>
                 <h3>{{ toggle.title }}</h3>
@@ -32,22 +28,19 @@
                   [checked]="toggle.enabled"
                   (change)="onToggleChange(toggle.key, $event.checked)"
                   [disabled]="isUpdating()"
-                  color="primary"
-                ></mat-slide-toggle>
+                  color="primary"></mat-slide-toggle>
               }
             </div>
           </div>
         }
       </div>
       <p>
-        Ao manter essas opções ativadas, você nos ajuda a construir aplicações
-        melhores, mais rápidas e mais estáveis!
+        Ao manter essas opções ativadas, você nos ajuda a construir aplicações melhores, mais rápidas e mais estáveis!
       </p>
 
       <p>
-        Suas alterações podem demorar alguns minutos para serem aplicadas e
-        podem necessitar que você atualize todas as páginas do CACiC abertas
-        para que tenham efeito.
+        Suas alterações podem demorar alguns minutos para serem aplicadas e podem necessitar que você atualize todas as
+        páginas do CACiC abertas para que tenham efeito.
       </p>
     </mat-card-content>
   </mat-card>

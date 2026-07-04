@@ -260,17 +260,17 @@ mat-card {
     mat-chip {
       align-self: flex-start;
 
-      &[color="primary"] {
+      &[color='primary'] {
         background-color: var(--chip-background-approved);
         color: var(--chip-text-approved);
       }
 
-      &[color="accent"] {
+      &[color='accent'] {
         background-color: var(--chip-background-pending);
         color: var(--chip-text-pending);
       }
 
-      &[color="warn"] {
+      &[color='warn'] {
         background-color: var(--chip-background-rejected);
         color: var(--chip-text-rejected);
       }

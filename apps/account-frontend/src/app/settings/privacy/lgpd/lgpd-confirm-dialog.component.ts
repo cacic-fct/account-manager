@@ -15,8 +15,8 @@ import { MatIconModule } from '@angular/material/icon';
 
       <mat-dialog-content>
         <p class="main-text">
-          Você está prestes a solicitar uma cópia de todos os seus dados
-          pessoais conforme a Lei Geral de Proteção de Dados (LGPD).
+          Você está prestes a solicitar uma cópia de todos os seus dados pessoais conforme a Lei Geral de Proteção de
+          Dados (LGPD).
         </p>
 
         <div class="info-list">
@@ -26,9 +26,7 @@ import { MatIconModule } from '@angular/material/icon';
           </div>
           <div class="info-item">
             <mat-icon>folder_zip</mat-icon>
-            <span
-              >Dados serão organizados em arquivo ZIP com JSONs temáticos</span
-            >
+            <span>Dados serão organizados em arquivo ZIP com JSONs temáticos</span>
           </div>
           <div class="info-item">
             <mat-icon>timer</mat-icon>

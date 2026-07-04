@@ -49,12 +49,9 @@ export class LgpdApiService {
   }
 
   getLgpdRequest(id: string): Observable<LgpdRequestDetail> {
-    return this.http.get<LgpdRequestDetail>(
-      `${this.baseUrl}/lgpd/request/${id}`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<LgpdRequestDetail>(`${this.baseUrl}/lgpd/request/${id}`, {
+      withCredentials: true,
+    });
   }
 
   downloadLgpdFile(id: string): string {
@@ -64,17 +61,11 @@ export class LgpdApiService {
     return `${this.baseUrl}/lgpd/download/${id}`;
   }
 
-  deleteAccount(
-    request: DeleteAccountRequest,
-  ): Observable<DeleteAccountResponse> {
+  deleteAccount(request: DeleteAccountRequest): Observable<DeleteAccountResponse> {
     return this.http
-      .post<DeleteAccountResponse>(
-        `${this.baseUrl}/lgpd/delete-account`,
-        request,
-        {
-          withCredentials: true,
-        },
-      )
+      .post<DeleteAccountResponse>(`${this.baseUrl}/lgpd/delete-account`, request, {
+        withCredentials: true,
+      })
       .pipe(
         tap(() => {
           this.cacheService.invalidate(API_CACHE_KEYS.CURRENT_USER);
@@ -86,17 +77,12 @@ export class LgpdApiService {
   }
 
   getPendingAccountDeletionRequests(): Observable<AdminDeleteAccountRequest[]> {
-    return this.http.get<AdminDeleteAccountRequest[]>(
-      `${this.baseUrl}/lgpd/admin/delete-account-requests`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<AdminDeleteAccountRequest[]>(`${this.baseUrl}/lgpd/admin/delete-account-requests`, {
+      withCredentials: true,
+    });
   }
 
-  undoAccountDeletionRequest(
-    id: string,
-  ): Observable<AdminDeleteAccountRequest> {
+  undoAccountDeletionRequest(id: string): Observable<AdminDeleteAccountRequest> {
     return this.http.post<AdminDeleteAccountRequest>(
       `${this.baseUrl}/lgpd/admin/delete-account-requests/${id}/undo`,
       {},

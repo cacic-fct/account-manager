@@ -30,10 +30,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
     return `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/auth?${params.toString()}`;
   }
 
-  getEndSessionUrl(
-    postLogoutRedirectUri: string,
-    idTokenHint?: string,
-  ): string {
+  getEndSessionUrl(postLogoutRedirectUri: string, idTokenHint?: string): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
       post_logout_redirect_uri: postLogoutRedirectUri,
@@ -136,10 +133,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
     body.set('client_id', this.clientId);
     body.set('username', username);
     body.set('password', password);
-    body.set(
-      'scope',
-      'openid profile email phone identity-document academic-profile',
-    );
+    body.set('scope', 'openid profile email phone identity-document academic-profile');
 
     const headers = this.createFormHeaders();
     this.appendClientAuthentication(body, headers);
@@ -332,10 +326,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
     }
   }
 
-  private appendClientAuthentication(
-    body: URLSearchParams,
-    headers: Record<string, string>,
-  ): void {
+  private appendClientAuthentication(body: URLSearchParams, headers: Record<string, string>): void {
     if (this.clientAuthMethod === 'none') {
       return;
     }
@@ -348,18 +339,13 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
     }
 
     body.delete('client_id');
-    headers.Authorization = `Basic ${this.getClientSecretBasicCredentials(
-      clientSecret,
-    )}`;
+    headers.Authorization = `Basic ${this.getClientSecretBasicCredentials(clientSecret)}`;
   }
 
   private getLoginClientSecret(): string {
     if (!this.clientSecret) {
       throw new Error(
-        [
-          'KEYCLOAK_CLIENT_SECRET must be configured for',
-          `${this.clientAuthMethod} authentication`,
-        ].join(' '),
+        ['KEYCLOAK_CLIENT_SECRET must be configured for', `${this.clientAuthMethod} authentication`].join(' '),
       );
     }
 
@@ -367,10 +353,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   }
 
   private getClientSecretBasicCredentials(clientSecret: string): string {
-    return Buffer.from(
-      `${this.formEncode(this.clientId)}:${this.formEncode(clientSecret)}`,
-      'utf8',
-    ).toString('base64');
+    return Buffer.from(`${this.formEncode(this.clientId)}:${this.formEncode(clientSecret)}`, 'utf8').toString('base64');
   }
 
   private formEncode(value: string): string {

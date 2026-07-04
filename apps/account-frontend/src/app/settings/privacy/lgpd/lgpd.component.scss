@@ -43,16 +43,8 @@
 }
 
 .danger-card {
-  border-color: color-mix(
-    in srgb,
-    var(--mat-sys-error) 36%,
-    var(--mat-sys-outline-variant)
-  );
-  background: color-mix(
-    in srgb,
-    var(--mat-sys-error) 5%,
-    var(--mat-sys-surface)
-  );
+  border-color: color-mix(in srgb, var(--mat-sys-error) 36%, var(--mat-sys-outline-variant));
+  background: color-mix(in srgb, var(--mat-sys-error) 5%, var(--mat-sys-surface));
 
   mat-icon[mat-card-avatar] {
     color: var(--mat-sys-error);

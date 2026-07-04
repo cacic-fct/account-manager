@@ -1,11 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsIn,
-  IsObject,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 import type {
   DiscordManagedRoleCategory,
   DiscordManagedRoleDefinition,
@@ -46,8 +40,7 @@ export class DiscordManagedRoleDefinitionDto implements DiscordManagedRoleDefini
 
   @ApiProperty({
     description: 'Short explanation of what this automated category means',
-    example:
-      'Força o cargo de aluno mesmo quando os critérios automáticos não batem.',
+    example: 'Força o cargo de aluno mesmo quando os critérios automáticos não batem.',
   })
   description!: string;
 }

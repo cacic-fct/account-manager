@@ -8,13 +8,7 @@ import { DiscordServicesModule } from './services/discord-services.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [
-    ConfigModule,
-    AuthModule,
-    DiscordServicesModule,
-    DiscordOAuthModule,
-    DiscordAdminModule,
-  ],
+  imports: [ConfigModule, AuthModule, DiscordServicesModule, DiscordOAuthModule, DiscordAdminModule],
   controllers: [DiscordController, DiscordRoleController],
 })
 export class DiscordModule {}

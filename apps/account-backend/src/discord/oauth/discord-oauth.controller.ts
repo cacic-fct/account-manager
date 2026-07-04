@@ -86,35 +86,22 @@ export class DiscordOAuthController {
   })
   @Auth()
   @Get('callback')
-  discordCallback(
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Res() res: Response,
-  ) {
+  discordCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
     try {
       if (!code || !state) {
-        return res.redirect(
-          this.discordIntegrationUrl({ error: 'missing_parameters' }),
-        );
+        return res.redirect(this.discordIntegrationUrl({ error: 'missing_parameters' }));
       }
 
       // Redirect to main controller callback endpoint for processing
-      return res.redirect(
-        `/api/discord/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-      );
+      return res.redirect(`/api/discord/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
     } catch (error) {
       this.logger.error('Discord OAuth callback error', error);
-      return res.redirect(
-        this.discordIntegrationUrl({ error: 'callback_failed' }),
-      );
+      return res.redirect(this.discordIntegrationUrl({ error: 'callback_failed' }));
     }
   }
 
   private discordIntegrationUrl(query: Record<string, string>): string {
-    const url = new URL(
-      LINKED_ACCOUNT_ROUTE_PATHS.discord,
-      this.appConfig.frontendUrl,
-    );
+    const url = new URL(LINKED_ACCOUNT_ROUTE_PATHS.discord, this.appConfig.frontendUrl);
     url.search = new URLSearchParams(query).toString();
     return url.toString();
   }

@@ -18,12 +18,7 @@
           </div>
         </div>
         @if (currentBanner()!.dismissible) {
-          <button
-            mat-icon-button
-            class="dismiss-button"
-            (click)="dismissBanner()"
-            matTooltip="Dispensar"
-          >
+          <button mat-icon-button class="dismiss-button" (click)="dismissBanner()" matTooltip="Dispensar">
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -40,16 +35,10 @@
         <mat-card-header>
           <mat-icon mat-card-avatar class="error-icon">error_outline</mat-icon>
           <mat-card-title>Erro ao carregar</mat-card-title>
-          <mat-card-subtitle>
-            Não foi possível carregar o status de verificação
-          </mat-card-subtitle>
+          <mat-card-subtitle> Não foi possível carregar o status de verificação </mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="loadVerificationStatus()"
-          >
+          <button mat-raised-button color="primary" (click)="loadVerificationStatus()">
             <mat-icon>refresh</mat-icon>
             Tentar novamente
           </button>
@@ -60,65 +49,39 @@
       @if (verificationStatus()) {
         <mat-card class="status-card">
           <mat-card-header class="card-header">
-            <mat-icon mat-card-avatar class="status-avatar"
-              >assignment</mat-icon
-            >
+            <mat-icon mat-card-avatar class="status-avatar">assignment</mat-icon>
             <mat-card-title>Status Atual</mat-card-title>
             <mat-card-subtitle>Situação da sua verificação</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
             <div class="current-status">
-              <mat-chip
-                [color]="getStatusColor(verificationStatus()!.status)"
-                highlighted
-              >
-                <mat-icon matChipIcon>{{
-                  getStatusIcon(verificationStatus()!.status)
-                }}</mat-icon>
+              <mat-chip [color]="getStatusColor(verificationStatus()!.status)" highlighted>
+                <mat-icon matChipIcon>{{ getStatusIcon(verificationStatus()!.status) }}</mat-icon>
                 {{ getStatusText(verificationStatus()!.status) }}
               </mat-chip>
 
-              @if (verificationStatus()!.status === "pending") {
+              @if (verificationStatus()!.status === 'pending') {
                 <div class="status-details">
                   <div class="detail-item">
                     <mat-icon>schedule</mat-icon>
-                    <span
-                      >Enviado em
-                      {{
-                        formatDate(verificationStatus()!.submissionDate)
-                      }}</span
-                    >
+                    <span>Enviado em {{ formatDate(verificationStatus()!.submissionDate) }}</span>
                   </div>
-                  <p class="status-message">
-                    Seu documento está sendo analisado pela nossa equipe.
-                  </p>
+                  <p class="status-message">Seu documento está sendo analisado pela nossa equipe.</p>
                 </div>
-              } @else if (verificationStatus()!.status === "approved") {
+              } @else if (verificationStatus()!.status === 'approved') {
                 <div class="status-details">
                   <div class="detail-item">
                     <mat-icon>check_circle</mat-icon>
-                    <span
-                      >Aprovado em
-                      {{
-                        formatDate(verificationStatus()!.verificationDate)
-                      }}</span
-                    >
+                    <span>Aprovado em {{ formatDate(verificationStatus()!.verificationDate) }}</span>
                   </div>
-                  <p class="status-message">
-                    Sua verificação como estudante foi aprovada com sucesso!
-                  </p>
+                  <p class="status-message">Sua verificação como estudante foi aprovada com sucesso!</p>
                 </div>
-              } @else if (verificationStatus()!.status === "rejected") {
+              } @else if (verificationStatus()!.status === 'rejected') {
                 <div class="status-details">
                   <div class="detail-item error">
                     <mat-icon>cancel</mat-icon>
-                    <span
-                      >Rejeitado em
-                      {{
-                        formatDate(verificationStatus()!.verificationDate)
-                      }}</span
-                    >
+                    <span>Rejeitado em {{ formatDate(verificationStatus()!.verificationDate) }}</span>
                   </div>
                   @if (verificationStatus()!.rejectionReason) {
                     <div class="rejection-reason">
@@ -126,9 +89,7 @@
                       {{ verificationStatus()!.rejectionReason }}
                     </div>
                   }
-                  <p class="status-message">
-                    Você pode enviar um novo documento abaixo.
-                  </p>
+                  <p class="status-message">Você pode enviar um novo documento abaixo.</p>
                 </div>
               }
             </div>
@@ -139,18 +100,14 @@
       <!-- Document Upload Card -->
       @if (
         !verificationStatus() ||
-        verificationStatus()!.status === "not_submitted" ||
-        verificationStatus()!.status === "rejected"
+        verificationStatus()!.status === 'not_submitted' ||
+        verificationStatus()!.status === 'rejected'
       ) {
         <mat-card class="upload-card">
           <mat-card-header class="card-header">
-            <mat-icon mat-card-avatar class="upload-avatar"
-              >cloud_upload</mat-icon
-            >
+            <mat-icon mat-card-avatar class="upload-avatar">cloud_upload</mat-icon>
             <mat-card-title>Enviar Documento</mat-card-title>
-            <mat-card-subtitle
-              >Faça o upload do seu documento de estudante</mat-card-subtitle
-            >
+            <mat-card-subtitle>Faça o upload do seu documento de estudante</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
@@ -181,8 +138,7 @@
                 (dragover)="onDragOver($event)"
                 (dragleave)="onDragLeave($event)"
                 (drop)="onDrop($event)"
-                [class.drag-over]="isDragOver()"
-              >
+                [class.drag-over]="isDragOver()">
                 <mat-icon class="upload-icon">cloud_upload</mat-icon>
                 <h4>Clique para selecionar um arquivo</h4>
                 <p class="file-hint">ou arraste e solte aqui</p>
@@ -193,8 +149,7 @@
                 type="file"
                 accept=".pdf, application/pdf"
                 (change)="onFileSelected($event)"
-                style="display: none"
-              />
+                style="display: none" />
             } @else {
               <!-- Selected File Display -->
               <div class="selected-file">
@@ -211,8 +166,7 @@
                     (click)="removeSelectedFile()"
                     [disabled]="uploading()"
                     matTooltip="Remover arquivo"
-                    class="remove-button"
-                  >
+                    class="remove-button">
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -225,15 +179,12 @@
                 <mat-checkbox
                   [checked]="useManualFallback()"
                   (change)="useManualFallback.set($event.checked)"
-                  [disabled]="uploading()"
-                >
+                  [disabled]="uploading()">
                   <div class="dev-option">
                     <mat-icon class="dev-icon">bug_report</mat-icon>
                     <div class="dev-content">
                       <span class="dev-label">Pular validação automática</span>
-                      <span class="dev-description"
-                        >Envia documento diretamente para aprovação manual</span
-                      >
+                      <span class="dev-description">Envia documento diretamente para aprovação manual</span>
                     </div>
                   </div>
                 </mat-checkbox>
@@ -242,29 +193,15 @@
 
             <!-- Upload Progress -->
             @if (uploading()) {
-              <mat-progress-bar
-                mode="indeterminate"
-                class="upload-progress"
-              ></mat-progress-bar>
+              <mat-progress-bar mode="indeterminate" class="upload-progress"></mat-progress-bar>
             }
           </mat-card-content>
 
           <mat-card-actions class="upload-actions">
             @if (!uploading() && selectedFile()) {
-              <button
-                mat-raised-button
-                color="primary"
-                (click)="startValidation()"
-                class="upload-button"
-              >
-                <mat-icon>{{
-                  isDevelopment && useManualFallback() ? "upload" : "verified"
-                }}</mat-icon>
-                {{
-                  isDevelopment && useManualFallback()
-                    ? "Enviar para Aprovação"
-                    : "Validar Documento"
-                }}
+              <button mat-raised-button color="primary" (click)="startValidation()" class="upload-button">
+                <mat-icon>{{ isDevelopment && useManualFallback() ? 'upload' : 'verified' }}</mat-icon>
+                {{ isDevelopment && useManualFallback() ? 'Enviar para Aprovação' : 'Validar Documento' }}
               </button>
             }
 
@@ -292,10 +229,7 @@
               <div class="step-number">1</div>
               <div class="step-content">
                 <h4>Envie seu documento</h4>
-                <p>
-                  Faça upload do atestado de matrícula ou do histórico escolar
-                  em formato PDF
-                </p>
+                <p>Faça upload do atestado de matrícula ou do histórico escolar em formato PDF</p>
               </div>
             </div>
 
@@ -303,10 +237,7 @@
               <div class="step-number">2</div>
               <div class="step-content">
                 <h4>Análise automática</h4>
-                <p>
-                  Nossa sistema analisa automaticamente o documento para
-                  verificar a validade dele
-                </p>
+                <p>Nossa sistema analisa automaticamente o documento para verificar a validade dele</p>
               </div>
             </div>
 
@@ -314,10 +245,7 @@
               <div class="step-number">3</div>
               <div class="step-content">
                 <h4>Descarte</h4>
-                <p>
-                  Seu documento é excluído e apenas o seu status de verificação
-                  é armazenado
-                </p>
+                <p>Seu documento é excluído e apenas o seu status de verificação é armazenado</p>
               </div>
             </div>
           </div>

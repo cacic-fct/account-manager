@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnInit,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   KEYCLOAK_PERMISSION_CLIENTS,
@@ -58,9 +51,7 @@ export class PermissionsSelfServiceComponent implements OnInit {
 
   protected memberships = computed(() => this.access().memberships);
   protected grants = computed(() => this.access().grants);
-  protected hasAccess = computed(
-    () => this.memberships().length > 0 || this.grants().length > 0,
-  );
+  protected hasAccess = computed(() => this.memberships().length > 0 || this.grants().length > 0);
 
   ngOnInit(): void {
     this.loadAccess();
@@ -108,9 +99,8 @@ export class PermissionsSelfServiceComponent implements OnInit {
 
   protected getGroupLabel(membership: PermissionGroupMembership): string {
     return (
-      PERMISSION_GROUP_CATALOG.find(
-        (definition) => definition.key === membership.groupKey,
-      )?.label ?? membership.groupKey
+      PERMISSION_GROUP_CATALOG.find((definition) => definition.key === membership.groupKey)?.label ??
+      membership.groupKey
     );
   }
 
@@ -119,9 +109,7 @@ export class PermissionsSelfServiceComponent implements OnInit {
       access: 'Acesso',
       'super-admin': 'Super Admin',
     };
-    const readableRole =
-      roleLabels[grant.roleName] ??
-      grant.roleName.replace(/#/g, ' ').replace(/-/g, ' ');
+    const readableRole = roleLabels[grant.roleName] ?? grant.roleName.replace(/#/g, ' ').replace(/-/g, ' ');
     return `${this.getClientLabel(grant.clientId)} · ${readableRole}`;
   }
 
@@ -198,17 +186,10 @@ export class PermissionsSelfServiceComponent implements OnInit {
   }
 
   private getClientLabel(clientId: string): string {
-    return (
-      KEYCLOAK_PERMISSION_CLIENTS.find(
-        (definition) => definition.clientId === clientId,
-      )?.label ?? clientId
-    );
+    return KEYCLOAK_PERMISSION_CLIENTS.find((definition) => definition.clientId === clientId)?.label ?? clientId;
   }
 
-  private formatPeriod(
-    validFrom: string | null | undefined,
-    validUntil: string | null | undefined,
-  ): string {
+  private formatPeriod(validFrom: string | null | undefined, validUntil: string | null | undefined): string {
     const start = validFrom ? this.formatDate(validFrom) : 'agora';
     const end = validUntil ? this.formatDate(validUntil) : 'sem fim';
     return `${start} até ${end}`;

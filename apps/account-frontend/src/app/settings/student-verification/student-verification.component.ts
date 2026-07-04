@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -53,9 +45,7 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
   selectedFile = signal<File | null>(null);
   uploading = signal(false);
   verificationStatus = signal<VerificationStatus | null>(null);
-  verificationNotRequired = computed(
-    () => this.verificationStatus()?.status === 'not_required',
-  );
+  verificationNotRequired = computed(() => this.verificationStatus()?.status === 'not_required');
 
   // Development mode properties
   isDevelopment = !environment.production;
@@ -114,20 +104,14 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
       // Validate file type
       const allowedTypes = ['application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        this.showErrorBanner(
-          'Tipo de arquivo inválido',
-          'Tipo de arquivo não suportado. Use PDF.',
-        );
+        this.showErrorBanner('Tipo de arquivo inválido', 'Tipo de arquivo não suportado. Use PDF.');
         return;
       }
 
       // Validate file size (10MB max)
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        this.showErrorBanner(
-          'Arquivo muito grande',
-          'Arquivo muito grande. Tamanho máximo: 10MB.',
-        );
+        this.showErrorBanner('Arquivo muito grande', 'Arquivo muito grande. Tamanho máximo: 10MB.');
         return;
       }
 
@@ -159,48 +143,38 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
     const isManualFallback = this.isDevelopment && this.useManualFallback();
 
     if (isManualFallback) {
-      this.snackBar.open(
-        'Modo de desenvolvimento: Pulando validação automática para aprovação manual.',
-        'Fechar',
-        { duration: 4000 },
-      );
+      this.snackBar.open('Modo de desenvolvimento: Pulando validação automática para aprovação manual.', 'Fechar', {
+        duration: 4000,
+      });
     }
 
-    this.studentVerificationService
-      .uploadDocument(file, isManualFallback)
-      .subscribe({
-        next: (response: UploadResponse) => {
-          this.uploading.set(false);
-          this.selectedFile.set(null);
+    this.studentVerificationService.uploadDocument(file, isManualFallback).subscribe({
+      next: (response: UploadResponse) => {
+        this.uploading.set(false);
+        this.selectedFile.set(null);
 
-          if (response.status === 'rejected') {
-            this.showErrorBanner(
-              'Documento rejeitado',
-              response.message || 'Documento rejeitado automaticamente.',
-            );
-            return;
-          }
+        if (response.status === 'rejected') {
+          this.showErrorBanner('Documento rejeitado', response.message || 'Documento rejeitado automaticamente.');
+          return;
+        }
 
-          const message =
-            response.message ||
-            (isManualFallback
-              ? 'Documento enviado diretamente para aprovação manual!'
-              : 'Documento enviado com sucesso! Aguarde a verificação.');
+        const message =
+          response.message ||
+          (isManualFallback
+            ? 'Documento enviado diretamente para aprovação manual!'
+            : 'Documento enviado com sucesso! Aguarde a verificação.');
 
-          this.snackBar.open(message, 'Fechar', {
-            duration: 5000,
-          });
-        },
-        error: (error: HttpErrorResponse) => {
-          this.uploading.set(false);
-          this.snackBar.open(
-            error.error?.message ||
-              'Erro ao enviar documento. Tente novamente.',
-            'Fechar',
-            { duration: 5000 },
-          );
-        },
-      });
+        this.snackBar.open(message, 'Fechar', {
+          duration: 5000,
+        });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.uploading.set(false);
+        this.snackBar.open(error.error?.message || 'Erro ao enviar documento. Tente novamente.', 'Fechar', {
+          duration: 5000,
+        });
+      },
+    });
   }
 
   removeSelectedFile(): void {
@@ -229,10 +203,7 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
     const file = this.selectedFile();
 
     if (!file) {
-      this.showErrorBanner(
-        'Arquivo requerido',
-        'Por favor, selecione um arquivo PDF primeiro.',
-      );
+      this.showErrorBanner('Arquivo requerido', 'Por favor, selecione um arquivo PDF primeiro.');
       return;
     }
 
@@ -260,10 +231,7 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result?.success && result?.validated) {
-        this.showSuccessBanner(
-          'Validação concluída',
-          'Documento validado com sucesso na universidade!',
-        );
+        this.showSuccessBanner('Validação concluída', 'Documento validado com sucesso na universidade!');
       } else if (result?.error) {
         // Handle different error types
         this.handleValidationError(result.error, result.errorType);
@@ -304,16 +272,10 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
         'O número de matrícula não foi encontrado no sistema da universidade.',
       );
     } else if (errorType === 'INVALID_DOCUMENT') {
-      this.showErrorBanner(
-        'Documento inválido',
-        'O documento não confere com os dados cadastrados.',
-      );
+      this.showErrorBanner('Documento inválido', 'O documento não confere com os dados cadastrados.');
     } else {
       // Generic error
-      this.showErrorBanner(
-        'Erro na validação',
-        error || 'Ocorreu um erro durante a validação. Tente novamente.',
-      );
+      this.showErrorBanner('Erro na validação', error || 'Ocorreu um erro durante a validação. Tente novamente.');
     }
   }
 }

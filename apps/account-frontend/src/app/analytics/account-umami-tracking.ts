@@ -1,9 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { PLATFORM_ID, inject, isDevMode } from '@angular/core';
-import {
-  initCacicUmamiTracking,
-  startCacicUmamiTracking,
-} from '@cacic-fct/account-manager-privacy';
+import { initCacicUmamiTracking, startCacicUmamiTracking } from '@cacic-fct/account-manager-privacy';
 
 const ACCOUNT_MANAGER_UMAMI_WEBSITE_ID = 'a07cae2c-cb7d-4a5b-ba28-ed81f1d217ae';
 const ACCOUNT_MANAGER_UMAMI_IDENTIFY_DATA = {
@@ -27,9 +24,7 @@ export function startCacicAccountUmamiTracking(): void {
   });
 }
 
-export async function trackCacicAccountPrivacySettingDisabled(
-  settingKey: string,
-): Promise<void> {
+export async function trackCacicAccountPrivacySettingDisabled(settingKey: string): Promise<void> {
   if (typeof window === 'undefined' || isDevMode()) {
     return;
   }

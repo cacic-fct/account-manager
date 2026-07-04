@@ -1,10 +1,7 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth } from '@nestjs/swagger';
 import { AccountManagerPermission } from '@cacic/shared-types';
-import {
-  AccountPermissionGuard,
-  RequireAccountPermissions,
-} from './account-permission.guard';
+import { AccountPermissionGuard, RequireAccountPermissions } from './account-permission.guard';
 import { AuthGuard } from './auth.guard';
 import { UniversityValidationGuard } from './university-validation.guard';
 
@@ -26,8 +23,7 @@ import { UniversityValidationGuard } from './university-validation.guard';
  * }
  * ```
  */
-export const Auth = () =>
-  applyDecorators(UseGuards(AuthGuard), ApiCookieAuth());
+export const Auth = () => applyDecorators(UseGuards(AuthGuard), ApiCookieAuth());
 
 /**
  * Decorator for admin-only endpoints.
@@ -61,15 +57,8 @@ export const Admin = () =>
     ApiCookieAuth(),
   );
 
-export const AccountPermissions = (
-  permissions: readonly string[],
-  mode: 'any' | 'all' = 'any',
-) =>
-  applyDecorators(
-    RequireAccountPermissions(permissions, mode),
-    UseGuards(AccountPermissionGuard),
-    ApiCookieAuth(),
-  );
+export const AccountPermissions = (permissions: readonly string[], mode: 'any' | 'all' = 'any') =>
+  applyDecorators(RequireAccountPermissions(permissions, mode), UseGuards(AccountPermissionGuard), ApiCookieAuth());
 
 /**
  * Decorator for student verification admin endpoints.
@@ -132,5 +121,4 @@ export const DiscordAdmin = () =>
  * }
  * ```
  */
-export const UniversityValidation = () =>
-  applyDecorators(UseGuards(UniversityValidationGuard), ApiCookieAuth());
+export const UniversityValidation = () => applyDecorators(UseGuards(UniversityValidationGuard), ApiCookieAuth());

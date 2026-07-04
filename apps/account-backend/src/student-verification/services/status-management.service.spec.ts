@@ -14,10 +14,7 @@ type FindFirstArgs = {
 
 type PrismaMock = {
   studentVerificationDocument: {
-    findFirst: jest.Mock<
-      Promise<StudentVerificationDocument | null>,
-      [FindFirstArgs]
-    >;
+    findFirst: jest.Mock<Promise<StudentVerificationDocument | null>, [FindFirstArgs]>;
   };
 };
 
@@ -34,9 +31,7 @@ type FeatureFlagMock = {
 
 const createdAt = new Date('2026-06-17T12:00:00.000Z');
 
-const createDocument = (
-  overrides: Partial<StudentVerificationDocument> = {},
-): StudentVerificationDocument => ({
+const createDocument = (overrides: Partial<StudentVerificationDocument> = {}): StudentVerificationDocument => ({
   id: 'document-1',
   userId: 'user-1',
   originalFileName: 'proof.pdf',
@@ -60,17 +55,10 @@ const createDocument = (
 });
 
 const createContext = (
-  documents: Partial<
-    Record<'approved' | 'pending' | 'rejected', StudentVerificationDocument>
-  > = {},
+  documents: Partial<Record<'approved' | 'pending' | 'rejected', StudentVerificationDocument>> = {},
 ) => {
-  const findFirst = jest.fn<
-    Promise<StudentVerificationDocument | null>,
-    [FindFirstArgs]
-  >();
-  findFirst.mockImplementation((args) =>
-    Promise.resolve(documents[args.where.status] ?? null),
-  );
+  const findFirst = jest.fn<Promise<StudentVerificationDocument | null>, [FindFirstArgs]>();
+  findFirst.mockImplementation((args) => Promise.resolve(documents[args.where.status] ?? null));
   const getUserAttributes = jest.fn<
     ReturnType<KeycloakService['getUserAttributes']>,
     Parameters<KeycloakService['getUserAttributes']>
@@ -86,9 +74,7 @@ const createContext = (
     getUserAttributes,
   };
   const featureFlags: FeatureFlagMock = {
-    isUndergraduateUnespRoleVerificationDisabled: jest
-      .fn<Promise<boolean>, []>()
-      .mockResolvedValue(false),
+    isUndergraduateUnespRoleVerificationDisabled: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
   };
   const service = new StatusManagementService(
     prisma as unknown as PrismaService,
@@ -190,9 +176,7 @@ describe('StatusManagementService', () => {
     const { service, keycloakService } = createContext({
       rejected: rejectedDocument,
     });
-    keycloakService.getUserAttributes.mockRejectedValue(
-      new Error('Keycloak unavailable'),
-    );
+    keycloakService.getUserAttributes.mockRejectedValue(new Error('Keycloak unavailable'));
 
     const result = await service.getVerificationStatus('user-1');
 
@@ -241,9 +225,7 @@ describe('StatusManagementService', () => {
 
   it('reports undergraduate verification as not required when the global flag is enabled', async () => {
     const { service, prisma, keycloakService, featureFlags } = createContext();
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({
       unespRole: ['aluno-graduacao'],
     });
@@ -263,9 +245,7 @@ describe('StatusManagementService', () => {
     const { service, keycloakService, featureFlags } = createContext({
       pending: pendingDocument,
     });
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({
       unespRole: ['professor'],
     });
@@ -283,9 +263,7 @@ describe('StatusManagementService', () => {
     const { service, keycloakService, featureFlags } = createContext({
       pending: pendingDocument,
     });
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({});
 
     const result = await service.getVerificationStatus('user-1');
@@ -315,23 +293,15 @@ describe('StatusManagementService', () => {
 
   it('wraps unexpected database failures when reading verification status', async () => {
     const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.findFirst.mockRejectedValue(
-      new Error('database unavailable'),
-    );
+    prisma.studentVerificationDocument.findFirst.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(
-      service.getVerificationStatus('user-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('wraps non-Error database failures when reading verification status', async () => {
     const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.findFirst.mockRejectedValue(
-      'database unavailable',
-    );
+    prisma.studentVerificationDocument.findFirst.mockRejectedValue('database unavailable');
 
-    await expect(
-      service.getVerificationStatus('user-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 });

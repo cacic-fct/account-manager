@@ -1,11 +1,5 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { M2M_USER_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../auth/jwt/m2m.guard';
 import {
@@ -57,9 +51,7 @@ export class M2MUsersApiController {
     description: 'Matched users returned successfully.',
     type: M2MUserIdentifierLookupResponseDto,
   })
-  async lookupByIdentifiers(
-    @Body() body: M2MUserIdentifierLookupDto,
-  ): Promise<M2MUserIdentifierLookupResponseDto> {
+  async lookupByIdentifiers(@Body() body: M2MUserIdentifierLookupDto): Promise<M2MUserIdentifierLookupResponseDto> {
     return {
       users: await this.users.lookupByIdentifiers(body.identifiers),
     };

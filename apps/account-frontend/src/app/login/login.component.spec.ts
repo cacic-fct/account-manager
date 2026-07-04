@@ -1,11 +1,7 @@
 import { PLATFORM_ID, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
-import {
-  ActivatedRoute,
-  convertToParamMap,
-  Router,
-} from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of, throwError } from 'rxjs';
 import { LoginComponent } from './login.component';
@@ -95,20 +91,14 @@ describe('LoginComponent', () => {
     });
     component.submit();
 
-    expect(authService.passwordLogin).toHaveBeenCalledWith(
-      'aluno@unesp.br',
-      '1',
-      '/settings',
-    );
+    expect(authService.passwordLogin).toHaveBeenCalledWith('aluno@unesp.br', '1', '/settings');
     expect(component.isSubmitting()).toBe(false);
     expect(component.errorMessage()).toBeNull();
   });
 
   it('shows the Portuguese invalid-credentials message when password login fails', async () => {
     await setup();
-    authService.passwordLogin.mockReturnValue(
-      throwError(() => new Error('Invalid email or password')),
-    );
+    authService.passwordLogin.mockReturnValue(throwError(() => new Error('Invalid email or password')));
     const component = fixture.componentInstance as unknown as LoginComponentTestApi;
 
     component.form.setValue({
@@ -134,9 +124,7 @@ describe('LoginComponent', () => {
     await setup({ error: 'auth_failed' });
     const component = fixture.componentInstance as unknown as LoginComponentTestApi;
 
-    expect(component.errorMessage()).toBe(
-      'Não foi possível entrar. Tente novamente.',
-    );
+    expect(component.errorMessage()).toBe('Não foi possível entrar. Tente novamente.');
   });
 
   it('redirects already authenticated users away from the login form', async () => {

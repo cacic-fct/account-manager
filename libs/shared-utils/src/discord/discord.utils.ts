@@ -1,8 +1,4 @@
-export function getDiscordAvatarUrl(
-  userId: string,
-  avatarHash?: string | null,
-  size = 128,
-): string {
+export function getDiscordAvatarUrl(userId: string, avatarHash?: string | null, size = 128): string {
   if (avatarHash) {
     const extension = avatarHash.startsWith('a_') ? 'gif' : 'png';
     return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${extension}?size=${size}`;

@@ -1,16 +1,9 @@
-import {
-  KeycloakService,
-  KeycloakUserData,
-} from '../auth/services/keycloak.service';
+import { KeycloakService, KeycloakUserData } from '../auth/services/keycloak.service';
 import { M2MUsersService } from './m2m-users.service';
 
-type KeycloakMock = jest.Mocked<
-  Pick<KeycloakService, 'findUserByEmail' | 'searchUsersByAttribute'>
->;
+type KeycloakMock = jest.Mocked<Pick<KeycloakService, 'findUserByEmail' | 'searchUsersByAttribute'>>;
 
-function keycloakUser(
-  overrides: Partial<KeycloakUserData> = {},
-): KeycloakUserData {
+function keycloakUser(overrides: Partial<KeycloakUserData> = {}): KeycloakUserData {
   return {
     id: 'user-1',
     email: 'ana.souza@unesp.br',
@@ -52,9 +45,7 @@ describe('M2MUsersService', () => {
       ])
       .mockResolvedValueOnce([]);
 
-    await expect(
-      service.lookupByEnrollmentNumbers([' 24123456 ', '24123456', '99999999']),
-    ).resolves.toEqual([
+    await expect(service.lookupByEnrollmentNumbers([' 24123456 ', '24123456', '99999999'])).resolves.toEqual([
       {
         userId: 'user-1',
         enrollmentNumber: '24123456',
@@ -64,18 +55,8 @@ describe('M2MUsersService', () => {
     ]);
 
     expect(keycloak.searchUsersByAttribute).toHaveBeenCalledTimes(2);
-    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(
-      1,
-      'enrollmentNumber',
-      '24123456',
-      { max: 10 },
-    );
-    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(
-      2,
-      'enrollmentNumber',
-      '99999999',
-      { max: 10 },
-    );
+    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(1, 'enrollmentNumber', '24123456', { max: 10 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(2, 'enrollmentNumber', '99999999', { max: 10 });
   });
 
   it('matches private identifiers without echoing unmatched values', async () => {
@@ -137,20 +118,8 @@ describe('M2MUsersService', () => {
     ]);
 
     expect(keycloak.findUserByEmail).toHaveBeenCalledWith('ana.souza@unesp.br');
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith(
-      'identity-document',
-      '12345678901',
-      { max: 10 },
-    );
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith(
-      'identityDocument',
-      '12345678901',
-      { max: 10 },
-    );
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith(
-      'identity-document',
-      '00000000000',
-      { max: 10 },
-    );
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '12345678901', { max: 10 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identityDocument', '12345678901', { max: 10 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '00000000000', { max: 10 });
   });
 });

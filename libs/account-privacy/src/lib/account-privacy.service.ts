@@ -1,20 +1,8 @@
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import {
-  Observable,
-  catchError,
-  finalize,
-  firstValueFrom,
-  map,
-  of,
-  shareReplay,
-  tap,
-} from 'rxjs';
-import {
-  CACIC_ACCOUNT_PRIVACY_CONFIG,
-  CacicAccountPrivacyConfig,
-} from './account-privacy.config.js';
+import { Observable, catchError, finalize, firstValueFrom, map, of, shareReplay, tap } from 'rxjs';
+import { CACIC_ACCOUNT_PRIVACY_CONFIG, CacicAccountPrivacyConfig } from './account-privacy.config.js';
 import type {
   CacicAccountPrivacySetting,
   CacicPrivacyPreferences,
@@ -27,32 +15,19 @@ export class CacicAccountPrivacyService {
   private readonly http = inject(HttpClient);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  private readonly settingsSignal = signal<CacicAccountPrivacySetting | null>(
-    null,
-  );
+  private readonly settingsSignal = signal<CacicAccountPrivacySetting | null>(null);
   private readonly loadedSignal = signal(false);
   private readonly loadingSignal = signal(false);
-  private loadRequest$: Observable<CacicAccountPrivacySetting | null> | null =
-    null;
+  private loadRequest$: Observable<CacicAccountPrivacySetting | null> | null = null;
 
   readonly settings = this.settingsSignal.asReadonly();
   readonly loaded = this.loadedSignal.asReadonly();
   readonly loading = this.loadingSignal.asReadonly();
-  readonly preferences = computed(() =>
-    this.clonePreferences(this.resolvePreferences()),
-  );
-  readonly analyticsEnabled = computed(() =>
-    this.isAllowedByPreferences('analytics_tracking'),
-  );
-  readonly errorDebuggingEnabled = computed(() =>
-    this.isAllowedByPreferences('error_debugging'),
-  );
-  readonly performanceMonitoringEnabled = computed(() =>
-    this.isAllowedByPreferences('performance_monitoring'),
-  );
-  readonly cookieBannerAccepted = computed(
-    () => this.preferences().cookie_banner_accepted,
-  );
+  readonly preferences = computed(() => this.clonePreferences(this.resolvePreferences()));
+  readonly analyticsEnabled = computed(() => this.isAllowedByPreferences('analytics_tracking'));
+  readonly errorDebuggingEnabled = computed(() => this.isAllowedByPreferences('error_debugging'));
+  readonly performanceMonitoringEnabled = computed(() => this.isAllowedByPreferences('performance_monitoring'));
+  readonly cookieBannerAccepted = computed(() => this.preferences().cookie_banner_accepted);
 
   initialize(): Promise<CacicAccountPrivacySetting | null> {
     if (!this.isBrowser) {
@@ -87,12 +62,9 @@ export class CacicAccountPrivacyService {
     this.loadingSignal.set(true);
 
     this.loadRequest$ = this.http
-      .get<CacicAccountPrivacySetting>(
-        `${this.config.apiBaseUrl}/privacy/settings`,
-        {
-          withCredentials: true,
-        },
-      )
+      .get<CacicAccountPrivacySetting>(`${this.config.apiBaseUrl}/privacy/settings`, {
+        withCredentials: true,
+      })
       .pipe(
         map((settings) => this.normalizeSettings(settings, this.config)),
         tap((settings) => {
@@ -168,25 +140,16 @@ export class CacicAccountPrivacyService {
       return settings.settings;
     }
 
-    return this.loadedSignal()
-      ? this.config.unavailablePreferences
-      : this.config.initialPreferences;
+    return this.loadedSignal() ? this.config.unavailablePreferences : this.config.initialPreferences;
   }
 
-  private clonePreferences(
-    preferences: CacicPrivacyPreferences,
-  ): CacicPrivacyPreferences {
+  private clonePreferences(preferences: CacicPrivacyPreferences): CacicPrivacyPreferences {
     return Object.freeze({ ...preferences });
   }
 
-  private isAllowedByPreferences(
-    key: Exclude<keyof CacicPrivacyPreferences, 'cookie_banner_accepted'>,
-  ): boolean {
+  private isAllowedByPreferences(key: Exclude<keyof CacicPrivacyPreferences, 'cookie_banner_accepted'>): boolean {
     const preferences = this.preferences();
-    if (
-      this.config.requireCookieBannerAcceptance &&
-      !preferences.cookie_banner_accepted
-    ) {
+    if (this.config.requireCookieBannerAcceptance && !preferences.cookie_banner_accepted) {
       return false;
     }
 

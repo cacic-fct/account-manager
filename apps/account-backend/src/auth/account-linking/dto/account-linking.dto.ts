@@ -1,10 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString } from 'class-validator';
-import type {
-  AccountMergeRequest,
-  ConfirmAccountMergeRequest,
-  ConfirmAccountMergeResponse,
-} from '@cacic/shared-types';
+import type { AccountMergeRequest, ConfirmAccountMergeRequest, ConfirmAccountMergeResponse } from '@cacic/shared-types';
 
 export class ConfirmAccountMergeDto implements ConfirmAccountMergeRequest {
   @ApiProperty({

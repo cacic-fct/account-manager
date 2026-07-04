@@ -22,38 +22,22 @@ export class PrivacyApiService {
     });
   }
 
-  updatePrivacySetting(
-    settingType: string,
-    dto: UpdatePrivacySetting,
-  ): Observable<PrivacySetting> {
-    return this.http.put<PrivacySetting>(
-      `${this.baseUrl}/privacy/settings/${settingType}`,
-      dto,
-      {
-        withCredentials: true,
-      },
-    );
+  updatePrivacySetting(settingType: string, dto: UpdatePrivacySetting): Observable<PrivacySetting> {
+    return this.http.put<PrivacySetting>(`${this.baseUrl}/privacy/settings/${settingType}`, dto, {
+      withCredentials: true,
+    });
   }
 
-  bulkUpdatePrivacySettings(
-    dto: BulkUpdatePrivacySettings,
-  ): Observable<PrivacySetting> {
-    return this.http.put<PrivacySetting>(
-      `${this.baseUrl}/privacy/settings`,
-      dto,
-      {
-        withCredentials: true,
-      },
-    );
+  bulkUpdatePrivacySettings(dto: BulkUpdatePrivacySettings): Observable<PrivacySetting> {
+    return this.http.put<PrivacySetting>(`${this.baseUrl}/privacy/settings`, dto, {
+      withCredentials: true,
+    });
   }
 
   getCookieBannerStatus(): Observable<CookieBannerStatus> {
-    return this.http.get<CookieBannerStatus>(
-      `${this.baseUrl}/privacy/cookie-banner/status`,
-      {
-        withCredentials: true,
-      },
-    );
+    return this.http.get<CookieBannerStatus>(`${this.baseUrl}/privacy/cookie-banner/status`, {
+      withCredentials: true,
+    });
   }
 
   acceptCookieBanner(): Observable<PrivacySetting> {
@@ -84,11 +68,8 @@ export class PrivacyApiService {
   }
 
   getPrivacyPreferences(token: string): Observable<Record<string, boolean>> {
-    return this.http.get<Record<string, boolean>>(
-      `${this.baseUrl}/privacy/preferences`,
-      {
-        params: { token },
-      },
-    );
+    return this.http.get<Record<string, boolean>>(`${this.baseUrl}/privacy/preferences`, {
+      params: { token },
+    });
   }
 }

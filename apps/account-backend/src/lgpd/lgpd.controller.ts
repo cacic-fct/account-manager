@@ -71,8 +71,7 @@ export class LgpdController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Bad Request - User already has pending request or other validation error',
+    description: 'Bad Request - User already has pending request or other validation error',
   })
   @ApiResponse({
     status: 401,
@@ -85,9 +84,7 @@ export class LgpdController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('request')
-  async createDataRequest(
-    @Session() session: AuthSession,
-  ): Promise<LgpdRequestDto> {
+  async createDataRequest(@Session() session: AuthSession): Promise<LgpdRequestDto> {
     const user = this.getSessionUser(session);
 
     try {
@@ -99,17 +96,13 @@ export class LgpdController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException(
-        'Erro interno do servidor',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @ApiOperation({
     summary: 'Get user LGPD requests',
-    description:
-      'Returns a list of all LGPD data requests for the authenticated user.',
+    description: 'Returns a list of all LGPD data requests for the authenticated user.',
   })
   @ApiResponse({
     status: 200,
@@ -124,9 +117,7 @@ export class LgpdController {
   @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('requests')
-  async getUserRequests(
-    @Session() session: AuthSession,
-  ): Promise<LgpdRequestListDto[]> {
+  async getUserRequests(@Session() session: AuthSession): Promise<LgpdRequestListDto[]> {
     const user = this.getSessionUser(session);
 
     return await this.lgpdService.getUserRequests(user.keycloakId);
@@ -134,8 +125,7 @@ export class LgpdController {
 
   @ApiOperation({
     summary: 'Get specific LGPD request',
-    description:
-      'Returns detailed information about a specific LGPD data request.',
+    description: 'Returns detailed information about a specific LGPD data request.',
   })
   @ApiParam({
     name: 'id',
@@ -158,10 +148,7 @@ export class LgpdController {
   @Auth()
   @UseGuards(CurrentUserGuard)
   @Get('request/:id')
-  async getRequest(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-  ): Promise<LgpdRequestDto> {
+  async getRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<LgpdRequestDto> {
     const user = this.getSessionUser(session);
 
     return await this.lgpdService.getRequestById(id, user.keycloakId);
@@ -169,8 +156,7 @@ export class LgpdController {
 
   @ApiOperation({
     summary: 'Download LGPD data file',
-    description:
-      'Downloads the generated ZIP file containing user data for a completed LGPD request.',
+    description: 'Downloads the generated ZIP file containing user data for a completed LGPD request.',
   })
   @ApiParam({
     name: 'id',
@@ -209,25 +195,15 @@ export class LgpdController {
   @Auth()
   @UseGuards(CurrentUserGuard)
   @Get('download/:id')
-  async downloadFile(
-    @Param('id') id: string,
-    @Session() session: AuthSession,
-    @Res() res: Response,
-  ): Promise<void> {
+  async downloadFile(@Param('id') id: string, @Session() session: AuthSession, @Res() res: Response): Promise<void> {
     const user = this.getSessionUser(session);
 
     try {
-      const { stream, fileName } = await this.lgpdService.downloadFile(
-        id,
-        user.keycloakId,
-      );
+      const { stream, fileName } = await this.lgpdService.downloadFile(id, user.keycloakId);
 
       // Set appropriate headers for file download
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader(
-        'Content-Disposition',
-        this.getContentDisposition(fileName),
-      );
+      res.setHeader('Content-Disposition', this.getContentDisposition(fileName));
 
       // Stream the file from S3
       stream.pipe(res);
@@ -242,10 +218,7 @@ export class LgpdController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException(
-        'Erro interno do servidor',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -261,8 +234,7 @@ export class LgpdController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Bad Request - Invalid confirmation or user already has pending deletion request',
+    description: 'Bad Request - Invalid confirmation or user already has pending deletion request',
   })
   @ApiResponse({
     status: 401,
@@ -277,11 +249,7 @@ export class LgpdController {
   ): Promise<DeleteAccountResponseDto> {
     const user = this.getSessionUser(session);
 
-    return await this.lgpdService.requestAccountDeletion(
-      user.keycloakId,
-      user.email,
-      dto,
-    );
+    return await this.lgpdService.requestAccountDeletion(user.keycloakId, user.email, dto);
   }
 
   @ApiOperation({
@@ -290,9 +258,7 @@ export class LgpdController {
   @AccountPermissions([AccountManagerPermission.AccountDeletionRead])
   @SkipCsrf()
   @Get('admin/delete-account-requests')
-  async getPendingAccountDeletionRequests(): Promise<
-    AdminDeleteAccountRequestDto[]
-  > {
+  async getPendingAccountDeletionRequests(): Promise<AdminDeleteAccountRequestDto[]> {
     return await this.lgpdService.getPendingAccountDeletionRequests();
   }
 
@@ -302,9 +268,7 @@ export class LgpdController {
   @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/undo')
-  async undoAccountDeletionRequest(
-    @Param('id') id: string,
-  ): Promise<AdminDeleteAccountRequestDto> {
+  async undoAccountDeletionRequest(@Param('id') id: string): Promise<AdminDeleteAccountRequestDto> {
     return await this.lgpdService.undoAccountDeletionRequest(id);
   }
 
@@ -314,9 +278,7 @@ export class LgpdController {
   @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/delete-now')
-  async deleteAccountNow(
-    @Param('id') id: string,
-  ): Promise<AdminDeleteAccountRequestDto> {
+  async deleteAccountNow(@Param('id') id: string): Promise<AdminDeleteAccountRequestDto> {
     return await this.lgpdService.deleteAccountNow(id);
   }
 }

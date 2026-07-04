@@ -3,12 +3,8 @@
     <div mat-card-avatar class="card-avatar">
       <mat-icon>admin_panel_settings</mat-icon>
     </div>
-    <mat-card-title>
-      Cargos do Discord
-    </mat-card-title>
-    <mat-card-subtitle>
-      Configure quais cargos os usuários podem selecionar para si mesmos
-    </mat-card-subtitle>
+    <mat-card-title> Cargos do Discord </mat-card-title>
+    <mat-card-subtitle> Configure quais cargos os usuários podem selecionar para si mesmos </mat-card-subtitle>
   </mat-card-header>
 
   <mat-card-content>
@@ -23,13 +19,7 @@
           <h3>Cargos disponíveis</h3>
           <p>Sincronize quando o servidor mudar.</p>
         </div>
-        <button
-          mat-raised-button
-          color="primary"
-          [disabled]="isSyncing()"
-          (click)="syncRoles()"
-          class="sync-button"
-        >
+        <button mat-raised-button color="primary" [disabled]="isSyncing()" (click)="syncRoles()" class="sync-button">
           @if (isSyncing()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
@@ -43,8 +33,8 @@
         <mat-icon>info</mat-icon>
         <div>
           <p>
-            Selecione os cargos que usuários podem escolher. Cargos bloqueados
-            ou com permissões sensíveis ficam desativados.
+            Selecione os cargos que usuários podem escolher. Cargos bloqueados ou com permissões sensíveis ficam
+            desativados.
           </p>
           <p class="shortcut-hint">
             <span>Seleção em lote</span>
@@ -61,36 +51,17 @@
       <form [formGroup]="roleForm">
         @if (rolesWithPermissions().length > 0) {
           <div class="section">
-            <h3 class="danger-title">
-              Bloqueados
-            </h3>
+            <h3 class="danger-title">Bloqueados</h3>
 
             <div class="role-list" formArrayName="rolesWithPermissions">
-              @for (
-                role of rolesWithPermissions();
-                track role.id;
-                let i = $index
-              ) {
-                <div
-                  class="role-item"
-                  [class.anchor-point]="
-                    isAnchorPoint(i, 'rolesWithPermissions')
-                  "
-                >
-                  <mat-checkbox
-                    [formControlName]="i"
-                    (click)="handleRoleClick($event, i, 'rolesWithPermissions')"
-                  >
+              @for (role of rolesWithPermissions(); track role.id; let i = $index) {
+                <div class="role-item" [class.anchor-point]="isAnchorPoint(i, 'rolesWithPermissions')">
+                  <mat-checkbox [formControlName]="i" (click)="handleRoleClick($event, i, 'rolesWithPermissions')">
                     <app-discord-role-option
                       [role]="role"
-                      [meta]="
-                        role.isBlacklisted
-                          ? 'Bloqueado'
-                          : 'Permissões sensíveis'
-                      "
+                      [meta]="role.isBlacklisted ? 'Bloqueado' : 'Permissões sensíveis'"
                       [muted]="role.isBlacklisted"
-                      [icon]="!isRoleSelectable(role) ? 'block' : ''"
-                    />
+                      [icon]="!isRoleSelectable(role) ? 'block' : ''" />
                   </mat-checkbox>
                 </div>
               }
@@ -102,38 +73,17 @@
 
         @if (rolesWithoutPermissions().length > 0) {
           <div class="section">
-            <h3 class="safe-title">
-              Selecionáveis
-            </h3>
+            <h3 class="safe-title">Selecionáveis</h3>
 
             <div class="role-list" formArrayName="rolesWithoutPermissions">
-              @for (
-                role of rolesWithoutPermissions();
-                track role.id;
-                let i = $index
-              ) {
-                <div
-                  class="role-item"
-                  [class.anchor-point]="
-                    isAnchorPoint(i, 'rolesWithoutPermissions')
-                  "
-                >
-                  <mat-checkbox
-                    [formControlName]="i"
-                    (click)="
-                      handleRoleClick($event, i, 'rolesWithoutPermissions')
-                    "
-                  >
+              @for (role of rolesWithoutPermissions(); track role.id; let i = $index) {
+                <div class="role-item" [class.anchor-point]="isAnchorPoint(i, 'rolesWithoutPermissions')">
+                  <mat-checkbox [formControlName]="i" (click)="handleRoleClick($event, i, 'rolesWithoutPermissions')">
                     <app-discord-role-option
                       [role]="role"
-                      [meta]="
-                        role.isBlacklisted
-                          ? 'Bloqueado'
-                          : 'Sem permissões sensíveis'
-                      "
+                      [meta]="role.isBlacklisted ? 'Bloqueado' : 'Sem permissões sensíveis'"
                       [muted]="role.isBlacklisted"
-                      [icon]="!isRoleSelectable(role) ? 'block' : ''"
-                    />
+                      [icon]="!isRoleSelectable(role) ? 'block' : ''" />
                   </mat-checkbox>
                 </div>
               }
@@ -142,12 +92,7 @@
         }
 
         <div class="actions">
-          <button
-            mat-raised-button
-            color="primary"
-            [disabled]="!hasChanges() || isSaving()"
-            (click)="saveChanges()"
-          >
+          <button mat-raised-button color="primary" [disabled]="!hasChanges() || isSaving()" (click)="saveChanges()">
             @if (isSaving()) {
               <mat-spinner diameter="20"></mat-spinner>
             } @else {
@@ -156,11 +101,7 @@
             Salvar
           </button>
 
-          <button
-            mat-button
-            [disabled]="!hasChanges() || isSaving()"
-            (click)="resetChanges()"
-          >
+          <button mat-button [disabled]="!hasChanges() || isSaving()" (click)="resetChanges()">
             <mat-icon>undo</mat-icon>
             Desfazer
           </button>

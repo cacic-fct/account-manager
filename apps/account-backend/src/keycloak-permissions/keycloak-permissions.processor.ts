@@ -12,9 +12,7 @@ import {
 export class KeycloakPermissionsProcessor extends WorkerHost {
   private readonly logger = new Logger(KeycloakPermissionsProcessor.name);
 
-  constructor(
-    private readonly keycloakPermissions: KeycloakPermissionsService,
-  ) {
+  constructor(private readonly keycloakPermissions: KeycloakPermissionsService) {
     super();
   }
 

@@ -7,10 +7,7 @@ import { UniversityValidationGuard } from './university-validation.guard';
 
 type PrismaMock = {
   studentVerificationDocument: {
-    findFirst: jest.Mock<
-      Promise<StudentVerificationDocument | null>,
-      [unknown]
-    >;
+    findFirst: jest.Mock<Promise<StudentVerificationDocument | null>, [unknown]>;
   };
 };
 
@@ -27,9 +24,7 @@ type FeatureFlagMock = {
 
 const createdAt = new Date('2026-06-17T12:00:00.000Z');
 
-const createDocument = (
-  overrides: Partial<StudentVerificationDocument> = {},
-): StudentVerificationDocument => ({
+const createDocument = (overrides: Partial<StudentVerificationDocument> = {}): StudentVerificationDocument => ({
   id: 'document-1',
   userId: 'user-1',
   originalFileName: 'proof.pdf',
@@ -52,9 +47,7 @@ const createDocument = (
   ...overrides,
 });
 
-const createExecutionContext = (
-  keycloakId: string | null = 'user-1',
-): ExecutionContext =>
+const createExecutionContext = (keycloakId: string | null = 'user-1'): ExecutionContext =>
   ({
     switchToHttp: () => ({
       getRequest: () => ({
@@ -70,10 +63,7 @@ const createExecutionContext = (
   }) as ExecutionContext;
 
 const createContext = () => {
-  const findFirst = jest.fn<
-    Promise<StudentVerificationDocument | null>,
-    [unknown]
-  >();
+  const findFirst = jest.fn<Promise<StudentVerificationDocument | null>, [unknown]>();
   const getUserAttributes = jest.fn<
     ReturnType<KeycloakService['getUserAttributes']>,
     Parameters<KeycloakService['getUserAttributes']>
@@ -89,9 +79,7 @@ const createContext = () => {
     getUserAttributes,
   };
   const featureFlags: FeatureFlagMock = {
-    isUndergraduateUnespRoleVerificationDisabled: jest
-      .fn<Promise<boolean>, []>()
-      .mockResolvedValue(false),
+    isUndergraduateUnespRoleVerificationDisabled: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
   };
   const guard = new UniversityValidationGuard(
     keycloakService as unknown as KeycloakService,
@@ -111,9 +99,7 @@ describe('UniversityValidationGuard', () => {
   it('requires an authenticated session', async () => {
     const { guard, prisma, keycloakService } = createContext();
 
-    await expect(
-      guard.canActivate(createExecutionContext(null)),
-    ).rejects.toMatchObject({
+    await expect(guard.canActivate(createExecutionContext(null))).rejects.toMatchObject({
       response: {
         message: 'Authentication required',
       },
@@ -125,13 +111,9 @@ describe('UniversityValidationGuard', () => {
 
   it('blocks validation endpoints when the database has an approved document', async () => {
     const { guard, prisma, keycloakService } = createContext();
-    prisma.studentVerificationDocument.findFirst.mockResolvedValue(
-      createDocument(),
-    );
+    prisma.studentVerificationDocument.findFirst.mockResolvedValue(createDocument());
 
-    await expect(
-      guard.canActivate(createExecutionContext()),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext())).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(keycloakService.getUserAttributes).not.toHaveBeenCalled();
   });
@@ -143,52 +125,38 @@ describe('UniversityValidationGuard', () => {
       unespRoleVerified: ['true'],
     });
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
   });
 
   it('blocks undergraduate validation when the global flag is enabled', async () => {
     const { guard, prisma, keycloakService, featureFlags } = createContext();
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({
       unespRole: ['aluno-graduacao'],
     });
 
-    await expect(
-      guard.canActivate(createExecutionContext()),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext())).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(prisma.studentVerificationDocument.findFirst).not.toHaveBeenCalled();
   });
 
   it('keeps professor validation behavior unchanged when the global flag is enabled', async () => {
     const { guard, prisma, keycloakService, featureFlags } = createContext();
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({
       unespRole: ['professor'],
     });
     prisma.studentVerificationDocument.findFirst.mockResolvedValue(null);
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
   });
 
   it('allows validation when Keycloak drift comparison fails after the database check', async () => {
     const { guard, prisma, keycloakService } = createContext();
     prisma.studentVerificationDocument.findFirst.mockResolvedValue(null);
-    keycloakService.getUserAttributes.mockRejectedValue(
-      new Error('Keycloak unavailable'),
-    );
+    keycloakService.getUserAttributes.mockRejectedValue(new Error('Keycloak unavailable'));
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
   });
 
   it('allows validation when Keycloak drift comparison throws a non-Error value', async () => {
@@ -196,33 +164,23 @@ describe('UniversityValidationGuard', () => {
     prisma.studentVerificationDocument.findFirst.mockResolvedValue(null);
     keycloakService.getUserAttributes.mockRejectedValue('Keycloak unavailable');
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
   });
 
   it('keeps validation enabled when undergraduate flag is enabled for users without roles', async () => {
     const { guard, prisma, keycloakService, featureFlags } = createContext();
-    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(
-      true,
-    );
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
     keycloakService.getUserAttributes.mockResolvedValue({});
     prisma.studentVerificationDocument.findFirst.mockResolvedValue(null);
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
   });
 
   it('wraps unexpected database failures as forbidden access', async () => {
     const { guard, prisma } = createContext();
-    prisma.studentVerificationDocument.findFirst.mockRejectedValue(
-      new Error('database unavailable'),
-    );
+    prisma.studentVerificationDocument.findFirst.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(
-      guard.canActivate(createExecutionContext()),
-    ).rejects.toMatchObject({
+    await expect(guard.canActivate(createExecutionContext())).rejects.toMatchObject({
       response: {
         message: 'Unable to verify university validation status',
       },

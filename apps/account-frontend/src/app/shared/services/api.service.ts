@@ -51,11 +51,7 @@ import type {
 } from '@cacic/shared-types';
 import { CacheService } from './cache.service';
 import { AccountLinkingApiService } from './api/account-linking-api.service';
-import {
-  AuthApiService,
-  type PasswordLoginRequest,
-  type PasswordLoginResponse,
-} from './api/auth-api.service';
+import { AuthApiService, type PasswordLoginRequest, type PasswordLoginResponse } from './api/auth-api.service';
 import { API_CACHE_KEYS } from './api/api-cache.constants';
 import { DiscordApiService } from './api/discord-api.service';
 import { KeycloakPermissionsApiService } from './api/keycloak-permissions-api.service';
@@ -137,9 +133,7 @@ export class ApiService {
     return this.authApi.checkAuth();
   }
 
-  passwordLogin(
-    credentials: PasswordLoginRequest,
-  ): Observable<PasswordLoginResponse> {
+  passwordLogin(credentials: PasswordLoginRequest): Observable<PasswordLoginResponse> {
     return this.authApi.passwordLogin(credentials);
   }
 
@@ -156,9 +150,7 @@ export class ApiService {
     return this.authApi.checkUnespRoleRequired();
   }
 
-  logout(
-    postLogoutRedirectUri?: string,
-  ): Observable<{ success: boolean; logoutUrl?: string }> {
+  logout(postLogoutRedirectUri?: string): Observable<{ success: boolean; logoutUrl?: string }> {
     return this.authApi.logout(postLogoutRedirectUri);
   }
 
@@ -190,10 +182,7 @@ export class ApiService {
     return this.accountLinkingApi.getAccountMergeRequest(id);
   }
 
-  confirmAccountMerge(
-    id: string,
-    dto: ConfirmAccountMergeRequest,
-  ): Observable<ConfirmAccountMergeResponse> {
+  confirmAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
     return this.accountLinkingApi.confirmAccountMerge(id, dto);
   }
 
@@ -221,9 +210,7 @@ export class ApiService {
     return this.lgpdApi.downloadLgpdFile(id);
   }
 
-  deleteAccount(
-    request: DeleteAccountRequest,
-  ): Observable<DeleteAccountResponse> {
+  deleteAccount(request: DeleteAccountRequest): Observable<DeleteAccountResponse> {
     return this.lgpdApi.deleteAccount(request);
   }
 
@@ -231,9 +218,7 @@ export class ApiService {
     return this.lgpdApi.getPendingAccountDeletionRequests();
   }
 
-  undoAccountDeletionRequest(
-    id: string,
-  ): Observable<AdminDeleteAccountRequest> {
+  undoAccountDeletionRequest(id: string): Observable<AdminDeleteAccountRequest> {
     return this.lgpdApi.undoAccountDeletionRequest(id);
   }
 
@@ -249,9 +234,7 @@ export class ApiService {
     return this.keycloakPermissionsApi.getPermissionGroupCatalog();
   }
 
-  getPermissionGroupRoleGrants(
-    groupKey: PermissionGroupKey,
-  ): Observable<PermissionGroupRoleGrant[]> {
+  getPermissionGroupRoleGrants(groupKey: PermissionGroupKey): Observable<PermissionGroupRoleGrant[]> {
     return this.keycloakPermissionsApi.getPermissionGroupRoleGrants(groupKey);
   }
 
@@ -259,47 +242,30 @@ export class ApiService {
     groupKey: PermissionGroupKey,
     dto: PermissionGroupRoleGrantUpdateRequest,
   ): Observable<PermissionGroupRoleGrant[]> {
-    return this.keycloakPermissionsApi.updatePermissionGroupRoleGrants(
-      groupKey,
-      dto,
-    );
+    return this.keycloakPermissionsApi.updatePermissionGroupRoleGrants(groupKey, dto);
   }
 
-  searchKeycloakPermissionUsers(
-    query: string,
-  ): Observable<KeycloakPermissionUser[]> {
+  searchKeycloakPermissionUsers(query: string): Observable<KeycloakPermissionUser[]> {
     return this.keycloakPermissionsApi.searchKeycloakPermissionUsers(query);
   }
 
-  getKeycloakPermissionGrants(
-    userId: string,
-  ): Observable<KeycloakPermissionGrant[]> {
+  getKeycloakPermissionGrants(userId: string): Observable<KeycloakPermissionGrant[]> {
     return this.keycloakPermissionsApi.getKeycloakPermissionGrants(userId);
   }
 
-  getUserPermissionGroupMemberships(
-    userId: string,
-  ): Observable<PermissionGroupMembership[]> {
-    return this.keycloakPermissionsApi.getUserPermissionGroupMemberships(
-      userId,
-    );
+  getUserPermissionGroupMemberships(userId: string): Observable<PermissionGroupMembership[]> {
+    return this.keycloakPermissionsApi.getUserPermissionGroupMemberships(userId);
   }
 
-  getPermissionGroupMemberships(
-    groupKey?: PermissionGroupKey,
-  ): Observable<PermissionGroupMembership[]> {
+  getPermissionGroupMemberships(groupKey?: PermissionGroupKey): Observable<PermissionGroupMembership[]> {
     return this.keycloakPermissionsApi.getPermissionGroupMemberships(groupKey);
   }
 
-  createKeycloakPermissionGrant(
-    dto: KeycloakPermissionGrantCreateRequest,
-  ): Observable<KeycloakPermissionGrant> {
+  createKeycloakPermissionGrant(dto: KeycloakPermissionGrantCreateRequest): Observable<KeycloakPermissionGrant> {
     return this.keycloakPermissionsApi.createKeycloakPermissionGrant(dto);
   }
 
-  createPermissionGroupMembership(
-    dto: PermissionGroupMembershipCreateRequest,
-  ): Observable<PermissionGroupMembership> {
+  createPermissionGroupMembership(dto: PermissionGroupMembershipCreateRequest): Observable<PermissionGroupMembership> {
     return this.keycloakPermissionsApi.createPermissionGroupMembership(dto);
   }
 
@@ -317,15 +283,11 @@ export class ApiService {
     return this.keycloakPermissionsApi.updatePermissionGroupMembership(id, dto);
   }
 
-  deleteKeycloakPermissionGrant(
-    id: string,
-  ): Observable<{ deleted: true; id: string }> {
+  deleteKeycloakPermissionGrant(id: string): Observable<{ deleted: true; id: string }> {
     return this.keycloakPermissionsApi.deleteKeycloakPermissionGrant(id);
   }
 
-  deletePermissionGroupMembership(
-    id: string,
-  ): Observable<{ deleted: true; id: string }> {
+  deletePermissionGroupMembership(id: string): Observable<{ deleted: true; id: string }> {
     return this.keycloakPermissionsApi.deletePermissionGroupMembership(id);
   }
 
@@ -337,9 +299,7 @@ export class ApiService {
     return this.keycloakPermissionsApi.getSelfServiceAccess();
   }
 
-  selfRemovePermissionGroupMembership(
-    id: string,
-  ): Observable<PermissionSelfRemovalResult> {
+  selfRemovePermissionGroupMembership(id: string): Observable<PermissionSelfRemovalResult> {
     return this.keycloakPermissionsApi.selfRemoveMembership(id);
   }
 
@@ -371,10 +331,7 @@ export class ApiService {
     return this.discordApi.getServerSettings();
   }
 
-  updateServerSetting(
-    key: string,
-    setting: UpdateServerSetting,
-  ): Observable<ServerSetting> {
+  updateServerSetting(key: string, setting: UpdateServerSetting): Observable<ServerSetting> {
     return this.discordApi.updateServerSetting(key, setting);
   }
 
@@ -434,9 +391,7 @@ export class ApiService {
     return this.discordApi.getDiscordRolesAdmin();
   }
 
-  updateDiscordRoleSelection(
-    dto: UpdateRoleSelection,
-  ): Observable<{ message: string }> {
+  updateDiscordRoleSelection(dto: UpdateRoleSelection): Observable<{ message: string }> {
     return this.discordApi.updateDiscordRoleSelection(dto);
   }
 
@@ -444,15 +399,11 @@ export class ApiService {
     return this.discordApi.syncDiscordRoles();
   }
 
-  getDiscordManagedRoleCatalog(): Observable<
-    DiscordManagedRoleDefinition[]
-  > {
+  getDiscordManagedRoleCatalog(): Observable<DiscordManagedRoleDefinition[]> {
     return this.discordApi.getDiscordManagedRoleCatalog();
   }
 
-  getDiscordManagedRoleOverrides(): Observable<
-    DiscordManagedRoleOverride[]
-  > {
+  getDiscordManagedRoleOverrides(): Observable<DiscordManagedRoleOverride[]> {
     return this.discordApi.getDiscordManagedRoleOverrides();
   }
 
@@ -469,9 +420,7 @@ export class ApiService {
     return this.discordApi.updateDiscordManagedRoleOverride(id, dto);
   }
 
-  deleteDiscordManagedRoleOverride(
-    id: string,
-  ): Observable<{ deleted: true; id: string; userId: string }> {
+  deleteDiscordManagedRoleOverride(id: string): Observable<{ deleted: true; id: string; userId: string }> {
     return this.discordApi.deleteDiscordManagedRoleOverride(id);
   }
 
@@ -483,9 +432,7 @@ export class ApiService {
     return this.discordApi.getUserDiscordRoles();
   }
 
-  updateUserDiscordRoles(
-    dto: UserRoleSelection,
-  ): Observable<RoleSelectionResponse> {
+  updateUserDiscordRoles(dto: UserRoleSelection): Observable<RoleSelectionResponse> {
     return this.discordApi.updateUserDiscordRoles(dto);
   }
 
@@ -493,16 +440,11 @@ export class ApiService {
     return this.privacyApi.getPrivacySettings();
   }
 
-  updatePrivacySetting(
-    settingType: string,
-    dto: UpdatePrivacySetting,
-  ): Observable<PrivacySetting> {
+  updatePrivacySetting(settingType: string, dto: UpdatePrivacySetting): Observable<PrivacySetting> {
     return this.privacyApi.updatePrivacySetting(settingType, dto);
   }
 
-  bulkUpdatePrivacySettings(
-    dto: BulkUpdatePrivacySettings,
-  ): Observable<PrivacySetting> {
+  bulkUpdatePrivacySettings(dto: BulkUpdatePrivacySettings): Observable<PrivacySetting> {
     return this.privacyApi.bulkUpdatePrivacySettings(dto);
   }
 

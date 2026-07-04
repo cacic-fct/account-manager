@@ -34,9 +34,7 @@ describe(TotpService.name, () => {
     },
   };
   const configService = {
-    get: jest.fn((key: string) =>
-      key === 'SESSION_SECRET' ? 'test-session-secret' : undefined,
-    ),
+    get: jest.fn((key: string) => (key === 'SESSION_SECRET' ? 'test-session-secret' : undefined)),
   };
   const userService = {
     findByKeycloakId: jest.fn(),
@@ -47,18 +45,12 @@ describe(TotpService.name, () => {
   beforeEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
-    service = new TotpService(
-      prisma as never,
-      configService as unknown as ConfigService,
-      userService as never,
-    );
+    service = new TotpService(prisma as never, configService as unknown as ConfigService, userService as never);
   });
 
   it('generates six digit HMAC-SHA-512 codes using the RFC 6238 counter', () => {
     const sha512VectorSecret = encodeBase32(
-      Buffer.from(
-        '1234567890123456789012345678901234567890123456789012345678901234',
-      ),
+      Buffer.from('1234567890123456789012345678901234567890123456789012345678901234'),
     );
 
     expect(service.generateCode(sha512VectorSecret, 59_000)).toBe('693936');

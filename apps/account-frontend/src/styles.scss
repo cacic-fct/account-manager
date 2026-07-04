@@ -1,14 +1,14 @@
-@use "@angular/material" as mat;
+@use '@angular/material' as mat;
 
-@import "@fontsource-variable/inter/index.css";
-@import "@fontsource/material-icons/index.css";
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource/material-icons/index.css';
 
 html {
   color-scheme: light dark;
   @include mat.theme(
     (
       color: mat.$azure-palette,
-      typography: "Inter Variable",
+      typography: 'Inter Variable',
       density: 0,
     )
   );
@@ -42,7 +42,7 @@ body {
 }
 
 .material-icons {
-  font-family: "Material Icons";
+  font-family: 'Material Icons';
   font-weight: normal;
   font-style: normal;
   font-size: 24px;

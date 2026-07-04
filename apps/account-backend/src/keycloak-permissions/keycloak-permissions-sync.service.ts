@@ -1,7 +1,4 @@
-import {
-  PermissionGroupKey,
-  KeycloakPermissionSyncResult,
-} from '@cacic/shared-types';
+import { PermissionGroupKey, KeycloakPermissionSyncResult } from '@cacic/shared-types';
 import { Injectable, Logger } from '@nestjs/common';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { DiscordRoleService } from '../discord/services/discord-role.service';
@@ -105,11 +102,7 @@ export class KeycloakPermissionsSyncService {
       }
 
       if (options.removeIfPreviouslyActive) {
-        await this.keycloakService.removeUserClientRoles(
-          grant.userId,
-          [grant.roleName],
-          grant.clientId,
-        );
+        await this.keycloakService.removeUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
         await this.markSynced(grant.id, now);
       }
     } catch (error) {
@@ -139,11 +132,7 @@ export class KeycloakPermissionsSyncService {
       }
 
       if (options.removeIfPreviouslyActive) {
-        await this.keycloakService.removeGroupClientRoles(
-          grant.keycloakGroupId,
-          [grant.roleName],
-          grant.clientId,
-        );
+        await this.keycloakService.removeGroupClientRoles(grant.keycloakGroupId, [grant.roleName], grant.clientId);
         await this.markGroupRoleSynced(grant.id, now);
       }
     } catch (error) {
@@ -171,9 +160,7 @@ export class KeycloakPermissionsSyncService {
       }
 
       if (options.removeIfPreviouslyActive) {
-        const group = getPermissionGroupDefinition(
-          membership.entity as PermissionGroupKey,
-        );
+        const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
         await this.keycloakService.removeUserFromGroupId(
           membership.userId,
           group.keycloakGroupId,
@@ -272,11 +259,7 @@ export class KeycloakPermissionsSyncService {
       return;
     }
 
-    await this.keycloakService.addUserClientRoles(
-      grant.userId,
-      [grant.roleName],
-      grant.clientId,
-    );
+    await this.keycloakService.addUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
     await this.markSynced(grant.id, now);
   }
 
@@ -285,11 +268,7 @@ export class KeycloakPermissionsSyncService {
       return;
     }
 
-    await this.keycloakService.removeUserClientRoles(
-      grant.userId,
-      [grant.roleName],
-      grant.clientId,
-    );
+    await this.keycloakService.removeUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
 
     await this.prisma.keycloakPermissionGrant.update({
       where: { id: grant.id },
@@ -302,35 +281,21 @@ export class KeycloakPermissionsSyncService {
     });
   }
 
-  private async activateGroupRoleGrant(
-    grant: GroupRoleGrantRecord,
-    now: Date,
-  ): Promise<void> {
+  private async activateGroupRoleGrant(grant: GroupRoleGrantRecord, now: Date): Promise<void> {
     if (!isDbManagedRole(grant.roleName)) {
       return;
     }
 
-    await this.keycloakService.addGroupClientRoles(
-      grant.keycloakGroupId,
-      [grant.roleName],
-      grant.clientId,
-    );
+    await this.keycloakService.addGroupClientRoles(grant.keycloakGroupId, [grant.roleName], grant.clientId);
     await this.markGroupRoleSynced(grant.id, now);
   }
 
-  private async expireGroupRoleGrant(
-    grant: GroupRoleGrantRecord,
-    now: Date,
-  ): Promise<void> {
+  private async expireGroupRoleGrant(grant: GroupRoleGrantRecord, now: Date): Promise<void> {
     if (!isDbManagedRole(grant.roleName)) {
       return;
     }
 
-    await this.keycloakService.removeGroupClientRoles(
-      grant.keycloakGroupId,
-      [grant.roleName],
-      grant.clientId,
-    );
+    await this.keycloakService.removeGroupClientRoles(grant.keycloakGroupId, [grant.roleName], grant.clientId);
 
     await this.prisma.keycloakGroupPermissionGrant.update({
       where: { id: grant.id },
@@ -343,18 +308,9 @@ export class KeycloakPermissionsSyncService {
     });
   }
 
-  private async activateMembership(
-    membership: MembershipRecord,
-    now: Date,
-  ): Promise<void> {
-    const group = getPermissionGroupDefinition(
-      membership.entity as PermissionGroupKey,
-    );
-    await this.keycloakService.addUserToGroupId(
-      membership.userId,
-      group.keycloakGroupId,
-      group.keycloakGroupPath,
-    );
+  private async activateMembership(membership: MembershipRecord, now: Date): Promise<void> {
+    const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
+    await this.keycloakService.addUserToGroupId(membership.userId, group.keycloakGroupId, group.keycloakGroupPath);
     await this.markMembershipSynced(membership.id, now);
     await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
       membership.userId,
@@ -362,18 +318,9 @@ export class KeycloakPermissionsSyncService {
     );
   }
 
-  private async expireMembership(
-    membership: MembershipRecord,
-    now: Date,
-  ): Promise<void> {
-    const group = getPermissionGroupDefinition(
-      membership.entity as PermissionGroupKey,
-    );
-    await this.keycloakService.removeUserFromGroupId(
-      membership.userId,
-      group.keycloakGroupId,
-      group.keycloakGroupPath,
-    );
+  private async expireMembership(membership: MembershipRecord, now: Date): Promise<void> {
+    const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
+    await this.keycloakService.removeUserFromGroupId(membership.userId, group.keycloakGroupId, group.keycloakGroupPath);
 
     await this.prisma.studentEntityMembership.update({
       where: { id: membership.id },
@@ -421,21 +368,14 @@ export class KeycloakPermissionsSyncService {
     });
   }
 
-  private async deactivateLinkedPermissionGrants(
-    membership: MembershipRecord,
-    now: Date,
-  ): Promise<void> {
+  private async deactivateLinkedPermissionGrants(membership: MembershipRecord, now: Date): Promise<void> {
     for (const grant of membership.permissionGrants) {
       if (!isDbManagedRole(grant.roleName)) {
         continue;
       }
 
       if (isGrantActive(grant, now)) {
-        await this.keycloakService.removeUserClientRoles(
-          grant.userId,
-          [grant.roleName],
-          grant.clientId,
-        );
+        await this.keycloakService.removeUserClientRoles(grant.userId, [grant.roleName], grant.clientId);
       }
 
       await this.prisma.keycloakPermissionGrant.update({
@@ -464,10 +404,7 @@ export class KeycloakPermissionsSyncService {
     });
   }
 
-  private async recordGroupRoleSyncFailure(
-    id: string,
-    error: unknown,
-  ): Promise<void> {
+  private async recordGroupRoleSyncFailure(id: string, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     this.logger.error('Failed to sync Keycloak group permission grant', {
       grantId: id,
@@ -481,10 +418,7 @@ export class KeycloakPermissionsSyncService {
     });
   }
 
-  private async recordMembershipSyncFailure(
-    id: string,
-    error: unknown,
-  ): Promise<void> {
+  private async recordMembershipSyncFailure(id: string, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     this.logger.error('Failed to sync permission group membership', {
       membershipId: id,

@@ -7,10 +7,7 @@ import type {
   DiscordManagedRoleOverride,
 } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  KeycloakService,
-  KeycloakUserData,
-} from '../../auth/services/keycloak.service';
+import { KeycloakService, KeycloakUserData } from '../../auth/services/keycloak.service';
 import {
   DISCORD_MANAGED_ROLES,
   type DiscordManagedRoleCategory as BackendDiscordManagedRoleCategory,
@@ -20,24 +17,18 @@ import {
   DiscordManagedRoleOverrideUpdateDto,
 } from '../dto/discord-managed-role-overrides.dto';
 
-const MANAGED_ROLE_DESCRIPTIONS: Record<
-  DiscordManagedRoleCategory,
-  { label: string; description: string }
-> = {
+const MANAGED_ROLE_DESCRIPTIONS: Record<DiscordManagedRoleCategory, { label: string; description: string }> = {
   student: {
     label: 'Aluno da Computação',
-    description:
-      'Força o cargo de aluno quando a verificação automática não cobre o caso.',
+    description: 'Força o cargo de aluno quando a verificação automática não cobre o caso.',
   },
   unesp: {
     label: 'Unespiano Visitante',
-    description:
-      'Força o cargo de visitante Unesp mesmo sem todos os sinais automáticos.',
+    description: 'Força o cargo de visitante Unesp mesmo sem todos os sinais automáticos.',
   },
   visitor: {
     label: 'Visitante externo',
-    description:
-      'Força o cargo de visitante externo e remove cargos acadêmicos gerenciados.',
+    description: 'Força o cargo de visitante externo e remove cargos acadêmicos gerenciados.',
   },
 };
 
@@ -66,9 +57,7 @@ export class DiscordManagedRoleOverridesService {
     return overrides.map((override) => this.mapOverride(override));
   }
 
-  async getOverrideCategoryForUser(
-    userId: string,
-  ): Promise<BackendDiscordManagedRoleCategory | null> {
+  async getOverrideCategoryForUser(userId: string): Promise<BackendDiscordManagedRoleCategory | null> {
     const override = await this.prisma.discordManagedRoleOverride.findUnique({
       where: { userId },
       select: { roleCategory: true },
@@ -122,9 +111,7 @@ export class DiscordManagedRoleOverridesService {
       data: {
         ...(dto.roleCategory ? { roleCategory: dto.roleCategory } : {}),
         ...(dto.data === undefined ? {} : { data: this.toJsonInput(dto.data) }),
-        ...(dto.reason === undefined
-          ? {}
-          : { reason: this.normalizeOptionalText(dto.reason) }),
+        ...(dto.reason === undefined ? {} : { reason: this.normalizeOptionalText(dto.reason) }),
         updatedById: actorUserId,
       },
     });
@@ -132,9 +119,7 @@ export class DiscordManagedRoleOverridesService {
     return this.mapOverride(override);
   }
 
-  async deleteOverride(
-    id: string,
-  ): Promise<{ deleted: true; id: string; userId: string }> {
+  async deleteOverride(id: string): Promise<{ deleted: true; id: string; userId: string }> {
     const override = await this.ensureOverrideExists(id);
     await this.prisma.discordManagedRoleOverride.delete({ where: { id } });
 
@@ -153,9 +138,7 @@ export class DiscordManagedRoleOverridesService {
     return override;
   }
 
-  private async getKeycloakUserSnapshot(
-    userId: string,
-  ): Promise<{ email?: string; displayName?: string }> {
+  private async getKeycloakUserSnapshot(userId: string): Promise<{ email?: string; displayName?: string }> {
     const user = await this.keycloakService.getUserBasicInfo(userId);
 
     if (!user) {
@@ -170,16 +153,13 @@ export class DiscordManagedRoleOverridesService {
 
   private getDisplayName(user: KeycloakUserData): string | undefined {
     const fullName =
-      user.attributes?.['fullName']?.[0] ??
-      [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+      user.attributes?.['fullName']?.[0] ?? [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
 
     return fullName || user.email || user.username || user.id;
   }
 
   private mapOverride(override: OverrideRecord): DiscordManagedRoleOverride {
-    const category = this.isManagedRoleCategory(override.roleCategory)
-      ? override.roleCategory
-      : 'visitor';
+    const category = this.isManagedRoleCategory(override.roleCategory) ? override.roleCategory : 'visitor';
     const role = DISCORD_MANAGED_ROLES[category];
 
     return {
@@ -200,21 +180,15 @@ export class DiscordManagedRoleOverridesService {
     };
   }
 
-  private isManagedRoleCategory(
-    value: string,
-  ): value is DiscordManagedRoleCategory {
+  private isManagedRoleCategory(value: string): value is DiscordManagedRoleCategory {
     return value === 'student' || value === 'unesp' || value === 'visitor';
   }
 
-  private toJsonInput(
-    value: Record<string, unknown> | undefined,
-  ): Prisma.InputJsonValue | undefined {
+  private toJsonInput(value: Record<string, unknown> | undefined): Prisma.InputJsonValue | undefined {
     return value === undefined ? undefined : (value as Prisma.InputJsonValue);
   }
 
-  private toRecord(
-    value: Prisma.JsonValue,
-  ): Record<string, unknown> | undefined {
+  private toRecord(value: Prisma.JsonValue): Record<string, unknown> | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return undefined;
     }

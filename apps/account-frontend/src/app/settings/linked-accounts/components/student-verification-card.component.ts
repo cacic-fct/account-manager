@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -120,8 +113,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
   private updateBannerBasedOnStatus(): void {
     // Only show status banner if there's no current error/success/warning banner
     const currentType = this.currentBanner()?.type;
-    const hasImportantBanner =
-      currentType && ['error', 'success', 'warning'].includes(currentType);
+    const hasImportantBanner = currentType && ['error', 'success', 'warning'].includes(currentType);
 
     if (!hasImportantBanner) {
       const status = this.verificationStatus();
@@ -173,19 +165,13 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
 
   private handleFileSelection(file: File): void {
     if (file.type !== 'application/pdf') {
-      this.showErrorBanner(
-        'Formato inválido',
-        'Por favor, selecione apenas arquivos PDF.',
-      );
+      this.showErrorBanner('Formato inválido', 'Por favor, selecione apenas arquivos PDF.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       // 10MB limit
-      this.showErrorBanner(
-        'Arquivo muito grande',
-        'O arquivo deve ter no máximo 10MB.',
-      );
+      this.showErrorBanner('Arquivo muito grande', 'O arquivo deve ter no máximo 10MB.');
       return;
     }
 
@@ -216,10 +202,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     const file = this.selectedFile();
 
     if (!file) {
-      this.showErrorBanner(
-        'Arquivo não selecionado',
-        'Por favor, selecione um arquivo PDF.',
-      );
+      this.showErrorBanner('Arquivo não selecionado', 'Por favor, selecione um arquivo PDF.');
       return;
     }
 
@@ -242,10 +225,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result?.success) {
-        this.showSuccessBanner(
-          'Documento validado',
-          'Documento verificado com sucesso pela universidade!',
-        );
+        this.showSuccessBanner('Documento validado', 'Documento verificado com sucesso pela universidade!');
         this.loadVerificationStatus(); // Reload status after successful validation
         this.selectedFile.set(null); // Clear selected file
         this.hasAttemptedValidation.set(false); // Reset attempt flag
@@ -264,45 +244,34 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     // Use manual fallback if development toggle is checked
     const isManualFallback = this.isDevelopment && this.useManualFallback();
 
-    this.studentVerificationService
-      .uploadDocument(file, isManualFallback)
-      .subscribe({
-        next: (response: UploadResponse) => {
-          this.uploading.set(false);
+    this.studentVerificationService.uploadDocument(file, isManualFallback).subscribe({
+      next: (response: UploadResponse) => {
+        this.uploading.set(false);
 
-          if (response.status === 'approved') {
-            this.showSuccessBanner(
-              'Documento aprovado',
-              'Seu documento foi verificado e aprovado automaticamente!',
-            );
-          } else if (response.status === 'rejected') {
-            this.showErrorBanner(
-              'Documento rejeitado',
-              response.message || 'Documento foi rejeitado automaticamente.',
-            );
-          } else {
-            this.showSuccessBanner(
-              'Documento enviado',
-              'Documento enviado com sucesso! Aguarde a verificação manual.',
-            );
-          }
+        if (response.status === 'approved') {
+          this.showSuccessBanner('Documento aprovado', 'Seu documento foi verificado e aprovado automaticamente!');
+        } else if (response.status === 'rejected') {
+          this.showErrorBanner('Documento rejeitado', response.message || 'Documento foi rejeitado automaticamente.');
+        } else {
+          this.showSuccessBanner('Documento enviado', 'Documento enviado com sucesso! Aguarde a verificação manual.');
+        }
 
-          this.loadVerificationStatus();
-          this.selectedFile.set(null);
-          this.hasAttemptedValidation.set(false); // Reset attempt flag on success
-        },
-        error: (error: HttpErrorResponse) => {
-          this.uploading.set(false);
-          console.error('Upload error:', error);
+        this.loadVerificationStatus();
+        this.selectedFile.set(null);
+        this.hasAttemptedValidation.set(false); // Reset attempt flag on success
+      },
+      error: (error: HttpErrorResponse) => {
+        this.uploading.set(false);
+        console.error('Upload error:', error);
 
-          let errorMessage = 'Erro ao enviar documento. Tente novamente.';
-          if (error?.error?.message) {
-            errorMessage = error.error.message;
-          }
+        let errorMessage = 'Erro ao enviar documento. Tente novamente.';
+        if (error?.error?.message) {
+          errorMessage = error.error.message;
+        }
 
-          this.showErrorBanner('Erro no envio', errorMessage);
-        },
-      });
+        this.showErrorBanner('Erro no envio', errorMessage);
+      },
+    });
   }
 
   private handleValidationError(error: string, errorType?: string): void {

@@ -67,8 +67,7 @@ export interface DiscordManagedRoleOverrideCreateRequest {
   reason?: string;
 }
 
-export type DiscordManagedRoleOverrideUpdateRequest =
-  Partial<Omit<DiscordManagedRoleOverrideCreateRequest, 'userId'>>;
+export type DiscordManagedRoleOverrideUpdateRequest = Partial<Omit<DiscordManagedRoleOverrideCreateRequest, 'userId'>>;
 
 export interface DiscordLink {
   id: string;

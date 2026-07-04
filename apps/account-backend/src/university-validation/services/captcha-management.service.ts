@@ -1,8 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CaptchaSession,
-  ValidationResult,
-} from '../university-validation.types';
+import { CaptchaSession, ValidationResult } from '../university-validation.types';
 import { StudentVerificationService } from '../../student-verification/student-verification.service';
 import { SessionManagementService } from './session-management.service';
 import { S3Service } from '../../common/services/s3.service';
@@ -46,8 +43,7 @@ export class CaptchaManagementService {
       const { CookieJar } = await import('tough-cookie');
 
       const cookieJar = new CookieJar();
-      const documentUrl =
-        'https://sistemas.unesp.br/academico/publico/documento.action';
+      const documentUrl = 'https://sistemas.unesp.br/academico/publico/documento.action';
       const captchaUrl = 'https://sistemas.unesp.br/academico/captcha.jpg';
 
       const axiosInstance = axios.default.create({
@@ -57,8 +53,7 @@ export class CaptchaManagementService {
           'User-Agent':
             // 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Mozilla/5.0 (compatible; Cacicbot/1.0; +https://cacic.dev.br)',
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
           'Accept-Encoding': 'gzip, deflate, br',
           Connection: 'keep-alive',
@@ -82,9 +77,7 @@ export class CaptchaManagementService {
       const pageResponse = await axiosInstance.get(documentUrl);
 
       if (pageResponse.status !== 200) {
-        throw new Error(
-          `Failed to access document page: ${pageResponse.status}`,
-        );
+        throw new Error(`Failed to access document page: ${pageResponse.status}`);
       }
 
       // Extract cookies from response
@@ -114,26 +107,20 @@ export class CaptchaManagementService {
       const pageHtml = pageResponse.data as string;
 
       // Look for specific authentication code input field
-      const hasAuthCodeInput =
-        $('input[name="txt_codigo_autenticidade"]').length > 0;
+      const hasAuthCodeInput = $('input[name="txt_codigo_autenticidade"]').length > 0;
 
       // Look for specific captcha input field
       const hasCaptchaInput = $('input[name="txt_codigo_captcha"]').length > 0;
 
       if (!hasAuthCodeInput || !hasCaptchaInput) {
-        this.logger.error(
-          'Essential form input fields missing from Unesp page',
-          {
-            pageUrl: documentUrl,
-            hasAuthCodeInput,
-            hasCaptchaInput,
-            pageSize: pageHtml.length,
-            pageSnippet: pageHtml.substring(0, 1000),
-          },
-        );
-        throw new Error(
-          'UNESP_NETWORK_ERROR: Server appears to be malfunctioning - required form fields missing',
-        );
+        this.logger.error('Essential form input fields missing from Unesp page', {
+          pageUrl: documentUrl,
+          hasAuthCodeInput,
+          hasCaptchaInput,
+          pageSize: pageHtml.length,
+          pageSnippet: pageHtml.substring(0, 1000),
+        });
+        throw new Error('UNESP_NETWORK_ERROR: Server appears to be malfunctioning - required form fields missing');
       }
 
       session.hiddenInputs = hiddenInputs;
@@ -179,10 +166,7 @@ export class CaptchaManagementService {
         isObject: typeof error === 'object',
         errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
         errorMessage: error instanceof Error ? error.message : String(error),
-        errorCode:
-          error && typeof error === 'object' && 'code' in error
-            ? String(error.code)
-            : undefined,
+        errorCode: error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined,
         fullError: JSON.stringify(error, null, 2),
       });
 
@@ -196,33 +180,27 @@ export class CaptchaManagementService {
       });
 
       if (isNetworkError) {
-        this.logger.warn(
-          'Network error detected, falling back to manual approval',
-          {
-            sessionId,
-            userId,
-            errorCode: (error as { code?: string })?.code,
-            errorMessage: (error as { message?: string })?.message,
-          },
-        );
+        this.logger.warn('Network error detected, falling back to manual approval', {
+          sessionId,
+          userId,
+          errorCode: (error as { code?: string })?.code,
+          errorMessage: (error as { message?: string })?.message,
+        });
 
         // Create a manual fallback document
         try {
-          const manualApprovalResult =
-            await this.networkErrorService.createNetworkErrorFallback(
-              userId,
-              sessionId,
-              authCode,
-              enrollmentNumber,
-              undefined,
-              error,
-              'Network error during captcha request',
-            );
+          const manualApprovalResult = await this.networkErrorService.createNetworkErrorFallback(
+            userId,
+            sessionId,
+            authCode,
+            enrollmentNumber,
+            undefined,
+            error,
+            'Network error during captcha request',
+          );
 
           // Throw a specific error that the controller can catch and handle
-          const networkError = new Error(
-            'NETWORK_ERROR_MANUAL_FALLBACK',
-          ) as Error & {
+          const networkError = new Error('NETWORK_ERROR_MANUAL_FALLBACK') as Error & {
             fallbackToManual: boolean;
             manualApprovalId: string;
             originalError: unknown;
@@ -232,17 +210,11 @@ export class CaptchaManagementService {
           networkError.originalError = error;
           throw networkError;
         } catch (fallbackError) {
-          if (
-            fallbackError instanceof Error &&
-            fallbackError.message === 'NETWORK_ERROR_MANUAL_FALLBACK'
-          ) {
+          if (fallbackError instanceof Error && fallbackError.message === 'NETWORK_ERROR_MANUAL_FALLBACK') {
             throw fallbackError;
           }
 
-          this.logger.error(
-            'Failed to create manual fallback for network error:',
-            fallbackError,
-          );
+          this.logger.error('Failed to create manual fallback for network error:', fallbackError);
           // Fall through to throw the original error
         }
       }
@@ -254,13 +226,8 @@ export class CaptchaManagementService {
   /**
    * Refresh captcha for existing session
    */
-  async refreshCaptcha(
-    sessionId: string,
-    userId: string,
-  ): Promise<CaptchaSession> {
-    this.logger.debug(
-      `Refreshing captcha for session ${sessionId} (user: ${userId})`,
-    );
+  async refreshCaptcha(sessionId: string, userId: string): Promise<CaptchaSession> {
+    this.logger.debug(`Refreshing captcha for session ${sessionId} (user: ${userId})`);
 
     try {
       // Get existing session
@@ -274,9 +241,7 @@ export class CaptchaManagementService {
       }
 
       if (!session.axiosInstance) {
-        throw new Error(
-          `Session axios instance not found for sessionId: ${sessionId}`,
-        );
+        throw new Error(`Session axios instance not found for sessionId: ${sessionId}`);
       }
 
       const captchaUrl = 'https://sistemas.unesp.br/academico/captcha.jpg';
@@ -285,8 +250,7 @@ export class CaptchaManagementService {
       const captchaResponse = await session.axiosInstance.get(captchaUrl, {
         responseType: 'arraybuffer',
         headers: {
-          Referer:
-            'https://sistemas.unesp.br/academico/publico/documento.action',
+          Referer: 'https://sistemas.unesp.br/academico/publico/documento.action',
           Cookie: await session.cookieJar.getCookieString(
             'https://sistemas.unesp.br/academico/publico/documento.action',
           ),
@@ -294,9 +258,7 @@ export class CaptchaManagementService {
       });
 
       if (captchaResponse.status !== 200) {
-        throw new Error(
-          `Failed to fetch new captcha: ${captchaResponse.status}`,
-        );
+        throw new Error(`Failed to fetch new captcha: ${captchaResponse.status}`);
       }
 
       // Convert new captcha to base64
@@ -320,15 +282,12 @@ export class CaptchaManagementService {
       const isNetworkError = this.networkErrorService.isNetworkError(error);
 
       if (isNetworkError) {
-        this.logger.warn(
-          'Network error during captcha refresh, session may need manual fallback',
-          {
-            sessionId,
-            userId,
-            errorCode: (error as { code?: string })?.code,
-            errorMessage: (error as { message?: string })?.message,
-          },
-        );
+        this.logger.warn('Network error during captcha refresh, session may need manual fallback', {
+          sessionId,
+          userId,
+          errorCode: (error as { code?: string })?.code,
+          errorMessage: (error as { message?: string })?.message,
+        });
 
         // For refresh captcha, we'll throw a specific network error
         // The frontend can handle this appropriately
@@ -407,9 +366,7 @@ export class CaptchaManagementService {
         captchaCode: captchaCode,
         hasAuthCode: !!session.authCode,
         hasHiddenInputs: !!session.hiddenInputs,
-        hiddenInputsCount: session.hiddenInputs
-          ? Object.keys(session.hiddenInputs).length
-          : 0,
+        hiddenInputsCount: session.hiddenInputs ? Object.keys(session.hiddenInputs).length : 0,
       });
 
       // Build form data using the exact field names from backup
@@ -422,13 +379,11 @@ export class CaptchaManagementService {
       // Use the correct form action URL from backup
       const baseUrl = 'https://sistemas.unesp.br';
       const formActionUrl = `${baseUrl}/academico/publico/documento.emitir.action`;
-      const documentUrl =
-        'https://sistemas.unesp.br/academico/publico/documento.action';
+      const documentUrl = 'https://sistemas.unesp.br/academico/publico/documento.action';
 
       // Ensure required Unesp cookies are set
       try {
-        const redimensionarCookie =
-          'redimensionar=normal; Path=/; Domain=documento.unesp.br';
+        const redimensionarCookie = 'redimensionar=normal; Path=/; Domain=documento.unesp.br';
         await session.cookieJar.setCookie(redimensionarCookie, baseUrl);
         this.logger.debug('Set redimensionar cookie');
       } catch (error) {
@@ -452,11 +407,8 @@ export class CaptchaManagementService {
 
       this.logger.debug('Form submission response:', {
         status: submitResponse.status,
-        contentType:
-          (submitResponse.headers['content-type'] as string) || 'unknown',
-        dataLength: submitResponse.data
-          ? (submitResponse.data as string | Buffer).length
-          : 0,
+        contentType: (submitResponse.headers['content-type'] as string) || 'unknown',
+        dataLength: submitResponse.data ? (submitResponse.data as string | Buffer).length : 0,
       });
 
       // Check if response is a PDF or handle HTML error response
@@ -487,10 +439,7 @@ export class CaptchaManagementService {
         try {
           const { CaptchaService } = await import('./captcha.service');
           const captchaService = new CaptchaService(this.s3Service);
-          await captchaService.saveCaptchaTrainingData(
-            session.captchaImageBase64,
-            captchaCode,
-          );
+          await captchaService.saveCaptchaTrainingData(session.captchaImageBase64, captchaCode);
         } catch (error) {
           this.logger.warn('Failed to save captcha training data:', error);
         }
@@ -512,15 +461,12 @@ export class CaptchaManagementService {
       const isNetworkError = this.networkErrorService.isNetworkError(error);
 
       if (isNetworkError) {
-        this.logger.warn(
-          'Network error during document validation, attempting manual fallback',
-          {
-            sessionId,
-            userId,
-            errorCode: (error as { code?: string })?.code,
-            errorMessage: (error as { message?: string })?.message,
-          },
-        );
+        this.logger.warn('Network error during document validation, attempting manual fallback', {
+          sessionId,
+          userId,
+          errorCode: (error as { code?: string })?.code,
+          errorMessage: (error as { message?: string })?.message,
+        });
 
         // Try to create manual fallback for network errors during validation
         try {
@@ -530,29 +476,24 @@ export class CaptchaManagementService {
             sessionData = this.sessionManagementService.getSession(sessionId);
           }
 
-          const manualApprovalResult =
-            await this.networkErrorService.createNetworkErrorFallback(
-              userId,
-              sessionId,
-              sessionData?.authCode,
-              enrollmentNumber,
-              captchaCode,
-              error,
-              'Network error during document validation',
-            );
+          const manualApprovalResult = await this.networkErrorService.createNetworkErrorFallback(
+            userId,
+            sessionId,
+            sessionData?.authCode,
+            enrollmentNumber,
+            captchaCode,
+            error,
+            'Network error during document validation',
+          );
 
           return {
             success: false,
-            error:
-              'Erro de conexão durante a validação - documento redirecionado para aprovação manual',
+            error: 'Erro de conexão durante a validação - documento redirecionado para aprovação manual',
             fallbackToManual: true,
             manualApprovalId: manualApprovalResult.documentId,
           };
         } catch (fallbackError) {
-          this.logger.error(
-            'Failed to create manual fallback for validation network error:',
-            fallbackError,
-          );
+          this.logger.error('Failed to create manual fallback for validation network error:', fallbackError);
         }
       }
 
@@ -605,9 +546,7 @@ export class CaptchaManagementService {
       this.logger.error(
         `Unauthorized session clear attempt: User ${userId} tried to clear session ${sessionId} owned by user ${session.userId}`,
       );
-      throw new Error(
-        'Unauthorized: Cannot clear session belonging to different user',
-      );
+      throw new Error('Unauthorized: Cannot clear session belonging to different user');
     }
 
     // Clear from both stores

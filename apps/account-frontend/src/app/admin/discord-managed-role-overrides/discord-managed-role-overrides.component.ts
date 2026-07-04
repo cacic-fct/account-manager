@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnInit,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -40,9 +33,7 @@ import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
-const jsonObjectValidator: ValidatorFn = (
-  control: AbstractControl,
-): ValidationErrors | null => {
+const jsonObjectValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
   const value = String(control.value ?? '').trim();
 
   if (!value) {
@@ -111,9 +102,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
 
   protected selectedRole = computed(() => {
     const category = this.overrideForm.controls.roleCategory.value;
-    return (
-      this.catalog().find((role) => role.category === category) ?? null
-    );
+    return this.catalog().find((role) => role.category === category) ?? null;
   });
 
   protected isEditing = computed(() => this.editingOverride() !== null);
@@ -149,8 +138,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   }
 
   protected selectUser(user: KeycloakPermissionUser): void {
-    const existingOverride =
-      this.overrides().find((override) => override.userId === user.id) ?? null;
+    const existingOverride = this.overrides().find((override) => override.userId === user.id) ?? null;
 
     this.selectedUser.set(user);
     this.editingOverride.set(existingOverride);
@@ -205,10 +193,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
 
     this.saving.set(true);
     const saveRequest = editingOverride
-      ? this.apiService.updateDiscordManagedRoleOverride(
-          editingOverride.id,
-          request,
-        )
+      ? this.apiService.updateDiscordManagedRoleOverride(editingOverride.id, request)
       : this.createOverrideForSelectedUser(selectedUser, request);
 
     if (!saveRequest) {
@@ -257,9 +242,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     } satisfies DiscordManagedRoleOverrideCreateRequest);
   }
 
-  protected confirmDeleteOverride(
-    override: DiscordManagedRoleOverride,
-  ): void {
+  protected confirmDeleteOverride(override: DiscordManagedRoleOverride): void {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
       data: {
         title: 'Remover override',
@@ -282,9 +265,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     return [
       override.userEmail,
       override.reason,
-      Object.keys(override.data ?? {}).length
-        ? `${Object.keys(override.data ?? {}).length} dado(s)`
-        : null,
+      Object.keys(override.data ?? {}).length ? `${Object.keys(override.data ?? {}).length} dado(s)` : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -322,8 +303,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
 
   private patchForm(override: DiscordManagedRoleOverride | null): void {
     this.overrideForm.reset({
-      roleCategory:
-        override?.roleCategory ?? this.catalog()[0]?.category ?? '',
+      roleCategory: override?.roleCategory ?? this.catalog()[0]?.category ?? '',
       reason: override?.reason ?? '',
       dataJson: JSON.stringify(override?.data ?? {}, null, 2),
     });
@@ -339,9 +319,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   }
 
   private upsertOverride(override: DiscordManagedRoleOverride): void {
-    const nextOverrides = this.overrides().filter(
-      (item) => item.id !== override.id && item.userId !== override.userId,
-    );
+    const nextOverrides = this.overrides().filter((item) => item.id !== override.id && item.userId !== override.userId);
     this.overrides.set([override, ...nextOverrides]);
   }
 
@@ -349,9 +327,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     this.deletingId.set(override.id);
     this.apiService.deleteDiscordManagedRoleOverride(override.id).subscribe({
       next: () => {
-        this.overrides.set(
-          this.overrides().filter((item) => item.id !== override.id),
-        );
+        this.overrides.set(this.overrides().filter((item) => item.id !== override.id));
         if (this.editingOverride()?.id === override.id) {
           this.startNewOverride();
         }

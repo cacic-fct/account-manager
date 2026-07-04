@@ -9,14 +9,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 @Component({
   selector: 'app-delete-account-dialog',
-  imports: [
-    MatDialogModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    ReactiveFormsModule,
-  ],
+  imports: [MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, ReactiveFormsModule],
   template: `
     <h2 mat-dialog-title class="warning-title">
       <mat-icon>warning</mat-icon>
@@ -33,13 +26,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
         <ul>
           <li>Bloqueio de acesso ao CACiC SSO e aplicações vinculadas</li>
           <li>Ocultação dos seus dados nos sistemas CACiC</li>
-          <li>
-            Retenção dos dados por 1 ano para prevenção a fraude e invasões de
-            conta
-          </li>
-          <li>
-            Exclusão definitiva após 1 ano, salvo reativação administrativa
-          </li>
+          <li>Retenção dos dados por 1 ano para prevenção a fraude e invasões de conta</li>
+          <li>Exclusão definitiva após 1 ano, salvo reativação administrativa</li>
         </ul>
 
         <p>Os seguintes serviços serão notificados sobre o agendamento:</p>
@@ -52,12 +40,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
         <form [formGroup]="deleteForm" class="delete-form">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Digite "DELETE" para confirmar</mat-label>
-            <input
-              matInput
-              formControlName="confirmation"
-              placeholder="DELETE"
-              autocomplete="off"
-            />
+            <input matInput formControlName="confirmation" placeholder="DELETE" autocomplete="off" />
             @if (deleteForm.get('confirmation')?.hasError('required')) {
               <mat-error> Confirmação é obrigatória </mat-error>
             }
@@ -72,8 +55,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
               matInput
               formControlName="reason"
               placeholder="Ex: Não preciso mais do serviço"
-              rows="3"
-            ></textarea>
+              rows="3"></textarea>
           </mat-form-field>
         </form>
       </div>
@@ -81,12 +63,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
     <mat-dialog-actions align="end">
       <button mat-button (click)="cancel()">Cancelar</button>
-      <button
-        mat-raised-button
-        color="warn"
-        [disabled]="!deleteForm.valid"
-        (click)="confirm()"
-      >
+      <button mat-raised-button color="warn" [disabled]="!deleteForm.valid" (click)="confirm()">
         <mat-icon>delete_forever</mat-icon>
         Solicitar Exclusão
       </button>

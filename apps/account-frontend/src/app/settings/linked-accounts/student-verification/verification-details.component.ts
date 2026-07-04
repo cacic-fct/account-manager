@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -108,10 +101,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       // Auto-upload when file is selected
       this.startValidation();
     } else if (file) {
-      this.banners.showError(
-        'Arquivo inválido',
-        'Por favor, selecione um arquivo PDF válido.',
-      );
+      this.banners.showError('Arquivo inválido', 'Por favor, selecione um arquivo PDF válido.');
     }
   }
 
@@ -139,10 +129,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       // Auto-upload when file is dropped
       this.startValidation();
     } else if (file) {
-      this.banners.showError(
-        'Arquivo inválido',
-        'Por favor, selecione um arquivo PDF válido.',
-      );
+      this.banners.showError('Arquivo inválido', 'Por favor, selecione um arquivo PDF válido.');
     }
   }
 
@@ -160,10 +147,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     const file = this.selectedFile();
 
     if (!file) {
-      this.banners.showError(
-        'Arquivo não selecionado',
-        'Por favor, selecione um arquivo PDF.',
-      );
+      this.banners.showError('Arquivo não selecionado', 'Por favor, selecione um arquivo PDF.');
       return;
     }
 
@@ -186,10 +170,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result?.success) {
-        this.banners.showSuccess(
-          'Documento validado',
-          'Documento verificado com sucesso pela universidade!',
-        );
+        this.banners.showSuccess('Documento validado', 'Documento verificado com sucesso pela universidade!');
         this.loadVerificationStatus(); // Reload status after successful validation
         this.selectedFile.set(null); // Clear selected file
         this.hasAttemptedValidation.set(false); // Reset attempt flag
@@ -223,20 +204,11 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     this.selectedFile.set(null);
 
     if (response.status === 'approved') {
-      this.banners.showSuccess(
-        'Documento aprovado!',
-        'Sua verificação como estudante foi aprovada.',
-      );
+      this.banners.showSuccess('Documento aprovado!', 'Sua verificação como estudante foi aprovada.');
     } else if (response.status === 'pending') {
-      this.banners.showInfo(
-        'Documento enviado',
-        'Seu documento foi enviado e está em análise.',
-      );
+      this.banners.showInfo('Documento enviado', 'Seu documento foi enviado e está em análise.');
     } else {
-      this.banners.showError(
-        'Documento rejeitado',
-        response.message || 'Documento rejeitado automaticamente.',
-      );
+      this.banners.showError('Documento rejeitado', response.message || 'Documento rejeitado automaticamente.');
     }
 
     this.loadVerificationStatus();

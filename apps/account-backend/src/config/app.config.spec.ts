@@ -28,11 +28,7 @@ describe('app config', () => {
   });
 
   it('keeps BACKEND_URL idempotent when it already includes the API prefix', () => {
-    expect(createApiBaseUrl('https://account.cacic.dev.br/api')).toBe(
-      'https://account.cacic.dev.br/api',
-    );
-    expect(createApiBaseUrl('https://account.cacic.dev.br/api/')).toBe(
-      'https://account.cacic.dev.br/api',
-    );
+    expect(createApiBaseUrl('https://account.cacic.dev.br/api')).toBe('https://account.cacic.dev.br/api');
+    expect(createApiBaseUrl('https://account.cacic.dev.br/api/')).toBe('https://account.cacic.dev.br/api');
   });
 });

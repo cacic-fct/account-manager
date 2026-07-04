@@ -1,9 +1,5 @@
 import { Component, input } from '@angular/core';
-import {
-  MatCard,
-  MatCardContent,
-  MatCardActions,
-} from '@angular/material/card';
+import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import type { Application } from '@cacic/shared-types';

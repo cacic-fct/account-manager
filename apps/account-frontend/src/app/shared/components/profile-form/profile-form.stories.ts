@@ -37,8 +37,7 @@ const meta: Meta<ProfileFormComponent> = {
           {
             provide: ApiService,
             useValue: {
-              checkUnespRoleRequired: () =>
-                of({ shouldShowUnespRoleSelection: true }),
+              checkUnespRoleRequired: () => of({ shouldShowUnespRoleSelection: true }),
             },
           },
         ],
@@ -80,8 +79,7 @@ export const EditModeVerified: Story = {
           {
             provide: ApiService,
             useValue: {
-              checkUnespRoleRequired: () =>
-                of({ shouldShowUnespRoleSelection: false }),
+              checkUnespRoleRequired: () => of({ shouldShowUnespRoleSelection: false }),
             },
           },
         ],
@@ -116,8 +114,7 @@ export const ForeignerFlow: Story = {
           {
             provide: ApiService,
             useValue: {
-              checkUnespRoleRequired: () =>
-                of({ shouldShowUnespRoleSelection: false }),
+              checkUnespRoleRequired: () => of({ shouldShowUnespRoleSelection: false }),
             },
           },
         ],

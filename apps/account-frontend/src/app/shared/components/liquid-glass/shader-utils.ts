@@ -21,20 +21,10 @@ function length(x: number, y: number): number {
   return Math.sqrt(x * x + y * y);
 }
 
-function roundedRectSDF(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): number {
+function roundedRectSDF(x: number, y: number, width: number, height: number, radius: number): number {
   const qx = Math.abs(x) - width + radius;
   const qy = Math.abs(y) - height + radius;
-  return (
-    Math.min(Math.max(qx, qy), 0) +
-    length(Math.max(qx, 0), Math.max(qy, 0)) -
-    radius
-  );
+  return Math.min(Math.max(qx, qy), 0) + length(Math.max(qx, 0), Math.max(qy, 0)) - radius;
 }
 
 function texture(x: number, y: number): Vec2 {

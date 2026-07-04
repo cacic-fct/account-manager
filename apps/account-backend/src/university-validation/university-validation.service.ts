@@ -1,8 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CaptchaSession,
-  ValidationResult,
-} from './university-validation.types';
+import { CaptchaSession, ValidationResult } from './university-validation.types';
 import { SessionManagementService } from './services/session-management.service';
 import { CaptchaManagementService } from './services/captcha-management.service';
 import { DocumentValidationService } from './services/document-validation.service';
@@ -40,21 +37,13 @@ export class UniversityValidationService {
     authCode?: string,
     enrollmentNumber?: string,
   ): Promise<CaptchaSession> {
-    return this.captchaManagementService.getCaptcha(
-      sessionId,
-      userId,
-      authCode,
-      enrollmentNumber,
-    );
+    return this.captchaManagementService.getCaptcha(sessionId, userId, authCode, enrollmentNumber);
   }
 
   /**
    * Refresh captcha for existing session
    */
-  async refreshCaptcha(
-    sessionId: string,
-    userId: string,
-  ): Promise<CaptchaSession> {
+  async refreshCaptcha(sessionId: string, userId: string): Promise<CaptchaSession> {
     return this.captchaManagementService.refreshCaptcha(sessionId, userId);
   }
 
@@ -67,12 +56,7 @@ export class UniversityValidationService {
     captchaCode: string,
     userId: string,
   ): Promise<ValidationResult> {
-    return this.captchaManagementService.validateDocument(
-      sessionId,
-      enrollmentNumber,
-      captchaCode,
-      userId,
-    );
+    return this.captchaManagementService.validateDocument(sessionId, enrollmentNumber, captchaCode, userId);
   }
 
   /**
@@ -85,13 +69,8 @@ export class UniversityValidationService {
   /**
    * Get enrollment number from session
    */
-  getEnrollmentFromSession(
-    sessionId: string,
-    userId: string,
-  ): string | undefined {
-    this.logger.debug(
-      `Retrieving enrollment from session: ${sessionId} for user: ${userId}`,
-    );
+  getEnrollmentFromSession(sessionId: string, userId: string): string | undefined {
+    this.logger.debug(`Retrieving enrollment from session: ${sessionId} for user: ${userId}`);
 
     const session = this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {
@@ -99,9 +78,7 @@ export class UniversityValidationService {
       throw new Error('Session not found');
     }
 
-    this.logger.debug(
-      `Session found and authorized, enrollment: ${session.enrollmentNumber || 'not set'}`,
-    );
+    this.logger.debug(`Session found and authorized, enrollment: ${session.enrollmentNumber || 'not set'}`);
     return session.enrollmentNumber;
   }
 
@@ -109,9 +86,7 @@ export class UniversityValidationService {
    * Get auth code from session
    */
   getAuthCodeFromSession(sessionId: string, userId: string): string {
-    this.logger.debug(
-      `Retrieving auth code from session: ${sessionId} for user: ${userId}`,
-    );
+    this.logger.debug(`Retrieving auth code from session: ${sessionId} for user: ${userId}`);
 
     const session = this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {

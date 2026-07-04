@@ -1,31 +1,12 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Body,
-  Param,
-  ParseEnumPipe,
-  Session,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiBody,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Param, ParseEnumPipe, Session, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { PrivacyService } from './privacy.service';
 import {
   UpdatePrivacySettingDto,
   BulkUpdatePrivacySettingsDto,
   PrivacySettingResponseDto,
 } from './dto/privacy-setting.dto';
-import {
-  PRIVACY_SETTING_TYPES,
-  PrivacySettingTypeValue,
-} from './constants/privacy-setting.constants';
+import { PRIVACY_SETTING_TYPES, PrivacySettingTypeValue } from './constants/privacy-setting.constants';
 import { Auth } from '../auth/guards/auth.decorator';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { AuthSession } from '../auth/auth.controller';
@@ -54,9 +35,7 @@ export class PrivacyController {
   @SkipCsrf()
   @Get('settings')
   async getUserPrivacySettings(@Session() session: AuthSession) {
-    return this.privacyService.getUserPrivacySettingsForIdentity(
-      this.getPrivacyUserIdentity(session),
-    );
+    return this.privacyService.getUserPrivacySettingsForIdentity(this.getPrivacyUserIdentity(session));
   }
 
   @ApiOperation({
@@ -68,12 +47,7 @@ export class PrivacyController {
     description: 'Type of privacy setting to update',
     schema: {
       type: 'string',
-      enum: [
-        'analytics_tracking',
-        'error_debugging',
-        'performance_monitoring',
-        'cookie_banner_accepted',
-      ],
+      enum: ['analytics_tracking', 'error_debugging', 'performance_monitoring', 'cookie_banner_accepted'],
     },
   })
   @ApiBody({
@@ -141,14 +115,8 @@ export class PrivacyController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Put('settings')
-  async bulkUpdatePrivacySettings(
-    @Body() updateData: BulkUpdatePrivacySettingsDto,
-    @Session() session: AuthSession,
-  ) {
-    return this.privacyService.bulkUpdatePrivacySettingsForIdentity(
-      this.getPrivacyUserIdentity(session),
-      updateData,
-    );
+  async bulkUpdatePrivacySettings(@Body() updateData: BulkUpdatePrivacySettingsDto, @Session() session: AuthSession) {
+    return this.privacyService.bulkUpdatePrivacySettingsForIdentity(this.getPrivacyUserIdentity(session), updateData);
   }
 
   @ApiOperation({
@@ -168,10 +136,7 @@ export class PrivacyController {
   @Auth()
   @Get('cookie-banner/status')
   async getCookieBannerStatus(@Session() session: AuthSession) {
-    const settings =
-      await this.privacyService.getUserPrivacySettingsForIdentity(
-        this.getPrivacyUserIdentity(session),
-      );
+    const settings = await this.privacyService.getUserPrivacySettingsForIdentity(this.getPrivacyUserIdentity(session));
     return {
       shouldShow: !settings.settings.cookie_banner_accepted,
     };
@@ -237,10 +202,7 @@ export class PrivacyController {
   @Auth()
   @Get('directives')
   async getPrivacyDirectives(@Session() session: AuthSession) {
-    const settings =
-      await this.privacyService.getUserPrivacySettingsForIdentity(
-        this.getPrivacyUserIdentity(session),
-      );
+    const settings = await this.privacyService.getUserPrivacySettingsForIdentity(this.getPrivacyUserIdentity(session));
     const settingValues = settings.settings;
 
     // Convert settings to frontend-friendly directive format
@@ -256,26 +218,17 @@ export class PrivacyController {
         analyticsTracking: {
           type: 'data-handling',
           name: 'analytics-tracking',
-          action:
-            cookieBannerAccepted && settingValues.analytics_tracking
-              ? 'enable'
-              : 'disable',
+          action: cookieBannerAccepted && settingValues.analytics_tracking ? 'enable' : 'disable',
         },
         errorDebugging: {
           type: 'data-handling',
           name: 'error-debugging',
-          action:
-            cookieBannerAccepted && settingValues.error_debugging
-              ? 'enable'
-              : 'disable',
+          action: cookieBannerAccepted && settingValues.error_debugging ? 'enable' : 'disable',
         },
         performanceMonitoring: {
           type: 'data-handling',
           name: 'performance-monitoring',
-          action:
-            cookieBannerAccepted && settingValues.performance_monitoring
-              ? 'enable'
-              : 'disable',
+          action: cookieBannerAccepted && settingValues.performance_monitoring ? 'enable' : 'disable',
         },
       },
       userId: session.user!.keycloakId,
@@ -338,9 +291,7 @@ export class PrivacyController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('initialize')
   async initializePrivacySettings(@Session() session: AuthSession) {
-    return this.privacyService.getUserPrivacySettingsForIdentity(
-      this.getPrivacyUserIdentity(session),
-    );
+    return this.privacyService.getUserPrivacySettingsForIdentity(this.getPrivacyUserIdentity(session));
   }
 
   private getPrivacyUserIdentity(session: AuthSession): PrivacyUserIdentity {

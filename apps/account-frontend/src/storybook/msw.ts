@@ -6,8 +6,7 @@ export type MswParameters = {
   handlers?: RequestHandler[];
 };
 
-const worker =
-  typeof window !== 'undefined' ? setupWorker() : (undefined as never);
+const worker = typeof window !== 'undefined' ? setupWorker() : (undefined as never);
 
 let started = false;
 

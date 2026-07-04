@@ -1,12 +1,4 @@
-import {
-  IsString,
-  IsBoolean,
-  IsOptional,
-  IsNotEmpty,
-  MinLength,
-  IsEnum,
-  IsEmail,
-} from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsNotEmpty, MinLength, IsEnum, IsEmail } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UnespRole } from '@cacic/shared-types';
 
@@ -38,8 +30,7 @@ export class CreateUserProfileDto {
   enrollmentNumber?: string;
 
   @ApiProperty({
-    description:
-      'Identity document (CPF for Brazilians, Passport for foreigners)',
+    description: 'Identity document (CPF for Brazilians, Passport for foreigners)',
     example: '12345678901',
   })
   @IsString()
@@ -47,8 +38,7 @@ export class CreateUserProfileDto {
   identityDocument!: string;
 
   @ApiProperty({
-    description:
-      'Whether the user is a foreigner (uses passport instead of CPF)',
+    description: 'Whether the user is a foreigner (uses passport instead of CPF)',
     example: false,
   })
   @IsBoolean()
@@ -121,22 +111,19 @@ export class UserProfileDto {
   enrollmentNumber?: string;
 
   @ApiProperty({
-    description:
-      'Identity document (CPF for Brazilians, Passport for foreigners)',
+    description: 'Identity document (CPF for Brazilians, Passport for foreigners)',
     example: '12345678901',
   })
   identityDocument!: string;
 
   @ApiProperty({
-    description:
-      'Country of passport issuance (required if user is a foreigner) in ISO format',
+    description: 'Country of passport issuance (required if user is a foreigner) in ISO format',
     example: 'BR',
   })
   passportCountry?: string;
 
   @ApiProperty({
-    description:
-      'Whether the user is a foreigner (uses passport instead of CPF)',
+    description: 'Whether the user is a foreigner (uses passport instead of CPF)',
     example: false,
   })
   isForeigner!: boolean;
@@ -155,22 +142,19 @@ export class UserProfileDto {
   unespRole?: UnespRole;
 
   @ApiPropertyOptional({
-    description:
-      'Whether the Unesp role has been verified through document validation',
+    description: 'Whether the Unesp role has been verified through document validation',
     example: true,
   })
   unespRoleVerified?: boolean;
 
   @ApiPropertyOptional({
-    description:
-      'Whether external user has been verified through document validation',
+    description: 'Whether external user has been verified through document validation',
     example: true,
   })
   externalUserVerified?: boolean;
 
   @ApiPropertyOptional({
-    description:
-      'Whether fullname is locked after external verification (prevents changes)',
+    description: 'Whether fullname is locked after external verification (prevents changes)',
     example: false,
   })
   fullNameLocked?: boolean;
@@ -234,8 +218,7 @@ export class PasswordLoginDto {
   password!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Optional post-login return URL. Must be a relative path or allowed origin.',
+    description: 'Optional post-login return URL. Must be a relative path or allowed origin.',
     example: '/applications',
   })
   @IsOptional()
@@ -332,8 +315,7 @@ export class LogoutResponseDto {
   success!: boolean;
 
   @ApiPropertyOptional({
-    description:
-      'Keycloak end-session URL that the browser should visit after local session cleanup.',
+    description: 'Keycloak end-session URL that the browser should visit after local session cleanup.',
     example:
       'https://sso.cacic.dev.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager&post_logout_redirect_uri=https%3A%2F%2Faccount.cacic.dev.br%2Fapp%2F',
   })
@@ -342,8 +324,7 @@ export class LogoutResponseDto {
 
 export class LogoutRequestDto {
   @ApiPropertyOptional({
-    description:
-      'Post-logout redirect URI accepted by the configured Keycloak client.',
+    description: 'Post-logout redirect URI accepted by the configured Keycloak client.',
     example: 'https://account.cacic.dev.br/app/',
   })
   @IsOptional()

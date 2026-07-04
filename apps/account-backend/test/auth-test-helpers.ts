@@ -1,8 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
-import type {
-  KeycloakUser,
-  UserProfile,
-} from '../src/auth/interfaces/auth.interface';
+import type { KeycloakUser, UserProfile } from '../src/auth/interfaces/auth.interface';
 import type { UserService } from '../src/auth/services/user.service';
 
 type ConfigValue = boolean | number | string | undefined;
@@ -15,9 +12,7 @@ const defaultConfig: Record<string, ConfigValue> = {
   KEYCLOAK_PASSWORD_LOGIN_ENABLED: 'true',
 };
 
-export function createAuthTestConfigService(
-  overrides: Record<string, ConfigValue> = {},
-): ConfigService {
+export function createAuthTestConfigService(overrides: Record<string, ConfigValue> = {}): ConfigService {
   const values = {
     ...defaultConfig,
     ...overrides,
@@ -30,11 +25,7 @@ export function createAuthTestConfigService(
   } as unknown as ConfigService;
 }
 
-export function createKeycloakUser(input: {
-  sub: string;
-  email: string;
-  name: string;
-}): KeycloakUser {
+export function createKeycloakUser(input: { sub: string; email: string; name: string }): KeycloakUser {
   return {
     sub: input.sub,
     email: input.email,
@@ -48,10 +39,7 @@ export function createKeycloakUser(input: {
 
 export function createUserServiceFake(): Pick<
   UserService,
-  | 'findByKeycloakId'
-  | 'createFromKeycloak'
-  | 'updateFromKeycloakOAuth'
-  | 'checkOnboardingStatus'
+  'findByKeycloakId' | 'createFromKeycloak' | 'updateFromKeycloakOAuth' | 'checkOnboardingStatus'
 > {
   const profiles = new Map<string, UserProfile>([
     [
@@ -75,9 +63,7 @@ export function createUserServiceFake(): Pick<
   ]);
 
   return {
-    findByKeycloakId: jest.fn((id: string) =>
-      Promise.resolve(profiles.get(id) ?? null),
-    ),
+    findByKeycloakId: jest.fn((id: string) => Promise.resolve(profiles.get(id) ?? null)),
     createFromKeycloak: jest.fn((user: KeycloakUser) => {
       const profile = createProfile({
         id: user.sub,
@@ -115,9 +101,7 @@ export function createUserServiceFake(): Pick<
   };
 }
 
-export async function waitForKeycloakRealm(
-  keycloakBaseUrl: string,
-): Promise<void> {
+export async function waitForKeycloakRealm(keycloakBaseUrl: string): Promise<void> {
   const metadataUrl = `${keycloakBaseUrl}/realms/cacic-sso/.well-known/openid-configuration`;
   const timeoutAt = Date.now() + 60_000;
   let lastError: unknown;
@@ -144,12 +128,7 @@ export async function waitForKeycloakRealm(
   );
 }
 
-function createProfile(input: {
-  id: string;
-  email: string;
-  fullname: string;
-  isOnboarded: boolean;
-}): UserProfile {
+function createProfile(input: { id: string; email: string; fullname: string; isOnboarded: boolean }): UserProfile {
   return {
     id: input.id,
     keycloakId: input.id,

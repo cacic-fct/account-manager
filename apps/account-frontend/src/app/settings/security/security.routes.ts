@@ -8,7 +8,6 @@ export const securityRoutes: Routes = [
   },
   {
     path: 'totp',
-    loadComponent: () =>
-      import('./totp/totp.component').then((m) => m.TotpComponent),
+    loadComponent: () => import('./totp/totp.component').then((m) => m.TotpComponent),
   },
 ];

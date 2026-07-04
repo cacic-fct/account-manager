@@ -1,10 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withXhr } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { LoggerService } from './logger.service';
 import { PrivacyDirectiveService } from './privacy-directive.service';
 import type { PrivacyDirectives } from '../interfaces/privacy-directive.interface';
@@ -140,10 +137,8 @@ function plantForgedPrivacyCookies(): void {
 }
 
 function clearPrivacyCookies(): void {
-  document.cookie =
-    'cacic-purr=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  document.cookie =
-    'cacic-purr-quick=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  document.cookie = 'cacic-purr=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  document.cookie = 'cacic-purr-quick=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 }
 
 function createStorageMock(): Storage {

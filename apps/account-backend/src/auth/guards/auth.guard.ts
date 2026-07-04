@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
 
@@ -13,9 +8,7 @@ import { AuthSession } from '../auth.controller';
 @Injectable()
 export class AuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { session: AuthSession }>();
+    const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const session: AuthSession = request.session;
 
     if (!session?.user?.keycloakId) {

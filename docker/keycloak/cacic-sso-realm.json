@@ -643,12 +643,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": [
-        "roles",
-        "profile",
-        "email",
-        "cacic-event-manager-audience"
-      ],
+      "defaultClientScopes": ["roles", "profile", "email", "cacic-event-manager-audience"],
       "optionalClientScopes": []
     },
     {
@@ -663,12 +658,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": [
-        "roles",
-        "profile",
-        "email",
-        "cacic-account-manager-audience"
-      ],
+      "defaultClientScopes": ["roles", "profile", "email", "cacic-account-manager-audience"],
       "optionalClientScopes": []
     },
     {
@@ -683,12 +673,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": [
-        "roles",
-        "profile",
-        "email",
-        "cacic-account-manager-audience"
-      ],
+      "defaultClientScopes": ["roles", "profile", "email", "cacic-account-manager-audience"],
       "optionalClientScopes": []
     },
     {

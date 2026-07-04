@@ -11,12 +11,7 @@ import { AdminCleanupController } from '../common/controllers/admin-cleanup.cont
 import { CleanupSchedulerService } from '../common/services/cleanup-scheduler.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    JwtModule,
-    DiscordServicesModule,
-    BullModule.registerQueue({ name: LGPD_QUEUE }),
-  ],
+  imports: [AuthModule, JwtModule, DiscordServicesModule, BullModule.registerQueue({ name: LGPD_QUEUE })],
   controllers: [LgpdController, AdminCleanupController],
   providers: [LgpdService, LgpdProcessor, CleanupSchedulerService],
   exports: [LgpdService],

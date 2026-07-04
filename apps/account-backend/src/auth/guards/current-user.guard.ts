@@ -26,10 +26,7 @@ type RequestWithSession = Omit<Request, 'body' | 'params' | 'query'> & {
   body?: Record<string, unknown>;
 };
 
-export const CurrentUserTarget = (
-  source: CurrentUserTargetConfig['source'],
-  field = 'userId',
-) =>
+export const CurrentUserTarget = (source: CurrentUserTargetConfig['source'], field = 'userId') =>
   SetMetadata(CURRENT_USER_TARGET_KEY, {
     source,
     field,
@@ -52,17 +49,15 @@ export class CurrentUserGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
-    const target = this.reflector.getAllAndOverride<CurrentUserTargetConfig>(
-      CURRENT_USER_TARGET_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const target = this.reflector.getAllAndOverride<CurrentUserTargetConfig>(CURRENT_USER_TARGET_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (target) {
       const targetUserId = this.getTargetUserId(request, target);
       if (!targetUserId || targetUserId !== currentUserId) {
-        throw new ForbiddenException(
-          'Acesso negado: usuário não pode alterar dados de outro usuário',
-        );
+        throw new ForbiddenException('Acesso negado: usuário não pode alterar dados de outro usuário');
       }
     }
 
@@ -70,10 +65,7 @@ export class CurrentUserGuard implements CanActivate {
     return true;
   }
 
-  private getTargetUserId(
-    request: RequestWithSession,
-    target: CurrentUserTargetConfig,
-  ): string | undefined {
+  private getTargetUserId(request: RequestWithSession, target: CurrentUserTargetConfig): string | undefined {
     if (target.source === 'param') {
       return request.params[target.field];
     }
@@ -87,9 +79,7 @@ export class CurrentUserGuard implements CanActivate {
     return typeof value === 'string' ? value : undefined;
   }
 
-  private async assertKeycloakSessionUserIsValid(
-    userId: string,
-  ): Promise<void> {
+  private async assertKeycloakSessionUserIsValid(userId: string): Promise<void> {
     try {
       const user = await this.keycloakService.getUserBasicInfo(userId);
 
@@ -101,10 +91,7 @@ export class CurrentUserGuard implements CanActivate {
         throw new ForbiddenException('Session user is disabled');
       }
     } catch (error) {
-      if (
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      ) {
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
         throw error;
       }
 

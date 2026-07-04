@@ -24,12 +24,7 @@
           </div>
         </div>
         @if (currentBanner()!.dismissible) {
-          <button
-            mat-icon-button
-            class="dismiss-button"
-            (click)="dismissBanner()"
-            matTooltip="Dispensar"
-          >
+          <button mat-icon-button class="dismiss-button" (click)="dismissBanner()" matTooltip="Dispensar">
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -63,9 +58,7 @@
                 <mat-icon>school</mat-icon>
                 <div class="status-text">
                   <span class="status-label">Estudante verificado</span>
-                  <span class="status-subtitle"
-                    >Acesso completo ao servidor</span
-                  >
+                  <span class="status-subtitle">Acesso completo ao servidor</span>
                 </div>
               </div>
             } @else if (discordStatus()?.eligibleForRole === 'unesp') {
@@ -90,8 +83,7 @@
               mat-button
               color="primary"
               class="view-details-button"
-              routerLink="/settings/linked-accounts/discord/server-access"
-            >
+              routerLink="/settings/linked-accounts/discord/server-access">
               <mat-icon>info</mat-icon>
               Ver detalhes
             </button>
@@ -101,24 +93,15 @@
             <div class="accounts-container">
               <h4 class="section-title">Contas vinculadas</h4>
               <div class="accounts-grid">
-                @for (
-                  account of discordStatus()?.discordLinks;
-                  track account.id
-                ) {
+                @for (account of discordStatus()?.discordLinks; track account.id) {
                   <div class="account-card">
                     <div class="account-header">
                       <div class="account-avatar">
                         <img
-                          [src]="
-                            getDiscordAvatarUrl(
-                              account.discordId,
-                              account.discordAvatarHash
-                            )
-                          "
+                          [src]="getDiscordAvatarUrl(account.discordId, account.discordAvatarHash)"
                           [alt]="account.discordGlobalName + ' avatar'"
                           class="avatar-image"
-                          (error)="onAvatarError($event)"
-                        />
+                          (error)="onAvatarError($event)" />
                         <mat-icon class="fallback-icon">person</mat-icon>
                       </div>
                       <div class="account-details">
@@ -132,15 +115,9 @@
                       <button
                         mat-icon-button
                         class="unlink-button"
-                        (click)="
-                          unlinkDiscordAccount(
-                            account.id,
-                            account.discordGlobalName
-                          )
-                        "
+                        (click)="unlinkDiscordAccount(account.id, account.discordGlobalName)"
                         [disabled]="isUnlinking()"
-                        matTooltip="Desvincular conta"
-                      >
+                        matTooltip="Desvincular conta">
                         @if (isUnlinking()) {
                           <mat-spinner diameter="16"></mat-spinner>
                         } @else {
@@ -171,13 +148,7 @@
 
   <mat-card-actions class="card-actions">
     @if (!isLoading()) {
-      <button
-        mat-raised-button
-        color="primary"
-        (click)="linkDiscord()"
-        [disabled]="isLinking()"
-        class="link-button"
-      >
+      <button mat-raised-button color="primary" (click)="linkDiscord()" [disabled]="isLinking()" class="link-button">
         @if (isLinking()) {
           <mat-spinner diameter="16"></mat-spinner>
           Conectando...
@@ -198,8 +169,7 @@
           mat-button
           color="primary"
           routerLink="/settings/linked-accounts/discord/server-access"
-          class="server-access-button"
-        >
+          class="server-access-button">
           <mat-icon>groups</mat-icon>
           Acesso ao servidor
         </button>
@@ -209,8 +179,7 @@
           mat-button
           color="primary"
           routerLink="/settings/linked-accounts/discord/role-selection"
-          class="server-access-button"
-        >
+          class="server-access-button">
           <mat-icon>notifications</mat-icon>
           Configuração de notificações
         </button>

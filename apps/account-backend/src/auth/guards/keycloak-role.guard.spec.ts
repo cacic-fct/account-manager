@@ -1,7 +1,4 @@
-import {
-  AccountManagerKeycloakRole,
-  AccountManagerPermission,
-} from '@cacic/shared-types';
+import { AccountManagerKeycloakRole, AccountManagerPermission } from '@cacic/shared-types';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthSession } from '../auth.controller';
@@ -10,10 +7,7 @@ import { KeycloakService } from '../services/keycloak.service';
 import { KeycloakRoleConfig, KeycloakRoleGuard } from './keycloak-role.guard';
 
 type KeycloakMock = {
-  getUserRoles: jest.Mock<
-    ReturnType<KeycloakService['getUserRoles']>,
-    Parameters<KeycloakService['getUserRoles']>
-  >;
+  getUserRoles: jest.Mock<ReturnType<KeycloakService['getUserRoles']>, Parameters<KeycloakService['getUserRoles']>>;
 };
 
 type AccountPermissionMock = {
@@ -55,10 +49,7 @@ const createContext = (
   },
 ) => {
   const keycloakService: KeycloakMock = {
-    getUserRoles: jest.fn<
-      ReturnType<KeycloakService['getUserRoles']>,
-      Parameters<KeycloakService['getUserRoles']>
-    >(),
+    getUserRoles: jest.fn<ReturnType<KeycloakService['getUserRoles']>, Parameters<KeycloakService['getUserRoles']>>(),
   };
   keycloakService.getUserRoles.mockResolvedValue([]);
 
@@ -90,54 +81,36 @@ const createContext = (
 
 describe('KeycloakRoleGuard', () => {
   it('keeps the Keycloak role success path intact', async () => {
-    const { accountPermissionService, guard, keycloakService } =
-      createContext();
-    keycloakService.getUserRoles.mockResolvedValue([
-      AccountManagerKeycloakRole.PermissionGrantRead,
-    ]);
+    const { accountPermissionService, guard, keycloakService } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue([AccountManagerKeycloakRole.PermissionGrantRead]);
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
 
-    expect(
-      accountPermissionService.hasAnyActivePermission,
-    ).not.toHaveBeenCalled();
+    expect(accountPermissionService.hasAnyActivePermission).not.toHaveBeenCalled();
   });
 
   it('checks database-backed permissions after Keycloak role lookup fails', async () => {
-    const { accountPermissionService, guard, keycloakService } =
-      createContext();
+    const { accountPermissionService, guard, keycloakService } = createContext();
     keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
-    accountPermissionService.hasAnyActivePermission.mockImplementation(
-      (_userId, permissions) =>
-        Promise.resolve(
-          permissions.includes(AccountManagerPermission.PermissionGrantRead),
-        ),
+    accountPermissionService.hasAnyActivePermission.mockImplementation((_userId, permissions) =>
+      Promise.resolve(permissions.includes(AccountManagerPermission.PermissionGrantRead)),
     );
 
-    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(
-      true,
-    );
+    await expect(guard.canActivate(createExecutionContext())).resolves.toBe(true);
 
-    expect(
-      accountPermissionService.hasAnyActivePermission,
-    ).toHaveBeenCalledWith('user-1', [AccountManagerKeycloakRole.SuperAdmin]);
-    expect(
-      accountPermissionService.hasAnyActivePermission,
-    ).toHaveBeenCalledWith('user-1', [
+    expect(accountPermissionService.hasAnyActivePermission).toHaveBeenCalledWith('user-1', [
+      AccountManagerKeycloakRole.SuperAdmin,
+    ]);
+    expect(accountPermissionService.hasAnyActivePermission).toHaveBeenCalledWith('user-1', [
       AccountManagerPermission.PermissionGrantRead,
     ]);
   });
 
   it('throws only after Keycloak and database-backed checks both fail', async () => {
-    const { accountPermissionService, guard, keycloakService } =
-      createContext();
+    const { accountPermissionService, guard, keycloakService } = createContext();
     keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));
 
-    await expect(
-      guard.canActivate(createExecutionContext()),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext())).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(accountPermissionService.hasAnyActivePermission).toHaveBeenCalled();
   });

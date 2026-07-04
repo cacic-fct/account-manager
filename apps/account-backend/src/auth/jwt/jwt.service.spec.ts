@@ -86,9 +86,7 @@ describe('JwtService M2M authorization', () => {
       );
 
       expect(service.isAllowedM2MClient(createPayload())).toBe(true);
-      expect(service.hasRequiredRole(createPayload(), 'privacy:write')).toBe(
-        true,
-      );
+      expect(service.hasRequiredRole(createPayload(), 'privacy:write')).toBe(true);
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
@@ -111,9 +109,7 @@ describe('JwtService M2M authorization', () => {
   it('requires roles on the configured M2M audience client', () => {
     const service = new JwtService(createConfigService());
 
-    expect(service.hasRequiredRole(createPayload(), 'privacy:write')).toBe(
-      true,
-    );
+    expect(service.hasRequiredRole(createPayload(), 'privacy:write')).toBe(true);
     expect(
       service.hasRequiredRole(
         createPayload({
@@ -156,9 +152,7 @@ describe('JwtService M2M authorization', () => {
         }),
       );
 
-      await expect(service.getClientCredentialsToken()).rejects.toThrow(
-        'KEYCLOAK_M2M_CLIENT_ID must be configured',
-      );
+      await expect(service.getClientCredentialsToken()).rejects.toThrow('KEYCLOAK_M2M_CLIENT_ID must be configured');
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }

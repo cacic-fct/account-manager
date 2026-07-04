@@ -11,9 +11,7 @@ export interface CookieBannerOptions {
   sharedCookieDomain?: string;
   isAuthenticated?: () => boolean | Promise<boolean>;
   shouldShow?: () => boolean | Promise<boolean>;
-  onAccept?: (
-    context: CookieBannerAcceptContext,
-  ) => void | boolean | Promise<void | boolean>;
+  onAccept?: (context: CookieBannerAcceptContext) => void | boolean | Promise<void | boolean>;
   text?: string;
   buttonText?: string;
   ariaLabel?: string;
@@ -121,9 +119,7 @@ export class CookieBanner {
     const mount = this.resolveMount();
 
     const root = document.createElement('div');
-    root.className = ['cacic-cookie-banner', this.options.className ?? '']
-      .filter(Boolean)
-      .join(' ');
+    root.className = ['cacic-cookie-banner', this.options.className ?? ''].filter(Boolean).join(' ');
     root.setAttribute('role', 'banner');
     root.setAttribute('aria-label', this.options.ariaLabel);
 
@@ -155,9 +151,7 @@ export class CookieBanner {
     `;
 
     this.root = root;
-    this.acceptButton = root.querySelector<HTMLButtonElement>(
-      '.cacic-cookie-banner_accept',
-    );
+    this.acceptButton = root.querySelector<HTMLButtonElement>('.cacic-cookie-banner_accept');
 
     this.acceptButton?.addEventListener('click', () => {
       void this.accept();
@@ -204,9 +198,7 @@ export class CookieBanner {
       const element = document.querySelector<HTMLElement>(this.options.mount);
 
       if (!element) {
-        throw new Error(
-          `Cookie banner mount element not found: ${this.options.mount}`,
-        );
+        throw new Error(`Cookie banner mount element not found: ${this.options.mount}`);
       }
 
       return element;
@@ -223,10 +215,7 @@ export class CookieBanner {
     }
 
     this.acceptButton.disabled = value;
-    this.acceptButton.classList.toggle(
-      'cacic-cookie-banner_accept-loading',
-      value,
-    );
+    this.acceptButton.classList.toggle('cacic-cookie-banner_accept-loading', value);
   }
 
   private hasAcceptedLocally(): boolean {
@@ -248,15 +237,11 @@ export class CookieBanner {
   }
 }
 
-export function createCookieBanner(
-  options?: CookieBannerOptions,
-): CookieBanner {
+export function createCookieBanner(options?: CookieBannerOptions): CookieBanner {
   return new CookieBanner(options);
 }
 
-export function hasAcceptedCookieBanner(
-  options: CookieBannerAcceptanceStorageOptions = {},
-): boolean {
+export function hasAcceptedCookieBanner(options: CookieBannerAcceptanceStorageOptions = {}): boolean {
   if (!isBrowser()) {
     return false;
   }
@@ -267,28 +252,20 @@ export function hasAcceptedCookieBanner(
   }
 
   try {
-    return (
-      globalThis.localStorage?.getItem(
-        options.storageKey ?? DEFAULT_STORAGE_KEY,
-      ) === 'true'
-    );
+    return globalThis.localStorage?.getItem(options.storageKey ?? DEFAULT_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
 }
 
-export function saveAcceptedCookieBanner(
-  options: CookieBannerAcceptanceStorageOptions = {},
-): void {
+export function saveAcceptedCookieBanner(options: CookieBannerAcceptanceStorageOptions = {}): void {
   if (!isBrowser()) {
     return;
   }
 
   const cookieName = options.cookieName ?? DEFAULT_COOKIE_NAME;
-  const maxAgeSeconds =
-    options.cookieMaxAgeSeconds ?? DEFAULT_COOKIE_MAX_AGE_SECONDS;
-  const sharedCookieDomain =
-    options.sharedCookieDomain ?? resolveCurrentSharedCookieDomain();
+  const maxAgeSeconds = options.cookieMaxAgeSeconds ?? DEFAULT_COOKIE_MAX_AGE_SECONDS;
+  const sharedCookieDomain = options.sharedCookieDomain ?? resolveCurrentSharedCookieDomain();
 
   writeCookie(cookieName, 'true', maxAgeSeconds);
 
@@ -297,10 +274,7 @@ export function saveAcceptedCookieBanner(
   }
 
   try {
-    globalThis.localStorage?.setItem(
-      options.storageKey ?? DEFAULT_STORAGE_KEY,
-      'true',
-    );
+    globalThis.localStorage?.setItem(options.storageKey ?? DEFAULT_STORAGE_KEY, 'true');
   } catch {
     // Ignore storage failures.
   }
@@ -324,16 +298,9 @@ function readCookie(name: string): string | null {
   }
 }
 
-function writeCookie(
-  name: string,
-  value: string,
-  maxAgeSeconds: number,
-  domain?: string,
-): void {
+function writeCookie(name: string, value: string, maxAgeSeconds: number, domain?: string): void {
   const domainPart = domain ? `; domain=${domain}` : '';
-  document.cookie = `${name}=${encodeURIComponent(
-    value,
-  )}; Max-Age=${maxAgeSeconds}; path=/${domainPart}; SameSite=Lax`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; path=/${domainPart}; SameSite=Lax`;
 }
 
 function resolveCurrentSharedCookieDomain(): string | undefined {

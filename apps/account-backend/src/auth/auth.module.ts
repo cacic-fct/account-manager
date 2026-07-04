@@ -23,12 +23,7 @@ import { JwtModule } from './jwt/jwt.module';
 import { TotpService } from '../totp/totp.service';
 
 @Module({
-  imports: [
-    ConfigModule,
-    CsrfModule,
-    JwtModule,
-    BullModule.registerQueue({ name: ACCOUNT_MERGE_QUEUE }),
-  ],
+  imports: [ConfigModule, CsrfModule, JwtModule, BullModule.registerQueue({ name: ACCOUNT_MERGE_QUEUE })],
   controllers: [AuthController, AccountLinkingController],
   providers: [
     KeycloakService,

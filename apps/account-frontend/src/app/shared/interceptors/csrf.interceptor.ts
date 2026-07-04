@@ -69,21 +69,13 @@ function shouldSkipCsrf(req: HttpRequest<unknown>): boolean {
   }
 
   // Skip for external URLs (not same-origin)
-  if (
-    req.url.startsWith('http') &&
-    !req.url.includes(window.location.hostname)
-  ) {
+  if (req.url.startsWith('http') && !req.url.includes(window.location.hostname)) {
     return true;
   }
 
   // Skip for specific endpoints if needed
   // Example: OAuth callbacks, public endpoints, etc.
-  const skipPatterns = [
-    '/auth/callback',
-    '/auth/login',
-    '/auth/logout',
-    '/csrf/token',
-  ];
+  const skipPatterns = ['/auth/callback', '/auth/login', '/auth/logout', '/csrf/token'];
 
   return skipPatterns.some((pattern) => req.url.includes(pattern));
 }

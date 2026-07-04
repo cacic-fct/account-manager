@@ -59,15 +59,10 @@ export class UniversityValidationService {
     });
   }
 
-  validateDocument(
-    sessionId: string,
-    request: ValidationRequest,
-  ): Observable<ValidationResponse> {
-    return this.http.post<ValidationResponse>(
-      `${this.apiUrl}/validate/${sessionId}`,
-      request,
-      { withCredentials: true },
-    );
+  validateDocument(sessionId: string, request: ValidationRequest): Observable<ValidationResponse> {
+    return this.http.post<ValidationResponse>(`${this.apiUrl}/validate/${sessionId}`, request, {
+      withCredentials: true,
+    });
   }
 
   clearSession(sessionId: string): Observable<{ success: boolean }> {
@@ -79,25 +74,18 @@ export class UniversityValidationService {
   }
 
   // New atomic validation method
-  validateDocumentAtomic(
-    pdfFile: File,
-    captchaCode: string,
-  ): Observable<AtomicValidationResponse> {
+  validateDocumentAtomic(pdfFile: File, captchaCode: string): Observable<AtomicValidationResponse> {
     const formData = new FormData();
     formData.append('pdfFile', pdfFile);
     formData.append('captchaCode', captchaCode);
 
-    return this.http.post<AtomicValidationResponse>(
-      `${this.apiUrl}/validate-atomic`,
-      formData,
-      { withCredentials: true },
-    );
+    return this.http.post<AtomicValidationResponse>(`${this.apiUrl}/validate-atomic`, formData, {
+      withCredentials: true,
+    });
   }
 
   // Get captcha for atomic flow (just processes PDF and returns captcha)
-  getAtomicCaptcha(
-    pdfFile: File,
-  ): Observable<{ captchaImage: string; sessionId: string }> {
+  getAtomicCaptcha(pdfFile: File): Observable<{ captchaImage: string; sessionId: string }> {
     const formData = new FormData();
     formData.append('pdfFile', pdfFile);
 
@@ -114,26 +102,16 @@ export class UniversityValidationService {
     captchaCode: string;
     sessionId: string;
   }): Observable<AtomicValidationResponse> {
-    return this.http.post<AtomicValidationResponse>(
-      `${this.apiUrl}/validate-atomic`,
-      data,
-      { withCredentials: true },
-    );
+    return this.http.post<AtomicValidationResponse>(`${this.apiUrl}/validate-atomic`, data, { withCredentials: true });
   }
 
   // Get cooldown status for current user
   getCooldownStatus(): Observable<CooldownStatus> {
-    return this.http.post<CooldownStatus>(
-      `${this.apiUrl}/cooldown-status`,
-      {},
-      { withCredentials: true },
-    );
+    return this.http.post<CooldownStatus>(`${this.apiUrl}/cooldown-status`, {}, { withCredentials: true });
   }
 
   // Refresh captcha for existing session
-  refreshCaptcha(
-    sessionId: string,
-  ): Observable<{ captchaImage: string; sessionId: string }> {
+  refreshCaptcha(sessionId: string): Observable<{ captchaImage: string; sessionId: string }> {
     return this.http.post<{ captchaImage: string; sessionId: string }>(
       `${this.apiUrl}/refresh-captcha`,
       { sessionId },

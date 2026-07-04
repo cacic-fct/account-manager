@@ -4,11 +4,7 @@ import { withThemeByClassName } from '@storybook/addon-themes';
 import { setCompodocJson } from '@storybook/addon-docs/angular';
 import { APP_BASE_HREF } from '@angular/common';
 import { provideRouter } from '@angular/router';
-import {
-  provideHttpClient,
-  withFetch,
-  withInterceptors,
-} from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 
 import { credentialsInterceptor } from '../src/app/shared/interceptors/credentials.interceptor';
 import { csrfInterceptor } from '../src/app/shared/interceptors/csrf.interceptor';
@@ -23,10 +19,7 @@ const preview: Preview = {
       providers: [
         { provide: APP_BASE_HREF, useValue: '/' },
         provideRouter([]),
-        provideHttpClient(
-          withFetch(),
-          withInterceptors([credentialsInterceptor, csrfInterceptor]),
-        ),
+        provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, csrfInterceptor])),
       ],
     }),
     withThemeByClassName({
@@ -38,8 +31,7 @@ const preview: Preview = {
     }),
     (storyFn, context) => {
       const theme = String(context.globals['theme'] ?? 'light');
-      document.documentElement.style.colorScheme =
-        theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
       return storyFn();
     },
     withMsw,

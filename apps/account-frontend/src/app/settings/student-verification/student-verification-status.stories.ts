@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 
 import { StudentVerificationStatusComponent } from './student-verification-status.component';
-import {
-  authHandlers,
-  studentVerificationHandlers,
-} from '../../../storybook/mocks/msw-handlers';
+import { authHandlers, studentVerificationHandlers } from '../../../storybook/mocks/msw-handlers';
 
 const meta: Meta<StudentVerificationStatusComponent> = {
   title: 'Settings/StudentVerification/Status',
