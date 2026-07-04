@@ -1,6 +1,6 @@
 import { fakerPT_BR as faker } from '@faker-js/faker';
 import {
-  ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG,
+  ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG,
   ACCOUNT_MANAGER_PERMISSION_CLIENT_ID,
   AccountManagerPermission,
   KEYCLOAK_PERMISSION_CLIENTS,
@@ -39,7 +39,7 @@ const addDays = (date: Date, days: number): Date => {
 
 const accountManagerRoleLabels: Record<string, string> = {
   access: 'Acesso',
-  'super-admin': 'Super-admin',
+  'super-admin': 'Super Admin',
   'discord-management#read': 'Ler Discord',
   'discord-management#update': 'Gerenciar Discord',
   'student-verification#read': 'Ler validações estudantis',
@@ -91,7 +91,7 @@ const createPermissionDefinition = (
 });
 
 export const mockKeycloakPermissionCatalog: KeycloakPermissionDefinition[] = [
-  ...ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG.map((roleName) =>
+  ...ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG.map((roleName) =>
     createPermissionDefinition(ACCOUNT_MANAGER_PERMISSION_CLIENT_ID, roleName),
   ),
   createPermissionDefinition('cacic-event-manager', 'events#read', 'Ler eventos'),

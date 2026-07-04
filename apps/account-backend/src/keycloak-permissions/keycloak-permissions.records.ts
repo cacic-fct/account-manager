@@ -1,7 +1,7 @@
 import {
   ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
+  HIDDEN_KEYCLOAK_ROLE_NAMES,
   KEYCLOAK_PERMISSION_CLIENTS,
-  KEYCLOAK_BACKED_ROLE_NAMES,
 } from '@cacic/shared-types';
 import { Prisma } from '@prisma/client';
 
@@ -16,7 +16,7 @@ export const ACCOUNT_MANAGER_ADMIN_PERMISSION_IDS = [
 ];
 
 export const DB_MANAGED_ROLE_FILTER = {
-  notIn: [...KEYCLOAK_BACKED_ROLE_NAMES],
+  notIn: [...HIDDEN_KEYCLOAK_ROLE_NAMES],
 };
 
 export const GRANT_SELECT = {

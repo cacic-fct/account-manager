@@ -55,6 +55,12 @@ export const ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG = [
   AccountManagerKeycloakRole.PermissionGrantSync,
 ] as const satisfies readonly AccountManagerKeycloakRole[];
 
+export const ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG = [
+  AccountManagerKeycloakRole.Access,
+  AccountManagerKeycloakRole.SuperAdmin,
+  ...ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG,
+] as const satisfies readonly AccountManagerKeycloakRole[];
+
 export function buildKeycloakPermissionId(
   clientId: string,
   roleName: string,

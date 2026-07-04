@@ -1,5 +1,5 @@
 import {
-  ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG,
+  ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG,
   HIDDEN_KEYCLOAK_ROLE_NAMES,
   KEYCLOAK_PERMISSION_CLIENTS,
   PERMISSION_GROUP_CATALOG,
@@ -15,7 +15,6 @@ import {
   PermissionGroupMembership,
   PermissionGroupMembershipStatus,
   PermissionGroupRoleGrant,
-  isKeycloakBackedRoleName,
 } from '@cacic/shared-types';
 import { BadRequestException } from '@nestjs/common';
 import { KeycloakUserData } from '../auth/services/keycloak.service';
@@ -45,10 +44,7 @@ export function normalizePermission(permission: string): string {
     );
   }
 
-  if (
-    isHiddenRole(parsedPermission.roleName) ||
-    isKeycloakBackedRoleName(parsedPermission.roleName)
-  ) {
+  if (isHiddenRole(parsedPermission.roleName)) {
     throw new BadRequestException(`Permissão inválida: ${permission}.`);
   }
 
@@ -306,7 +302,7 @@ export function fallbackAccountManagerDefinitions(): KeycloakPermissionDefinitio
     (definition) => definition.clientId === 'cacic-account-manager',
   );
 
-  return ACCOUNT_MANAGER_ADMIN_ROLE_CATALOG.map((roleName) => ({
+  return ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG.map((roleName) => ({
     permission: buildKeycloakPermissionId('cacic-account-manager', roleName),
     clientId: 'cacic-account-manager',
     clientLabel: client?.label ?? 'Conta CACiC',
@@ -319,7 +315,7 @@ export function fallbackAccountManagerDefinitions(): KeycloakPermissionDefinitio
 export function getRoleLabel(roleName: string): string {
   const labels: Record<string, string> = {
     access: 'Acesso',
-    'super-admin': 'Super-admin',
+    'super-admin': 'Super Admin',
     'discord-management#read': 'Ler Discord',
     'discord-management#update': 'Gerenciar Discord',
     'student-verification#read': 'Ler validações estudantis',
@@ -343,7 +339,7 @@ export function isHiddenRole(roleName: string): boolean {
 }
 
 export function isDbManagedRole(roleName: string): boolean {
-  return !isHiddenRole(roleName) && !isKeycloakBackedRoleName(roleName);
+  return !isHiddenRole(roleName);
 }
 
 function normalizeRequiredDate(value: string, fieldLabel: string): Date {

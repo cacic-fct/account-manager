@@ -115,9 +115,13 @@ export class PermissionsSelfServiceComponent implements OnInit {
   }
 
   protected getPermissionLabel(grant: KeycloakPermissionGrant): string {
-    const readableRole = grant.roleName
-      .replace(/#/g, ' ')
-      .replace(/-/g, ' ');
+    const roleLabels: Record<string, string> = {
+      access: 'Acesso',
+      'super-admin': 'Super Admin',
+    };
+    const readableRole =
+      roleLabels[grant.roleName] ??
+      grant.roleName.replace(/#/g, ' ').replace(/-/g, ' ');
     return `${this.getClientLabel(grant.clientId)} · ${readableRole}`;
   }
 

@@ -397,45 +397,93 @@ describe('AccountPermissionService', () => {
     );
   });
 
-  it('allows Keycloak super-admins to seed db-managed grants', async () => {
+  it('requires db-backed assign and revoke permissions before app role changes', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+    keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
 
     await expect(
       service.canAssignPermission(
         'actor-1',
         AccountManagerPermission.PermissionGrantAssign,
       ),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
     await expect(
       service.canRevokePermission(
         'actor-1',
         AccountManagerPermission.PermissionGrantRevoke,
       ),
-    ).resolves.toBe(true);
-    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+    ).resolves.toBe(false);
+    expect(prisma.keycloakPermissionGrant.findFirst).toHaveBeenCalled();
   });
 
-  it('does not allow access or super-admin to be assigned as database grants', async () => {
+  it('allows client super-admins with db-backed assign and revoke permissions to manage access roles for that app', async () => {
     const { keycloakService, prisma, service } = createContext();
-    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(
+        clientId === 'cacic-event-manager' ? ['super-admin'] : [],
+      ),
+    );
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+        return Promise.resolve(
+          permissions.includes(
+            AccountManagerPermission.PermissionGrantAssign,
+          ) ||
+            permissions.includes(AccountManagerPermission.PermissionGrantRevoke)
+            ? { id: 'grant-1' }
+            : null,
+        );
+      },
+    );
+    const eventAccessPermission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'access',
+    );
+    const eventSuperAdminPermission = buildKeycloakPermissionId(
+      'cacic-event-manager',
+      'super-admin',
+    );
+
+    await expect(
+      service.canAssignPermission('actor-1', eventAccessPermission),
+    ).resolves.toBe(true);
+    await expect(
+      service.canAssignPermission('actor-1', eventSuperAdminPermission),
+    ).resolves.toBe(true);
+    await expect(
+      service.canRevokePermission('actor-1', eventSuperAdminPermission),
+    ).resolves.toBe(true);
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
+      'actor-1',
+      'cacic-event-manager',
+    );
+  });
+
+  it('rejects access role assignment without super-admin for the target app', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserClientRoles.mockResolvedValue([]);
+    prisma.keycloakPermissionGrant.findFirst.mockImplementation(
+      (args: unknown) => {
+        const permissions = (args as PermissionFindFirstArgs).where.permission
+          .in;
+        return Promise.resolve(
+          permissions.includes(AccountManagerPermission.PermissionGrantAssign)
+            ? { id: 'grant-1' }
+            : null,
+        );
+      },
+    );
 
     await expect(
       service.canAssignPermission('actor-1', AccountManagerPermission.Access),
     ).resolves.toBe(false);
-    await expect(
-      service.canAssignPermission(
-        'actor-1',
-        AccountManagerPermission.SuperAdmin,
-      ),
-    ).resolves.toBe(false);
-    await expect(
-      service.canRevokePermission(
-        'actor-1',
-        AccountManagerPermission.SuperAdmin,
-      ),
-    ).resolves.toBe(false);
-    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith(
+      'actor-1',
+      'cacic-account-manager',
+    );
   });
 
   it('continues through assign permission checks when Keycloak bootstrap role lookup fails', async () => {

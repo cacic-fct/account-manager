@@ -473,7 +473,7 @@ const createContext = () => {
 };
 
 describe('KeycloakPermissionsService', () => {
-  it('loads role definitions from configured Keycloak clients and hides non-db-managed roles', async () => {
+  it('loads assignable role definitions from configured Keycloak clients and hides internal roles', async () => {
     const { keycloakService, service } = createContext();
 
     const catalog = await service.listCatalog();
@@ -487,21 +487,21 @@ describe('KeycloakPermissionsService', () => {
     expect(catalog.map((definition) => definition.permission)).toContain(
       AccountManagerPermission.PermissionGrantRead,
     );
-    expect(catalog.map((definition) => definition.permission)).not.toContain(
+    expect(catalog.map((definition) => definition.permission)).toContain(
       AccountManagerPermission.Access,
     );
-    expect(catalog.map((definition) => definition.permission)).not.toContain(
+    expect(catalog.map((definition) => definition.permission)).toContain(
       AccountManagerPermission.SuperAdmin,
     );
     expect(catalog.map((definition) => definition.permission)).toContain(
       buildKeycloakPermissionId('cacic-event-manager', 'events#publish'),
     );
     expect(catalog.some((definition) => definition.roleName === 'access')).toBe(
-      false,
+      true,
     );
     expect(
       catalog.some((definition) => definition.roleName === 'super-admin'),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       catalog.some((definition) => definition.roleName === 'uma_protection'),
     ).toBe(false);
@@ -612,7 +612,19 @@ describe('KeycloakPermissionsService', () => {
     expect(grants).toEqual([
       expect.objectContaining({
         groupKey: PermissionGroupKey.Cacic,
+        permission: AccountManagerPermission.Access,
+        source: 'keycloak',
+        status: 'active',
+      }),
+      expect.objectContaining({
+        groupKey: PermissionGroupKey.Cacic,
         permission: AccountManagerPermission.PermissionGrantRead,
+        source: 'keycloak',
+        status: 'active',
+      }),
+      expect.objectContaining({
+        groupKey: PermissionGroupKey.Cacic,
+        permission: AccountManagerPermission.SuperAdmin,
         source: 'keycloak',
         status: 'active',
       }),
@@ -1225,8 +1237,8 @@ describe('KeycloakPermissionsService', () => {
     });
     const hiddenGrant = createGrant({
       id: 'hidden-grant-1',
-      permission: 'cacic-account-manager:access',
-      roleName: 'access',
+      permission: 'cacic-account-manager:uma_protection',
+      roleName: 'uma_protection',
       studentEntityMembershipId: 'membership-1',
     });
     const deletedGrant = createGrant({

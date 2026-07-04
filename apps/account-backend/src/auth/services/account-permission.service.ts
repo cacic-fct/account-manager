@@ -134,16 +134,8 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
-      return false;
-    }
-
-    if (await this.hasAccountManagerSuperAdminAccess(actorId)) {
-      return true;
-    }
-
     if (
-      !(await this.hasAnyActivePermission(
+      !(await this.hasAnyDirectOrGroupPermission(
         actorId,
         [AccountManagerPermission.PermissionGrantAssign],
         now,
@@ -161,6 +153,10 @@ export class AccountPermissionService {
       return true;
     }
 
+    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
+      return false;
+    }
+
     return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
   }
 
@@ -174,16 +170,8 @@ export class AccountPermissionService {
       return false;
     }
 
-    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
-      return false;
-    }
-
-    if (await this.hasAccountManagerSuperAdminAccess(actorId)) {
-      return true;
-    }
-
     if (
-      !(await this.hasAnyActivePermission(
+      !(await this.hasAnyDirectOrGroupPermission(
         actorId,
         [AccountManagerPermission.PermissionGrantRevoke],
         now,
@@ -199,6 +187,10 @@ export class AccountPermissionService {
       )
     ) {
       return true;
+    }
+
+    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
+      return false;
     }
 
     return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);

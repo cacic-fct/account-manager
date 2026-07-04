@@ -4,6 +4,10 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  AccountManagerPermission,
+  type KeycloakPermissionGrant,
+} from '@cacic/shared-types';
 import { ApiService } from '../../shared/services/api.service';
 import {
   mockDirectKeycloakPermissionGrant,
@@ -13,6 +17,7 @@ import { PermissionsSelfServiceComponent } from './permissions-self-service.comp
 
 type PermissionsSelfServiceHarness = PermissionsSelfServiceComponent & {
   confirmRemoveGrant: (grant: typeof mockDirectKeycloakPermissionGrant) => void;
+  getPermissionLabel: (grant: KeycloakPermissionGrant) => string;
 };
 
 describe('PermissionsSelfServiceComponent', () => {
@@ -82,6 +87,26 @@ describe('PermissionsSelfServiceComponent', () => {
 
     expect(apiService.selfRemovePermissionGrant).toHaveBeenCalledWith(
       mockDirectKeycloakPermissionGrant.id,
+    );
+  });
+
+  it('formats access and super-admin client role labels', () => {
+    const component =
+      fixture.componentInstance as PermissionsSelfServiceHarness;
+    const accessGrant: KeycloakPermissionGrant = {
+      ...mockDirectKeycloakPermissionGrant,
+      permission: AccountManagerPermission.Access,
+      roleName: 'access',
+    };
+    const superAdminGrant: KeycloakPermissionGrant = {
+      ...mockDirectKeycloakPermissionGrant,
+      permission: AccountManagerPermission.SuperAdmin,
+      roleName: 'super-admin',
+    };
+
+    expect(component.getPermissionLabel(accessGrant)).toContain('Acesso');
+    expect(component.getPermissionLabel(superAdminGrant)).toContain(
+      'Super Admin',
     );
   });
 });
