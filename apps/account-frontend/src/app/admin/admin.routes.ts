@@ -21,6 +21,13 @@ export const adminRoutes: Routes = [
       ),
   },
   {
+    path: 'discord-role-overrides',
+    loadComponent: () =>
+      import(
+        './discord-managed-role-overrides/discord-managed-role-overrides.component'
+      ).then((m) => m.DiscordManagedRoleOverridesComponent),
+  },
+  {
     path: 'account-deletion',
     loadComponent: () =>
       import('./account-deletion/admin-account-deletion.component').then(

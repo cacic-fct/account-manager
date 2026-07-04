@@ -1,0 +1,258 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button type="button" routerLink="/admin" aria-label="Voltar">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Overrides de cargos Discord</span>
+  <span class="spacer"></span>
+  <button
+    mat-icon-button
+    type="button"
+    matTooltip="Atualizar"
+    aria-label="Atualizar"
+    [disabled]="loading()"
+    (click)="refresh()"
+  >
+    <mat-icon>refresh</mat-icon>
+  </button>
+</mat-toolbar>
+
+<div class="page-container">
+  @if (loading()) {
+    <div class="loading-state" aria-live="polite">
+      <mat-spinner diameter="42"></mat-spinner>
+      <p>Carregando overrides do Discord.</p>
+    </div>
+  } @else {
+    <section class="tab-grid override-grid">
+      <mat-card class="tool-card group-list-card">
+        <mat-card-header>
+          <mat-card-title>Cargos gerenciados</mat-card-title>
+          <mat-card-subtitle>Lista fixa do backend</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="group-list">
+            @for (role of catalog(); track role.category) {
+              <button
+                type="button"
+                class="group-option"
+                [class.selected]="selectedRole()?.category === role.category"
+                [attr.aria-pressed]="selectedRole()?.category === role.category"
+                (click)="overrideForm.controls.roleCategory.setValue(role.category)"
+              >
+                <span class="group-icon">
+                  <mat-icon>
+                    @switch (role.category) {
+                      @case ("student") {
+                        school
+                      }
+                      @case ("unesp") {
+                        account_balance
+                      }
+                      @default {
+                        person
+                      }
+                    }
+                  </mat-icon>
+                </span>
+                <span class="group-copy">
+                  <strong>{{ role.label }}</strong>
+                  <small>{{ role.roleName }} · {{ role.roleId }}</small>
+                </span>
+              </button>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="tool-card override-editor-card">
+        <mat-card-header>
+          <mat-card-title>
+            @if (isEditing()) {
+              Editar override
+            } @else {
+              Novo override
+            }
+          </mat-card-title>
+          @if (selectedUser(); as user) {
+            <mat-card-subtitle>{{ user.displayName }} · {{ user.email || user.id }}</mat-card-subtitle>
+          } @else {
+            <mat-card-subtitle>Selecione uma pessoa por ID Keycloak, nome ou e-mail</mat-card-subtitle>
+          }
+        </mat-card-header>
+
+        <mat-card-content>
+          <app-keycloak-permissions-person-picker
+            ariaLabel="Selecionar pessoa para override de cargo Discord"
+            emptyHint="Busque por ID Keycloak, nome, CPF ou e-mail"
+            [searchForm]="searchForm"
+            [searching]="searching()"
+            [selectedUser]="selectedUser()"
+            [users]="users()"
+            (search)="searchUsers()"
+            (userSelected)="selectUser($event)"
+          />
+
+          @if (selectedUser(); as user) {
+            <div class="selected-person">
+              <mat-icon>person_pin</mat-icon>
+              <span>
+                <strong>{{ user.displayName }}</strong>
+                <small>{{ user.email || user.id }}</small>
+              </span>
+            </div>
+          } @else {
+            <div class="empty-state compact">
+              <mat-icon>person_search</mat-icon>
+              <p>Busque e selecione uma pessoa para adicionar um override.</p>
+            </div>
+          }
+
+          <form
+            class="override-form"
+            [formGroup]="overrideForm"
+            (ngSubmit)="saveOverride()"
+          >
+            <mat-form-field appearance="outline">
+              <mat-label>Cargo forçado</mat-label>
+              <mat-select formControlName="roleCategory">
+                @for (role of catalog(); track role.category) {
+                  <mat-option [value]="role.category">
+                    {{ role.label }}
+                  </mat-option>
+                }
+              </mat-select>
+              @if (overrideForm.controls.roleCategory.hasError("required")) {
+                <mat-error>Selecione o cargo gerenciado.</mat-error>
+              }
+            </mat-form-field>
+
+            @if (selectedRole(); as role) {
+              <div class="role-explain">
+                <mat-icon>info</mat-icon>
+                <span>
+                  <strong>{{ role.roleName }}</strong>
+                  <small>{{ role.description }}</small>
+                </span>
+              </div>
+            }
+
+            <mat-form-field appearance="outline">
+              <mat-label>Motivo</mat-label>
+              <textarea
+                matInput
+                formControlName="reason"
+                rows="3"
+                maxlength="500"
+              ></textarea>
+              <mat-hint>Visível para auditoria administrativa.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Dados do override</mat-label>
+              <textarea
+                matInput
+                formControlName="dataJson"
+                rows="6"
+                spellcheck="false"
+              ></textarea>
+              <mat-hint>JSON opcional com ticket, origem ou observações estruturadas.</mat-hint>
+              @if (overrideForm.controls.dataJson.hasError("json")) {
+                <mat-error>Informe um JSON válido.</mat-error>
+              } @else if (overrideForm.controls.dataJson.hasError("jsonObject")) {
+                <mat-error>O JSON precisa ser um objeto.</mat-error>
+              }
+            </mat-form-field>
+
+            <div class="form-actions">
+              <button mat-button type="button" (click)="startNewOverride()">
+                <mat-icon>add</mat-icon>
+                Novo
+              </button>
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="saving() || (!selectedUser() && !editingOverride())"
+              >
+                @if (saving()) {
+                  <mat-spinner diameter="20"></mat-spinner>
+                } @else {
+                  <mat-icon>save</mat-icon>
+                }
+                @if (saving()) {
+                  Salvando
+                } @else if (isEditing()) {
+                  Salvar override
+                } @else {
+                  Adicionar override
+                }
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="tool-card override-list-card">
+        <mat-card-header>
+          <mat-card-title>Usuários com override</mat-card-title>
+          <mat-card-subtitle>{{ overrides().length }} registro(s)</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (overrides().length === 0) {
+            <div class="empty-state compact">
+              <mat-icon>playlist_remove</mat-icon>
+              <p>Nenhum usuário com override de cargo.</p>
+            </div>
+          } @else {
+            <div class="record-list">
+              @for (override of overrides(); track override.id) {
+                <div
+                  class="record-row"
+                  [class.selected]="editingOverride()?.id === override.id"
+                >
+                  <button
+                    type="button"
+                    class="record-select"
+                    (click)="selectOverride(override)"
+                    [attr.aria-label]="'Editar override de ' + (override.userDisplayName || override.userEmail || override.userId)"
+                  >
+                    <span class="record-main">
+                      <strong>
+                        {{ override.userDisplayName || override.userEmail || override.userId }}
+                      </strong>
+                      <small>{{ getOverrideSummary(override) }}</small>
+                    </span>
+                  </button>
+                  <span class="row-actions">
+                    <mat-chip class="status-chip">{{ override.roleLabel }}</mat-chip>
+                    @if (deletingId() === override.id) {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        color="warn"
+                        matTooltip="Remover override"
+                        [attr.aria-label]="'Remover override de ' + (override.userDisplayName || override.userEmail || override.userId)"
+                        (click)="confirmDeleteOverride(override)"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
+          }
+
+          <mat-divider></mat-divider>
+
+          <div class="section-heading">
+            <h3>Sincronização</h3>
+            <span>Alterações disparam resync imediato da pessoa.</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+</div>

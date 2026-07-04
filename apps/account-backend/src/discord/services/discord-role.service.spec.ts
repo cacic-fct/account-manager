@@ -12,6 +12,7 @@ import { UserProfile } from '../../auth/interfaces/auth.interface';
 import { DiscordClientService } from './discord-client.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
 import { KeycloakService } from '../../auth/services/keycloak.service';
+import { DiscordManagedRoleOverridesService } from './discord-managed-role-overrides.service';
 import {
   DISCORD_MANAGED_ROLES,
   DISCORD_REGISTRATION_ROLE,
@@ -46,6 +47,15 @@ type FeatureFlagServiceMock = {
 
 type KeycloakServiceMock = {
   isRealmReachable: jest.Mock<Promise<boolean>, []>;
+};
+
+type ManagedRoleOverridesServiceMock = {
+  getOverrideCategoryForUser: jest.Mock<
+    ReturnType<
+      DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
+    >,
+    Parameters<DiscordManagedRoleOverridesService['getOverrideCategoryForUser']>
+  >;
 };
 
 type MockMember = {
@@ -203,12 +213,25 @@ const createContext = (members: readonly GuildMember[]) => {
   const keycloakService: KeycloakServiceMock = {
     isRealmReachable: jest.fn<Promise<boolean>, []>().mockResolvedValue(true),
   };
+  const managedRoleOverrides: ManagedRoleOverridesServiceMock = {
+    getOverrideCategoryForUser: jest
+      .fn<
+        ReturnType<
+          DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
+        >,
+        Parameters<
+          DiscordManagedRoleOverridesService['getOverrideCategoryForUser']
+        >
+      >()
+      .mockResolvedValue(null),
+  };
   const service = new DiscordRoleService(
     prisma as unknown as PrismaService,
     userService as unknown as UserService,
     discordClientService as unknown as DiscordClientService,
     configService as unknown as ConfigService,
     keycloakService as unknown as KeycloakService,
+    managedRoleOverrides as unknown as DiscordManagedRoleOverridesService,
     featureFlags as unknown as FeatureFlagService,
   );
 
@@ -219,6 +242,7 @@ const createContext = (members: readonly GuildMember[]) => {
     prisma,
     userService,
     keycloakService,
+    managedRoleOverrides,
     service,
   };
 };
@@ -295,6 +319,40 @@ describe('DiscordRoleService managed-role enforcement', () => {
       data: { assignedRole: 'student' },
     });
     expect(service.hasRecentManagedRoleMutation('discord-1')).toBe(true);
+  });
+
+  it('uses an admin override before computed role eligibility', async () => {
+    const linkedMember = createMember('discord-1', [
+      DISCORD_MANAGED_ROLES.student.roleId,
+    ]);
+    const { managedRoleOverrides, prisma, service, userService } =
+      createContext([linkedMember.member]);
+    managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue(
+      'visitor',
+    );
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    userService.findByKeycloakId.mockResolvedValue(createUser());
+
+    await expect(
+      service.syncAllGuildMemberRoleState('test-hard-enforcement'),
+    ).resolves.toMatchObject({
+      checked: 1,
+      linkedSynced: 1,
+      staleManagedRolesRemoved: 1,
+      failed: 0,
+    });
+    expect(linkedMember.remove).toHaveBeenCalledWith(
+      DISCORD_MANAGED_ROLES.student.roleId,
+      'test-hard-enforcement',
+    );
+    expect(linkedMember.add).toHaveBeenCalledWith(
+      DISCORD_MANAGED_ROLES.visitor.roleId,
+      'test-hard-enforcement',
+    );
+    expect(prisma.discordLink.update).toHaveBeenCalledWith({
+      where: { id: '00000000-0000-7000-8000-000000000001' },
+      data: { assignedRole: 'visitor' },
+    });
   });
 
   it('cleans verified links whose local account no longer exists instead of assigning visitor', async () => {

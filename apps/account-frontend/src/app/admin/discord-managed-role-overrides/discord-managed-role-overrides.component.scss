@@ -1,0 +1,257 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.page-container {
+  width: min(1440px, 100% - 32px);
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.tab-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  padding-top: 20px;
+}
+
+.tool-card,
+.group-copy,
+.record-main,
+.record-select {
+  min-width: 0;
+}
+
+.group-list-card,
+.override-list-card {
+  align-self: start;
+}
+
+.person-picker,
+.override-form,
+.group-list,
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.search-form button,
+.form-actions button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.group-option,
+.record-row,
+.selected-person,
+.role-explain {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+.group-option {
+  display: flex;
+  width: 100%;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.group-option:hover {
+  border-color: var(--mat-sys-outline);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.group-option.selected,
+.record-row.selected {
+  border-color: var(--mat-sys-primary);
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.group-icon {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.group-copy,
+.record-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-copy small,
+.record-main small,
+.role-explain small,
+.section-heading span {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.86rem;
+}
+
+.group-copy strong,
+.group-copy small,
+.record-main strong,
+.record-main small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.selected-person,
+.role-explain {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+}
+
+.role-explain {
+  background: var(--mat-sys-surface-container-low);
+}
+
+.record-row {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+}
+
+.record-select {
+  display: flex;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.group-option:focus-visible,
+.record-select:focus-visible {
+  outline: 3px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+.form-actions,
+.row-actions,
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-actions,
+.section-heading {
+  justify-content: space-between;
+}
+
+.loading-state,
+.empty-state {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}
+
+.empty-state.compact {
+  min-height: 92px;
+}
+
+mat-card-content {
+  display: block;
+  padding-top: 12px;
+}
+
+mat-card-subtitle {
+  overflow-wrap: anywhere;
+}
+
+mat-divider {
+  margin: 20px 0;
+}
+
+textarea[formControlName="dataJson"] {
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1220px) {
+  .tab-grid {
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  }
+
+  .override-list-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1040px) {
+  .tab-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    width: min(100% - 24px, 1440px);
+    padding: 16px 0;
+  }
+
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions,
+  .section-heading,
+  .record-row,
+  .group-option {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-form button,
+  .form-actions button {
+    width: 100%;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

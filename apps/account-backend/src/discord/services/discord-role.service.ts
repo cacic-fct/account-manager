@@ -16,11 +16,13 @@ import {
 import {
   checkComputerScienceEnrollmentPattern,
   DISCORD_MANAGED_ROLE_IDS,
+  DISCORD_MANAGED_ROLES,
   DISCORD_REGISTRATION_ROLE,
   DiscordManagedRoleCategory,
   getDiscordManagedRoleCategory,
   getDiscordManagedRoleForUser,
 } from '../constants/discord-managed-roles';
+import { DiscordManagedRoleOverridesService } from './discord-managed-role-overrides.service';
 
 interface AssignManagedRoleOptions {
   client?: Client;
@@ -53,6 +55,7 @@ export class DiscordRoleService {
     private readonly discordClientService: DiscordClientService,
     private readonly configService: ConfigService,
     private readonly keycloakService: KeycloakService,
+    private readonly managedRoleOverrides: DiscordManagedRoleOverridesService,
     @Optional()
     private readonly featureFlags?: FeatureFlagService,
   ) {}
@@ -63,6 +66,12 @@ export class DiscordRoleService {
   async checkRoleEligibility(
     userId: string,
   ): Promise<DiscordManagedRoleCategory> {
+    const override =
+      await this.managedRoleOverrides.getOverrideCategoryForUser(userId);
+    if (override) {
+      return override;
+    }
+
     const user = await this.getUserByKeycloakId(userId);
     return getDiscordManagedRoleCategory(user, {
       skipUndergraduateUnespRoleVerification:
@@ -177,10 +186,15 @@ export class DiscordRoleService {
       };
     }
 
-    const role = getDiscordManagedRoleForUser(user, {
-      skipUndergraduateUnespRoleVerification:
-        await this.shouldSkipUndergraduateVerification(),
-    });
+    const override = await this.managedRoleOverrides.getOverrideCategoryForUser(
+      discordLink.userId,
+    );
+    const role = override
+      ? DISCORD_MANAGED_ROLES[override]
+      : getDiscordManagedRoleForUser(user, {
+          skipUndergraduateUnespRoleVerification:
+            await this.shouldSkipUndergraduateVerification(),
+        });
 
     await this.prisma.discordLink.update({
       where: { id: discordLink.id },
@@ -234,6 +248,7 @@ export class DiscordRoleService {
         isVerified: user?.unespRoleVerified,
         unespRole: user?.unespRole,
         enrollmentNumber: user?.enrollmentNumber,
+        overrideCategory: override,
         roleApplied,
         registrationRoleApplied,
         staleRolesRemoved,

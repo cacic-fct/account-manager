@@ -33,6 +33,43 @@ export interface RoleSelectionResponse {
   updatedRoles: DiscordRole[];
 }
 
+export type DiscordManagedRoleCategory = 'student' | 'unesp' | 'visitor';
+
+export interface DiscordManagedRoleDefinition {
+  category: DiscordManagedRoleCategory;
+  roleId: string;
+  roleName: string;
+  label: string;
+  description: string;
+}
+
+export interface DiscordManagedRoleOverride {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  userDisplayName?: string;
+  roleCategory: DiscordManagedRoleCategory;
+  roleLabel: string;
+  roleId: string;
+  roleName: string;
+  data?: Record<string, unknown>;
+  reason?: string;
+  createdAt: string;
+  createdById?: string;
+  updatedAt: string;
+  updatedById?: string;
+}
+
+export interface DiscordManagedRoleOverrideCreateRequest {
+  userId: string;
+  roleCategory: DiscordManagedRoleCategory;
+  data?: Record<string, unknown>;
+  reason?: string;
+}
+
+export type DiscordManagedRoleOverrideUpdateRequest =
+  Partial<Omit<DiscordManagedRoleOverrideCreateRequest, 'userId'>>;
+
 export interface DiscordLink {
   id: string;
   userId: string;

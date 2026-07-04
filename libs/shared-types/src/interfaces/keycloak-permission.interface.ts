@@ -1,15 +1,15 @@
 export const KEYCLOAK_PERMISSION_CLIENTS = [
   {
     clientId: 'cacic-account-manager',
-    label: 'Conta CACiC',
+    label: 'CACiC Account Manager',
   },
   {
     clientId: 'cacic-event-manager',
-    label: 'Eventos CACiC',
+    label: 'CACiC Event Manager',
   },
   {
     clientId: 'cacic-voto',
-    label: 'Voto CACiC',
+    label: 'CACiC Voto',
   },
 ] as const;
 
@@ -254,14 +254,13 @@ export const PERMISSION_GROUP_DISCORD_ROLE_IDS = (
   .map((definition) => definition.discordRoleId)
   .filter((roleId): roleId is string => !!roleId);
 
-export function isPermissionGroupKey(value: string): value is PermissionGroupKey {
+export function isPermissionGroupKey(
+  value: string,
+): value is PermissionGroupKey {
   return PERMISSION_GROUP_SET.has(value as PermissionGroupKey);
 }
 
-export type KeycloakPermissionGrantStatus =
-  | 'active'
-  | 'scheduled'
-  | 'expired';
+export type KeycloakPermissionGrantStatus = 'active' | 'scheduled' | 'expired';
 
 export type KeycloakPermissionGrantSource = 'direct' | 'group';
 

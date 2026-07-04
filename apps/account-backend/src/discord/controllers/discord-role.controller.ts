@@ -1,6 +1,8 @@
 import {
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Put,
   Body,
@@ -12,6 +14,8 @@ import {
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { DiscordRoleManagementService } from '../services/discord-role-management.service';
+import { DiscordManagedRoleOverridesService } from '../services/discord-managed-role-overrides.service';
+import { DiscordRoleService } from '../services/discord-role.service';
 import { DiscordBotService } from '../discord-bot.service';
 import { DiscordClientService } from '../services/discord-client.service';
 import { CooldownService } from '../../common/services/cooldown.service';
@@ -27,12 +31,20 @@ import {
   RoleSelectionResponseDto,
   DiscordRoleDto,
 } from '../dto/discord-roles.dto';
+import {
+  DiscordManagedRoleDefinitionDto,
+  DiscordManagedRoleOverrideCreateDto,
+  DiscordManagedRoleOverrideDto,
+  DiscordManagedRoleOverrideUpdateDto,
+} from '../dto/discord-managed-role-overrides.dto';
 
 @ApiTags('Discord Role Management')
 @Controller('discord/roles')
 export class DiscordRoleController {
   constructor(
     private readonly roleManagementService: DiscordRoleManagementService,
+    private readonly managedRoleOverridesService: DiscordManagedRoleOverridesService,
+    private readonly discordRoleService: DiscordRoleService,
     private readonly discordBotService: DiscordBotService,
     private readonly discordClientService: DiscordClientService,
     private readonly configService: ConfigService,
@@ -153,6 +165,132 @@ export class DiscordRoleController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @ApiOperation({
+    summary: 'List hardcoded Discord managed role categories',
+    description:
+      'Returns the automated Discord role categories that can be forced by an admin override.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed Discord role categories returned successfully',
+    type: [DiscordManagedRoleDefinitionDto],
+  })
+  @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
+  @Get('admin/managed-role-overrides/catalog')
+  getManagedRoleOverrideCatalog(): DiscordManagedRoleDefinitionDto[] {
+    return this.managedRoleOverridesService.getManagedRoleCatalog();
+  }
+
+  @ApiOperation({
+    summary: 'List Discord managed role overrides',
+    description:
+      'Returns users whose automated Discord role category is overridden by an admin.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed Discord role overrides returned successfully',
+    type: [DiscordManagedRoleOverrideDto],
+  })
+  @AccountPermissions([AccountManagerPermission.DiscordManagementRead])
+  @Get('admin/managed-role-overrides')
+  async listManagedRoleOverrides(): Promise<DiscordManagedRoleOverrideDto[]> {
+    return this.managedRoleOverridesService.listOverrides();
+  }
+
+  @ApiOperation({
+    summary: 'Create or replace a Discord managed role override',
+    description:
+      'Creates one active override for a Keycloak user and immediately resyncs linked Discord accounts.',
+  })
+  @ApiBody({ type: DiscordManagedRoleOverrideCreateDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Managed Discord role override saved successfully',
+    type: DiscordManagedRoleOverrideDto,
+  })
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
+  @UseGuards(CsrfGuard)
+  @Post('admin/managed-role-overrides')
+  async createManagedRoleOverride(
+    @Body() dto: DiscordManagedRoleOverrideCreateDto,
+    @Session() session: AuthSession,
+  ): Promise<DiscordManagedRoleOverrideDto> {
+    const override = await this.managedRoleOverridesService.createOverride(
+      dto,
+      session.user?.keycloakId,
+    );
+    await this.discordRoleService.syncUserDiscordRoles(
+      override.userId,
+      'admin-discord-managed-role-override-updated',
+    );
+
+    return override;
+  }
+
+  @ApiOperation({
+    summary: 'Update a Discord managed role override',
+    description:
+      'Updates the forced role category or metadata and immediately resyncs linked Discord accounts.',
+  })
+  @ApiBody({ type: DiscordManagedRoleOverrideUpdateDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed Discord role override updated successfully',
+    type: DiscordManagedRoleOverrideDto,
+  })
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
+  @UseGuards(CsrfGuard)
+  @Put('admin/managed-role-overrides/:id')
+  async updateManagedRoleOverride(
+    @Param('id') id: string,
+    @Body() dto: DiscordManagedRoleOverrideUpdateDto,
+    @Session() session: AuthSession,
+  ): Promise<DiscordManagedRoleOverrideDto> {
+    const override = await this.managedRoleOverridesService.updateOverride(
+      id,
+      dto,
+      session.user?.keycloakId,
+    );
+    await this.discordRoleService.syncUserDiscordRoles(
+      override.userId,
+      'admin-discord-managed-role-override-updated',
+    );
+
+    return override;
+  }
+
+  @ApiOperation({
+    summary: 'Delete a Discord managed role override',
+    description:
+      'Removes a forced Discord role category and immediately resyncs linked Discord accounts.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Managed Discord role override deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        deleted: { type: 'boolean', example: true },
+        id: { type: 'string' },
+        userId: { type: 'string' },
+      },
+    },
+  })
+  @AccountPermissions([AccountManagerPermission.DiscordManagementUpdate])
+  @UseGuards(CsrfGuard)
+  @Delete('admin/managed-role-overrides/:id')
+  async deleteManagedRoleOverride(
+    @Param('id') id: string,
+  ): Promise<{ deleted: true; id: string; userId: string }> {
+    const result = await this.managedRoleOverridesService.deleteOverride(id);
+    await this.discordRoleService.syncUserDiscordRoles(
+      result.userId,
+      'admin-discord-managed-role-override-removed',
+    );
+
+    return result;
   }
 
   @ApiOperation({

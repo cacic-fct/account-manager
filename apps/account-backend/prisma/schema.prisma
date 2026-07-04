@@ -325,6 +325,23 @@ model DiscordRoleSetting {
   @@map("discord_role_settings")
 }
 
+model DiscordManagedRoleOverride {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  userId          String   @unique @map("user_id")
+  userEmail       String?  @map("user_email")
+  userDisplayName String?  @map("user_display_name")
+  roleCategory    String   @map("role_category")
+  data            Json?
+  reason          String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdById     String?  @map("created_by_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedById     String?  @map("updated_by_id")
+
+  @@index([roleCategory])
+  @@map("discord_managed_role_overrides")
+}
+
 model DiscordServerSettings {
   id           String   @id @default(uuid(7)) @db.Uuid
   settingKey   String   @unique

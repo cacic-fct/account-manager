@@ -12,6 +12,10 @@ import type {
   AdminDeleteAccountRequest,
   DiscordLinkStatus,
   DiscordAuthUrl,
+  DiscordManagedRoleDefinition,
+  DiscordManagedRoleOverride,
+  DiscordManagedRoleOverrideCreateRequest,
+  DiscordManagedRoleOverrideUpdateRequest,
   ServerSetting,
   UpdateServerSetting,
   DiscordRole,
@@ -68,6 +72,10 @@ export type {
   DiscordLink,
   DiscordLinkStatus,
   DiscordAuthUrl,
+  DiscordManagedRoleDefinition,
+  DiscordManagedRoleOverride,
+  DiscordManagedRoleOverrideCreateRequest,
+  DiscordManagedRoleOverrideUpdateRequest,
   ServerSetting,
   UpdateServerSetting,
   DiscordRole,
@@ -434,6 +442,37 @@ export class ApiService {
 
   syncDiscordRoles(): Observable<{ message: string }> {
     return this.discordApi.syncDiscordRoles();
+  }
+
+  getDiscordManagedRoleCatalog(): Observable<
+    DiscordManagedRoleDefinition[]
+  > {
+    return this.discordApi.getDiscordManagedRoleCatalog();
+  }
+
+  getDiscordManagedRoleOverrides(): Observable<
+    DiscordManagedRoleOverride[]
+  > {
+    return this.discordApi.getDiscordManagedRoleOverrides();
+  }
+
+  createDiscordManagedRoleOverride(
+    dto: DiscordManagedRoleOverrideCreateRequest,
+  ): Observable<DiscordManagedRoleOverride> {
+    return this.discordApi.createDiscordManagedRoleOverride(dto);
+  }
+
+  updateDiscordManagedRoleOverride(
+    id: string,
+    dto: DiscordManagedRoleOverrideUpdateRequest,
+  ): Observable<DiscordManagedRoleOverride> {
+    return this.discordApi.updateDiscordManagedRoleOverride(id, dto);
+  }
+
+  deleteDiscordManagedRoleOverride(
+    id: string,
+  ): Observable<{ deleted: true; id: string; userId: string }> {
+    return this.discordApi.deleteDiscordManagedRoleOverride(id);
   }
 
   getSelectableDiscordRoles(): Observable<DiscordRole[]> {

@@ -5,6 +5,10 @@ import { tap } from 'rxjs/operators';
 import type {
   DiscordAuthUrl,
   DiscordLinkStatus,
+  DiscordManagedRoleDefinition,
+  DiscordManagedRoleOverride,
+  DiscordManagedRoleOverrideCreateRequest,
+  DiscordManagedRoleOverrideUpdateRequest,
   DiscordRole,
   RoleSelectionResponse,
   SelectableRoles,
@@ -122,6 +126,64 @@ export class DiscordApiService {
     return this.http.post<{ message: string }>(
       `${this.baseUrl}/discord/roles/admin/sync`,
       {},
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  getDiscordManagedRoleCatalog(): Observable<
+    DiscordManagedRoleDefinition[]
+  > {
+    return this.http.get<DiscordManagedRoleDefinition[]>(
+      `${this.baseUrl}/discord/roles/admin/managed-role-overrides/catalog`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  getDiscordManagedRoleOverrides(): Observable<
+    DiscordManagedRoleOverride[]
+  > {
+    return this.http.get<DiscordManagedRoleOverride[]>(
+      `${this.baseUrl}/discord/roles/admin/managed-role-overrides`,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  createDiscordManagedRoleOverride(
+    dto: DiscordManagedRoleOverrideCreateRequest,
+  ): Observable<DiscordManagedRoleOverride> {
+    return this.http.post<DiscordManagedRoleOverride>(
+      `${this.baseUrl}/discord/roles/admin/managed-role-overrides`,
+      dto,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  updateDiscordManagedRoleOverride(
+    id: string,
+    dto: DiscordManagedRoleOverrideUpdateRequest,
+  ): Observable<DiscordManagedRoleOverride> {
+    return this.http.put<DiscordManagedRoleOverride>(
+      `${this.baseUrl}/discord/roles/admin/managed-role-overrides/${id}`,
+      dto,
+      {
+        withCredentials: true,
+      },
+    );
+  }
+
+  deleteDiscordManagedRoleOverride(
+    id: string,
+  ): Observable<{ deleted: true; id: string; userId: string }> {
+    return this.http.delete<{ deleted: true; id: string; userId: string }>(
+      `${this.baseUrl}/discord/roles/admin/managed-role-overrides/${id}`,
       {
         withCredentials: true,
       },

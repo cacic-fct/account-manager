@@ -53,7 +53,9 @@
                   >
                     <span class="group-icon">
                       <mat-icon>
-                        {{ group.rootLabel === "Comissões" ? "groups" : "school" }}
+                        {{
+                          group.rootLabel === 'Comissões' ? 'groups' : 'school'
+                        }}
                       </mat-icon>
                     </span>
                     <span class="group-copy">
@@ -71,8 +73,12 @@
 
           <mat-card class="tool-card group-detail-card">
             <mat-card-header>
-              <mat-card-title>{{ selectedGroup()?.label || "Grupo" }}</mat-card-title>
-              <mat-card-subtitle>{{ selectedGroup()?.keycloakGroupPath }}</mat-card-subtitle>
+              <mat-card-title>{{
+                selectedGroup()?.label || 'Grupo'
+              }}</mat-card-title>
+              <mat-card-subtitle>{{
+                selectedGroup()?.keycloakGroupPath
+              }}</mat-card-subtitle>
             </mat-card-header>
 
             <mat-card-content>
@@ -89,9 +95,15 @@
                   <mat-form-field appearance="outline">
                     <mat-label>Permissões do grupo</mat-label>
                     <mat-select formControlName="permissions" multiple>
-                      @for (client of catalogByClient(); track client.clientId) {
+                      @for (
+                        client of catalogByClient();
+                        track client.clientId
+                      ) {
                         <mat-optgroup [label]="client.clientLabel">
-                          @for (permission of client.permissions; track permission.permission) {
+                          @for (
+                            permission of client.permissions;
+                            track permission.permission
+                          ) {
                             <mat-option [value]="permission.permission">
                               {{ permission.label }}
                             </mat-option>
@@ -101,12 +113,15 @@
                     </mat-select>
                   </mat-form-field>
 
-                  <div class="inline-chips" aria-label="Permissões ativas no grupo">
+                  <div
+                    class="inline-chips"
+                    aria-label="Permissões ativas no grupo"
+                  >
                     @for (grant of groupRoleGrants(); track grant.id) {
                       <mat-chip>
                         {{ getPermissionClientLabel(grant.permission) }} ·
                         {{ getPermissionLabel(grant.permission) }}
-                        @if (grant.source === "keycloak") {
+                        @if (grant.source === 'keycloak') {
                           · Keycloak
                         }
                       </mat-chip>
@@ -155,7 +170,10 @@
                   <div class="section-heading">
                     <h3>Prazo do vínculo</h3>
                     @if (group.discordRoleId) {
-                      <span>Adiciona o cargo Discord {{ group.discordRoleId }}</span>
+                      <span
+                        >Adiciona o cargo Discord
+                        {{ group.discordRoleId }}</span
+                      >
                     }
                   </div>
 
@@ -177,21 +195,39 @@
                   <div class="date-grid">
                     <mat-form-field appearance="outline">
                       <mat-label>Início do vínculo</mat-label>
-                      <input matInput type="datetime-local" formControlName="validFrom" />
-                      @if (membershipForm.controls.validFrom.hasError("required")) {
+                      <input
+                        matInput
+                        type="datetime-local"
+                        formControlName="validFrom"
+                      />
+                      @if (
+                        membershipForm.controls.validFrom.hasError('required')
+                      ) {
                         <mat-error>Informe o início do vínculo.</mat-error>
                       }
                     </mat-form-field>
 
                     <mat-form-field appearance="outline">
                       <mat-label>Fim do vínculo</mat-label>
-                      <input matInput type="datetime-local" formControlName="validUntil" />
+                      <input
+                        matInput
+                        type="datetime-local"
+                        formControlName="validUntil"
+                      />
                       @if (membershipForm.controls.indefinite.value) {
-                        <mat-hint>Ignorado enquanto o vínculo for indefinido.</mat-hint>
+                        <mat-hint
+                          >Ignorado enquanto o vínculo for indefinido.</mat-hint
+                        >
                       }
-                      @if (membershipForm.controls.validUntil.hasError("required")) {
+                      @if (
+                        membershipForm.controls.validUntil.hasError('required')
+                      ) {
                         <mat-error>Informe o fim do vínculo.</mat-error>
-                      } @else if (membershipForm.controls.validUntil.hasError("invalidDate")) {
+                      } @else if (
+                        membershipForm.controls.validUntil.hasError(
+                          'invalidDate'
+                        )
+                      ) {
                         <mat-error>Informe uma data e hora válidas.</mat-error>
                       }
                     </mat-form-field>
@@ -236,16 +272,25 @@
                   </div>
                 } @else {
                   <div class="record-list">
-                    @for (membership of groupMemberships(); track membership.id) {
+                    @for (
+                      membership of groupMemberships();
+                      track membership.id
+                    ) {
                       <div class="record-row">
                         <span class="record-main">
                           <strong>
-                            {{ membership.userDisplayName || membership.userEmail || membership.userId }}
+                            {{
+                              membership.userDisplayName ||
+                                membership.userEmail ||
+                                membership.userId
+                            }}
                           </strong>
                           <small>{{ formatMembership(membership) }}</small>
                         </span>
                         <span class="row-actions">
-                          <mat-chip class="status-chip">{{ getStatusLabel(membership.status) }}</mat-chip>
+                          <mat-chip class="status-chip">{{
+                            getStatusLabel(membership.status)
+                          }}</mat-chip>
                           @if (deletingId() === membership.id) {
                             <mat-spinner diameter="24"></mat-spinner>
                           } @else {
@@ -254,7 +299,12 @@
                               type="button"
                               color="warn"
                               matTooltip="Remover vínculo"
-                              [attr.aria-label]="'Remover vínculo de ' + (membership.userDisplayName || membership.userEmail || membership.userId)"
+                              [attr.aria-label]="
+                                'Remover vínculo de ' +
+                                (membership.userDisplayName ||
+                                  membership.userEmail ||
+                                  membership.userId)
+                              "
                               (click)="confirmDeleteMembership(membership)"
                             >
                               <mat-icon>delete</mat-icon>
@@ -277,9 +327,14 @@
             <mat-card-header>
               <mat-card-title>Permissões diretas</mat-card-title>
               @if (selectedUser(); as user) {
-                <mat-card-subtitle>{{ user.displayName }} · {{ user.email }}</mat-card-subtitle>
+                <mat-card-subtitle
+                  >{{ user.displayName }} · {{ user.email }}</mat-card-subtitle
+                >
               } @else {
-                <mat-card-subtitle>Sem grupos, Discord ou endosso institucional</mat-card-subtitle>
+                <mat-card-subtitle
+                  >Sem grupos, Discord ou endosso
+                  institucional</mat-card-subtitle
+                >
               }
             </mat-card-header>
 
@@ -298,7 +353,9 @@
               @if (!selectedUser()) {
                 <div class="empty-state compact">
                   <mat-icon>person_search</mat-icon>
-                  <p>Selecione uma pessoa para conceder uma permissão direta.</p>
+                  <p>
+                    Selecione uma pessoa para conceder uma permissão direta.
+                  </p>
                 </div>
               } @else {
                 <form
@@ -309,12 +366,22 @@
                   <mat-form-field appearance="outline">
                     <mat-label>Permissão</mat-label>
                     <mat-select formControlName="permission">
-                      @for (client of catalogByClient(); track client.clientId) {
+                      @for (
+                        client of catalogByClient();
+                        track client.clientId
+                      ) {
                         <mat-optgroup [label]="client.clientLabel">
-                          @for (permission of client.permissions; track permission.permission) {
+                          @for (
+                            permission of client.permissions;
+                            track permission.permission
+                          ) {
                             <mat-option
                               [value]="permission.permission"
-                              [disabled]="!availableDirectPermissionIds().has(permission.permission)"
+                              [disabled]="
+                                !availableDirectPermissionIds().has(
+                                  permission.permission
+                                )
+                              "
                             >
                               {{ permission.label }}
                             </mat-option>
@@ -322,26 +389,47 @@
                         </mat-optgroup>
                       }
                     </mat-select>
-                    @if (directGrantForm.controls.permission.hasError("required")) {
-                      <mat-error>Selecione a permissão que será concedida.</mat-error>
+                    @if (
+                      directGrantForm.controls.permission.hasError('required')
+                    ) {
+                      <mat-error
+                        >Selecione a permissão que será concedida.</mat-error
+                      >
                     }
                   </mat-form-field>
 
                   <div class="date-grid">
                     <mat-form-field appearance="outline">
                       <mat-label>Início</mat-label>
-                      <input matInput type="datetime-local" formControlName="validFrom" />
+                      <input
+                        matInput
+                        type="datetime-local"
+                        formControlName="validFrom"
+                      />
                     </mat-form-field>
 
                     <mat-form-field appearance="outline">
                       <mat-label>Fim</mat-label>
-                      <input matInput type="datetime-local" formControlName="validUntil" />
+                      <input
+                        matInput
+                        type="datetime-local"
+                        formControlName="validUntil"
+                      />
                       @if (directGrantForm.controls.indefinite.value) {
-                        <mat-hint>Ignorado enquanto a permissão for indefinida.</mat-hint>
+                        <mat-hint
+                          >Ignorado enquanto a permissão for
+                          indefinida.</mat-hint
+                        >
                       }
-                      @if (directGrantForm.controls.validUntil.hasError("required")) {
+                      @if (
+                        directGrantForm.controls.validUntil.hasError('required')
+                      ) {
                         <mat-error>Informe o fim da permissão.</mat-error>
-                      } @else if (directGrantForm.controls.validUntil.hasError("invalidDate")) {
+                      } @else if (
+                        directGrantForm.controls.validUntil.hasError(
+                          'invalidDate'
+                        )
+                      ) {
                         <mat-error>Informe uma data e hora válidas.</mat-error>
                       }
                     </mat-form-field>
@@ -352,13 +440,15 @@
                       formControlName="indefinite"
                       (change)="setDirectGrantIndefinite($event.checked)"
                     >
-                      Permissão indefinida
+                      Permissão por tempo indefinido
                     </mat-checkbox>
                     <button
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingGrant() || !hasAvailableDirectPermissions()"
+                      [disabled]="
+                        savingGrant() || !hasAvailableDirectPermissions()
+                      "
                     >
                       @if (savingGrant()) {
                         <mat-spinner diameter="20"></mat-spinner>
@@ -390,14 +480,18 @@
                     @for (grant of directGrants(); track grant.id) {
                       <div class="record-row">
                         <span class="record-main">
-                          <strong>{{ getPermissionLabel(grant.permission) }}</strong>
+                          <strong>{{
+                            getPermissionLabel(grant.permission)
+                          }}</strong>
                           <small>
                             {{ getPermissionClientLabel(grant.permission) }} ·
                             {{ formatValidity(grant) }}
                           </small>
                         </span>
                         <span class="row-actions">
-                          <mat-chip class="status-chip">{{ getStatusLabel(grant.status) }}</mat-chip>
+                          <mat-chip class="status-chip">{{
+                            getStatusLabel(grant.status)
+                          }}</mat-chip>
                           @if (deletingId() === grant.id) {
                             <mat-spinner diameter="24"></mat-spinner>
                           } @else {
@@ -406,7 +500,10 @@
                               type="button"
                               color="warn"
                               matTooltip="Remover permissão"
-                              [attr.aria-label]="'Remover permissão ' + getPermissionLabel(grant.permission)"
+                              [attr.aria-label]="
+                                'Remover permissão ' +
+                                getPermissionLabel(grant.permission)
+                              "
                               (click)="confirmDeleteGrant(grant)"
                             >
                               <mat-icon>delete</mat-icon>
@@ -424,7 +521,9 @@
           <mat-card class="tool-card context-card">
             <mat-card-header>
               <mat-card-title>Vínculos da pessoa</mat-card-title>
-              <mat-card-subtitle>Referência para evitar grants duplicados</mat-card-subtitle>
+              <mat-card-subtitle
+                >Referência para evitar grants duplicados</mat-card-subtitle
+              >
             </mat-card-header>
             <mat-card-content>
               @if (!selectedUser()) {
@@ -442,10 +541,14 @@
                   @for (membership of userMemberships(); track membership.id) {
                     <div class="record-row">
                       <span class="record-main">
-                        <strong>{{ getGroupLabel(membership.groupKey) }}</strong>
+                        <strong>{{
+                          getGroupLabel(membership.groupKey)
+                        }}</strong>
                         <small>{{ formatMembership(membership) }}</small>
                       </span>
-                      <mat-chip class="status-chip">{{ getStatusLabel(membership.status) }}</mat-chip>
+                      <mat-chip class="status-chip">{{
+                        getStatusLabel(membership.status)
+                      }}</mat-chip>
                     </div>
                   }
                 </div>
