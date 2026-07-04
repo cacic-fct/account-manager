@@ -315,7 +315,7 @@ export function fallbackAccountManagerDefinitions(): KeycloakPermissionDefinitio
 export function getRoleLabel(roleName: string): string {
   const labels: Record<string, string> = {
     access: 'Acesso',
-    'super-admin': 'Super Admin',
+    'super-admin': 'Super Admin - Permissões totais (PERIGOSO!)',
     'discord-management#read': 'Ler Discord',
     'discord-management#update': 'Gerenciar Discord',
     'student-verification#read': 'Ler validações estudantis',
