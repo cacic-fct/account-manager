@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.spec.json",
+  "compilerOptions": {
+    "rootDir": "../../..",
+    "isolatedModules": true,
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["../src/**/*.ts", "../test/**/*.ts", "../../../libs/**/*.ts"],
+  "exclude": ["../dist"]
+}

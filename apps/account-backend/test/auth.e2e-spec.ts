@@ -1,7 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import session from 'express-session';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AuthController } from '../src/auth/auth.controller';
@@ -10,8 +9,9 @@ import { AuthGuard } from '../src/auth/guards/auth.guard';
 import { AccountPermissionService } from '../src/auth/services/account-permission.service';
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
-import { API_GLOBAL_PREFIX } from '../src/config/app.config';
+import { TotpService } from '../src/totp/totp.service';
 import { createAuthTestConfigService, createKeycloakUser, createUserServiceFake } from './auth-test-helpers';
+import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
 describe('Authentication (fast e2e)', () => {
   let app: INestApplication<App>;
@@ -26,11 +26,13 @@ describe('Authentication (fast e2e)', () => {
 
   beforeAll(async () => {
     keycloakService = {
-      getAuthUrl: jest.fn((_redirectUri, state, options) => {
+      getAuthUrl: jest.fn((_redirectUri, state = '', options = {}) => {
         const url = new URL('http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth');
         url.searchParams.set('client_id', 'cacic-account-manager');
         url.searchParams.set('state', state);
-        url.searchParams.set('code_challenge', options.codeChallenge);
+        if (options.codeChallenge) {
+          url.searchParams.set('code_challenge', options.codeChallenge);
+        }
         if (options.prompt) {
           url.searchParams.set('prompt', options.prompt);
         }
@@ -99,34 +101,22 @@ describe('Authentication (fast e2e)', () => {
             hasAccountManagerAdminAccess: jest.fn().mockResolvedValue(false),
           },
         },
+        {
+          provide: TotpService,
+          useValue: {
+            getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix(API_GLOBAL_PREFIX);
-    app.use(
-      session({
-        secret: 'test-session-secret',
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          secure: false,
-          sameSite: 'lax',
-        },
-      }),
-    );
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+    configureAccountBackendTestApp(app, { session: true });
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('redirects OAuth login with PKCE and safe return URL session state', async () => {

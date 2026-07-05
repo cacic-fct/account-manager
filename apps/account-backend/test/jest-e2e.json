@@ -4,8 +4,9 @@
   "testEnvironment": "node",
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
   "testPathIgnorePatterns": ["<rootDir>/test/.*keycloak.*\\.e2e-spec\\.ts$"],
+  "testTimeout": 30000,
   "transform": {
-    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.spec.json" }]
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/test/tsconfig.e2e.json" }]
   },
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1",
@@ -17,5 +18,13 @@
     "^@cacic/m2m-contracts/(.*)$": "<rootDir>/../../libs/m2m-contracts/src/$1",
     "^@cacic-fct/account-manager-m2m-contracts$": "<rootDir>/../../libs/m2m-contracts/src/index.ts",
     "^@cacic-fct/account-manager-m2m-contracts/(.*)$": "<rootDir>/../../libs/m2m-contracts/src/$1"
-  }
+  },
+  "coverageDirectory": "../../coverage/apps/account-backend-e2e",
+  "coverageReporters": ["lcov", "json", "text", "clover"],
+  "collectCoverageFrom": [
+    "src/**/*.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.test.ts",
+    "!src/main.ts"
+  ]
 }

@@ -7,6 +7,10 @@
       "@cacic/shared-types/*": ["./libs/shared-types/src/*"],
       "@cacic/shared-utils": ["./libs/shared-utils/src/index.ts"],
       "@cacic/shared-utils/*": ["./libs/shared-utils/src/*"],
+      "@cacic/account-backend/common-http-app": [
+        "./apps/account-backend/src/bootstrap/account-backend-common-http-app.ts"
+      ],
+      "@cacic/account-backend/http-app": ["./apps/account-backend/src/bootstrap/account-backend-http-app.ts"],
       "@cacic/m2m-contracts": ["./libs/m2m-contracts/src/index.ts"],
       "@cacic-fct/account-manager-privacy": ["./libs/account-privacy/src/index.ts"],
       "@cacic-fct/account-manager-privacy/*": ["./libs/account-privacy/src/*"],

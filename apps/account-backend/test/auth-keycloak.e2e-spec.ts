@@ -1,8 +1,7 @@
 import { ConfigService } from '@nestjs/config';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as jwt from 'jsonwebtoken';
-import session from 'express-session';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AuthController } from '../src/auth/auth.controller';
@@ -14,8 +13,8 @@ import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import type { KeycloakUser } from '../src/auth/interfaces/auth.interface';
 import { TotpService } from '../src/totp/totp.service';
-import { API_GLOBAL_PREFIX } from '../src/config/app.config';
 import { createAuthTestConfigService, createUserServiceFake, waitForKeycloakRealm } from './auth-test-helpers';
+import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
 const keycloakUrl = process.env.KEYCLOAK_URL ?? 'http://localhost:18080';
 
@@ -81,25 +80,7 @@ describe('Keycloak authentication (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix(API_GLOBAL_PREFIX);
-    app.use(
-      session({
-        secret: 'test-session-secret',
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          secure: false,
-          sameSite: 'lax',
-        },
-      }),
-    );
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+    configureAccountBackendTestApp(app, { session: true });
     await app.init();
   });
 

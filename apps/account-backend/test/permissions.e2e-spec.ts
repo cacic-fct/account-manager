@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -6,12 +6,12 @@ import { AccountManagerPermission, PermissionGroupKey, type PermissionSelfServic
 import { AuthGuard } from '../src/auth/guards/auth.guard';
 import { AccountPermissionGuard } from '../src/auth/guards/account-permission.guard';
 import { CsrfGuard } from '../src/auth/csrf/csrf.guard';
-import { API_GLOBAL_PREFIX } from '../src/config/app.config';
 import {
   KeycloakPermissionsController,
   UserPermissionsController,
 } from '../src/keycloak-permissions/keycloak-permissions.controller';
 import { KeycloakPermissionsService } from '../src/keycloak-permissions/keycloak-permissions.service';
+import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
 const sessionUser = {
   keycloakId: 'user-1',
@@ -124,14 +124,7 @@ describe('Permissions controllers (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix(API_GLOBAL_PREFIX);
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+    configureAccountBackendTestApp(app);
     await app.init();
   });
 
