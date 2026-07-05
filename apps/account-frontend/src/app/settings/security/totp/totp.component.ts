@@ -248,12 +248,13 @@ export class TotpComponent {
   selector: 'app-confirm-rotate-totp-dialog',
   imports: [MatButtonModule, MatDialogModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>Trocar código secreto?</h2>
+    <h2 mat-dialog-title>Cuidado!</h2>
     <mat-dialog-content>
       <p>
-        O código atual vai parar de funcionar. Use esta opção se você abriu o código em um dispositivo compartilhado ou
-        suspeita que outra pessoa viu.
+        Esse botão não atualiza o número que está sendo exibido na tela. Ele troca o código secreto usado para gerar os
+        códigos.
       </p>
+      <p>Use esta opção se você esqueceu sua conta logada em um dispositivo compartilhado.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button type="button" mat-dialog-close>Cancelar</button>
