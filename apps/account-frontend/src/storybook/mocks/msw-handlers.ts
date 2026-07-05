@@ -294,7 +294,12 @@ export const discordManagedRoleOverrideHandlers = [
       mockKeycloakPermissionUsers.find((candidate) => candidate.id === body.userId) ?? mockKeycloakPermissionUsers[0];
 
     return HttpResponse.json(
-      createMockDiscordManagedRoleOverride(user, body.roleCategory, getDiscordManagedRoleOverrides().length + 1, body.reason),
+      createMockDiscordManagedRoleOverride(
+        user,
+        body.roleCategory,
+        getDiscordManagedRoleOverrides().length + 1,
+        body.reason,
+      ),
     );
   }),
   http.put(`${API_BASE}/discord/roles/admin/managed-role-overrides/:id`, async ({ params, request }) => {

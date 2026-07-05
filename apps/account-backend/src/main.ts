@@ -1,9 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createAccountBackendHttpApp,
-  getAccountBackendGlobalPrefix,
-} from './bootstrap/account-backend-http-app';
+import { createAccountBackendHttpApp, getAccountBackendGlobalPrefix } from './bootstrap/account-backend-http-app';
 import { createAppConfig } from './config/app.config';
 
 async function bootstrap() {

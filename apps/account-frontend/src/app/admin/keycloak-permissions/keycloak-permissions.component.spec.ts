@@ -212,17 +212,13 @@ describe('PermissionsComponent', () => {
 
     component.selectGroup(PermissionGroupKey.Ejcomp);
 
-    expect(component.groupRolesForm.controls.permissions.value).toEqual([
-      AccountManagerPermission.PermissionGrantRead,
-    ]);
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([AccountManagerPermission.PermissionGrantRead]);
 
     component.saveGroupRoles();
 
     expect(apiService.updatePermissionGroupRoleGrants).toHaveBeenCalledWith(PermissionGroupKey.Ejcomp, {
       permissions: [AccountManagerPermission.PermissionGrantRead],
     });
-    expect(component.groupRolesForm.controls.permissions.value).toEqual([
-      AccountManagerPermission.PermissionGrantRead,
-    ]);
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([AccountManagerPermission.PermissionGrantRead]);
   });
 });

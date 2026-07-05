@@ -8,10 +8,7 @@ import session, { Store } from 'express-session';
 import { createClient } from 'redis';
 import { AppModule } from '../app.module';
 import { createAppConfig } from '../config/app.config';
-import {
-  configureAccountBackendCommonHttpApp,
-  getAccountBackendGlobalPrefix,
-} from './account-backend-common-http-app';
+import { configureAccountBackendCommonHttpApp, getAccountBackendGlobalPrefix } from './account-backend-common-http-app';
 
 export { configureAccountBackendCommonHttpApp, getAccountBackendGlobalPrefix };
 

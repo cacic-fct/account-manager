@@ -21,10 +21,5 @@
   },
   "coverageDirectory": "../../coverage/apps/account-backend-e2e",
   "coverageReporters": ["lcov", "json", "text", "clover"],
-  "collectCoverageFrom": [
-    "src/**/*.ts",
-    "!src/**/*.spec.ts",
-    "!src/**/*.test.ts",
-    "!src/main.ts"
-  ]
+  "collectCoverageFrom": ["src/**/*.ts", "!src/**/*.spec.ts", "!src/**/*.test.ts", "!src/main.ts"]
 }
