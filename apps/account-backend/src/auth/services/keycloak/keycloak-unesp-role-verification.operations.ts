@@ -38,7 +38,7 @@ export abstract class KeycloakUnespRoleVerificationOperations extends KeycloakAp
     verifiedBy: string,
     verificationMethod: 'document' | 'manual' | 'admin',
   ): Promise<void> {
-    this.logger.verbose('Verifying Unesp role for user', {
+    this.logger.debug('Verifying Unesp role for user', {
       userId,
       verifiedBy,
       verificationMethod,

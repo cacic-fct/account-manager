@@ -112,6 +112,7 @@ export class ProfileFormComponent implements OnInit {
     fullName: false,
     identityDocument: false,
   });
+  defaultUnespRole = input<UnespRole | undefined>(undefined);
   isEditMode = input<boolean>(false);
   layoutMode = input<'stepper' | 'all-in-one'>('stepper');
 
@@ -303,11 +304,26 @@ export class ProfileFormComponent implements OnInit {
     this.apiService.checkUnespRoleRequired().subscribe({
       next: (response) => {
         this.shouldShowUnespRoleSelection.set(response.shouldShowUnespRoleSelection);
+
+        if (response.shouldShowUnespRoleSelection) {
+          this.applyDefaultUnespRole();
+        }
       },
       error: (error) => {
         this.logger.error('Error checking Unesp role requirement', error);
       },
     });
+  }
+
+  private applyDefaultUnespRole(): void {
+    const defaultRole = this.defaultUnespRole();
+    const unespRoleControl = this.academicGroup.get('unespRole');
+
+    if (!defaultRole || unespRoleControl?.value || this.initialUnespRole) {
+      return;
+    }
+
+    unespRoleControl?.setValue(defaultRole);
   }
 
   getFormData(): ProfileFormData {

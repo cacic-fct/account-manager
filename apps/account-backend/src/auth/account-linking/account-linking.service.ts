@@ -320,7 +320,7 @@ export class AccountLinkingService {
       }
 
       if (updated.status === 'completed') {
-        this.logger.log('Account merge completed without external backends', {
+        this.logger.debug('Account merge completed without external backends', {
           requestId,
         });
       }

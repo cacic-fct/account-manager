@@ -1,5 +1,5 @@
 import { Component, inject, computed, signal, OnInit } from '@angular/core';
-import { NgIf, NgOptimizedImage } from '@angular/common';
+import { NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,12 +10,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../shared/services/api.service';
 import { AuthService } from '../shared/services/auth/auth.service';
-import type { User } from '@cacic/shared-types';
+import { UnespRole, type User } from '@cacic/shared-types';
 import { ProfileFormComponent } from '../shared/components/profile-form/profile-form.component';
 import { LoggerService } from '../shared/services/logger.service';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
-import { MatMenu, MatMenuModule } from '@angular/material/menu';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatDivider } from '@angular/material/divider';
 
 @Component({
@@ -43,6 +43,7 @@ export class OnboardingComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private logger = inject(LoggerService);
   currentUser = computed(() => this.authService.currentUser());
+  readonly defaultUnespRole = UnespRole.ALUNO_GRADUACAO;
   userDisplayName = computed(() => {
     const user = this.currentUser();
     if (user) {
@@ -104,7 +105,7 @@ export class OnboardingComponent implements OnInit {
 
     // Check if user is already onboarded before loading form
     if (this.authService.isOnboarded()) {
-      this.logger.info('User already onboarded, redirecting to applications');
+      this.logger.debug('User already onboarded, redirecting to applications');
       this.router.navigateByUrl('/applications');
       return;
     }
@@ -119,7 +120,7 @@ export class OnboardingComponent implements OnInit {
 
         // Double-check onboarding status after getting fresh data
         if (currentUser.isOnboarded) {
-          this.logger.info('User is already onboarded according to backend data, redirecting to applications');
+          this.logger.debug('User is already onboarded according to backend data, redirecting to applications');
           this.router.navigateByUrl('/applications');
           return;
         }
@@ -147,7 +148,7 @@ export class OnboardingComponent implements OnInit {
   }
 
   async onProfileSaveSuccess(updatedUser: User): Promise<void> {
-    this.logger.info('Profile update successful', { userId: updatedUser.id });
+    this.logger.debug('Profile update successful', { userId: updatedUser.id });
 
     // Refresh auth status to ensure onboarding status is up to date
     await this.authService.refreshAuthStatus();
@@ -169,14 +170,14 @@ export class OnboardingComponent implements OnInit {
     }
 
     if (redirectUrl) {
-      this.logger.info('Redirecting user after successful onboarding', {
+      this.logger.debug('Redirecting user after successful onboarding', {
         target: redirectUrl,
       });
       window.location.href = redirectUrl;
       return;
     }
 
-    this.logger.info('Redirecting to applications after successful onboarding');
+    this.logger.debug('Redirecting to applications after successful onboarding');
     this.router.navigateByUrl('/applications');
   }
 

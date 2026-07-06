@@ -47,7 +47,7 @@ export class DocumentManagementService {
     try {
       if (document.s3Key) {
         await this.s3Service.deleteFile(document.s3Key);
-        this.logger.log(`Deleted approved document file: ${document.s3Key}`);
+        this.logger.debug(`Deleted approved document file: ${document.s3Key}`);
       }
 
       await this.prisma.studentVerificationDocument.update({
@@ -59,7 +59,7 @@ export class DocumentManagementService {
         },
       });
 
-      this.logger.log(`Cleaned up sensitive data for approved document: ${document.id}`);
+      this.logger.debug(`Cleaned up sensitive data for approved document: ${document.id}`);
     } catch (error) {
       this.logger.error(
         `Failed to cleanup approved document ${document.id}: ${error instanceof Error ? error.message : String(error)}`,

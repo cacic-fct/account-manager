@@ -242,7 +242,7 @@ export class DocumentUploadService {
     if (initialStatus === 'rejected') {
       this.logger.warn(`Document automatically rejected for user ${userId}: ${rejectionReason}`);
     } else {
-      this.logger.log(`Document uploaded successfully for user ${userId}`);
+      this.logger.debug(`Document uploaded successfully for user ${userId}`);
     }
 
     const message =

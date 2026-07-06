@@ -67,7 +67,7 @@ export class PrivacyDirectiveService {
           this._directives.set(directives);
           this._lastUpdated.set(new Date());
           this._isLoading.set(false);
-          this.logger.info('Privacy directives fetched successfully');
+          this.logger.debug('Privacy directives fetched successfully');
 
           // Update cookie banner visibility based on directives
           this._shouldShowCookieBanner.set(directives.cookieBanner.action === 'show');
@@ -153,7 +153,7 @@ export class PrivacyDirectiveService {
           this._shouldShowCookieBanner.set(false);
           this.isAcceptingCookies.set(false);
           this._lastUpdated.set(new Date());
-          this.logger.info('Cookie banner accepted');
+          this.logger.debug('Cookie banner accepted');
 
           // Notify other components
           this.refreshTrackingCookies();

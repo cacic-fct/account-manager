@@ -53,7 +53,7 @@ export class DiscordBotService {
         const matchingNames = nameParts.filter((part) => fullnameParts.includes(part));
 
         if (matchingNames.length >= 2) {
-          this.logger.log(
+          this.logger.debug(
             `Skipping nickname assignment for ${member.user.username} as new nickname contains matching names: ${matchingNames.join(', ')}`,
           );
           return;
@@ -82,7 +82,7 @@ export class DiscordBotService {
 
       await member.setNickname(nickname);
 
-      this.logger.log(`Set nickname for ${member.user.username}: ${nickname}`);
+      this.logger.debug(`Set nickname for ${member.user.username}: ${nickname}`);
     } catch (error) {
       this.logger.error(`Failed to set nickname for user ${discordUserId}:`, error);
     }
@@ -116,7 +116,7 @@ export class DiscordBotService {
       const nickname = user.fullname || user.displayName || user.email.split('@')[0];
       try {
         await member.setNickname(nickname);
-        this.logger.log(`Set nickname for ${member.user.username}: ${nickname}`);
+        this.logger.debug(`Set nickname for ${member.user.username}: ${nickname}`);
       } catch (error) {
         this.logger.error(`Failed to set nickname for ${member.user.username}:`, error);
       }
@@ -144,7 +144,7 @@ export class DiscordBotService {
       const member = await guild.members.fetch(discordUserId);
       if (member) {
         await member.kick('Account deleted from CACiC system');
-        this.logger.log(`Removed user ${member.user.username} from guild due to account deletion`);
+        this.logger.debug(`Removed user ${member.user.username} from guild due to account deletion`);
       }
     } catch (error) {
       this.logger.error(`Error removing user from guild:`, error);
@@ -152,7 +152,7 @@ export class DiscordBotService {
   }
 
   async handleMemberJoin(member: GuildMember): Promise<void> {
-    this.logger.log(`New member joined: ${member.user.username} (${member.id})`);
+    this.logger.debug(`New member joined: ${member.user.username} (${member.id})`);
 
     const discordLink = await this.prisma.discordLink.findFirst({
       where: { discordId: member.id, deleted: false },

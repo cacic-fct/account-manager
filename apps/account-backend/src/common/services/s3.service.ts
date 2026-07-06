@@ -53,7 +53,7 @@ export class S3Service {
       responseChecksumValidation: 'WHEN_REQUIRED',
     });
 
-    this.logger.log(`S3Service initialized with endpoint: ${endpoint}, bucket: ${bucketName}`);
+    this.logger.debug(`S3Service initialized with endpoint: ${endpoint}, bucket: ${bucketName}`);
   }
 
   /**
@@ -92,7 +92,7 @@ export class S3Service {
 
       await upload.done();
 
-      this.logger.log(`File uploaded successfully: ${key}`);
+      this.logger.debug(`File uploaded successfully: ${key}`);
       return {
         key,
         size: uploadedSize,
@@ -165,7 +165,7 @@ export class S3Service {
         }),
       );
 
-      this.logger.log(`File deleted successfully: ${key}`);
+      this.logger.debug(`File deleted successfully: ${key}`);
     } catch (error: unknown) {
       this.logger.error(`Failed to delete file ${key}:`, error);
       throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);

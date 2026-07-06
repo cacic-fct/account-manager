@@ -206,7 +206,7 @@ export class DiscordRoleService {
       registrationRoleApplied = await this.ensureRegistrationRoleForMember(member, options.reason);
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Discord managed role reconciled - User: ${discordLink.discordGlobalName}, Category: ${role.category}, Role: ${role.roleName}`,
       {
         userId: discordLink.userId,
@@ -319,7 +319,7 @@ export class DiscordRoleService {
     }
 
     if (discordLinks.length > 0) {
-      this.logger.log(
+      this.logger.debug(
         `Discord managed role sync completed: ${synced}/${discordLinks.length} links processed, ${failed} failed`,
       );
     }
@@ -454,7 +454,7 @@ export class DiscordRoleService {
       }
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Discord managed role hard enforcement completed: ${checked} checked, ${linkedSynced} linked synced, ${invalidLinkedCleaned} invalid linked cleaned, ${staleManagedRolesRemoved} stale roles removed, ${registrationEnsured} registration ensured, ${failed} failed`,
     );
 

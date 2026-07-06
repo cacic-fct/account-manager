@@ -53,7 +53,7 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
         );
       });
 
-      this.logger.verbose('Applications found for user', {
+      this.logger.debug('Applications found for user', {
         userId,
         totalClients: clients.length,
         applications: applications.length,

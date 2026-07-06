@@ -684,7 +684,7 @@ export class LgpdService {
         },
       });
 
-      this.logger.log(
+      this.logger.debug(
         `Account soft deletion completed for user ${request.userId}. Services notified: ${notifiedServices.join(', ')}`,
       );
     } catch (error) {
@@ -838,7 +838,7 @@ export class LgpdService {
       }
 
       if (request.filePath) {
-        this.logger.verbose(`Legacy file path found during deletion: ${request.filePath}`);
+        this.logger.debug(`Legacy file path found during deletion: ${request.filePath}`);
       }
     }
 
@@ -854,7 +854,7 @@ export class LgpdService {
       }
 
       if (document.filePath) {
-        this.logger.verbose(`Legacy file path found during deletion: ${document.filePath}`);
+        this.logger.debug(`Legacy file path found during deletion: ${document.filePath}`);
       }
     }
 

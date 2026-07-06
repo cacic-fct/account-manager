@@ -8,7 +8,7 @@ export class DiscordClientService {
 
   setClient(client: Client): void {
     this.client = client;
-    this.logger.log('Discord client set');
+    this.logger.debug('Discord client set');
   }
 
   getClient(): Client {

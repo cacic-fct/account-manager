@@ -89,7 +89,7 @@ export class DiscordRoleManagementService {
         });
       }
 
-      this.logger.log(`Synced ${roles.size} roles from Discord guild ${guild.name}`);
+      this.logger.debug(`Synced ${roles.size} roles from Discord guild ${guild.name}`);
     } catch (error) {
       this.logger.error('Error syncing roles from Discord:', error);
       throw error;
@@ -140,10 +140,10 @@ export class DiscordRoleManagementService {
   }
 
   async updateRoleSelection(dto: UpdateRoleSelectionDto): Promise<void> {
-    this.logger.log(`Updating role selection with IDs: ${JSON.stringify(dto.enabledRoleIds)}`);
+    this.logger.debug(`Updating role selection with IDs: ${JSON.stringify(dto.enabledRoleIds)}`);
 
     const allRoles = await this.prisma.discordRoleSetting.findMany();
-    this.logger.log(`Found ${allRoles.length} existing role settings`);
+    this.logger.debug(`Found ${allRoles.length} existing role settings`);
     const rolesById = new Map(allRoles.map((role) => [role.roleId, role]));
     const enabledRoleIds = Array.from(new Set(dto.enabledRoleIds));
 
@@ -179,7 +179,7 @@ export class DiscordRoleManagementService {
       });
     }
 
-    this.logger.log(`Updated role selection: ${enabledRoleIds.length} roles enabled`);
+    this.logger.debug(`Updated role selection: ${enabledRoleIds.length} roles enabled`);
   }
 
   async getUserRoles(userId: string, client: Client, guildId: string): Promise<UserRolesDto> {
@@ -298,7 +298,7 @@ export class DiscordRoleManagementService {
     await member.fetch(true);
     const updatedRoles = selectableRoles.filter((role) => member.roles.cache.has(role.roleId));
 
-    this.logger.log(`Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`);
+    this.logger.debug(`Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`);
 
     return {
       message: 'Roles updated successfully',

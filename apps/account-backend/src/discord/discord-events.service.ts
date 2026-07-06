@@ -19,7 +19,7 @@ export class DiscordEventsService {
   @Once('ready')
   public onReady(@Context() [client]: ContextOf<'ready'>) {
     this.logger.log(`Bot logged in as ${client.user.username}`);
-    this.logger.log(`Guild count: ${client.guilds.cache.size}`);
+    this.logger.debug(`Guild count: ${client.guilds.cache.size}`);
 
     // Set the client in our service for dependency injection
     this.discordClientService.setClient(client);
@@ -37,7 +37,7 @@ export class DiscordEventsService {
   @On('guildMemberRoleAdd')
   public async onGuildMemberRoleAdd(@Context() [member]: ContextOf<'guildMemberRoleAdd'>) {
     // Assign nickname when a member is added to a role
-    this.logger.log(`Member role added: ${member.user.username} (${member.id})`);
+    this.logger.debug(`Member role added: ${member.user.username} (${member.id})`);
     try {
       await this.discordBotService.assignNickname(member, member.nickname);
     } catch (error) {
@@ -51,7 +51,7 @@ export class DiscordEventsService {
     @Context()
     [member, oldNickname, newNickname]: ContextOf<'guildMemberNicknameUpdate'>,
   ) {
-    this.logger.log(
+    this.logger.debug(
       `Member nickname updated: ${member.user.username} (${member.id}) from "${oldNickname}" to "${newNickname}"`,
     );
 
@@ -69,7 +69,7 @@ export class DiscordEventsService {
   @On('guildMemberUpdate')
   public async onGuildMemberUpdate(@Context() [oldMember, newMember]: ContextOf<'guildMemberUpdate'>) {
     // Handle member updates if needed
-    this.logger.log(`Member updated: ${newMember.user.username} (${newMember.id})`);
+    this.logger.debug(`Member updated: ${newMember.user.username} (${newMember.id})`);
 
     if (this.didRolesChange(oldMember, newMember) && this.hasNoAssignableRoles(newMember)) {
       if (this.discordRoleService.hasRecentManagedRoleMutation(newMember.id)) {

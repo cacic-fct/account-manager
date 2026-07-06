@@ -13,12 +13,12 @@ export class CleanupSchedulerService {
     try {
       const expiredRequests = await this.lgpdService.cleanupExpiredRequests();
       if (expiredRequests > 0) {
-        this.logger.log(`Expired ${expiredRequests} stale LGPD request(s)`);
+        this.logger.debug(`Expired ${expiredRequests} stale LGPD request(s)`);
       }
 
       const cleanedFiles = await this.lgpdService.cleanupExpiredFiles();
       if (cleanedFiles > 0) {
-        this.logger.log(`Cleaned up ${cleanedFiles} expired LGPD file(s)`);
+        this.logger.debug(`Cleaned up ${cleanedFiles} expired LGPD file(s)`);
       }
     } catch (error) {
       this.logger.error('Failed to clean up expired LGPD files', error);

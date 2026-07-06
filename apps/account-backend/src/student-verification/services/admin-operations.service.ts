@@ -179,7 +179,7 @@ export class AdminOperationsService {
       await this.keycloakService.updateUserAttributes(userId, {
         unespRoleVerified: 'true',
       });
-      this.logger.log(`Set unespRoleVerified=true for user ${userId}`);
+      this.logger.debug(`Set unespRoleVerified=true for user ${userId}`);
     } catch (error) {
       this.logger.error(
         `Failed to set unespRoleVerified for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -306,7 +306,7 @@ export class AdminOperationsService {
 
     if (updateDto.status === 'approved') {
       await this.documentManagementService.cleanupApprovedDocument(updatedDocument);
-      this.logger.log(
+      this.logger.debug(
         `Approved document ${updatedDocument.id} for user ${updatedDocument.userId}. Cleanup completed by ${verifiedBy}.`,
       );
     } else if (updateDto.status === 'rejected') {
