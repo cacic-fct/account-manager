@@ -96,6 +96,6 @@ export class TrackingController {
   }
 
   private canTrack(settings: PrivacySettings): boolean {
-    return settings.cookie_banner_accepted && settings.analytics_tracking;
+    return settings.analytics_tracking;
   }
 }

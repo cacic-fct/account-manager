@@ -110,9 +110,9 @@ export class PrivacyDirectiveService {
       directives.push(
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING,
-          value: hasCookieConsent && settings.analytics_tracking ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          value: settings.analytics_tracking ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
+            reason: 'user_preference',
             timestamp: userSettings.updatedAt,
           },
         },

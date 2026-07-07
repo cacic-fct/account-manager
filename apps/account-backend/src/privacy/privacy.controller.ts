@@ -218,7 +218,7 @@ export class PrivacyController {
         analyticsTracking: {
           type: 'data-handling',
           name: 'analytics-tracking',
-          action: cookieBannerAccepted && settingValues.analytics_tracking ? 'enable' : 'disable',
+          action: settingValues.analytics_tracking ? 'enable' : 'disable',
         },
         errorDebugging: {
           type: 'data-handling',

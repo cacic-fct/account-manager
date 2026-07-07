@@ -116,7 +116,7 @@ export async function resolveCacicTrackingIdentity(
   return {
     analyticsAllowed: cookies.consent?.analyticsAllowed === true,
     cookieBannerAccepted: cookies.consent?.cookieBannerAccepted === true,
-    userId: cookies.consent?.analyticsAllowed === true ? cookies.analyticsId : null,
+    userId: cookies.consent?.identityAvailable === true ? cookies.analyticsId : null,
   };
 }
 

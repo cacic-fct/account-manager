@@ -43,7 +43,7 @@ await initCacicUmamiTracking({
 });
 ```
 
-The helper refreshes `/api/tracking/session`, reads the shared CACiC cookies, loads Umami only when Account Manager has `cookie_banner_accepted` and `analytics_tracking` enabled, and calls `umami.identify()` with the `cacic-analytics-id` cookie as Umami's Distinct ID. It does not send email, name, or profile fields unless the caller explicitly passes `identifyData`.
+The helper refreshes `/api/tracking/session`, reads the shared CACiC cookies, loads Umami when Account Manager has `analytics_tracking` enabled, and calls `umami.identify()` with the `cacic-analytics-id` cookie as Umami's Distinct ID. Cookie banner acceptance is reported separately in the identify payload. It does not send email, name, or profile fields unless the caller explicitly passes `identifyData`.
 
 Sites that configure analytics through a production-only script tag can use the current-script bootstrap:
 
