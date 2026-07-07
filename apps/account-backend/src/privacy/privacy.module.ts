@@ -18,6 +18,6 @@ import { AuthModule } from '../auth/auth.module';
 })
 export class PrivacyModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(PrivacyDirectiveMiddleware).forRoutes('*');
+    consumer.apply(PrivacyDirectiveMiddleware).forRoutes('{*path}');
   }
 }
