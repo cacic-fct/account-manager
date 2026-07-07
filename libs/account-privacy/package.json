@@ -1,6 +1,6 @@
 {
   "name": "@cacic-fct/account-manager-privacy",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Angular client for CACiC account privacy preferences.",
   "license": "AGPL-3.0-only",
   "type": "module",
