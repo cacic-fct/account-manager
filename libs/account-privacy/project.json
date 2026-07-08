@@ -12,6 +12,14 @@
         "cwd": "libs/account-privacy",
         "command": "bunx ngc -p tsconfig.lib.json && cp package.json README.md ../../dist/libs/account-privacy/"
       }
+    },
+    "test-cov": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/coverage/libs/account-privacy"],
+      "options": {
+        "cwd": "libs/account-privacy",
+        "command": "bun run jest --config jest.config.ts --coverage"
+      }
     }
   }
 }

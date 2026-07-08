@@ -18,6 +18,7 @@ export interface CacicUmamiIdentifyPayload extends Record<string, unknown> {
 export interface CacicTrackingIdentity {
   analyticsAllowed: boolean;
   cookieBannerAccepted: boolean;
+  isAnonymous?: boolean;
   userId: string | null;
 }
 
@@ -72,17 +73,12 @@ export async function initCacicUmamiTracking(config: CacicUmamiTrackingConfig): 
     return { ...identity, loaded: false, reason: 'analytics_disabled' };
   }
 
-  if (!identity.userId) {
-    unloadCacicUmamiTracking(config);
-    return { ...identity, loaded: false, reason: 'missing_identity' };
-  }
-
   const loaded = await loadUmamiScript(config);
   if (!loaded) {
     return { ...identity, loaded: false, reason: 'script_failed' };
   }
 
-  if (config.identify !== false) {
+  if (config.identify !== false && identity.userId) {
     window.umami?.identify?.({
       cookie_banner_accepted: identity.cookieBannerAccepted,
       ...config.identifyData,
@@ -106,6 +102,7 @@ export async function resolveCacicTrackingIdentity(
     return {
       analyticsAllowed: false,
       cookieBannerAccepted: false,
+      isAnonymous: true,
       userId: null,
     };
   }
@@ -113,9 +110,19 @@ export async function resolveCacicTrackingIdentity(
   await requestTrackingCookieRefresh(config.accountApiBaseUrl);
 
   const cookies = readCacicTrackingCookies();
+  if (cookies.consent?.analyticsAllowed === false) {
+    return {
+      analyticsAllowed: false,
+      cookieBannerAccepted: cookies.consent.cookieBannerAccepted,
+      isAnonymous: false,
+      userId: null,
+    };
+  }
+
   return {
-    analyticsAllowed: cookies.consent?.analyticsAllowed === true,
+    analyticsAllowed: true,
     cookieBannerAccepted: cookies.consent?.cookieBannerAccepted === true,
+    isAnonymous: cookies.consent?.identityAvailable !== true,
     userId: cookies.consent?.identityAvailable === true ? cookies.analyticsId : null,
   };
 }
@@ -398,6 +405,7 @@ function disabledResult(reason: CacicUmamiTrackingResult['reason']): CacicUmamiT
   return {
     analyticsAllowed: false,
     cookieBannerAccepted: false,
+    isAnonymous: true,
     loaded: false,
     reason,
     userId: null,
