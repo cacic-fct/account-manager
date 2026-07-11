@@ -7,6 +7,7 @@ export {
   getUnespRoleOptions,
 } from '@cacic/shared-types';
 
+// O comentário redundante é útil para encontrar essa lista
 // Hardcoded list of professor emails
 export const PROFESSOR_EMAILS = [
   'almir.artero@unesp.br',
