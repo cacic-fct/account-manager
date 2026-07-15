@@ -22,7 +22,7 @@ export interface CookieBannerOptions {
 const DEFAULT_STORAGE_KEY = 'cacic.cookieBanner.accepted';
 const DEFAULT_COOKIE_NAME = 'cacic_cookie_banner_accepted';
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-const SHARED_COOKIE_DOMAIN = '.cacic.dev.br';
+const SHARED_COOKIE_DOMAIN = '.cacic.com.br';
 
 export interface CookieBannerAcceptanceStorageOptions {
   storageKey?: string;
@@ -54,7 +54,7 @@ export class CookieBanner {
 
   constructor(options: CookieBannerOptions = {}) {
     this.options = {
-      privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',
+      privacyPolicyUrl: 'https://cacic.com.br/legal/privacy-policy',
       storageKey: DEFAULT_STORAGE_KEY,
       cookieName: DEFAULT_COOKIE_NAME,
       cookieMaxAgeSeconds: DEFAULT_COOKIE_MAX_AGE_SECONDS,
@@ -309,7 +309,7 @@ function resolveCurrentSharedCookieDomain(): string | undefined {
   }
 
   const hostname = window.location.hostname;
-  if (hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br')) {
+  if (hostname === 'cacic.com.br' || hostname.endsWith('.cacic.com.br')) {
     return SHARED_COOKIE_DOMAIN;
   }
 

@@ -114,7 +114,7 @@ function resolveSharedCookieDomain(configService: ConfigService): string | undef
 
   try {
     const hostname = new URL(backendUrl).hostname;
-    return hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br') ? '.cacic.dev.br' : undefined;
+    return hostname === 'cacic.com.br' || hostname.endsWith('.cacic.com.br') ? '.cacic.com.br' : undefined;
   } catch {
     return undefined;
   }

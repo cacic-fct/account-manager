@@ -33,7 +33,10 @@
                 "input": "public"
               }
             ],
-            "styles": ["@angular/material/prebuilt-themes/azure-blue.css", "src/styles.scss"],
+            "styles": [
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/styles.scss"
+            ],
             "scripts": [],
             "server": "src/main.server.ts",
             "outputMode": "server",
@@ -41,7 +44,9 @@
               "entry": "src/server.ts"
             },
             "security": {
-              "allowedHosts": ["account.cacic.dev.br"]
+              "allowedHosts": [
+                "account.cacic.com.br"
+              ]
             }
           },
           "configurations": {
@@ -98,12 +103,16 @@
             "runner": "vitest",
             "runnerConfig": "vitest.config.ts",
             "tsConfig": "tsconfig.spec.json",
-            "include": ["src/**/*.spec.ts"]
+            "include": [
+              "src/**/*.spec.ts"
+            ]
           },
           "configurations": {
             "coverage": {
               "coverage": true,
-              "coverageInclude": ["src/app/**/*.ts"],
+              "coverageInclude": [
+                "src/app/**/*.ts"
+              ],
               "coverageExclude": [
                 "src/**/*.spec.ts",
                 "src/**/*.stories.ts",
@@ -112,7 +121,11 @@
                 "src/main.server.ts",
                 "src/server.ts"
               ],
-              "coverageReporters": ["lcov", "json", "text-summary"]
+              "coverageReporters": [
+                "lcov",
+                "json",
+                "text-summary"
+              ]
             }
           }
         },
@@ -122,9 +135,18 @@
             "configDir": ".storybook",
             "browserTarget": "cacic-account-manager:build",
             "compodoc": true,
-            "compodocArgs": ["-e", "json", "-d", "."],
+            "compodocArgs": [
+              "-e",
+              "json",
+              "-d",
+              "."
+            ],
             "port": 6006,
-            "styles": ["@fontsource/material-icons", "@fontsource-variable/inter", "src/styles.scss"]
+            "styles": [
+              "@fontsource/material-icons",
+              "@fontsource-variable/inter",
+              "src/styles.scss"
+            ]
           }
         },
         "build-storybook": {
@@ -133,7 +155,12 @@
             "configDir": ".storybook",
             "browserTarget": "cacic-account-manager:build",
             "compodoc": true,
-            "compodocArgs": ["-e", "json", "-d", "."],
+            "compodocArgs": [
+              "-e",
+              "json",
+              "-d",
+              "."
+            ],
             "outputDir": "storybook-static"
           }
         }

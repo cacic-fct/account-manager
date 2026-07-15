@@ -36,7 +36,7 @@ describe('tracking cookie utilities', () => {
       CACIC_ANALYTICS_ID_COOKIE_NAME,
       'keycloak-subject',
       expect.objectContaining({
-        domain: '.cacic.dev.br',
+        domain: '.cacic.com.br',
         httpOnly: false,
         sameSite: 'lax',
         secure: true,
@@ -46,7 +46,7 @@ describe('tracking cookie utilities', () => {
       CACIC_ANALYTICS_CONSENT_COOKIE_NAME,
       expect.stringContaining('"analyticsAllowed":true'),
       expect.objectContaining({
-        domain: '.cacic.dev.br',
+        domain: '.cacic.com.br',
         httpOnly: false,
       }),
     );
@@ -72,7 +72,7 @@ describe('tracking cookie utilities', () => {
     expect(cookieMock).toHaveBeenCalledWith(
       CACIC_ANALYTICS_CONSENT_COOKIE_NAME,
       expect.stringContaining('"cookieBannerAccepted":false'),
-      expect.objectContaining({ domain: '.cacic.dev.br' }),
+      expect.objectContaining({ domain: '.cacic.com.br' }),
     );
   });
 
@@ -98,12 +98,12 @@ describe('tracking cookie utilities', () => {
     expect(cookieMock).toHaveBeenCalledWith(
       CACIC_ANALYTICS_ID_COOKIE_NAME,
       'keycloak-subject',
-      expect.objectContaining({ domain: '.cacic.dev.br' }),
+      expect.objectContaining({ domain: '.cacic.com.br' }),
     );
     expect(cookieMock).toHaveBeenCalledWith(
       CACIC_ANALYTICS_CONSENT_COOKIE_NAME,
       expect.stringContaining('"analyticsAllowed":false'),
-      expect.objectContaining({ domain: '.cacic.dev.br' }),
+      expect.objectContaining({ domain: '.cacic.com.br' }),
     );
     expect(clearCookieMock).not.toHaveBeenCalled();
   });
@@ -121,7 +121,7 @@ describe('tracking cookie utilities', () => {
       CACIC_PURR_COOKIE_NAME,
       CACIC_PURR_QUICK_COOKIE_NAME,
     ]) {
-      expect(clearCookieMock).toHaveBeenCalledWith(cookieName, expect.objectContaining({ domain: '.cacic.dev.br' }));
+      expect(clearCookieMock).toHaveBeenCalledWith(cookieName, expect.objectContaining({ domain: '.cacic.com.br' }));
       expect(hasHostOnlyClearCall(clearCookieMock, cookieName)).toBe(true);
     }
   });
@@ -147,7 +147,7 @@ function createResponse(): {
 
 function createConfigService(): ConfigService {
   return {
-    get: jest.fn((key: string) => (key === 'BACKEND_URL' ? 'https://account.cacic.dev.br/api' : undefined)),
+    get: jest.fn((key: string) => (key === 'BACKEND_URL' ? 'https://account.cacic.com.br/api' : undefined)),
   } as unknown as ConfigService;
 }
 

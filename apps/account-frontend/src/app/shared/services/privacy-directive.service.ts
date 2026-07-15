@@ -334,7 +334,7 @@ export class PrivacyDirectiveService {
     // Clear shared privacy and tracking cookies.
     for (const cookieName of ['cacic-analytics-id', 'cacic-analytics-consent', 'cacic-purr', 'cacic-purr-quick']) {
       this.expireCookie(cookieName);
-      this.expireCookie(cookieName, '.cacic.dev.br');
+      this.expireCookie(cookieName, '.cacic.com.br');
     }
   }
 

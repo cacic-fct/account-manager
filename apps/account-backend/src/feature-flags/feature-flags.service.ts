@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GLOBAL_FEATURE_FLAGS } from './feature-flags.constants';
 
-const DEFAULT_UNLEASH_FRONTEND_URL = 'https://unleash.cacic.dev.br/api/frontend';
+const DEFAULT_UNLEASH_FRONTEND_URL = 'https://unleash.cacic.com.br/api/frontend';
 const DEFAULT_UNLEASH_CLIENT_KEYS = {
   development: 'default:development.rUPorLb0LVO4VIBLZ5RX4TKvsvGuABYmpkmzpWa7QHXwqSZ20v0ppRGYCWAO',
   production: 'default:production.h8sn3hzUSF07msdHkuXubAVRxSgtAdGsBCXiXXhcs8I4boeXozEue0Tx0lwq',

@@ -66,7 +66,7 @@ export class CookieBannerComponent implements OnInit {
   protected readonly visible = signal(false);
   protected readonly accepting = signal(false);
   protected readonly privacyPolicyUrl = computed(
-    () => this.config().privacyPolicyUrl ?? 'https://cacic.dev.br/legal/privacy-policy',
+    () => this.config().privacyPolicyUrl ?? 'https://cacic.com.br/legal/privacy-policy',
   );
   protected readonly text = computed(
     () =>

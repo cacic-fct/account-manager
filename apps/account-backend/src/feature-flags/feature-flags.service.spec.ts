@@ -59,7 +59,7 @@ describe('FeatureFlagService', () => {
 
     await expect(service.isUndergraduateUnespRoleVerificationDisabled()).resolves.toBe(true);
 
-    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.dev.br/api/frontend', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.com.br/api/frontend', expect.any(Object));
     expect(getFetchInit(fetchMock).headers).toMatchObject({
       Authorization: 'client-key',
       'UNLEASH-APPNAME': 'account-manager-backend-test',
@@ -207,7 +207,7 @@ describe('FeatureFlagService', () => {
 
     await expect(service.isEnabled('feature-a', false)).resolves.toBe(true);
 
-    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.dev.br/api/frontend', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.com.br/api/frontend', expect.any(Object));
     const init = getFetchInit(fetchMock);
     expect(init.headers.Authorization).toContain('default:development.');
     expect(init.headers['UNLEASH-ENVIRONMENT']).toBe('development');

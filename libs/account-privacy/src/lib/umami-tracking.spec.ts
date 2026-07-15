@@ -20,7 +20,7 @@ describe('umami tracking', () => {
       configurable: true,
       value: {
         location: {
-          hostname: 'cacic.dev.br',
+          hostname: 'cacic.com.br',
         },
         umami: {
           identify,
@@ -57,7 +57,7 @@ describe('umami tracking', () => {
     const result = await initCacicUmamiTracking({
       websiteId: 'site-id',
       identifyData: {
-        source: 'cacic.dev.br',
+        source: 'cacic.com.br',
       },
     });
 
@@ -69,7 +69,7 @@ describe('umami tracking', () => {
       userId: null,
     });
     expect(elements.get('cacic-umami-site-id')).toMatchObject({
-      src: 'https://a.cacic.dev.br/b.js',
+      src: 'https://a.cacic.com.br/b.js',
     });
     expect(identify).not.toHaveBeenCalled();
   });
@@ -112,7 +112,7 @@ describe('umami tracking', () => {
     const result = await initCacicUmamiTracking({
       websiteId: 'site-id',
       identifyData: {
-        source: 'cacic.dev.br',
+        source: 'cacic.com.br',
       },
     });
 
@@ -127,7 +127,7 @@ describe('umami tracking', () => {
     expect(identify).toHaveBeenCalledWith({
       cookie_banner_accepted: false,
       id: 'keycloak-subject',
-      source: 'cacic.dev.br',
+      source: 'cacic.com.br',
     });
   });
 

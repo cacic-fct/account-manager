@@ -15,7 +15,7 @@ export function startCacicAccountUmamiTracking(): void {
   startCacicUmamiTracking({
     websiteId: ACCOUNT_MANAGER_UMAMI_WEBSITE_ID,
     recorder: {
-      src: 'https://a.cacic.dev.br/recorder.js',
+      src: 'https://a.cacic.com.br/recorder.js',
       sampleRate: 1,
       maskLevel: 'moderate',
       maxDuration: 1_200_000,

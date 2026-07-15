@@ -41,7 +41,7 @@ For an Event Manager caller:
 ## Account Manager Environment
 
 ```env
-KEYCLOAK_URL=https://sso.cacic.dev.br
+KEYCLOAK_URL=https://sso.cacic.com.br
 KEYCLOAK_REALM=cacic-sso
 KEYCLOAK_M2M_AUDIENCE=cacic-account-manager-audience
 KEYCLOAK_M2M_ALLOWED_CLIENTS=cacic-event-manager-m2m,cacic-voto-m2m
@@ -91,7 +91,7 @@ const usersBody: M2MUserEnrollmentLookupRequest = {
 ## Requesting A Token
 
 ```bash
-curl -X POST "https://sso.cacic.dev.br/realms/cacic-sso/protocol/openid-connect/token" \
+curl -X POST "https://sso.cacic.com.br/realms/cacic-sso/protocol/openid-connect/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=cacic-event-manager-m2m" \
@@ -116,12 +116,12 @@ Decode the returned access token before wiring the API call. It must contain:
 ## API Calls
 
 ```bash
-curl -X POST "https://account.cacic.dev.br/api/v1/privacy/user/USER_ID/cookie-consent" \
+curl -X POST "https://account.cacic.com.br/api/v1/privacy/user/USER_ID/cookie-consent" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ```bash
-curl -X POST "https://account.cacic.dev.br/api/v1/privacy/user/USER_ID/settings/bulk" \
+curl -X POST "https://account.cacic.com.br/api/v1/privacy/user/USER_ID/settings/bulk" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

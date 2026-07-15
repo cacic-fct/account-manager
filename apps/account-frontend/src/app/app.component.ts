@@ -37,7 +37,7 @@ export class AppComponent {
 
     // Configure cookie banner
     this.cookieBannerConfig = {
-      privacyPolicyUrl: 'https://cacic.dev.br/legal/privacy-policy',
+      privacyPolicyUrl: 'https://cacic.com.br/legal/privacy-policy',
       isAuthenticated: () => this.authService.isAuthenticated(),
       shouldShow: async () => {
         const directives = this.privacyDirectiveService.directives();

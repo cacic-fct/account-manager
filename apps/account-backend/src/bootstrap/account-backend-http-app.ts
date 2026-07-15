@@ -139,12 +139,12 @@ function setupSwagger(app: INestApplication): void {
 
 function setupTrackingCors(app: INestApplication, configService: ConfigService, corsOrigins: string[]): void {
   const allowedOrigins = new Set([
-    'https://account.cacic.dev.br',
-    'https://cacic.dev.br',
-    'https://eventos.cacic.dev.br',
-    'https://manual.cacic.dev.br',
-    'https://secompp.cacic.dev.br',
-    'https://voto.cacic.dev.br',
+    'https://account.cacic.com.br',
+    'https://cacic.com.br',
+    'https://eventos.cacic.com.br',
+    'https://manual.cacic.com.br',
+    'https://secompp.cacic.com.br',
+    'https://voto.cacic.com.br',
     ...corsOrigins,
     ...readOriginList(configService.get<string>('CACIC_TRACKING_CORS_ORIGINS')),
   ]);

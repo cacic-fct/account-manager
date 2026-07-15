@@ -23,7 +23,7 @@ const disabledPreferences: CacicPrivacyPreferences = {
 };
 
 export const DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG: CacicAccountPrivacyConfig = {
-  apiBaseUrl: 'https://account.cacic.dev.br/api',
+  apiBaseUrl: 'https://account.cacic.com.br/api',
   initialPreferences: disabledPreferences,
   unavailablePreferences: disabledPreferences,
   requireCookieBannerAcceptance: true,

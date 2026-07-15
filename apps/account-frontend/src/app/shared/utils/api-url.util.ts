@@ -10,7 +10,7 @@ import { environment } from '../../../environments/environment';
  *
  * In production:
  * - Returns the full API URL from environment config
- * - e.g., 'https://account.cacic.dev.br/api'
+ * - e.g., 'https://account.cacic.com.br/api'
  *
  * @returns The base URL for API requests
  */
@@ -31,7 +31,7 @@ export function getApiBaseUrl(): string {
  *
  * @example
  * ```typescript
- * getApiUrl('/privacy/directives') // Dev: '/api/privacy/directives', Prod: 'https://account.cacic.dev.br/api/privacy/directives'
+ * getApiUrl('/privacy/directives') // Dev: '/api/privacy/directives', Prod: 'https://account.cacic.com.br/api/privacy/directives'
  * getApiUrl('privacy/directives')  // Same result (leading slash added automatically)
  * ```
  */

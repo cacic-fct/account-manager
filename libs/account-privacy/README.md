@@ -21,7 +21,7 @@ Add the provider to the application config when the account API base URL differs
 ```ts
 providers: [
   provideCacicAccountPrivacy({
-    apiBaseUrl: 'https://account.cacic.dev.br/api',
+    apiBaseUrl: 'https://account.cacic.com.br/api',
   }),
 ];
 ```
@@ -39,7 +39,7 @@ import { initCacicUmamiTracking } from '@cacic-fct/account-manager-privacy/umami
 
 await initCacicUmamiTracking({
   websiteId: 'your-umami-website-id',
-  domains: ['cacic.dev.br'],
+  domains: ['cacic.com.br'],
 });
 ```
 

@@ -27,7 +27,7 @@ export class EventManagerProfileSyncService {
   ) {
     this.profileUpdateUrl =
       this.configService.get<string>('EVENT_MANAGER_PROFILE_UPDATE_URL') ??
-      `${(this.configService.get<string>('EVENT_MANAGER_API_URL') ?? 'https://eventos.cacic.dev.br/api').replace(
+      `${(this.configService.get<string>('EVENT_MANAGER_API_URL') ?? 'https://eventos.cacic.com.br/api').replace(
         /\/+$/,
         '',
       )}/internal/account-profile/updated`;

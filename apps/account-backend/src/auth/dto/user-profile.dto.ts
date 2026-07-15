@@ -317,7 +317,7 @@ export class LogoutResponseDto {
   @ApiPropertyOptional({
     description: 'Keycloak end-session URL that the browser should visit after local session cleanup.',
     example:
-      'https://sso.cacic.dev.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager&post_logout_redirect_uri=https%3A%2F%2Faccount.cacic.dev.br%2Fapp%2F',
+      'https://sso.cacic.com.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager&post_logout_redirect_uri=https%3A%2F%2Faccount.cacic.com.br%2Fapp%2F',
   })
   logoutUrl?: string;
 }
@@ -325,7 +325,7 @@ export class LogoutResponseDto {
 export class LogoutRequestDto {
   @ApiPropertyOptional({
     description: 'Post-logout redirect URI accepted by the configured Keycloak client.',
-    example: 'https://account.cacic.dev.br/app/',
+    example: 'https://account.cacic.com.br/app/',
   })
   @IsOptional()
   @IsString()

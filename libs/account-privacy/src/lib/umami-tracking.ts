@@ -54,8 +54,8 @@ declare global {
   }
 }
 
-const DEFAULT_ACCOUNT_API_BASE_URL = 'https://account.cacic.dev.br/api';
-const DEFAULT_UMAMI_SCRIPT_SRC = 'https://a.cacic.dev.br/b.js';
+const DEFAULT_ACCOUNT_API_BASE_URL = 'https://account.cacic.com.br/api';
+const DEFAULT_UMAMI_SCRIPT_SRC = 'https://a.cacic.com.br/b.js';
 
 export async function initCacicUmamiTracking(config: CacicUmamiTrackingConfig): Promise<CacicUmamiTrackingResult> {
   if (!config.websiteId) {
@@ -347,8 +347,8 @@ function expireCookie(name: string, domain?: string): void {
 
 function resolveCurrentSharedCookieDomain(): string | undefined {
   const hostname = window.location.hostname;
-  if (hostname === 'cacic.dev.br' || hostname.endsWith('.cacic.dev.br')) {
-    return '.cacic.dev.br';
+  if (hostname === 'cacic.com.br' || hostname.endsWith('.cacic.com.br')) {
+    return '.cacic.com.br';
   }
 
   return undefined;
@@ -389,7 +389,7 @@ function loadRecorderScript(config: CacicUmamiTrackingConfig): void {
   const script = document.createElement('script');
   script.id = resolveScriptId(config, 'recorder');
   script.defer = true;
-  script.src = config.recorder.src ?? 'https://a.cacic.dev.br/recorder.js';
+  script.src = config.recorder.src ?? 'https://a.cacic.com.br/recorder.js';
   script.dataset['websiteId'] = config.websiteId;
   script.dataset['sampleRate'] = String(config.recorder.sampleRate ?? 1);
   script.dataset['maskLevel'] = config.recorder.maskLevel ?? 'moderate';
