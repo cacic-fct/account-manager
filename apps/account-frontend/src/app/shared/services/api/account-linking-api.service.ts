@@ -100,27 +100,41 @@ export class AccountLinkingApiService {
     return new Observable((subscriber) => {
       const eventSource = new EventSource(url, { withCredentials: true });
       let consecutiveErrors = 0;
+      let closed = false;
+
+      const close = () => {
+        if (!closed) {
+          closed = true;
+          eventSource.close();
+        }
+      };
 
       eventSource.onmessage = (event) => {
         try {
           subscriber.next(JSON.parse(event.data) as AccountMergeRequestDelta);
           consecutiveErrors = 0;
         } catch {
+          close();
           subscriber.error(new Error('Invalid account merge update received'));
-          eventSource.close();
         }
       };
 
-      eventSource.onerror = () => {
+      eventSource.onerror = (error) => {
+        if (eventSource.readyState === EventSource.CLOSED) {
+          close();
+          subscriber.error(error);
+          return;
+        }
+
         consecutiveErrors += 1;
         if (consecutiveErrors >= this.maxConsecutiveEventSourceErrors) {
+          close();
           subscriber.error(new Error('Account merge update stream repeatedly failed to reconnect'));
-          eventSource.close();
         }
         // EventSource reconnects automatically. Its next message is a current snapshot, so no polling is required.
       };
 
-      return () => eventSource.close();
+      return close;
     });
   }
 }

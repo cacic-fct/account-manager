@@ -91,7 +91,7 @@ export class AccountLinkingService {
     adminUserId: string,
   ): Promise<AccountMergeRequest> {
     const request = await this.createMergeRequest(requesterUserId, candidateUserId);
-    this.logAdminAuditEvent('created', adminUserId, { requesterUserId, candidateUserId });
+    this.logAdminAuditEvent('created', adminUserId, { requestId: request.id, requesterUserId, candidateUserId });
     return request;
   }
 

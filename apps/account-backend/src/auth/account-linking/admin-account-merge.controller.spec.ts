@@ -1,4 +1,5 @@
 import { AccountManagerPermission, AccountMergeRequest } from '@cacic/shared-types';
+import { Subject } from 'rxjs';
 import { ACCOUNT_PERMISSIONS_KEY } from '../guards/account-permission.guard';
 import { AccountLinkingService } from './account-linking.service';
 import { AdminAccountMergeController } from './admin-account-merge.controller';
@@ -25,6 +26,7 @@ describe('AdminAccountMergeController', () => {
     getAdminRequest: jest.fn(),
     confirmAdminMerge: jest.fn(),
     cancelAdminRequest: jest.fn(),
+    watchMergeRequest: jest.fn(),
   };
   const controller = new AdminAccountMergeController(accountLinkingService as unknown as AccountLinkingService);
 
@@ -77,5 +79,25 @@ describe('AdminAccountMergeController', () => {
     expect(accountLinkingService.getAdminRequest).toHaveBeenCalledWith(mergeRequest.id);
     expect(accountLinkingService.confirmAdminMerge).toHaveBeenCalledWith(mergeRequest.id, 'first@example.com', 'admin-user');
     expect(accountLinkingService.cancelAdminRequest).toHaveBeenCalledWith(mergeRequest.id, 'admin-user');
+  });
+
+  it('streams a complete initial request followed by field-level deltas', async () => {
+    const updates = new Subject<void>();
+    const processingRequest = { ...mergeRequest, status: 'pending_merge' as const };
+    accountLinkingService.getAdminRequest.mockResolvedValueOnce(mergeRequest).mockResolvedValueOnce(processingRequest);
+    accountLinkingService.watchMergeRequest.mockReturnValue(updates);
+
+    const stream = await controller.streamMergeRequest(mergeRequest.id);
+    const events: Array<{ data: unknown }> = [];
+    const subscription = stream.subscribe((event) => events.push(event));
+
+    updates.next();
+    await new Promise(setImmediate);
+
+    expect(events).toEqual([
+      { data: mergeRequest },
+      { data: { id: mergeRequest.id, status: 'pending_merge' } },
+    ]);
+    subscription.unsubscribe();
   });
 });

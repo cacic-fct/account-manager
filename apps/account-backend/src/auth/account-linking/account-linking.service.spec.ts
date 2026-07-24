@@ -204,6 +204,11 @@ describe('AccountLinkingService', () => {
     expect(serviceHarness.logAdminAuditEvent.mock.invocationCallOrder[1]).toBeGreaterThan(
       serviceHarness.confirmMergeRequest.mock.invocationCallOrder[0],
     );
+    expect(serviceHarness.logAdminAuditEvent).toHaveBeenNthCalledWith(1, 'created', 'admin-user', {
+      requestId: 'merge-request',
+      requesterUserId: 'requester-user',
+      candidateUserId: 'candidate-user',
+    });
   });
 
   it('does not record administrator cancellation for a no-op request', async () => {

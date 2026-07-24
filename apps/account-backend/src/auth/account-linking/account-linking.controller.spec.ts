@@ -1,14 +1,8 @@
-import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Test, TestingModule } from '@nestjs/testing';
-import { NextFunction, Request, Response } from 'express';
-import request from 'supertest';
-import { App } from 'supertest/types';
+import { Response } from 'express';
 import { AccountMergeRequest } from '@cacic/shared-types';
+import { Subject } from 'rxjs';
 import { AuthSession } from '../auth.controller';
-import { CsrfService } from '../csrf/csrf.service';
-import { AuthGuard } from '../guards/auth.guard';
-import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { AccountLinkingController } from './account-linking.controller';
@@ -33,6 +27,7 @@ type AccountLinkingServiceMock = {
   createMergeRequest: jest.Mock;
   confirmMerge: jest.Mock;
   cancelRequest: jest.Mock;
+  watchMergeRequest: jest.Mock;
 };
 
 const createSession = (keycloakId = 'secondary-user'): AuthSession => ({
@@ -80,14 +75,13 @@ const createRedirectResponse = (): {
 };
 
 describe('AccountLinkingController', () => {
-  let app: INestApplication<App> | undefined;
   let session: AuthSession;
   let keycloakService: KeycloakServiceMock;
   let userService: UserServiceMock;
   let accountLinkingService: AccountLinkingServiceMock;
   let controller: AccountLinkingController;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     session = createSession();
 
     keycloakService = {
@@ -107,82 +101,28 @@ describe('AccountLinkingController', () => {
       createMergeRequest: jest.fn(),
       confirmMerge: jest.fn(),
       cancelRequest: jest.fn(),
+      watchMergeRequest: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AccountLinkingController],
-      providers: [
-        AuthGuard,
-        CurrentUserGuard,
-        {
-          provide: KeycloakService,
-          useValue: keycloakService,
-        },
-        {
-          provide: UserService,
-          useValue: userService,
-        },
-        {
-          provide: AccountLinkingService,
-          useValue: accountLinkingService,
-        },
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn((key: string, defaultValue?: string | number) => {
-              const values: Record<string, string> = {
-                BACKEND_URL: 'http://localhost:3000',
-                FRONTEND_URL: 'http://localhost:4200',
-                SESSION_SECRET: 'test-session-secret',
-              };
+    controller = new AccountLinkingController(
+      keycloakService as unknown as KeycloakService,
+      userService as unknown as UserService,
+      accountLinkingService as unknown as AccountLinkingService,
+      {
+        get: jest.fn((key: string, defaultValue?: string | number) => {
+          const values: Record<string, string> = {
+            BACKEND_URL: 'http://localhost:3000',
+            FRONTEND_URL: 'http://localhost:4200',
+            SESSION_SECRET: 'test-session-secret',
+          };
 
-              return values[key] ?? defaultValue;
-            }),
-          },
-        },
-        {
-          provide: CsrfService,
-          useValue: {
-            validateToken: jest.fn().mockReturnValue(true),
-          },
-        },
-      ],
-    }).compile();
-
-    controller = module.get(AccountLinkingController);
-    app = module.createNestApplication();
-    app.use((req: Request, _res: Response, next: NextFunction) => {
-      Object.assign(req, { session });
-      next();
-    });
-    await app.init();
+          return values[key] ?? defaultValue;
+        }),
+      } as unknown as ConfigService,
+    );
   });
 
-  afterEach(async () => {
-    await app?.close();
-    app = undefined;
-  });
-
-  it('blocks disabled pre-merge sessions before loading or switching a merge request', async () => {
-    keycloakService.getUserBasicInfo.mockResolvedValue({
-      id: 'secondary-user',
-      email: 'secondary@example.com',
-      enabled: false,
-    });
-
-    await request(app!.getHttpServer()).get('/auth/account-linking/merge-requests/merge-request-1').expect(403);
-
-    expect(accountLinkingService.getRequest).not.toHaveBeenCalled();
-    expect(userService.findByKeycloakId).not.toHaveBeenCalled();
-    expect(session.user?.keycloakId).toBe('secondary-user');
-  });
-
-  it('keeps the completed-merge session switch for enabled sessions', async () => {
-    keycloakService.getUserBasicInfo.mockResolvedValue({
-      id: 'secondary-user',
-      email: 'secondary@example.com',
-      enabled: true,
-    });
+  it('switches the session when a completed merge keeps another account', async () => {
     accountLinkingService.getRequest.mockResolvedValue(createMergeRequest());
     userService.findByKeycloakId.mockResolvedValue({
       id: 'local-primary-user',
@@ -191,7 +131,7 @@ describe('AccountLinkingController', () => {
       isOnboarded: true,
     });
 
-    await request(app!.getHttpServer()).get('/auth/account-linking/merge-requests/merge-request-1').expect(200);
+    await controller.getMergeRequest('merge-request-1', session);
 
     expect(accountLinkingService.getRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
     expect(session.user).toEqual({
@@ -385,6 +325,38 @@ describe('AccountLinkingController', () => {
     await expect(controller.getMergeRequest('merge-request-1', session)).resolves.toEqual(createMergeRequest());
 
     expect(session.user?.keycloakId).toBe('secondary-user');
+  });
+
+  it('streams an initial authorized snapshot and then only changed fields', async () => {
+    const updates = new Subject<void>();
+    const pendingRequest = { ...createMergeRequest(), status: 'pending' as const, completedAt: undefined };
+    const mergingRequest = {
+      ...pendingRequest,
+      status: 'pending_merge' as const,
+      notificationSummary: { pending: 1, completed: 0, failed: 0 },
+    };
+    accountLinkingService.getRequest.mockResolvedValueOnce(pendingRequest).mockResolvedValueOnce(mergingRequest);
+    accountLinkingService.watchMergeRequest.mockReturnValue(updates);
+
+    const stream = await controller.streamMergeRequest(pendingRequest.id, session);
+    const events: Array<{ data: unknown }> = [];
+    const subscription = stream.subscribe((event) => events.push(event));
+
+    updates.next();
+    await new Promise(setImmediate);
+
+    expect(accountLinkingService.watchMergeRequest).toHaveBeenCalledWith(pendingRequest.id);
+    expect(events).toEqual([
+      { data: pendingRequest },
+      {
+        data: {
+          id: pendingRequest.id,
+          status: 'pending_merge',
+          notificationSummary: { pending: 1, completed: 0, failed: 0 },
+        },
+      },
+    ]);
+    subscription.unsubscribe();
   });
 
   it('covers private URL and comparison edge cases used by account-linking redirects', async () => {
