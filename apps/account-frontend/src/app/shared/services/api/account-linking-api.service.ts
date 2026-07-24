@@ -3,8 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type {
+  AdminCreateAccountMergeRequest,
   AccountLinkingStartUrl,
   AccountMergeRequest,
+  AccountMergeRequestDelta,
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
 } from '@cacic/shared-types';
@@ -17,6 +19,7 @@ import { AuthApiService } from './auth-api.service';
   providedIn: 'root',
 })
 export class AccountLinkingApiService {
+  private readonly maxConsecutiveEventSourceErrors = 5;
   private readonly baseUrl = getApiBaseUrl();
   private http = inject(HttpClient);
   private cacheService = inject(CacheService);
@@ -36,6 +39,10 @@ export class AccountLinkingApiService {
     return this.http.get<AccountMergeRequest>(`${this.baseUrl}/auth/account-linking/merge-requests/${id}`, {
       withCredentials: true,
     });
+  }
+
+  watchAccountMergeRequest(id: string): Observable<AccountMergeRequestDelta> {
+    return this.createMergeRequestEventStream(`${this.baseUrl}/auth/account-linking/merge-requests/${id}/events`);
   }
 
   confirmAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
@@ -59,5 +66,75 @@ export class AccountLinkingApiService {
         withCredentials: true,
       },
     );
+  }
+
+  createAdminAccountMerge(dto: AdminCreateAccountMergeRequest): Observable<AccountMergeRequest> {
+    return this.http.post<AccountMergeRequest>(`${this.baseUrl}/admin/account-merges`, dto, {
+      withCredentials: true,
+    });
+  }
+
+  getAdminAccountMergeRequest(id: string): Observable<AccountMergeRequest> {
+    return this.http.get<AccountMergeRequest>(`${this.baseUrl}/admin/account-merges/${id}`, {
+      withCredentials: true,
+    });
+  }
+
+  watchAdminAccountMergeRequest(id: string): Observable<AccountMergeRequestDelta> {
+    return this.createMergeRequestEventStream(`${this.baseUrl}/admin/account-merges/${id}/events`);
+  }
+
+  confirmAdminAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
+    return this.http.post<ConfirmAccountMergeResponse>(`${this.baseUrl}/admin/account-merges/${id}/confirm`, dto, {
+      withCredentials: true,
+    });
+  }
+
+  cancelAdminAccountMerge(id: string): Observable<{ success: true }> {
+    return this.http.post<{ success: true }>(`${this.baseUrl}/admin/account-merges/${id}/cancel`, {}, {
+      withCredentials: true,
+    });
+  }
+
+  private createMergeRequestEventStream(url: string): Observable<AccountMergeRequestDelta> {
+    return new Observable((subscriber) => {
+      const eventSource = new EventSource(url, { withCredentials: true });
+      let consecutiveErrors = 0;
+      let closed = false;
+
+      const close = () => {
+        if (!closed) {
+          closed = true;
+          eventSource.close();
+        }
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          subscriber.next(JSON.parse(event.data) as AccountMergeRequestDelta);
+          consecutiveErrors = 0;
+        } catch {
+          close();
+          subscriber.error(new Error('Invalid account merge update received'));
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        if (eventSource.readyState === EventSource.CLOSED) {
+          close();
+          subscriber.error(error);
+          return;
+        }
+
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= this.maxConsecutiveEventSourceErrors) {
+          close();
+          subscriber.error(new Error('Account merge update stream repeatedly failed to reconnect'));
+        }
+        // EventSource reconnects automatically. Its next message is a current snapshot, so no polling is required.
+      };
+
+      return close;
+    });
   }
 }

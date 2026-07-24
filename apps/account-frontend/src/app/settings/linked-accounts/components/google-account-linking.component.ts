@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AccountMergeRequest } from '@cacic/shared-types';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../../shared/services/api.service';
 import { AuthService } from '../../../shared/services/auth/auth.service';
 
@@ -33,6 +35,7 @@ import { AuthService } from '../../../shared/services/auth/auth.service';
   ],
   templateUrl: './google-account-linking.component.html',
   styleUrl: './google-account-linking.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   private readonly apiService = inject(ApiService);
@@ -40,14 +43,14 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly currentUser = this.authService.currentUser;
   protected readonly isLoading = signal(false);
   protected readonly isConfirming = signal(false);
   protected readonly mergeRequest = signal<AccountMergeRequest | null>(null);
   protected readonly selectedPrimaryEmail = signal('');
-  private activeMergeRequestId = '';
-  private pollTimer?: number;
+  private mergeUpdatesSubscription?: Subscription;
   protected readonly primaryScore = computed(() => {
     const request = this.mergeRequest();
     return request?.scores.find((score) => score.userId === request.primaryUserId);
@@ -83,7 +86,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopPolling();
+    this.stopMergeUpdates();
   }
 
   protected startLinking(): void {
@@ -114,7 +117,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.isConfirming.set(false);
         this.mergeRequest.set(response.request);
-        this.startPolling(response.request.id);
+        this.startMergeUpdates(response.request.id);
         this.snackBar.open('Unificação iniciada. Vamos acompanhar por aqui.', 'OK', {
           duration: 6000,
         });
@@ -136,6 +139,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
 
     this.apiService.cancelAccountMerge(request.id).subscribe({
       next: () => {
+        this.stopMergeUpdates();
         this.mergeRequest.set(null);
         this.clearQueryParams();
       },
@@ -201,7 +205,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         );
         this.isLoading.set(false);
         if (this.isProcessing(request)) {
-          this.startPolling(request.id);
+          this.startMergeUpdates(request.id);
         }
       },
       error: () => {
@@ -214,34 +218,33 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
     });
   }
 
-  private startPolling(requestId: string): void {
-    this.activeMergeRequestId = requestId;
-    this.stopPolling();
-    this.pollTimer = window.setInterval(() => {
-      if (!this.activeMergeRequestId) {
-        return;
-      }
+  private startMergeUpdates(requestId: string): void {
+    this.stopMergeUpdates();
+    if (!this.isBrowser) {
+      return;
+    }
 
-      this.apiService.getAccountMergeRequest(this.activeMergeRequestId).subscribe({
-        next: (request) => {
-          this.mergeRequest.set(request);
-          if (!this.isProcessing(request)) {
-            this.stopPolling();
-            if (request.status === 'completed') {
-              this.authService.refresh();
-              this.clearQueryParams();
-            }
+    this.mergeUpdatesSubscription = this.apiService.watchAccountMergeRequest(requestId).subscribe({
+      next: (delta) => {
+        const request = { ...this.mergeRequest(), ...delta } as AccountMergeRequest;
+        this.mergeRequest.set(request);
+        if (!this.isProcessing(request)) {
+          this.stopMergeUpdates();
+          if (request.status === 'completed') {
+            this.authService.refresh();
+            this.clearQueryParams();
           }
-        },
-      });
-    }, 10000);
+        }
+      },
+      error: () => {
+        this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'OK', { duration: 7000 });
+      },
+    });
   }
 
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      window.clearInterval(this.pollTimer);
-      this.pollTimer = undefined;
-    }
+  private stopMergeUpdates(): void {
+    this.mergeUpdatesSubscription?.unsubscribe();
+    this.mergeUpdatesSubscription = undefined;
   }
 
   private clearQueryParams(): void {

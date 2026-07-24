@@ -30,6 +30,11 @@ export const adminRoutes: Routes = [
       import('./account-deletion/admin-account-deletion.component').then((m) => m.AdminAccountDeletionComponent),
   },
   {
+    path: 'account-merges',
+    loadComponent: () =>
+      import('./account-merges/admin-account-merges.component').then((m) => m.AdminAccountMergesComponent),
+  },
+  {
     path: 'keycloak-permissions',
     loadComponent: () =>
       import('./keycloak-permissions/keycloak-permissions.component').then((m) => m.KeycloakPermissionsComponent),

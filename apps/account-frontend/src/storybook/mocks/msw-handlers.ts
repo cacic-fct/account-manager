@@ -34,6 +34,8 @@ import {
   type PermissionGroupMembershipCreateRequest,
   type PermissionGroupMembershipUpdateRequest,
   type PermissionGroupRoleGrantUpdateRequest,
+  type AccountMergeRequest,
+  type AccountMergeStatus,
 } from '@cacic/shared-types';
 
 const API_BASE = '*/api';
@@ -61,6 +63,13 @@ export type DiscordManagedRoleOverridesStoryState = {
   responseDelayMs: number;
 };
 
+export type AdminAccountMergesStoryState = {
+  mergeState: 'selection' | 'pending' | 'pending_score' | 'pending_merge' | 'completed' | 'failed' | 'expired';
+  searchMode: 'matches' | 'empty' | 'error';
+  failureMode: 'none' | 'create' | 'confirm' | 'cancel';
+  responseDelayMs: number;
+};
+
 const defaultDiscordManagedRoleOverridesStoryState: DiscordManagedRoleOverridesStoryState = {
   overrideMode: 'balanced',
   searchMode: 'matches',
@@ -68,8 +77,16 @@ const defaultDiscordManagedRoleOverridesStoryState: DiscordManagedRoleOverridesS
   responseDelayMs: 0,
 };
 
+const defaultAdminAccountMergesStoryState: AdminAccountMergesStoryState = {
+  mergeState: 'selection',
+  searchMode: 'matches',
+  failureMode: 'none',
+  responseDelayMs: 0,
+};
+
 let keycloakPermissionsStoryState = defaultKeycloakPermissionsStoryState;
 let discordManagedRoleOverridesStoryState = defaultDiscordManagedRoleOverridesStoryState;
+let adminAccountMergesStoryState = defaultAdminAccountMergesStoryState;
 
 export const setKeycloakPermissionsStoryState = (state: Partial<KeycloakPermissionsStoryState>): void => {
   keycloakPermissionsStoryState = {
@@ -87,6 +104,13 @@ export const setDiscordManagedRoleOverridesStoryState = (
   };
 };
 
+export const setAdminAccountMergesStoryState = (state: Partial<AdminAccountMergesStoryState>): void => {
+  adminAccountMergesStoryState = {
+    ...defaultAdminAccountMergesStoryState,
+    ...state,
+  };
+};
+
 const delayForStory = async (): Promise<void> => {
   if (keycloakPermissionsStoryState.responseDelayMs > 0) {
     await delay(keycloakPermissionsStoryState.responseDelayMs);
@@ -96,6 +120,12 @@ const delayForStory = async (): Promise<void> => {
 const delayForDiscordManagedRoleOverridesStory = async (): Promise<void> => {
   if (discordManagedRoleOverridesStoryState.responseDelayMs > 0) {
     await delay(discordManagedRoleOverridesStoryState.responseDelayMs);
+  }
+};
+
+const delayForAdminAccountMergesStory = async (): Promise<void> => {
+  if (adminAccountMergesStoryState.responseDelayMs > 0) {
+    await delay(adminAccountMergesStoryState.responseDelayMs);
   }
 };
 
@@ -157,6 +187,63 @@ const getDiscordManagedRoleOverrides = () => {
   });
 
   return [...mockDiscordManagedRoleOverrides, ...extraOverrides];
+};
+
+const getAdminAccountMergeRequest = (): AccountMergeRequest => {
+  const [firstUser, secondUser] = mockKeycloakPermissionUsers;
+  const status = adminAccountMergesStoryState.mergeState as AccountMergeStatus;
+  const isPending = status === 'pending';
+  const hasScores = ['pending_score', 'pending_merge', 'completed', 'failed', 'expired'].includes(status);
+  const primaryEmail = firstUser?.email ?? 'conta-principal@example.com';
+  const secondaryEmail = secondUser?.email ?? 'conta-secundaria@example.com';
+
+  return {
+    id: 'storybook-account-merge-1',
+    status,
+    requesterUserId: firstUser?.id ?? 'storybook-account-1',
+    candidateUserId: secondUser?.id ?? 'storybook-account-2',
+    primaryUserId: firstUser?.id ?? 'storybook-account-1',
+    secondaryUserId: secondUser?.id ?? 'storybook-account-2',
+    primaryEmailOptions: [primaryEmail, secondaryEmail],
+    selectedPrimaryEmail: isPending ? undefined : primaryEmail,
+    secondaryEmails: isPending ? [] : [secondaryEmail],
+    notificationSummary:
+      status === 'pending_merge'
+        ? { pending: 2, completed: 1, failed: 0 }
+        : { pending: 0, completed: status === 'completed' ? 3 : 0, failed: status === 'failed' ? 1 : 0 },
+    scores: hasScores
+      ? [
+          {
+            userId: firstUser?.id ?? 'storybook-account-1',
+            email: primaryEmail,
+            displayName: firstUser?.displayName ?? 'Conta principal',
+            score: 86,
+            contributions: [
+              { source: 'CACiC', label: 'Cadastro completo', points: 25 },
+              { source: 'CACiC', label: 'Vínculo estudantil validado', points: 30 },
+              { source: 'CACiC', label: 'Conta Discord verificada', points: 15 },
+              { source: 'CACiC', label: 'Perfil consolidado', points: 16 },
+            ],
+          },
+          {
+            userId: secondUser?.id ?? 'storybook-account-2',
+            email: secondaryEmail,
+            displayName: secondUser?.displayName ?? 'Conta secundária',
+            score: 43,
+            contributions: [
+              { source: 'CACiC', label: 'Cadastro parcial', points: 15 },
+              { source: 'CACiC', label: 'Conta Discord verificada', points: 15 },
+              { source: 'CACiC', label: 'Perfil com foto', points: 5 },
+              { source: 'CACiC', label: 'Conta estabelecida', points: 8 },
+            ],
+          },
+        ]
+      : [],
+    externalScores: [],
+    expiresAt: '2026-07-24T12:00:00.000Z',
+    completedAt: status === 'completed' ? '2026-07-23T13:05:00.000Z' : undefined,
+    createdAt: '2026-07-23T12:00:00.000Z',
+  };
 };
 
 export const authHandlers = {
@@ -336,6 +423,61 @@ export const discordManagedRoleOverrideHandlers = [
       mockDiscordManagedRoleOverrides[0];
 
     return HttpResponse.json({ deleted: true, id: String(params['id']), userId: existingOverride.userId });
+  }),
+];
+
+export const adminAccountMergeHandlers = [
+  http.get(`${API_BASE}/admin/permissions/users`, async ({ request }) => {
+    await delayForAdminAccountMergesStory();
+    if (adminAccountMergesStoryState.searchMode === 'error') {
+      return HttpResponse.json({ message: 'Falha ao buscar contas no Keycloak' }, { status: 500 });
+    }
+
+    if (adminAccountMergesStoryState.searchMode === 'empty') {
+      return HttpResponse.json([]);
+    }
+
+    const query = new URL(request.url).searchParams.get('query') ?? '';
+    return HttpResponse.json(searchPermissionUsers(mockKeycloakPermissionUsers, query));
+  }),
+  http.post(`${API_BASE}/admin/account-merges`, async () => {
+    await delayForAdminAccountMergesStory();
+    if (adminAccountMergesStoryState.failureMode === 'create') {
+      return HttpResponse.json({ message: 'Não foi possível preparar a unificação' }, { status: 500 });
+    }
+
+    return HttpResponse.json({ ...getAdminAccountMergeRequest(), status: 'pending' });
+  }),
+  http.get(`${API_BASE}/admin/account-merges/:id`, async () => {
+    await delayForAdminAccountMergesStory();
+    return HttpResponse.json(getAdminAccountMergeRequest());
+  }),
+  http.post(`${API_BASE}/admin/account-merges/:id/confirm`, async () => {
+    await delayForAdminAccountMergesStory();
+    if (adminAccountMergesStoryState.failureMode === 'confirm') {
+      return HttpResponse.json({ message: 'Não foi possível confirmar a unificação' }, { status: 500 });
+    }
+
+    if (adminAccountMergesStoryState.mergeState === 'selection') {
+      adminAccountMergesStoryState = { ...adminAccountMergesStoryState, mergeState: 'pending_score' };
+    }
+
+    const request = getAdminAccountMergeRequest();
+    return HttpResponse.json({
+      request,
+      primaryUserId: request.primaryUserId,
+      mergedUserId: request.secondaryUserId,
+      primaryEmail: request.selectedPrimaryEmail ?? request.primaryEmailOptions[0],
+      secondaryEmails: request.secondaryEmails,
+    });
+  }),
+  http.post(`${API_BASE}/admin/account-merges/:id/cancel`, async () => {
+    await delayForAdminAccountMergesStory();
+    if (adminAccountMergesStoryState.failureMode === 'cancel') {
+      return HttpResponse.json({ message: 'Não foi possível cancelar a unificação' }, { status: 500 });
+    }
+
+    return HttpResponse.json({ success: true });
   }),
 ];
 

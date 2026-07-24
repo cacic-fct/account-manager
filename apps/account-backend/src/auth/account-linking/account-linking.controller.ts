@@ -5,17 +5,20 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  MessageEvent,
   Param,
   Post,
   Query,
   Res,
   Session,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
+import { AccountMergeRequest, AccountMergeRequestDelta, LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { Response } from 'express';
+import { concat, concatMap, finalize, from, map, Observable, of, scan, takeWhile } from 'rxjs';
 import { createAppConfig, AppConfig } from '../../config/app.config';
 import { ConfigService } from '@nestjs/config';
 import { Auth } from '../guards/auth.decorator';
@@ -26,7 +29,7 @@ import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { AccountLinkingService } from './account-linking.service';
-import { redirectAfterSessionSave } from '../session-redirect.utils';
+import { redirectAfterSessionSave, saveSession } from '../session-redirect.utils';
 import {
   AccountLinkingStartUrlDto,
   AccountMergeRequestDto,
@@ -170,10 +173,46 @@ export class AccountLinkingController {
   @ApiOperation({ summary: 'Get a pending account merge request' })
   @ApiResponse({ status: 200 })
   @Auth()
-  @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('merge-requests/:id')
   async getMergeRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<AccountMergeRequestDto> {
+    return this.getMergeRequestForSession(id, session);
+  }
+
+  @ApiOperation({ summary: 'Stream account merge status updates' })
+  @Auth()
+  @SkipCsrf()
+  @Sse('merge-requests/:id/events')
+  async streamMergeRequest(
+    @Param('id') id: string,
+    @Session() session: AuthSession,
+  ): Promise<Observable<MessageEvent>> {
+    const watch = await this.accountLinkingService.openMergeRequestWatch(id);
+
+    try {
+      const initialRequest = await this.getMergeRequestForSession(id, session);
+
+      return concat(
+        of(initialRequest),
+        watch.updates.pipe(concatMap(() => from(this.getMergeRequestForSession(id, session)))),
+      ).pipe(
+        takeWhile((request) => !isTerminalMergeRequest(request), true),
+        // A stream event carries only fields that changed since the preceding event.
+        // The first event is a complete snapshot, after the Redis subscription is ready.
+        scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
+          previous: null as AccountMergeRequest | null,
+          delta: null as AccountMergeRequestDelta | null,
+        }),
+        map(({ delta }) => ({ data: delta! })),
+        finalize(() => watch.close()),
+      );
+    } catch (error) {
+      watch.close();
+      throw error;
+    }
+  }
+
+  private async getMergeRequestForSession(id: string, session: AuthSession): Promise<AccountMergeRequestDto> {
     const request = await this.accountLinkingService.getRequest(id, session.user!.keycloakId);
 
     if (
@@ -182,6 +221,7 @@ export class AccountLinkingController {
       session.user?.keycloakId !== request.primaryUserId
     ) {
       await this.switchSessionToUser(session, request.primaryUserId);
+      await saveSession(session);
     }
 
     return request;
@@ -260,4 +300,26 @@ export class AccountLinkingController {
       isOnboarded: primaryUser.isOnboarded,
     };
   }
+}
+
+function toMergeRequestDelta(
+  previous: AccountMergeRequest | null,
+  current: AccountMergeRequest,
+): AccountMergeRequestDelta {
+  if (!previous) {
+    return current;
+  }
+
+  const delta: AccountMergeRequestDelta = { id: current.id };
+  for (const key of Object.keys(current) as Array<keyof AccountMergeRequest>) {
+    if (key !== 'id' && JSON.stringify(previous[key]) !== JSON.stringify(current[key])) {
+      Object.assign(delta, { [key]: current[key] });
+    }
+  }
+
+  return delta;
+}
+
+function isTerminalMergeRequest(request: AccountMergeRequest): boolean {
+  return ['completed', 'cancelled', 'expired', 'failed'].includes(request.status);
 }

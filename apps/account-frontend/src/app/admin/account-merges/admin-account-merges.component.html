@@ -1,0 +1,116 @@
+<mat-toolbar color="primary" class="toolbar">
+  <button mat-icon-button type="button" routerLink="/admin" aria-label="Voltar">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span>Unificação de contas</span>
+</mat-toolbar>
+
+<main class="page-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Unificar duas contas existentes</mat-card-title>
+      <mat-card-subtitle>Apenas super administradores podem iniciar esta operação.</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (mergeRequest(); as request) {
+        <section class="merge-review">
+          @if (isProcessing()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p>Processando a unificação e notificando os sistemas externos.</p>
+          }
+
+          @if (request.status === 'pending') {
+            <mat-form-field appearance="outline">
+              <mat-label>E-mail principal</mat-label>
+              <mat-select [value]="selectedPrimaryEmail()" (selectionChange)="selectedPrimaryEmail.set($event.value)">
+                @for (email of request.primaryEmailOptions; track email) {
+                  <mat-option [value]="email">{{ email }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          } @else if (request.selectedPrimaryEmail) {
+            <p><strong>E-mail principal:</strong> {{ request.selectedPrimaryEmail }}</p>
+          }
+
+          @if (request.scores.length) {
+            <div class="score-grid">
+              @for (score of request.scores; track score.userId) {
+                <div class="score-panel" [class.winner]="score.userId === request.primaryUserId">
+                  <strong>{{ score.displayName || score.email }}</strong>
+                  <span>{{ score.email }}</span>
+                  <span>{{ score.score }} pontos</span>
+                  <mat-progress-bar mode="determinate" [value]="progressValue(score.score)"></mat-progress-bar>
+                </div>
+              }
+            </div>
+          }
+
+          @if (request.status === 'completed') {
+            <p class="success">Contas unificadas e notificações externas concluídas.</p>
+          } @else if (request.status === 'expired') {
+            <p class="warning">Esta solicitação expirou. Inicie uma nova unificação para continuar.</p>
+          } @else if (request.status === 'failed') {
+            <p class="warning">A unificação falhou por segurança. Revise as contas e tente novamente.</p>
+          }
+        </section>
+      } @else {
+        <p class="warning">
+          A conta com a maior pontuação permanecerá ativa. Em caso de empate, a primeira conta selecionada será mantida.
+        </p>
+
+        <div class="picker-grid">
+          <app-keycloak-permissions-person-picker
+            ariaLabel="Selecionar a primeira conta"
+            emptyHint="Busque a primeira conta"
+            [searchForm]="firstSearchForm"
+            [searching]="firstSearching()"
+            [selectedUser]="firstUser()"
+            [users]="firstUsers()"
+            (search)="searchFirstUser()"
+            (userSelected)="firstUser.set($event)" />
+
+          <app-keycloak-permissions-person-picker
+            ariaLabel="Selecionar a segunda conta"
+            emptyHint="Busque a segunda conta"
+            [searchForm]="secondSearchForm"
+            [searching]="secondSearching()"
+            [selectedUser]="secondUser()"
+            [users]="secondUsers()"
+            (search)="searchSecondUser()"
+            (userSelected)="secondUser.set($event)" />
+        </div>
+
+        @if (firstUser(); as user) {
+          <div class="selected-account">
+            <mat-icon>looks_one</mat-icon>
+            <span><strong>{{ user.displayName }}</strong><small>{{ user.email }}</small></span>
+          </div>
+        }
+        @if (secondUser(); as user) {
+          <div class="selected-account">
+            <mat-icon>looks_two</mat-icon>
+            <span><strong>{{ user.displayName }}</strong><small>{{ user.email }}</small></span>
+          </div>
+        }
+      }
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      @if (!mergeRequest()) {
+        <button mat-flat-button color="primary" type="button" [disabled]="!canCreate() || creating()" (click)="createMergeRequest()">
+          @if (creating()) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>merge_type</mat-icon> }
+          Preparar unificação
+        </button>
+      } @else if (mergeRequest()?.status === 'pending') {
+        <button mat-button type="button" (click)="cancelMerge()">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" [disabled]="confirming() || !selectedPrimaryEmail()" (click)="confirmMerge()">
+          @if (confirming()) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>check</mat-icon> }
+          Confirmar unificação
+        </button>
+      } @else if (!isProcessing()) {
+        <button mat-flat-button color="primary" type="button" (click)="reset()"><mat-icon>add</mat-icon>Nova unificação</button>
+      }
+    </mat-card-actions>
+  </mat-card>
+</main>
