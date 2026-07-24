@@ -29,6 +29,7 @@ import type {
   UserRoles,
   RoleSelectionResponse,
   AccountMergeRequest,
+  AdminCreateAccountMergeRequest,
   AccountLinkingStartUrl,
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
@@ -86,6 +87,7 @@ export type {
   UserRoles,
   RoleSelectionResponse,
   AccountMergeRequest,
+  AdminCreateAccountMergeRequest,
   AccountLinkingStartUrl,
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
@@ -188,6 +190,22 @@ export class ApiService {
 
   cancelAccountMerge(id: string): Observable<{ success: true }> {
     return this.accountLinkingApi.cancelAccountMerge(id);
+  }
+
+  createAdminAccountMerge(dto: AdminCreateAccountMergeRequest): Observable<AccountMergeRequest> {
+    return this.accountLinkingApi.createAdminAccountMerge(dto);
+  }
+
+  getAdminAccountMergeRequest(id: string): Observable<AccountMergeRequest> {
+    return this.accountLinkingApi.getAdminAccountMergeRequest(id);
+  }
+
+  confirmAdminAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
+    return this.accountLinkingApi.confirmAdminAccountMerge(id, dto);
+  }
+
+  cancelAdminAccountMerge(id: string): Observable<{ success: true }> {
+    return this.accountLinkingApi.cancelAdminAccountMerge(id);
   }
 
   getAdminStatus(): Observable<{ isAdmin: boolean; adminGroups: string[] }> {

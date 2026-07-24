@@ -53,6 +53,11 @@ export interface ConfirmAccountMergeRequest {
   primaryEmail: string;
 }
 
+export interface AdminCreateAccountMergeRequest {
+  requesterUserId: string;
+  candidateUserId: string;
+}
+
 export interface ConfirmAccountMergeResponse {
   request: AccountMergeRequest;
   primaryUserId: string;

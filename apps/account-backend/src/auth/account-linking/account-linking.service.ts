@@ -78,6 +78,10 @@ export class AccountLinkingService {
     return this.toDto(request, primaryEmailOptions);
   }
 
+  async createAdminMergeRequest(requesterUserId: string, candidateUserId: string): Promise<AccountMergeRequest> {
+    return this.createMergeRequest(requesterUserId, candidateUserId);
+  }
+
   async getRequest(requestId: string, sessionUserId: string): Promise<AccountMergeRequest> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
@@ -87,7 +91,29 @@ export class AccountLinkingService {
       throw new NotFoundException('Merge request not found');
     }
 
-    return this.toDto(request, undefined, await this.getNotificationSummary(request.id));
+    const [primaryEmailOptions, notificationSummary] = await Promise.all([
+      request.status === 'pending' ? this.getEmailOptionsForRequest(request) : undefined,
+      this.getNotificationSummary(request.id),
+    ]);
+
+    return this.toDto(request, primaryEmailOptions, notificationSummary);
+  }
+
+  async getAdminRequest(requestId: string): Promise<AccountMergeRequest> {
+    const request = await this.prisma.accountMergeRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Merge request not found');
+    }
+
+    const [primaryEmailOptions, notificationSummary] = await Promise.all([
+      request.status === 'pending' ? this.getEmailOptionsForRequest(request) : undefined,
+      this.getNotificationSummary(request.id),
+    ]);
+
+    return this.toDto(request, primaryEmailOptions, notificationSummary);
   }
 
   async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {
@@ -109,6 +135,25 @@ export class AccountLinkingService {
     });
   }
 
+  async cancelAdminRequest(requestId: string): Promise<void> {
+    const request = await this.prisma.accountMergeRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Merge request not found');
+    }
+
+    if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
+      return;
+    }
+
+    await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId },
+      data: { status: 'cancelled' },
+    });
+  }
+
   async confirmMerge(
     requestId: string,
     sessionUserId: string,
@@ -120,11 +165,38 @@ export class AccountLinkingService {
     primaryEmail: string;
     secondaryEmails: string[];
   }> {
+    return this.confirmMergeRequest(requestId, primaryEmail, sessionUserId);
+  }
+
+  async confirmAdminMerge(
+    requestId: string,
+    primaryEmail: string,
+  ): Promise<{
+    request: AccountMergeRequest;
+    primaryUserId: string;
+    mergedUserId: string;
+    primaryEmail: string;
+    secondaryEmails: string[];
+  }> {
+    return this.confirmMergeRequest(requestId, primaryEmail);
+  }
+
+  private async confirmMergeRequest(
+    requestId: string,
+    primaryEmail: string,
+    requesterUserId?: string,
+  ): Promise<{
+    request: AccountMergeRequest;
+    primaryUserId: string;
+    mergedUserId: string;
+    primaryEmail: string;
+    secondaryEmails: string[];
+  }> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
     });
 
-    if (!request || request.requesterUserId !== sessionUserId) {
+    if (!request || (requesterUserId && request.requesterUserId !== requesterUserId)) {
       throw new NotFoundException('Merge request not found');
     }
 
@@ -134,7 +206,7 @@ export class AccountLinkingService {
 
     if (request.expiresAt.getTime() < Date.now()) {
       await this.prisma.accountMergeRequest.updateMany({
-        where: { id: requestId, requesterUserId: sessionUserId },
+        where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
         data: { status: 'expired' },
       });
       throw new BadRequestException('Merge request expired');
@@ -148,7 +220,7 @@ export class AccountLinkingService {
     }
 
     await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, requesterUserId: sessionUserId },
+      where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
       data: {
         status: 'pending_score',
         selectedPrimaryEmail: normalizedPrimaryEmail,
@@ -156,7 +228,7 @@ export class AccountLinkingService {
     });
 
     const updated = await this.prisma.accountMergeRequest.findFirstOrThrow({
-      where: { id: requestId, requesterUserId: sessionUserId },
+      where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
     });
 
     await this.accountMergeQueue.add(

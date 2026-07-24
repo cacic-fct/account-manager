@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { AuthController } from './auth.controller';
 import { AccountLinkingController } from './account-linking/account-linking.controller';
+import { AdminAccountMergeController } from './account-linking/admin-account-merge.controller';
 import { AccountLinkingService } from './account-linking/account-linking.service';
 import { AccountLinkingProcessor } from './account-linking/account-linking.processor';
 import { ACCOUNT_MERGE_QUEUE } from './account-linking/account-linking.queue';
@@ -24,7 +25,7 @@ import { TotpService } from '../totp/totp.service';
 
 @Module({
   imports: [ConfigModule, CsrfModule, JwtModule, BullModule.registerQueue({ name: ACCOUNT_MERGE_QUEUE })],
-  controllers: [AuthController, AccountLinkingController],
+  controllers: [AuthController, AccountLinkingController, AdminAccountMergeController],
   providers: [
     KeycloakService,
     UserService,

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type {
+  AdminCreateAccountMergeRequest,
   AccountLinkingStartUrl,
   AccountMergeRequest,
   ConfirmAccountMergeRequest,
@@ -59,5 +60,29 @@ export class AccountLinkingApiService {
         withCredentials: true,
       },
     );
+  }
+
+  createAdminAccountMerge(dto: AdminCreateAccountMergeRequest): Observable<AccountMergeRequest> {
+    return this.http.post<AccountMergeRequest>(`${this.baseUrl}/admin/account-merges`, dto, {
+      withCredentials: true,
+    });
+  }
+
+  getAdminAccountMergeRequest(id: string): Observable<AccountMergeRequest> {
+    return this.http.get<AccountMergeRequest>(`${this.baseUrl}/admin/account-merges/${id}`, {
+      withCredentials: true,
+    });
+  }
+
+  confirmAdminAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
+    return this.http.post<ConfirmAccountMergeResponse>(`${this.baseUrl}/admin/account-merges/${id}/confirm`, dto, {
+      withCredentials: true,
+    });
+  }
+
+  cancelAdminAccountMerge(id: string): Observable<{ success: true }> {
+    return this.http.post<{ success: true }>(`${this.baseUrl}/admin/account-merges/${id}/cancel`, {}, {
+      withCredentials: true,
+    });
   }
 }
