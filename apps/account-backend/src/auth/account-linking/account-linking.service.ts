@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import type { AccountMergeRequest, AccountMergeUserScore, ExternalAccountMergeScore } from '@cacic/shared-types';
+import { isUnespEmail } from '@cacic/shared-utils';
 import { PrismaService } from '../../prisma/prisma.service';
 import { KeycloakFederatedIdentity, KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
@@ -28,6 +29,8 @@ interface MergeDecision {
   scores: AccountMergeUserScore[];
   externalScores: ExternalAccountMergeScore[];
 }
+
+const UNESP_KEYCLOAK_GROUP_PATH = '/Unesp';
 
 @Injectable()
 export class AccountLinkingService {
@@ -281,6 +284,10 @@ export class AccountLinkingService {
         ),
         { skipValidation: true },
       );
+
+      if (emailOptions.some(isUnespEmail)) {
+        await this.keycloakService.addUserToGroupPath(decision.primaryUserId, UNESP_KEYCLOAK_GROUP_PATH);
+      }
 
       await this.keycloakService.updateUserAttributes(
         decision.secondaryUserId,
