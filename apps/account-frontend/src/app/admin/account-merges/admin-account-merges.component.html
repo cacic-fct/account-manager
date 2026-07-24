@@ -48,6 +48,8 @@
 
           @if (request.status === 'completed') {
             <p class="success">Contas unificadas e notificações externas concluídas.</p>
+          } @else if (request.status === 'expired') {
+            <p class="warning">Esta solicitação expirou. Inicie uma nova unificação para continuar.</p>
           } @else if (request.status === 'failed') {
             <p class="warning">A unificação falhou por segurança. Revise as contas e tente novamente.</p>
           }

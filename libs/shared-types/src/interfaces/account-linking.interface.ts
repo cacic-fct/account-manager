@@ -49,6 +49,8 @@ export interface AccountMergeRequest {
   createdAt: string;
 }
 
+export type AccountMergeRequestDelta = Pick<AccountMergeRequest, 'id'> & Partial<Omit<AccountMergeRequest, 'id'>>;
+
 export interface ConfirmAccountMergeRequest {
   primaryEmail: string;
 }

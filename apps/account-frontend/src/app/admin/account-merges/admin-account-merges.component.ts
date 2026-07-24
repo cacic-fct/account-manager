@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, WritableSignal, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, WritableSignal, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AccountMergeRequest, KeycloakPermissionUser } from '@cacic/shared-types';
@@ -13,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
@@ -41,6 +43,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
   private readonly apiService = inject(ApiService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   protected readonly firstSearchForm = this.formBuilder.nonNullable.group({
     query: ['', [Validators.required, Validators.minLength(2)]],
@@ -68,10 +71,10 @@ export class AdminAccountMergesComponent implements OnDestroy {
     return !!firstUser && !!secondUser && firstUser.id !== secondUser.id;
   });
 
-  private pollTimer?: number;
+  private mergeUpdatesSubscription?: Subscription;
 
   ngOnDestroy(): void {
-    this.stopPolling();
+    this.stopMergeUpdates();
   }
 
   protected searchFirstUser(): void {
@@ -115,7 +118,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
       next: (response) => {
         this.mergeRequest.set(response.request);
         this.confirming.set(false);
-        this.startPolling(response.request.id);
+        this.startMergeUpdates(response.request.id);
         this.snackBar.open('Unificação iniciada. O progresso será atualizado nesta página.', 'Fechar', { duration: 6000 });
       },
       error: () => {
@@ -133,7 +136,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
 
     this.apiService.cancelAdminAccountMerge(request.id).subscribe({
       next: () => {
-        this.stopPolling();
+        this.stopMergeUpdates();
         this.mergeRequest.set(null);
         this.selectedPrimaryEmail.set('');
       },
@@ -144,7 +147,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
   }
 
   protected reset(): void {
-    this.stopPolling();
+    this.stopMergeUpdates();
     this.mergeRequest.set(null);
     this.selectedPrimaryEmail.set('');
     this.firstUser.set(null);
@@ -179,24 +182,28 @@ export class AdminAccountMergesComponent implements OnDestroy {
     });
   }
 
-  private startPolling(requestId: string): void {
-    this.stopPolling();
-    this.pollTimer = window.setInterval(() => {
-      this.apiService.getAdminAccountMergeRequest(requestId).subscribe({
-        next: (request) => {
-          this.mergeRequest.set(request);
-          if (!['pending_score', 'pending_merge'].includes(request.status)) {
-            this.stopPolling();
-          }
-        },
-      });
-    }, 10000);
+  private startMergeUpdates(requestId: string): void {
+    this.stopMergeUpdates();
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.mergeUpdatesSubscription = this.apiService.watchAdminAccountMergeRequest(requestId).subscribe({
+      next: (delta) => {
+        const request = { ...this.mergeRequest(), ...delta } as AccountMergeRequest;
+        this.mergeRequest.set(request);
+        if (!['pending_score', 'pending_merge'].includes(request.status)) {
+          this.stopMergeUpdates();
+        }
+      },
+      error: () => {
+        this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'Fechar', { duration: 7000 });
+      },
+    });
   }
 
-  private stopPolling(): void {
-    if (this.pollTimer) {
-      window.clearInterval(this.pollTimer);
-      this.pollTimer = undefined;
-    }
+  private stopMergeUpdates(): void {
+    this.mergeUpdatesSubscription?.unsubscribe();
+    this.mergeUpdatesSubscription = undefined;
   }
 }

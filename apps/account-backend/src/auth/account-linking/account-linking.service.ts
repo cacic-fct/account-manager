@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
+import { filter, map, Observable, Subject } from 'rxjs';
 import type { AccountMergeRequest, AccountMergeUserScore, ExternalAccountMergeScore } from '@cacic/shared-types';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -39,6 +40,7 @@ export class AccountLinkingService {
   private readonly scoreTimeoutMs = 30 * 60 * 1000;
   private readonly initialRetryDelayMs = 10 * 60 * 1000;
   private readonly maxRetryDelayMs = 24 * 60 * 60 * 1000;
+  private readonly mergeUpdates = new Subject<string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -81,33 +83,29 @@ export class AccountLinkingService {
     return this.toDto(request, primaryEmailOptions);
   }
 
-  async createAdminMergeRequest(requesterUserId: string, candidateUserId: string): Promise<AccountMergeRequest> {
+  async createAdminMergeRequest(
+    requesterUserId: string,
+    candidateUserId: string,
+    adminUserId: string,
+  ): Promise<AccountMergeRequest> {
+    this.logAdminAuditEvent('created', adminUserId, { requesterUserId, candidateUserId });
     return this.createMergeRequest(requesterUserId, candidateUserId);
   }
 
   async getRequest(requestId: string, sessionUserId: string): Promise<AccountMergeRequest> {
-    const request = await this.prisma.accountMergeRequest.findUnique({
-      where: { id: requestId },
-    });
-
-    if (!request || !this.canReadRequest(request, sessionUserId)) {
-      throw new NotFoundException('Merge request not found');
-    }
-
-    const [primaryEmailOptions, notificationSummary] = await Promise.all([
-      request.status === 'pending' ? this.getEmailOptionsForRequest(request) : undefined,
-      this.getNotificationSummary(request.id),
-    ]);
-
-    return this.toDto(request, primaryEmailOptions, notificationSummary);
+    return this.getMergeRequest(requestId, sessionUserId);
   }
 
   async getAdminRequest(requestId: string): Promise<AccountMergeRequest> {
+    return this.getMergeRequest(requestId);
+  }
+
+  private async getMergeRequest(requestId: string, sessionUserId?: string): Promise<AccountMergeRequest> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
     });
 
-    if (!request) {
+    if (!request || (sessionUserId && !this.canReadRequest(request, sessionUserId))) {
       throw new NotFoundException('Merge request not found');
     }
 
@@ -119,31 +117,28 @@ export class AccountLinkingService {
     return this.toDto(request, primaryEmailOptions, notificationSummary);
   }
 
-  async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {
-    const request = await this.prisma.accountMergeRequest.findUnique({
-      where: { id: requestId },
-    });
-
-    if (!request || request.requesterUserId !== sessionUserId) {
-      throw new NotFoundException('Merge request not found');
-    }
-
-    if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
-      return;
-    }
-
-    await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, requesterUserId: sessionUserId },
-      data: { status: 'cancelled' },
-    });
+  watchMergeRequest(requestId: string): Observable<void> {
+    return this.mergeUpdates.pipe(
+      filter((updatedRequestId) => updatedRequestId === requestId),
+      map(() => undefined),
+    );
   }
 
-  async cancelAdminRequest(requestId: string): Promise<void> {
+  async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {
+    return this.cancelMergeRequest(requestId, sessionUserId);
+  }
+
+  async cancelAdminRequest(requestId: string, adminUserId: string): Promise<void> {
+    this.logAdminAuditEvent('cancelled', adminUserId, { requestId });
+    return this.cancelMergeRequest(requestId);
+  }
+
+  private async cancelMergeRequest(requestId: string, sessionUserId?: string): Promise<void> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
     });
 
-    if (!request) {
+    if (!request || (sessionUserId && request.requesterUserId !== sessionUserId)) {
       throw new NotFoundException('Merge request not found');
     }
 
@@ -152,9 +147,10 @@ export class AccountLinkingService {
     }
 
     await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId },
+      where: { id: requestId, ...(sessionUserId ? { requesterUserId: sessionUserId } : {}) },
       data: { status: 'cancelled' },
     });
+    this.publishMergeUpdate(requestId);
   }
 
   async confirmMerge(
@@ -174,6 +170,7 @@ export class AccountLinkingService {
   async confirmAdminMerge(
     requestId: string,
     primaryEmail: string,
+    adminUserId: string,
   ): Promise<{
     request: AccountMergeRequest;
     primaryUserId: string;
@@ -181,7 +178,16 @@ export class AccountLinkingService {
     primaryEmail: string;
     secondaryEmails: string[];
   }> {
+    this.logAdminAuditEvent('confirmed', adminUserId, { requestId });
     return this.confirmMergeRequest(requestId, primaryEmail);
+  }
+
+  private logAdminAuditEvent(
+    action: 'created' | 'confirmed' | 'cancelled',
+    adminUserId: string,
+    details: Record<string, string>,
+  ): void {
+    this.logger.log('Admin account merge audit event', { action, adminUserId, ...details });
   }
 
   private async confirmMergeRequest(
@@ -239,6 +245,7 @@ export class AccountLinkingService {
       { mergeRequestId: requestId },
       { jobId: `score-${requestId}`, removeOnComplete: true },
     );
+    this.publishMergeUpdate(requestId);
 
     return {
       request: this.toDto(updated, emailOptions),
@@ -332,6 +339,7 @@ export class AccountLinkingService {
           timeout: 30_000,
         },
       );
+      this.publishMergeUpdate(requestId);
 
       let failedNotificationIds: string[] = [];
 
@@ -453,6 +461,7 @@ export class AccountLinkingService {
             completedAt: new Date(),
           },
         });
+        this.publishMergeUpdate(notification.mergeRequestId);
         await this.completeMergeIfNotificationsFinished(notification.mergeRequestId);
         return;
       }
@@ -472,6 +481,7 @@ export class AccountLinkingService {
           nextAttemptAt,
         },
       });
+      this.publishMergeUpdate(notification.mergeRequestId);
 
       await this.accountMergeQueue.add(
         ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
@@ -662,6 +672,7 @@ export class AccountLinkingService {
           completedAt: new Date(),
         },
       });
+      this.publishMergeUpdate(mergeRequestId);
     }
   }
 
@@ -697,6 +708,11 @@ export class AccountLinkingService {
         errorMessage,
       },
     });
+    this.publishMergeUpdate(requestId);
+  }
+
+  private publishMergeUpdate(requestId: string): void {
+    this.mergeUpdates.next(requestId);
   }
 
   private getNotificationRetryDelayMs(attemptCount: number): number {

@@ -34,10 +34,10 @@ describe('AdminAccountMergeController', () => {
 
   it('requires the super-admin permission for every account merge operation', () => {
     for (const handler of [
-      controller.createMergeRequest,
-      controller.getMergeRequest,
-      controller.confirmMerge,
-      controller.cancelMerge,
+      AdminAccountMergeController.prototype.createMergeRequest,
+      AdminAccountMergeController.prototype.getMergeRequest,
+      AdminAccountMergeController.prototype.confirmMerge,
+      AdminAccountMergeController.prototype.cancelMerge,
     ]) {
       expect(Reflect.getMetadata(ACCOUNT_PERMISSIONS_KEY, handler)).toEqual({
         permissions: [AccountManagerPermission.SuperAdmin],
@@ -58,17 +58,24 @@ describe('AdminAccountMergeController', () => {
     });
 
     await expect(
-      controller.createMergeRequest({ requesterUserId: 'first-user', candidateUserId: 'second-user' }),
+      controller.createMergeRequest(
+        { requesterUserId: 'first-user', candidateUserId: 'second-user' },
+        { user: { keycloakId: 'admin-user' } } as never,
+      ),
     ).resolves.toEqual(mergeRequest);
     await expect(controller.getMergeRequest(mergeRequest.id)).resolves.toEqual(mergeRequest);
-    await expect(controller.confirmMerge(mergeRequest.id, { primaryEmail: 'first@example.com' })).resolves.toMatchObject({
+    await expect(
+      controller.confirmMerge(mergeRequest.id, { primaryEmail: 'first@example.com' }, { user: { keycloakId: 'admin-user' } } as never),
+    ).resolves.toMatchObject({
       primaryUserId: 'first-user',
     });
-    await expect(controller.cancelMerge(mergeRequest.id)).resolves.toEqual({ success: true });
+    await expect(controller.cancelMerge(mergeRequest.id, { user: { keycloakId: 'admin-user' } } as never)).resolves.toEqual({
+      success: true,
+    });
 
-    expect(accountLinkingService.createAdminMergeRequest).toHaveBeenCalledWith('first-user', 'second-user');
+    expect(accountLinkingService.createAdminMergeRequest).toHaveBeenCalledWith('first-user', 'second-user', 'admin-user');
     expect(accountLinkingService.getAdminRequest).toHaveBeenCalledWith(mergeRequest.id);
-    expect(accountLinkingService.confirmAdminMerge).toHaveBeenCalledWith(mergeRequest.id, 'first@example.com');
-    expect(accountLinkingService.cancelAdminRequest).toHaveBeenCalledWith(mergeRequest.id);
+    expect(accountLinkingService.confirmAdminMerge).toHaveBeenCalledWith(mergeRequest.id, 'first@example.com', 'admin-user');
+    expect(accountLinkingService.cancelAdminRequest).toHaveBeenCalledWith(mergeRequest.id, 'admin-user');
   });
 });

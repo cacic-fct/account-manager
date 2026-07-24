@@ -5,17 +5,20 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  MessageEvent,
   Param,
   Post,
   Query,
   Res,
   Session,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
+import { AccountMergeRequest, AccountMergeRequestDelta, LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { Response } from 'express';
+import { concat, concatMap, from, map, Observable, of, scan } from 'rxjs';
 import { createAppConfig, AppConfig } from '../../config/app.config';
 import { ConfigService } from '@nestjs/config';
 import { Auth } from '../guards/auth.decorator';
@@ -26,7 +29,7 @@ import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { AccountLinkingService } from './account-linking.service';
-import { redirectAfterSessionSave } from '../session-redirect.utils';
+import { redirectAfterSessionSave, saveSession } from '../session-redirect.utils';
 import {
   AccountLinkingStartUrlDto,
   AccountMergeRequestDto,
@@ -174,6 +177,37 @@ export class AccountLinkingController {
   @SkipCsrf()
   @Get('merge-requests/:id')
   async getMergeRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<AccountMergeRequestDto> {
+    return this.getMergeRequestForSession(id, session);
+  }
+
+  @ApiOperation({ summary: 'Stream account merge status updates' })
+  @Auth()
+  @UseGuards(CurrentUserGuard)
+  @SkipCsrf()
+  @Sse('merge-requests/:id/events')
+  async streamMergeRequest(
+    @Param('id') id: string,
+    @Session() session: AuthSession,
+  ): Promise<Observable<MessageEvent>> {
+    const initialRequest = await this.getMergeRequestForSession(id, session);
+
+    return concat(
+      of(initialRequest),
+      this.accountLinkingService
+        .watchMergeRequest(id)
+        .pipe(concatMap(() => from(this.getMergeRequestForSession(id, session)))),
+    ).pipe(
+      // A stream event carries only fields that changed since the preceding event.
+      // The first event is a complete snapshot, which also closes the race between the initial GET and SSE connection.
+      scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
+        previous: null as AccountMergeRequest | null,
+        delta: null as AccountMergeRequestDelta | null,
+      }),
+      map(({ delta }) => ({ data: delta! })),
+    );
+  }
+
+  private async getMergeRequestForSession(id: string, session: AuthSession): Promise<AccountMergeRequestDto> {
     const request = await this.accountLinkingService.getRequest(id, session.user!.keycloakId);
 
     if (
@@ -182,6 +216,7 @@ export class AccountLinkingController {
       session.user?.keycloakId !== request.primaryUserId
     ) {
       await this.switchSessionToUser(session, request.primaryUserId);
+      await saveSession(session);
     }
 
     return request;
@@ -260,4 +295,22 @@ export class AccountLinkingController {
       isOnboarded: primaryUser.isOnboarded,
     };
   }
+}
+
+function toMergeRequestDelta(
+  previous: AccountMergeRequest | null,
+  current: AccountMergeRequest,
+): AccountMergeRequestDelta {
+  if (!previous) {
+    return current;
+  }
+
+  const delta: AccountMergeRequestDelta = { id: current.id };
+  for (const key of Object.keys(current) as Array<keyof AccountMergeRequest>) {
+    if (key !== 'id' && JSON.stringify(previous[key]) !== JSON.stringify(current[key])) {
+      Object.assign(delta, { [key]: current[key] });
+    }
+  }
+
+  return delta;
 }

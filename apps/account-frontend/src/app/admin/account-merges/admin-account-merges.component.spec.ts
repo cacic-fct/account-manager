@@ -90,7 +90,19 @@ describe('AdminAccountMergesComponent', () => {
 
   it('creates a merge request only after two distinct accounts are selected', () => {
     const component = fixture.componentInstance as unknown as AccountMergeHarness;
+
+    component.createMergeRequest();
+
+    expect(apiService.createAdminAccountMerge).not.toHaveBeenCalled();
+
     component.firstUser.set(firstUser);
+    component.secondUser.set(firstUser);
+
+    component.createMergeRequest();
+
+    expect(apiService.createAdminAccountMerge).not.toHaveBeenCalled();
+
+    apiService.createAdminAccountMerge.mockClear();
     component.secondUser.set(secondUser);
 
     component.createMergeRequest();

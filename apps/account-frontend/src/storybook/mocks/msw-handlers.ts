@@ -458,6 +458,10 @@ export const adminAccountMergeHandlers = [
       return HttpResponse.json({ message: 'Não foi possível confirmar a unificação' }, { status: 500 });
     }
 
+    if (adminAccountMergesStoryState.mergeState === 'selection') {
+      adminAccountMergesStoryState = { ...adminAccountMergesStoryState, mergeState: 'pending_score' };
+    }
+
     const request = getAdminAccountMergeRequest();
     return HttpResponse.json({
       request,

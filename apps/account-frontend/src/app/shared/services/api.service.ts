@@ -29,6 +29,7 @@ import type {
   UserRoles,
   RoleSelectionResponse,
   AccountMergeRequest,
+  AccountMergeRequestDelta,
   AdminCreateAccountMergeRequest,
   AccountLinkingStartUrl,
   ConfirmAccountMergeRequest,
@@ -184,6 +185,10 @@ export class ApiService {
     return this.accountLinkingApi.getAccountMergeRequest(id);
   }
 
+  watchAccountMergeRequest(id: string): Observable<AccountMergeRequestDelta> {
+    return this.accountLinkingApi.watchAccountMergeRequest(id);
+  }
+
   confirmAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
     return this.accountLinkingApi.confirmAccountMerge(id, dto);
   }
@@ -198,6 +203,10 @@ export class ApiService {
 
   getAdminAccountMergeRequest(id: string): Observable<AccountMergeRequest> {
     return this.accountLinkingApi.getAdminAccountMergeRequest(id);
+  }
+
+  watchAdminAccountMergeRequest(id: string): Observable<AccountMergeRequestDelta> {
+    return this.accountLinkingApi.watchAdminAccountMergeRequest(id);
   }
 
   confirmAdminAccountMerge(id: string, dto: ConfirmAccountMergeRequest): Observable<ConfirmAccountMergeResponse> {
