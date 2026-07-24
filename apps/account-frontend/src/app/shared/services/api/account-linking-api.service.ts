@@ -19,6 +19,7 @@ import { AuthApiService } from './auth-api.service';
   providedIn: 'root',
 })
 export class AccountLinkingApiService {
+  private readonly maxConsecutiveEventSourceErrors = 5;
   private readonly baseUrl = getApiBaseUrl();
   private http = inject(HttpClient);
   private cacheService = inject(CacheService);
@@ -98,10 +99,12 @@ export class AccountLinkingApiService {
   private createMergeRequestEventStream(url: string): Observable<AccountMergeRequestDelta> {
     return new Observable((subscriber) => {
       const eventSource = new EventSource(url, { withCredentials: true });
+      let consecutiveErrors = 0;
 
       eventSource.onmessage = (event) => {
         try {
           subscriber.next(JSON.parse(event.data) as AccountMergeRequestDelta);
+          consecutiveErrors = 0;
         } catch {
           subscriber.error(new Error('Invalid account merge update received'));
           eventSource.close();
@@ -109,6 +112,11 @@ export class AccountLinkingApiService {
       };
 
       eventSource.onerror = () => {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= this.maxConsecutiveEventSourceErrors) {
+          subscriber.error(new Error('Account merge update stream repeatedly failed to reconnect'));
+          eventSource.close();
+        }
         // EventSource reconnects automatically. Its next message is a current snapshot, so no polling is required.
       };
 

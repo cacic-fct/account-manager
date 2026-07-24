@@ -1,4 +1,5 @@
 import { AccountLinkingService } from './account-linking.service';
+import { Subject } from 'rxjs';
 
 describe('AccountLinkingService', () => {
   const primaryUserId = 'primary-user';
@@ -39,15 +40,17 @@ describe('AccountLinkingService', () => {
       ),
     };
     const queue = { add: jest.fn().mockResolvedValue(undefined) };
+    const redisService = { publish: jest.fn().mockResolvedValue(undefined), subscribe: jest.fn() };
     const service = new AccountLinkingService(
       { accountMergeRequest } as never,
       keycloakService as never,
       {} as never,
       {} as never,
+      redisService as never,
       queue as never,
     );
 
-    return { service, accountMergeRequest };
+    return { service, accountMergeRequest, redisService };
   }
 
   function createService(primaryAttributes: Record<string, string[]>, secondaryAttributes: Record<string, string[]>) {
@@ -78,11 +81,17 @@ describe('AccountLinkingService', () => {
         Promise.resolve(callback({ accountMergeRequest })),
       ),
     };
+    const mergeUpdates = new Subject<string>();
+    const redisService = {
+      publish: jest.fn(async (_channel: string, requestId: string) => mergeUpdates.next(requestId)),
+      subscribe: jest.fn(() => mergeUpdates.asObservable()),
+    };
     const service = new AccountLinkingService(
       prisma as never,
       keycloakService as never,
       {} as never,
       {} as never,
+      redisService as never,
       { add: jest.fn() } as never,
     );
     const serviceHarness = service as unknown as {
@@ -102,7 +111,7 @@ describe('AccountLinkingService', () => {
     serviceHarness.transferLocalData = jest.fn().mockResolvedValue(undefined);
     serviceHarness.createExternalMergeNotifications = jest.fn().mockResolvedValue([]);
 
-    return { service, keycloakService };
+    return { service, keycloakService, redisService };
   }
 
   it('adds the remaining user to Unesp when either merged account has a Unesp email', async () => {
@@ -138,6 +147,17 @@ describe('AccountLinkingService', () => {
     expect(keycloakService.addUserToGroupPath).not.toHaveBeenCalled();
   });
 
+  it('publishes merge updates through the shared Redis channel', async () => {
+    const { service, redisService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+
+    await service.processScoreAndMerge('merge-request');
+
+    expect(redisService.publish).toHaveBeenCalledWith('account-merge-updates', 'merge-request');
+  });
+
   it('scopes confirmation updates to the requester for a user-owned request', async () => {
     const { service, accountMergeRequest } = createConfirmationService();
 
@@ -162,6 +182,62 @@ describe('AccountLinkingService', () => {
       data: { status: 'pending_score', selectedPrimaryEmail: 'requester@example.org' },
     });
     expect(accountMergeRequest.findFirstOrThrow).toHaveBeenCalledWith({ where: { id: 'merge-request' } });
+  });
+
+  it('records administrator audit events only after the delegated operation succeeds', async () => {
+    const { service } = createConfirmationService();
+    const serviceHarness = service as unknown as {
+      createMergeRequest: jest.Mock;
+      confirmMergeRequest: jest.Mock;
+      logAdminAuditEvent: jest.Mock;
+    };
+    serviceHarness.createMergeRequest = jest.fn().mockResolvedValue({ id: 'merge-request' });
+    serviceHarness.confirmMergeRequest = jest.fn().mockResolvedValue({ request: { id: 'merge-request' } });
+    serviceHarness.logAdminAuditEvent = jest.fn();
+
+    await service.createAdminMergeRequest('requester-user', 'candidate-user', 'admin-user');
+    await service.confirmAdminMerge('merge-request', 'requester@example.org', 'admin-user');
+
+    expect(serviceHarness.logAdminAuditEvent.mock.invocationCallOrder[0]).toBeGreaterThan(
+      serviceHarness.createMergeRequest.mock.invocationCallOrder[0],
+    );
+    expect(serviceHarness.logAdminAuditEvent.mock.invocationCallOrder[1]).toBeGreaterThan(
+      serviceHarness.confirmMergeRequest.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not record administrator cancellation for a no-op request', async () => {
+    const { service, accountMergeRequest } = createConfirmationService();
+    const serviceHarness = service as unknown as {
+      logAdminAuditEvent: jest.Mock;
+    };
+    accountMergeRequest.findUnique.mockResolvedValue({ id: 'merge-request', status: 'completed' });
+    serviceHarness.logAdminAuditEvent = jest.fn();
+
+    await service.cancelAdminRequest('merge-request', 'admin-user');
+
+    expect(serviceHarness.logAdminAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not record administrator audit events when delegated creation or confirmation fails', async () => {
+    const { service } = createConfirmationService();
+    const serviceHarness = service as unknown as {
+      createMergeRequest: jest.Mock;
+      confirmMergeRequest: jest.Mock;
+      logAdminAuditEvent: jest.Mock;
+    };
+    serviceHarness.createMergeRequest = jest.fn().mockRejectedValue(new Error('creation failed'));
+    serviceHarness.confirmMergeRequest = jest.fn().mockRejectedValue(new Error('confirmation failed'));
+    serviceHarness.logAdminAuditEvent = jest.fn();
+
+    await expect(service.createAdminMergeRequest('requester-user', 'candidate-user', 'admin-user')).rejects.toThrow(
+      'creation failed',
+    );
+    await expect(service.confirmAdminMerge('merge-request', 'requester@example.org', 'admin-user')).rejects.toThrow(
+      'confirmation failed',
+    );
+
+    expect(serviceHarness.logAdminAuditEvent).not.toHaveBeenCalled();
   });
 
   it('keeps the requester filter when an owned merge request expires', async () => {

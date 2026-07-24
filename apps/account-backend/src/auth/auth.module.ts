@@ -22,9 +22,10 @@ import { UniversityValidationGuard } from './guards/university-validation.guard'
 import { CsrfModule } from './csrf/csrf.module';
 import { JwtModule } from './jwt/jwt.module';
 import { TotpService } from '../totp/totp.service';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [ConfigModule, CsrfModule, JwtModule, BullModule.registerQueue({ name: ACCOUNT_MERGE_QUEUE })],
+  imports: [ConfigModule, CsrfModule, JwtModule, RedisModule, BullModule.registerQueue({ name: ACCOUNT_MERGE_QUEUE })],
   controllers: [AuthController, AccountLinkingController, AdminAccountMergeController],
   providers: [
     KeycloakService,

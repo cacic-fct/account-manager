@@ -3,10 +3,11 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
-import { filter, map, Observable, Subject } from 'rxjs';
+import { filter, map, Observable } from 'rxjs';
 import type { AccountMergeRequest, AccountMergeUserScore, ExternalAccountMergeScore } from '@cacic/shared-types';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 import { KeycloakFederatedIdentity, KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { JwtService } from '../jwt/jwt.service';
@@ -32,6 +33,7 @@ interface MergeDecision {
 }
 
 const UNESP_KEYCLOAK_GROUP_PATH = '/Unesp';
+const ACCOUNT_MERGE_UPDATES_CHANNEL = 'account-merge-updates';
 
 @Injectable()
 export class AccountLinkingService {
@@ -40,13 +42,13 @@ export class AccountLinkingService {
   private readonly scoreTimeoutMs = 30 * 60 * 1000;
   private readonly initialRetryDelayMs = 10 * 60 * 1000;
   private readonly maxRetryDelayMs = 24 * 60 * 60 * 1000;
-  private readonly mergeUpdates = new Subject<string>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
+    private readonly redisService: RedisService,
     @InjectQueue(ACCOUNT_MERGE_QUEUE)
     private readonly accountMergeQueue: Queue<ScoreAndMergeJob | DeliverExternalNotificationJob>,
   ) {}
@@ -88,8 +90,9 @@ export class AccountLinkingService {
     candidateUserId: string,
     adminUserId: string,
   ): Promise<AccountMergeRequest> {
+    const request = await this.createMergeRequest(requesterUserId, candidateUserId);
     this.logAdminAuditEvent('created', adminUserId, { requesterUserId, candidateUserId });
-    return this.createMergeRequest(requesterUserId, candidateUserId);
+    return request;
   }
 
   async getRequest(requestId: string, sessionUserId: string): Promise<AccountMergeRequest> {
@@ -118,22 +121,24 @@ export class AccountLinkingService {
   }
 
   watchMergeRequest(requestId: string): Observable<void> {
-    return this.mergeUpdates.pipe(
+    return this.redisService.subscribe(ACCOUNT_MERGE_UPDATES_CHANNEL).pipe(
       filter((updatedRequestId) => updatedRequestId === requestId),
       map(() => undefined),
     );
   }
 
   async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {
-    return this.cancelMergeRequest(requestId, sessionUserId);
+    await this.cancelMergeRequest(requestId, sessionUserId);
   }
 
   async cancelAdminRequest(requestId: string, adminUserId: string): Promise<void> {
-    this.logAdminAuditEvent('cancelled', adminUserId, { requestId });
-    return this.cancelMergeRequest(requestId);
+    const cancelled = await this.cancelMergeRequest(requestId);
+    if (cancelled) {
+      this.logAdminAuditEvent('cancelled', adminUserId, { requestId });
+    }
   }
 
-  private async cancelMergeRequest(requestId: string, sessionUserId?: string): Promise<void> {
+  private async cancelMergeRequest(requestId: string, sessionUserId?: string): Promise<boolean> {
     const request = await this.prisma.accountMergeRequest.findUnique({
       where: { id: requestId },
     });
@@ -143,14 +148,19 @@ export class AccountLinkingService {
     }
 
     if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
-      return;
+      return false;
     }
 
-    await this.prisma.accountMergeRequest.updateMany({
+    const result = await this.prisma.accountMergeRequest.updateMany({
       where: { id: requestId, ...(sessionUserId ? { requesterUserId: sessionUserId } : {}) },
       data: { status: 'cancelled' },
     });
-    this.publishMergeUpdate(requestId);
+    if (result.count > 0) {
+      this.publishMergeUpdate(requestId);
+      return true;
+    }
+
+    return false;
   }
 
   async confirmMerge(
@@ -178,8 +188,9 @@ export class AccountLinkingService {
     primaryEmail: string;
     secondaryEmails: string[];
   }> {
+    const result = await this.confirmMergeRequest(requestId, primaryEmail);
     this.logAdminAuditEvent('confirmed', adminUserId, { requestId });
-    return this.confirmMergeRequest(requestId, primaryEmail);
+    return result;
   }
 
   private logAdminAuditEvent(
@@ -712,7 +723,9 @@ export class AccountLinkingService {
   }
 
   private publishMergeUpdate(requestId: string): void {
-    this.mergeUpdates.next(requestId);
+    void this.redisService.publish(ACCOUNT_MERGE_UPDATES_CHANNEL, requestId).catch((error: unknown) => {
+      this.logger.error('Failed to publish account merge update', { requestId, error });
+    });
   }
 
   private getNotificationRetryDelayMs(attemptCount: number): number {

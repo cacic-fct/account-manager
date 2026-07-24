@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
+import { Observable } from 'rxjs';
 import { createAppConfig } from '../config/app.config';
 
 @Injectable()
@@ -69,6 +70,47 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async exists(key: string): Promise<number> {
     return this.client.exists(key);
+  }
+
+  async publish(channel: string, message: string): Promise<void> {
+    await this.client.publish(channel, message);
+  }
+
+  subscribe(channel: string): Observable<string> {
+    return new Observable((subscriber) => {
+      const subscriberClient = this.client.duplicate();
+      let closed = false;
+
+      const close = async () => {
+        if (subscriberClient.isOpen) {
+          await subscriberClient.unsubscribe(channel);
+          await subscriberClient.quit();
+        }
+      };
+
+      void (async () => {
+        try {
+          await subscriberClient.connect();
+
+          if (closed) {
+            await close();
+            return;
+          }
+
+          await subscriberClient.subscribe(channel, (message) => subscriber.next(message));
+        } catch (error) {
+          if (!closed) {
+            subscriber.error(error);
+          }
+          await close();
+        }
+      })();
+
+      return () => {
+        closed = true;
+        void close();
+      };
+    });
   }
 
   async incr(key: string): Promise<number> {
