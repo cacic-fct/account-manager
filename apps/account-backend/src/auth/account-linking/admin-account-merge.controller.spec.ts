@@ -30,17 +30,18 @@ describe('AdminAccountMergeController', () => {
   };
   const controller = new AdminAccountMergeController(accountLinkingService as unknown as AccountLinkingService);
 
+  function getControllerHandler(method: string): object {
+    return Object.getOwnPropertyDescriptor(AdminAccountMergeController.prototype, method)?.value as object;
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('requires the super-admin permission for every account merge operation', () => {
-    for (const handler of [
-      AdminAccountMergeController.prototype.createMergeRequest,
-      AdminAccountMergeController.prototype.getMergeRequest,
-      AdminAccountMergeController.prototype.confirmMerge,
-      AdminAccountMergeController.prototype.cancelMerge,
-    ]) {
+    for (const handler of ['createMergeRequest', 'getMergeRequest', 'confirmMerge', 'cancelMerge'].map(
+      getControllerHandler,
+    )) {
       expect(Reflect.getMetadata(ACCOUNT_PERMISSIONS_KEY, handler)).toEqual({
         permissions: [AccountManagerPermission.SuperAdmin],
         mode: 'any',
@@ -60,24 +61,33 @@ describe('AdminAccountMergeController', () => {
     });
 
     await expect(
-      controller.createMergeRequest(
-        { requesterUserId: 'first-user', candidateUserId: 'second-user' },
-        { user: { keycloakId: 'admin-user' } } as never,
-      ),
+      controller.createMergeRequest({ requesterUserId: 'first-user', candidateUserId: 'second-user' }, {
+        user: { keycloakId: 'admin-user' },
+      } as never),
     ).resolves.toEqual(mergeRequest);
     await expect(controller.getMergeRequest(mergeRequest.id)).resolves.toEqual(mergeRequest);
     await expect(
-      controller.confirmMerge(mergeRequest.id, { primaryEmail: 'first@example.com' }, { user: { keycloakId: 'admin-user' } } as never),
+      controller.confirmMerge(mergeRequest.id, { primaryEmail: 'first@example.com' }, {
+        user: { keycloakId: 'admin-user' },
+      } as never),
     ).resolves.toMatchObject({
       primaryUserId: 'first-user',
     });
-    await expect(controller.cancelMerge(mergeRequest.id, { user: { keycloakId: 'admin-user' } } as never)).resolves.toEqual({
-      success: true,
-    });
+    await expect(
+      controller.cancelMerge(mergeRequest.id, { user: { keycloakId: 'admin-user' } } as never),
+    ).resolves.toEqual({ success: true });
 
-    expect(accountLinkingService.createAdminMergeRequest).toHaveBeenCalledWith('first-user', 'second-user', 'admin-user');
+    expect(accountLinkingService.createAdminMergeRequest).toHaveBeenCalledWith(
+      'first-user',
+      'second-user',
+      'admin-user',
+    );
     expect(accountLinkingService.getAdminRequest).toHaveBeenCalledWith(mergeRequest.id);
-    expect(accountLinkingService.confirmAdminMerge).toHaveBeenCalledWith(mergeRequest.id, 'first@example.com', 'admin-user');
+    expect(accountLinkingService.confirmAdminMerge).toHaveBeenCalledWith(
+      mergeRequest.id,
+      'first@example.com',
+      'admin-user',
+    );
     expect(accountLinkingService.cancelAdminRequest).toHaveBeenCalledWith(mergeRequest.id, 'admin-user');
   });
 
@@ -94,10 +104,7 @@ describe('AdminAccountMergeController', () => {
     updates.next();
     await new Promise(setImmediate);
 
-    expect(events).toEqual([
-      { data: mergeRequest },
-      { data: { id: mergeRequest.id, status: 'pending_merge' } },
-    ]);
+    expect(events).toEqual([{ data: mergeRequest }, { data: { id: mergeRequest.id, status: 'pending_merge' } }]);
     subscription.unsubscribe();
   });
 });

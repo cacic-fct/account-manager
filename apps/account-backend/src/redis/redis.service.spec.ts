@@ -13,14 +13,21 @@ describe('RedisService', () => {
     quit?: jest.Mock;
   } = {}) {
     let messageHandler: ((message: string) => void) | undefined;
+    let errorHandler: ((error: Error) => void) | undefined;
     const subscriberClient = {
       isOpen: false,
-      on: jest.fn(),
-      connect: jest.fn(async () => {
-        subscriberClient.isOpen = true;
+      on: jest.fn((event: string, handler: (error: Error) => void) => {
+        if (event === 'error') {
+          errorHandler = handler;
+        }
       }),
-      subscribe: jest.fn(async (_channel: string, handler: (message: string) => void) => {
+      connect: jest.fn(() => {
+        subscriberClient.isOpen = true;
+        return Promise.resolve();
+      }),
+      subscribe: jest.fn((_channel: string, handler: (message: string) => void) => {
         messageHandler = handler;
+        return Promise.resolve();
       }),
       unsubscribe: unsubscribe ?? jest.fn().mockResolvedValue(undefined),
       quit: quit ?? jest.fn().mockResolvedValue(undefined),
@@ -33,8 +40,11 @@ describe('RedisService', () => {
       service,
       client,
       subscriberClient,
-      publishMessage(message: string) {
+      publishMessage: (message: string) => {
         messageHandler?.(message);
+      },
+      publishError: (error: Error) => {
+        errorHandler?.(error);
       },
     };
   }
@@ -43,13 +53,17 @@ describe('RedisService', () => {
     const { service, client, subscriberClient, publishMessage } = createService();
     const firstMessages: string[] = [];
     const secondMessages: string[] = [];
-    const firstSubscription = service.subscribe('account-merge-updates').subscribe((message) => firstMessages.push(message));
-    const secondSubscription = service.subscribe('account-merge-updates').subscribe((message) => secondMessages.push(message));
+    const firstSubscription = service
+      .subscribe('account-merge-updates')
+      .subscribe((message) => firstMessages.push(message));
+    const secondSubscription = service
+      .subscribe('account-merge-updates')
+      .subscribe((message) => secondMessages.push(message));
 
     await waitForSubscription();
     publishMessage('merge-request');
 
-    expect(client.duplicate).toHaveBeenCalledTimes(1);
+    expect(client.duplicate.mock.calls).toHaveLength(1);
     expect(firstMessages).toEqual(['merge-request']);
     expect(secondMessages).toEqual(['merge-request']);
 
@@ -78,14 +92,13 @@ describe('RedisService', () => {
   });
 
   it('forwards shared subscriber errors to active observers', async () => {
-    const { service, subscriberClient } = createService();
+    const { service, subscriberClient, publishError } = createService();
     const errors: Error[] = [];
     service.subscribe('account-merge-updates').subscribe({ error: (error: Error) => errors.push(error) });
 
     await waitForSubscription();
-    const errorHandler = subscriberClient.on.mock.calls.find(([event]) => event === 'error')?.[1] as (error: Error) => void;
     const connectionError = new Error('connection failed');
-    errorHandler(connectionError);
+    publishError(connectionError);
     await waitForSubscription();
 
     expect(errors).toEqual([connectionError]);

@@ -83,7 +83,7 @@ describe('AccountLinkingService', () => {
     };
     const mergeUpdates = new Subject<string>();
     const redisService = {
-      publish: jest.fn(async (_channel: string, requestId: string) => mergeUpdates.next(requestId)),
+      publish: jest.fn((_channel: string, requestId: string) => Promise.resolve(mergeUpdates.next(requestId))),
       subscribe: jest.fn(() => mergeUpdates.asObservable()),
     };
     const service = new AccountLinkingService(
