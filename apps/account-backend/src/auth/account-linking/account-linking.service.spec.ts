@@ -84,7 +84,7 @@ describe('AccountLinkingService', () => {
     const mergeUpdates = new Subject<string>();
     const redisService = {
       publish: jest.fn((_channel: string, requestId: string) => Promise.resolve(mergeUpdates.next(requestId))),
-      subscribe: jest.fn(() => mergeUpdates.asObservable()),
+      subscribeWhenReady: jest.fn().mockResolvedValue(mergeUpdates.asObservable()),
     };
     const service = new AccountLinkingService(
       prisma as never,
@@ -125,13 +125,15 @@ describe('AccountLinkingService', () => {
     expect(keycloakService.addUserToGroupPath).toHaveBeenCalledWith(primaryUserId, '/Unesp');
   });
 
-  it('publishes a merge update when the worker completes a merge', async () => {
+  it('buffers a merge update once the Redis subscription is ready', async () => {
     const { service } = createService({ email: ['primary@example.org'] }, { email: ['secondary@example.org'] });
     const updates: void[] = [];
-    const subscription = service.watchMergeRequest('merge-request').subscribe(() => updates.push(undefined));
+    const watch = await service.openMergeRequestWatch('merge-request');
 
     await service.processScoreAndMerge('merge-request');
+    const subscription = watch.updates.subscribe(() => updates.push(undefined));
     subscription.unsubscribe();
+    watch.close();
 
     expect(updates).toEqual([undefined]);
   });

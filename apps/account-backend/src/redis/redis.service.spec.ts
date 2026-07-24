@@ -77,6 +77,17 @@ describe('RedisService', () => {
     expect(subscriberClient.quit).toHaveBeenCalledTimes(1);
   });
 
+  it('waits until Redis has subscribed before exposing a ready channel observer', async () => {
+    const { service, subscriberClient } = createService();
+
+    const readyChannel = await service.subscribeWhenReady('account-merge-updates');
+    const subscription = readyChannel.subscribe();
+
+    expect(subscriberClient.subscribe).toHaveBeenCalledWith('account-merge-updates', expect.any(Function));
+
+    subscription.unsubscribe();
+  });
+
   it('contains subscriber shutdown failures during teardown', async () => {
     const unsubscribe = jest.fn().mockRejectedValue(new Error('unsubscribe failed'));
     const quit = jest.fn().mockRejectedValue(new Error('quit failed'));

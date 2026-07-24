@@ -27,7 +27,7 @@ type AccountLinkingServiceMock = {
   createMergeRequest: jest.Mock;
   confirmMerge: jest.Mock;
   cancelRequest: jest.Mock;
-  watchMergeRequest: jest.Mock;
+  openMergeRequestWatch: jest.Mock;
 };
 
 const createSession = (keycloakId = 'secondary-user'): AuthSession => ({
@@ -101,7 +101,7 @@ describe('AccountLinkingController', () => {
       createMergeRequest: jest.fn(),
       confirmMerge: jest.fn(),
       cancelRequest: jest.fn(),
-      watchMergeRequest: jest.fn(),
+      openMergeRequestWatch: jest.fn(),
     };
 
     controller = new AccountLinkingController(
@@ -329,6 +329,7 @@ describe('AccountLinkingController', () => {
 
   it('streams an initial authorized snapshot and then only changed fields', async () => {
     const updates = new Subject<void>();
+    const close = jest.fn();
     const pendingRequest = { ...createMergeRequest(), status: 'pending' as const, completedAt: undefined };
     const mergingRequest = {
       ...pendingRequest,
@@ -336,7 +337,7 @@ describe('AccountLinkingController', () => {
       notificationSummary: { pending: 1, completed: 0, failed: 0 },
     };
     accountLinkingService.getRequest.mockResolvedValueOnce(pendingRequest).mockResolvedValueOnce(mergingRequest);
-    accountLinkingService.watchMergeRequest.mockReturnValue(updates);
+    accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(pendingRequest.id, session);
     const events: Array<{ data: unknown }> = [];
@@ -345,7 +346,7 @@ describe('AccountLinkingController', () => {
     updates.next();
     await new Promise(setImmediate);
 
-    expect(accountLinkingService.watchMergeRequest).toHaveBeenCalledWith(pendingRequest.id);
+    expect(accountLinkingService.openMergeRequestWatch).toHaveBeenCalledWith(pendingRequest.id);
     expect(events).toEqual([
       { data: pendingRequest },
       {
@@ -357,6 +358,7 @@ describe('AccountLinkingController', () => {
       },
     ]);
     subscription.unsubscribe();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('covers private URL and comparison edge cases used by account-linking redirects', async () => {

@@ -26,7 +26,7 @@ describe('AdminAccountMergeController', () => {
     getAdminRequest: jest.fn(),
     confirmAdminMerge: jest.fn(),
     cancelAdminRequest: jest.fn(),
-    watchMergeRequest: jest.fn(),
+    openMergeRequestWatch: jest.fn(),
   };
   const controller = new AdminAccountMergeController(accountLinkingService as unknown as AccountLinkingService);
 
@@ -93,9 +93,10 @@ describe('AdminAccountMergeController', () => {
 
   it('streams a complete initial request followed by field-level deltas', async () => {
     const updates = new Subject<void>();
+    const close = jest.fn();
     const processingRequest = { ...mergeRequest, status: 'pending_merge' as const };
     accountLinkingService.getAdminRequest.mockResolvedValueOnce(mergeRequest).mockResolvedValueOnce(processingRequest);
-    accountLinkingService.watchMergeRequest.mockReturnValue(updates);
+    accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(mergeRequest.id);
     const events: Array<{ data: unknown }> = [];
@@ -106,5 +107,6 @@ describe('AdminAccountMergeController', () => {
 
     expect(events).toEqual([{ data: mergeRequest }, { data: { id: mergeRequest.id, status: 'pending_merge' } }]);
     subscription.unsubscribe();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { AccountManagerPermission, AccountMergeRequest, AccountMergeRequestDelta } from '@cacic/shared-types';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { concat, concatMap, from, map, Observable, of, scan } from 'rxjs';
+import { concat, concatMap, finalize, from, map, Observable, of, scan, takeWhile } from 'rxjs';
 import { AuthSession } from '../auth.controller';
 import { AccountPermissions } from '../guards/auth.decorator';
 import { CsrfGuard } from '../csrf/csrf.guard';
@@ -83,20 +83,27 @@ export class AdminAccountMergeController {
   @AccountPermissions(SUPER_ADMIN_PERMISSION)
   @Sse(':id/events')
   async streamMergeRequest(@Param('id') id: string): Promise<Observable<MessageEvent>> {
-    const initialRequest = await this.accountLinkingService.getAdminRequest(id);
+    const watch = await this.accountLinkingService.openMergeRequestWatch(id);
 
-    return concat(
-      of(initialRequest),
-      this.accountLinkingService
-        .watchMergeRequest(id)
-        .pipe(concatMap(() => from(this.accountLinkingService.getAdminRequest(id)))),
-    ).pipe(
-      scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
-        previous: null as AccountMergeRequest | null,
-        delta: null as AccountMergeRequestDelta | null,
-      }),
-      map(({ delta }) => ({ data: delta! })),
-    );
+    try {
+      const initialRequest = await this.accountLinkingService.getAdminRequest(id);
+
+      return concat(
+        of(initialRequest),
+        watch.updates.pipe(concatMap(() => from(this.accountLinkingService.getAdminRequest(id)))),
+      ).pipe(
+        takeWhile((request) => !isTerminalMergeRequest(request), true),
+        scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
+          previous: null as AccountMergeRequest | null,
+          delta: null as AccountMergeRequestDelta | null,
+        }),
+        map(({ delta }) => ({ data: delta! })),
+        finalize(() => watch.close()),
+      );
+    } catch (error) {
+      watch.close();
+      throw error;
+    }
   }
 
   @ApiOperation({
@@ -165,4 +172,8 @@ function toMergeRequestDelta(
   }
 
   return delta;
+}
+
+function isTerminalMergeRequest(request: AccountMergeRequest): boolean {
+  return ['completed', 'cancelled', 'expired', 'failed'].includes(request.status);
 }

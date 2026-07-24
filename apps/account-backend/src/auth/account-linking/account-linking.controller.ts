@@ -18,7 +18,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AccountMergeRequest, AccountMergeRequestDelta, LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { Response } from 'express';
-import { concat, concatMap, from, map, Observable, of, scan } from 'rxjs';
+import { concat, concatMap, finalize, from, map, Observable, of, scan, takeWhile } from 'rxjs';
 import { createAppConfig, AppConfig } from '../../config/app.config';
 import { ConfigService } from '@nestjs/config';
 import { Auth } from '../guards/auth.decorator';
@@ -173,7 +173,6 @@ export class AccountLinkingController {
   @ApiOperation({ summary: 'Get a pending account merge request' })
   @ApiResponse({ status: 200 })
   @Auth()
-  @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Get('merge-requests/:id')
   async getMergeRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<AccountMergeRequestDto> {
@@ -182,29 +181,35 @@ export class AccountLinkingController {
 
   @ApiOperation({ summary: 'Stream account merge status updates' })
   @Auth()
-  @UseGuards(CurrentUserGuard)
   @SkipCsrf()
   @Sse('merge-requests/:id/events')
   async streamMergeRequest(
     @Param('id') id: string,
     @Session() session: AuthSession,
   ): Promise<Observable<MessageEvent>> {
-    const initialRequest = await this.getMergeRequestForSession(id, session);
+    const watch = await this.accountLinkingService.openMergeRequestWatch(id);
 
-    return concat(
-      of(initialRequest),
-      this.accountLinkingService
-        .watchMergeRequest(id)
-        .pipe(concatMap(() => from(this.getMergeRequestForSession(id, session)))),
-    ).pipe(
-      // A stream event carries only fields that changed since the preceding event.
-      // The first event is a complete snapshot, which also closes the race between the initial GET and SSE connection.
-      scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
-        previous: null as AccountMergeRequest | null,
-        delta: null as AccountMergeRequestDelta | null,
-      }),
-      map(({ delta }) => ({ data: delta! })),
-    );
+    try {
+      const initialRequest = await this.getMergeRequestForSession(id, session);
+
+      return concat(
+        of(initialRequest),
+        watch.updates.pipe(concatMap(() => from(this.getMergeRequestForSession(id, session)))),
+      ).pipe(
+        takeWhile((request) => !isTerminalMergeRequest(request), true),
+        // A stream event carries only fields that changed since the preceding event.
+        // The first event is a complete snapshot, after the Redis subscription is ready.
+        scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
+          previous: null as AccountMergeRequest | null,
+          delta: null as AccountMergeRequestDelta | null,
+        }),
+        map(({ delta }) => ({ data: delta! })),
+        finalize(() => watch.close()),
+      );
+    } catch (error) {
+      watch.close();
+      throw error;
+    }
   }
 
   private async getMergeRequestForSession(id: string, session: AuthSession): Promise<AccountMergeRequestDto> {
@@ -313,4 +318,8 @@ function toMergeRequestDelta(
   }
 
   return delta;
+}
+
+function isTerminalMergeRequest(request: AccountMergeRequest): boolean {
+  return ['completed', 'cancelled', 'expired', 'failed'].includes(request.status);
 }

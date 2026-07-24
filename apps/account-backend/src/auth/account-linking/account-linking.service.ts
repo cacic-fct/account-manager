@@ -3,7 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
-import { filter, map, Observable } from 'rxjs';
+import { filter, Observable, ReplaySubject, Subscription } from 'rxjs';
 import type { AccountMergeRequest, AccountMergeUserScore, ExternalAccountMergeScore } from '@cacic/shared-types';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -120,11 +120,27 @@ export class AccountLinkingService {
     return this.toDto(request, primaryEmailOptions, notificationSummary);
   }
 
-  watchMergeRequest(requestId: string): Observable<void> {
-    return this.redisService.subscribe(ACCOUNT_MERGE_UPDATES_CHANNEL).pipe(
-      filter((updatedRequestId) => updatedRequestId === requestId),
-      map(() => undefined),
-    );
+  async openMergeRequestWatch(requestId: string): Promise<{
+    updates: Observable<void>;
+    close: () => void;
+  }> {
+    const updates = new ReplaySubject<void>(1);
+    const channelUpdates = await this.redisService.subscribeWhenReady(ACCOUNT_MERGE_UPDATES_CHANNEL);
+    const subscription: Subscription = channelUpdates
+      .pipe(filter((updatedRequestId) => updatedRequestId === requestId))
+      .subscribe({
+        next: () => updates.next(),
+        error: (error: unknown) => updates.error(error),
+        complete: () => updates.complete(),
+      });
+
+    return {
+      updates: updates.asObservable(),
+      close: () => {
+        subscription.unsubscribe();
+        updates.complete();
+      },
+    };
   }
 
   async cancelRequest(requestId: string, sessionUserId: string): Promise<void> {

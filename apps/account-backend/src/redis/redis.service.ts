@@ -8,6 +8,7 @@ interface ChannelSubscription {
   channel: string;
   client: RedisClientType;
   messages: Subject<string>;
+  ready: Promise<void>;
   observerCount: number;
   closed: boolean;
   closePromise?: Promise<void>;
@@ -91,20 +92,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   subscribe(channel: string): Observable<string> {
-    return new Observable((subscriber) => {
-      const channelSubscription = this.getOrCreateChannelSubscription(channel);
-      channelSubscription.observerCount += 1;
-      const messageSubscription = channelSubscription.messages.subscribe(subscriber);
+    return this.observeChannelSubscription(this.getOrCreateChannelSubscription(channel));
+  }
 
-      return () => {
-        messageSubscription.unsubscribe();
-        channelSubscription.observerCount -= 1;
-
-        if (channelSubscription.observerCount === 0) {
-          void this.closeChannelSubscription(channelSubscription);
-        }
-      };
-    });
+  async subscribeWhenReady(channel: string): Promise<Observable<string>> {
+    const channelSubscription = this.getOrCreateChannelSubscription(channel);
+    await channelSubscription.ready;
+    return this.observeChannelSubscription(channelSubscription);
   }
 
   private getOrCreateChannelSubscription(channel: string): ChannelSubscription {
@@ -117,6 +111,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       channel,
       client: this.client.duplicate(),
       messages: new Subject<string>(),
+      ready: Promise.resolve(),
       observerCount: 0,
       closed: false,
     };
@@ -128,9 +123,26 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         void this.closeChannelSubscription(subscription);
       }
     });
-    void this.connectChannelSubscription(subscription);
+    subscription.ready = this.connectChannelSubscription(subscription);
+    void subscription.ready.catch(() => undefined);
 
     return subscription;
+  }
+
+  private observeChannelSubscription(channelSubscription: ChannelSubscription): Observable<string> {
+    return new Observable((subscriber) => {
+      channelSubscription.observerCount += 1;
+      const messageSubscription = channelSubscription.messages.subscribe(subscriber);
+
+      return () => {
+        messageSubscription.unsubscribe();
+        channelSubscription.observerCount -= 1;
+
+        if (channelSubscription.observerCount === 0) {
+          void this.closeChannelSubscription(channelSubscription);
+        }
+      };
+    });
   }
 
   private async connectChannelSubscription(subscription: ChannelSubscription): Promise<void> {
@@ -148,6 +160,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         subscription.messages.error(error);
       }
       await this.closeChannelSubscription(subscription);
+      throw error;
     }
   }
 
