@@ -133,11 +133,10 @@ Docker Compose includes Redis health checks. In production, the backend service 
 ## External Backend Configuration
 
 ```json
-ACCOUNT_MERGE_EXTERNAL_BACKENDS=[
+ACCOUNT_MERGE_GRPC_BACKENDS=[
   {
     "name": "external-app-a",
-    "scoreUrl": "https://external-a.example.org/account-merge/score",
-    "mergeUrl": "https://external-a.example.org/account-merge/merge",
+    "target": "external-app-a:50051",
     "audience": "external-app-a-audience"
   }
 ]

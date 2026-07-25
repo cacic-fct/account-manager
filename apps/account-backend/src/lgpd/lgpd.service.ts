@@ -35,7 +35,7 @@ import {
 import { AccountDeletionJob, LGPD_JOBS, LGPD_QUEUE, ProcessDataRequestJob } from './lgpd.queue';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { UserService } from '../auth/services/user.service';
-import { JwtService } from '../auth/jwt/jwt.service';
+import { EventManagerGrpcClient } from '../grpc/event-manager-grpc.client';
 import { DiscordLinkService } from '../discord/services/discord-link.service';
 import { S3Service } from '../common/services/s3.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,7 +56,7 @@ export class LgpdService {
     private readonly prisma: PrismaService,
     private keycloakService: KeycloakService,
     private userService: UserService,
-    private jwtService: JwtService,
+    private eventManagerGrpc: EventManagerGrpcClient,
     private discordLinkService: DiscordLinkService,
     private s3Service: S3Service,
     @InjectQueue(LGPD_QUEUE)
@@ -220,8 +220,8 @@ export class LgpdService {
     }
   }
 
-  private async collectUserData(userId: string): Promise<Record<string, any>> {
-    const data: Record<string, any> = {};
+  private async collectUserData(userId: string): Promise<Record<string, unknown>> {
+    const data: Record<string, unknown> = {};
 
     try {
       const userProfile = await this.userService.findByKeycloakId(userId);
@@ -317,27 +317,19 @@ export class LgpdService {
     return data;
   }
 
-  private async collectExternalData(userId: string, email: string): Promise<Record<string, any>> {
-    const externalData: Record<string, any> = {};
-    const backends = this.getExternalLgpdBackends().filter((backend) => backend.dataUrl);
+  private async collectExternalData(userId: string, email: string): Promise<Record<string, unknown>> {
+    const externalData: Record<string, unknown> = {};
+    const backends = this.getExternalLgpdBackends();
 
     await Promise.all(
       backends.map(async (backend) => {
         const category = backend.category || this.normalizeCategoryName(backend.name);
 
         try {
-          const response = await fetch(backend.dataUrl!, {
-            method: 'POST',
-            headers: await this.externalHeaders(backend),
-            body: JSON.stringify({ userId, email }),
-            signal: AbortSignal.timeout(this.externalRequestTimeoutMs),
+          externalData[category] = await this.eventManagerGrpc.collectLgpdData(backend.target, backend.audience, {
+            userId,
+            email,
           });
-
-          if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`);
-          }
-
-          externalData[category] = (await response.json()) as unknown;
         } catch (error) {
           this.logger.error(`Error collecting external LGPD data from ${backend.name}`, error);
           externalData[category] = {
@@ -354,7 +346,7 @@ export class LgpdService {
 
   private async createAndUploadZipFile(
     userId: string,
-    userData: Record<string, any>,
+    userData: Record<string, unknown>,
   ): Promise<{ s3Key: string; fileName: string; fileSize: number }> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `dados-lgpd-${userId.substring(0, 8)}-${timestamp}.zip`;
@@ -998,25 +990,18 @@ export class LgpdService {
 
     await Promise.all(
       backends.map(async (backend) => {
-        const url =
-          action === 'cancel' ? backend.cancelUrl : action === 'delete' ? backend.deleteUrl : backend.scheduleUrl;
-
-        if (!url) return;
-
-        let response: Response;
+        if (!(backend.actions as string[]).includes(action)) return;
+        const payload = {
+          requestId: request.id,
+          userId: request.userId,
+          email: request.email,
+        };
         try {
-          response = await fetch(url, {
-            method: 'POST',
-            headers: await this.externalHeaders(backend),
-            body: JSON.stringify({
-              event: `account-deletion.${action}`,
-              requestId: request.id,
-              userId: request.userId,
-              email: request.email,
-              scheduledHardDeleteAt: request.scheduledHardDeleteAt,
-            }),
-            signal: AbortSignal.timeout(this.externalRequestTimeoutMs),
-          });
+          if (action === 'schedule') {
+            await this.eventManagerGrpc.scheduleLgpdDeletion(backend.target, backend.audience, payload);
+          } else if (action === 'delete') {
+            await this.eventManagerGrpc.deleteLgpdData(backend.target, backend.audience, payload);
+          }
         } catch (error) {
           if (this.isTimeoutError(error)) {
             throw new Error(
@@ -1024,10 +1009,6 @@ export class LgpdService {
             );
           }
           throw error;
-        }
-
-        if (!response.ok) {
-          throw new Error(`${backend.name} returned ${response.status} ${response.statusText}`);
         }
       }),
     );
@@ -1088,12 +1069,11 @@ export class LgpdService {
 
   private getExternalDeletionBackends(): {
     name: string;
-    scheduleUrl?: string;
-    cancelUrl?: string;
-    deleteUrl?: string;
+    target: string;
+    actions: ('schedule' | 'delete')[];
     audience?: string;
   }[] {
-    const raw = process.env.LGPD_DELETION_EXTERNAL_BACKENDS;
+    const raw = process.env.LGPD_DELETION_GRPC_BACKENDS;
     if (!raw) return [];
 
     try {
@@ -1105,9 +1085,8 @@ export class LgpdService {
           backend,
         ): backend is {
           name: string;
-          scheduleUrl?: string;
-          cancelUrl?: string;
-          deleteUrl?: string;
+          target: string;
+          actions: ('schedule' | 'delete')[];
           audience?: string;
         } => {
           if (typeof backend !== 'object' || backend === null) {
@@ -1115,22 +1094,27 @@ export class LgpdService {
           }
 
           const candidate = backend as Record<string, unknown>;
-          return typeof candidate['name'] === 'string';
+          return (
+            typeof candidate['name'] === 'string' &&
+            typeof candidate['target'] === 'string' &&
+            Array.isArray(candidate['actions']) &&
+            candidate['actions'].every((item) => ['schedule', 'delete'].includes(String(item)))
+          );
         },
       );
     } catch (error) {
-      this.logger.error('Invalid LGPD_DELETION_EXTERNAL_BACKENDS JSON', error);
+      this.logger.error('Invalid LGPD_DELETION_GRPC_BACKENDS JSON', error);
       return [];
     }
   }
 
   private getExternalLgpdBackends(): {
     name: string;
-    dataUrl?: string;
+    target: string;
     audience?: string;
     category?: string;
   }[] {
-    const raw = process.env.LGPD_EXTERNAL_BACKENDS || process.env.LGPD_DATA_EXTERNAL_BACKENDS;
+    const raw = process.env.LGPD_GRPC_BACKENDS;
     if (!raw) return [];
 
     try {
@@ -1143,7 +1127,7 @@ export class LgpdService {
             backend,
           ): backend is {
             name: string;
-            dataUrl?: string;
+            target: string;
             audience?: string;
             category?: string;
           } => {
@@ -1152,30 +1136,19 @@ export class LgpdService {
             }
 
             const candidate = backend as Record<string, unknown>;
-            return typeof candidate['name'] === 'string';
+            return typeof candidate['name'] === 'string' && typeof candidate['target'] === 'string';
           },
         )
         .map((backend) => ({
           name: backend.name,
-          dataUrl: backend.dataUrl,
+          target: backend.target,
           audience: backend.audience,
           category: backend.category,
         }));
     } catch (error) {
-      this.logger.error('Invalid LGPD_EXTERNAL_BACKENDS JSON', error);
+      this.logger.error('Invalid LGPD_GRPC_BACKENDS JSON', error);
       return [];
     }
-  }
-
-  private async externalHeaders(backend: { audience?: string }): Promise<Record<string, string>> {
-    const token = await this.jwtService.getClientCredentialsToken({
-      audience: backend.audience,
-    });
-
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
   }
 
   private normalizeCategoryName(name: string): string {

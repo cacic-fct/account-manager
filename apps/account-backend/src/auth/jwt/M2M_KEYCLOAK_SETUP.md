@@ -58,11 +58,10 @@ EVENT_MANAGER_M2M_AUDIENCE=cacic-event-manager-audience
 6. Configure merge backends:
 
 ```json
-ACCOUNT_MERGE_EXTERNAL_BACKENDS=[
+ACCOUNT_MERGE_GRPC_BACKENDS=[
   {
     "name": "event-manager",
-    "scoreUrl": "https://eventos.example.org/api/account-merge/score",
-    "mergeUrl": "https://eventos.example.org/api/account-merge/merge",
+    "target": "events-backend:50051",
     "audience": "cacic-event-manager-audience"
   }
 ]
@@ -71,19 +70,19 @@ ACCOUNT_MERGE_EXTERNAL_BACKENDS=[
 7. Configure LGPD backends when needed:
 
 ```json
-LGPD_EXTERNAL_BACKENDS=[
+LGPD_GRPC_BACKENDS=[
   {
     "name": "event-manager",
     "category": "event_manager",
-    "dataUrl": "https://eventos.example.org/api/lgpd/user-data",
+    "target": "events-backend:50051",
     "audience": "cacic-event-manager-audience"
   }
 ]
-LGPD_DELETION_EXTERNAL_BACKENDS=[
+LGPD_DELETION_GRPC_BACKENDS=[
   {
     "name": "event-manager",
-    "scheduleUrl": "https://eventos.example.org/api/lgpd/deletion/schedule",
-    "deleteUrl": "https://eventos.example.org/api/lgpd/deletion/delete",
+    "target": "events-backend:50051",
+    "actions": ["schedule", "delete"],
     "audience": "cacic-event-manager-audience"
   }
 ]

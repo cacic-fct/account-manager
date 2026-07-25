@@ -10,7 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { KeycloakFederatedIdentity, KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
-import { JwtService } from '../jwt/jwt.service';
+import { EventManagerGrpcClient } from '../../grpc/event-manager-grpc.client';
 import {
   ACCOUNT_MERGE_JOBS,
   ACCOUNT_MERGE_QUEUE,
@@ -20,8 +20,7 @@ import {
 
 interface ExternalMergeBackend {
   name: string;
-  scoreUrl?: string;
-  mergeUrl?: string;
+  target: string;
   audience?: string;
 }
 
@@ -47,8 +46,8 @@ export class AccountLinkingService {
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
-    private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
+    private readonly eventManagerGrpc: EventManagerGrpcClient,
     @InjectQueue(ACCOUNT_MERGE_QUEUE)
     private readonly accountMergeQueue: Queue<ScoreAndMergeJob | DeliverExternalNotificationJob>,
   ) {}
@@ -456,19 +455,13 @@ export class AccountLinkingService {
     const attemptCount = notification.attemptCount + 1;
 
     try {
-      const response = await fetch(notification.url, {
-        method: 'POST',
-        headers: await this.externalHeaders({
-          name: notification.backendName,
-          audience: notification.audience || undefined,
-        }),
-        body: JSON.stringify(notification.payload),
-        signal: AbortSignal.timeout(30_000),
-      });
-      const responsePayload = await this.readJsonResponse(response);
+      const responsePayload = await this.eventManagerGrpc.applyAccountMerge(
+        notification.url,
+        notification.audience || undefined,
+        notification.payload as Record<string, unknown>,
+      );
 
       if (
-        response.status === 200 &&
         this.isValidMergeAcknowledgement(responsePayload, {
           eventId: notification.eventId,
           oldUserId: notification.oldUserId,
@@ -481,7 +474,7 @@ export class AccountLinkingService {
             status: 'completed',
             attemptCount,
             lastAttemptAt: new Date(),
-            lastStatusCode: response.status,
+            lastStatusCode: 0,
             lastResponse: responsePayload as Prisma.InputJsonValue,
             lastError: null,
             nextAttemptAt: null,
@@ -493,7 +486,7 @@ export class AccountLinkingService {
         return;
       }
 
-      throw new Error(`Invalid acknowledgement: ${response.status} ${response.statusText}`);
+      throw new Error('Invalid gRPC account merge acknowledgement.');
     } catch (error) {
       const delay = this.getNotificationRetryDelayMs(attemptCount);
       const nextAttemptAt = new Date(Date.now() + delay);
@@ -612,23 +605,17 @@ export class AccountLinkingService {
   }
 
   private async getExternalScores(userIds: string[]): Promise<ExternalAccountMergeScore[]> {
-    const backends = this.getExternalBackends().filter((backend) => backend.scoreUrl);
+    const backends = this.getExternalBackends();
 
     return Promise.all(
       backends.map(async (backend) => {
         try {
-          const response = await fetch(backend.scoreUrl!, {
-            method: 'POST',
-            headers: await this.externalHeaders(backend),
-            body: JSON.stringify({ userIds }),
-            signal: AbortSignal.timeout(this.scoreTimeoutMs),
-          });
-
-          if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`);
-          }
-
-          const payload = (await response.json()) as unknown;
+          const payload = await this.eventManagerGrpc.scoreAccounts(
+            backend.target,
+            backend.audience,
+            userIds,
+            this.scoreTimeoutMs,
+          );
           return {
             backend: backend.name,
             scores: this.normalizeExternalScores(payload, userIds),
@@ -653,7 +640,7 @@ export class AccountLinkingService {
     },
   ) {
     const occurredAt = new Date().toISOString();
-    const backends = this.getExternalBackends().filter((backend) => backend.mergeUrl);
+    const backends = this.getExternalBackends();
 
     return Promise.all(
       backends.map((backend) => {
@@ -671,7 +658,7 @@ export class AccountLinkingService {
             mergeRequestId: payload.mergeRequestId,
             eventId,
             backendName: backend.name,
-            url: backend.mergeUrl!,
+            url: backend.target,
             audience: backend.audience,
             oldUserId: payload.oldUserId,
             newUserId: payload.newUserId,
@@ -746,19 +733,6 @@ export class AccountLinkingService {
 
   private getNotificationRetryDelayMs(attemptCount: number): number {
     return Math.min(this.initialRetryDelayMs * Math.max(attemptCount, 1) ** 2, this.maxRetryDelayMs);
-  }
-
-  private async readJsonResponse(response: Response): Promise<unknown> {
-    const text = await response.text();
-    if (!text) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      return { raw: text };
-    }
   }
 
   private isValidMergeAcknowledgement(
@@ -991,7 +965,7 @@ export class AccountLinkingService {
   }
 
   private getExternalBackends(): ExternalMergeBackend[] {
-    const raw = process.env.ACCOUNT_MERGE_EXTERNAL_BACKENDS || process.env.ACCOUNT_LINKING_EXTERNAL_BACKENDS;
+    const raw = process.env.ACCOUNT_MERGE_GRPC_BACKENDS;
 
     if (!raw) {
       return [];
@@ -1007,25 +981,13 @@ export class AccountLinkingService {
         .filter((item): item is ExternalMergeBackend => this.isExternalMergeBackend(item))
         .map((item) => ({
           name: item.name,
-          scoreUrl: item.scoreUrl,
-          mergeUrl: item.mergeUrl,
+          target: item.target,
           audience: item.audience,
         }));
     } catch (error) {
-      this.logger.error('Invalid ACCOUNT_MERGE_EXTERNAL_BACKENDS JSON', error);
+      this.logger.error('Invalid ACCOUNT_MERGE_GRPC_BACKENDS JSON', error);
       return [];
     }
-  }
-
-  private async externalHeaders(backend: ExternalMergeBackend): Promise<Record<string, string>> {
-    const token = await this.jwtService.getClientCredentialsToken({
-      audience: backend.audience,
-    });
-
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
   }
 
   private normalizeExternalScores(payload: unknown, userIds: string[]): Record<string, number> {
@@ -1127,8 +1089,7 @@ export class AccountLinkingService {
     const record = value as Record<string, unknown>;
     return (
       typeof record.name === 'string' &&
-      (record.scoreUrl === undefined || typeof record.scoreUrl === 'string') &&
-      (record.mergeUrl === undefined || typeof record.mergeUrl === 'string') &&
+      typeof record.target === 'string' &&
       (record.audience === undefined || typeof record.audience === 'string')
     );
   }

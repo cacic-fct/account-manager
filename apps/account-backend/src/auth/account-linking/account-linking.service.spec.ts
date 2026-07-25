@@ -45,8 +45,8 @@ describe('AccountLinkingService', () => {
       { accountMergeRequest } as never,
       keycloakService as never,
       {} as never,
-      {} as never,
       redisService as never,
+      {} as never,
       queue as never,
     );
 
@@ -90,8 +90,8 @@ describe('AccountLinkingService', () => {
       prisma as never,
       keycloakService as never,
       {} as never,
-      {} as never,
       redisService as never,
+      {} as never,
       { add: jest.fn() } as never,
     );
     const serviceHarness = service as unknown as {
