@@ -82,8 +82,12 @@ describe('AccountLinkingService', () => {
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
+    const accountMergeExternalNotification = {
+      findMany: jest.fn().mockResolvedValue([]),
+    };
     const prisma = {
       accountMergeRequest,
+      accountMergeExternalNotification,
       $transaction: jest.fn((callback: (tx: { accountMergeRequest: typeof accountMergeRequest }) => unknown) =>
         Promise.resolve(callback({ accountMergeRequest })),
       ),
@@ -93,13 +97,14 @@ describe('AccountLinkingService', () => {
       publish: jest.fn((_channel: string, requestId: string) => Promise.resolve(mergeUpdates.next(requestId))),
       subscribeWhenReady: jest.fn().mockResolvedValue(mergeUpdates.asObservable()),
     };
+    const queue = { add: jest.fn().mockResolvedValue(undefined) };
     const service = new AccountLinkingService(
       prisma as never,
       keycloakService as never,
       {} as never,
       redisService as never,
       {} as never,
-      { add: jest.fn() } as never,
+      queue as never,
     );
     const serviceHarness = service as unknown as {
       scoreMergeCandidates: jest.Mock;
@@ -118,7 +123,7 @@ describe('AccountLinkingService', () => {
     serviceHarness.transferLocalData = jest.fn().mockResolvedValue(undefined);
     serviceHarness.createExternalMergeNotifications = jest.fn().mockResolvedValue([]);
 
-    return { service, keycloakService, redisService };
+    return { service, keycloakService, redisService, prisma, queue };
   }
 
   it('adds the remaining user to Unesp when either merged account has a Unesp email', async () => {
@@ -180,6 +185,33 @@ describe('AccountLinkingService', () => {
     await service.processScoreAndMerge('merge-request');
 
     expect(redisService.publish).toHaveBeenCalledWith('account-merge-updates', 'merge-request');
+  });
+
+  it('recovers persisted external notifications when their initial enqueue fails', async () => {
+    const { service, prisma, queue } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as { createExternalMergeNotifications: jest.Mock };
+    serviceHarness.createExternalMergeNotifications.mockResolvedValue([{ id: 'notification-1' }]);
+    queue.add.mockRejectedValueOnce(new Error('queue unavailable'));
+
+    await service.processScoreAndMerge('merge-request');
+
+    expect(prisma.accountMergeRequest.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'failed' }) }),
+    );
+
+    prisma.accountMergeExternalNotification.findMany.mockResolvedValue([
+      { id: 'notification-1', attemptCount: 0 },
+    ]);
+    await service.recoverPendingExternalNotifications();
+
+    expect(queue.add).toHaveBeenLastCalledWith(
+      'deliver-external-notification',
+      { notificationId: 'notification-1' },
+      { jobId: 'recover-notify-notification-1-0', removeOnComplete: true },
+    );
   });
 
   it('scopes confirmation updates to the requester for a user-owned request', async () => {

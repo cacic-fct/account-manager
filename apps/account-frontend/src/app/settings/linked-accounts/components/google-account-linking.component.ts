@@ -245,7 +245,9 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         this.apiService.getAccountMergeRequest(requestId).subscribe({
           next: (request) => {
             this.mergeRequest.set(request);
-            if (!this.isProcessing(request) && request.status === 'completed') {
+            if (this.isProcessing(request)) {
+              this.startMergeUpdates(request.id);
+            } else if (request.status === 'completed') {
               this.authService.refresh();
               this.clearQueryParams();
             }

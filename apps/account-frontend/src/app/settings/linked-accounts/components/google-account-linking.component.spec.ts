@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { AccountMergeRequest } from '@cacic/shared-types';
-import { BehaviorSubject, NEVER, Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { signal } from '@angular/core';
 import { ApiService } from '../../../shared/services/api.service';
@@ -60,6 +60,7 @@ describe('GoogleAccountLinkingComponent', () => {
   let authService: { currentUser: ReturnType<typeof signal>; refresh: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let snackBar: { open: ReturnType<typeof vi.fn> };
+  let snackBarAction: Subject<void>;
 
   beforeEach(async () => {
     queryParams = new BehaviorSubject(convertToParamMap({}));
@@ -73,7 +74,8 @@ describe('GoogleAccountLinkingComponent', () => {
     };
     authService = { currentUser: signal(null), refresh: vi.fn() };
     router = { navigate: vi.fn() };
-    snackBar = { open: vi.fn().mockReturnValue({ onAction: () => NEVER }) };
+    snackBarAction = new Subject<void>();
+    snackBar = { open: vi.fn().mockReturnValue({ onAction: () => snackBarAction }) };
 
     await TestBed.configureTestingModule({
       imports: [GoogleAccountLinkingComponent],
@@ -131,6 +133,10 @@ describe('GoogleAccountLinkingComponent', () => {
       'Tentar novamente',
       { duration: 7000 },
     );
+
+    snackBarAction.next();
+
+    expect(apiService.watchAccountMergeRequest).toHaveBeenCalledTimes(2);
   });
 
   it('confirms and cancels a merge, including its derived display state', () => {

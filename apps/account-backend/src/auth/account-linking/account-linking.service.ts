@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
@@ -381,8 +382,6 @@ export class AccountLinkingService {
       );
       this.publishMergeUpdate(requestId);
 
-      let failedNotificationIds: string[] = [];
-
       try {
         const enqueueResults = await Promise.all(
           notifications.map(async (notification) => {
@@ -413,7 +412,6 @@ export class AccountLinkingService {
         );
 
         if (failedEnqueues.length > 0) {
-          failedNotificationIds = failedEnqueues.map(({ notificationId }) => notificationId);
           throw new Error(
             failedEnqueues
               .map(({ notificationId, error }) => {
@@ -428,22 +426,9 @@ export class AccountLinkingService {
 
         this.logger.error('Failed to enqueue account merge external notification jobs', {
           requestId,
-          notificationIds: failedNotificationIds,
+          notificationIds: notifications.map(({ id }) => id),
           errorMessage,
         });
-
-        if (failedNotificationIds.length > 0) {
-          await this.prisma.accountMergeExternalNotification.updateMany({
-            where: { id: { in: failedNotificationIds } },
-            data: {
-              status: 'failed',
-              lastError: errorMessage,
-              nextAttemptAt: null,
-            },
-          });
-        }
-
-        throw error;
       }
 
       if (status === 'completed') {
@@ -527,6 +512,37 @@ export class AccountLinkingService {
         },
       );
     }
+  }
+
+  @Cron('*/5 * * * *')
+  async recoverPendingExternalNotifications(): Promise<void> {
+    const notifications = await this.prisma.accountMergeExternalNotification.findMany({
+      where: {
+        status: 'pending',
+        nextAttemptAt: { lte: new Date() },
+      },
+      select: { id: true, attemptCount: true },
+    });
+
+    await Promise.all(
+      notifications.map(async (notification) => {
+        try {
+          await this.accountMergeQueue.add(
+            ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
+            { notificationId: notification.id },
+            {
+              jobId: `recover-notify-${notification.id}-${notification.attemptCount}`,
+              removeOnComplete: true,
+            },
+          );
+        } catch (error) {
+          this.logger.error('Failed to recover account merge external notification job', {
+            notificationId: notification.id,
+            error: error instanceof Error ? error.message : 'Unknown queue error',
+          });
+        }
+      }),
+    );
   }
 
   private async scoreMergeCandidates(firstUserId: string, secondUserId: string): Promise<MergeDecision> {
