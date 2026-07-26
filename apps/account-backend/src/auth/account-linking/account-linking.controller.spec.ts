@@ -336,13 +336,17 @@ describe('AccountLinkingController', () => {
       status: 'pending_merge' as const,
       notificationSummary: { pending: 1, completed: 0, failed: 0 },
     };
-    accountLinkingService.getRequest.mockResolvedValueOnce(pendingRequest).mockResolvedValueOnce(mergingRequest);
+    accountLinkingService.getRequest
+      .mockResolvedValueOnce(pendingRequest)
+      .mockResolvedValueOnce(pendingRequest)
+      .mockResolvedValueOnce(mergingRequest);
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(pendingRequest.id, session);
     const events: Array<{ data: unknown }> = [];
     const subscription = stream.subscribe((event) => events.push(event));
 
+    await new Promise(setImmediate);
     updates.next();
     await new Promise(setImmediate);
 
@@ -371,6 +375,23 @@ describe('AccountLinkingController', () => {
 
     expect(events).toEqual([{ data: completedRequest }]);
     expect(accountLinkingService.openMergeRequestWatch).not.toHaveBeenCalled();
+  });
+
+  it('revalidates after opening the Redis watch so a terminal update is not missed', async () => {
+    const pendingRequest = { ...createMergeRequest(), status: 'pending_score' as const };
+    const completedRequest = { ...pendingRequest, status: 'completed' as const };
+    const close = jest.fn();
+    accountLinkingService.getRequest.mockResolvedValueOnce(pendingRequest).mockResolvedValueOnce(completedRequest);
+    accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates: new Subject<void>(), close });
+
+    const stream = await controller.streamMergeRequest(pendingRequest.id, session);
+    const events: Array<{ data: unknown }> = [];
+    stream.subscribe((event) => events.push(event));
+
+    await new Promise(setImmediate);
+
+    expect(events).toEqual([{ data: completedRequest }]);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('covers private URL and comparison edge cases used by account-linking redirects', async () => {

@@ -99,13 +99,17 @@ describe('AdminAccountMergeController', () => {
     const updates = new Subject<void>();
     const close = jest.fn();
     const processingRequest = { ...mergeRequest, status: 'pending_merge' as const };
-    accountLinkingService.getAdminRequest.mockResolvedValueOnce(mergeRequest).mockResolvedValueOnce(processingRequest);
+    accountLinkingService.getAdminRequest
+      .mockResolvedValueOnce(mergeRequest)
+      .mockResolvedValueOnce(mergeRequest)
+      .mockResolvedValueOnce(processingRequest);
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(mergeRequest.id);
     const events: Array<{ data: unknown }> = [];
     const subscription = stream.subscribe((event) => events.push(event));
 
+    await new Promise(setImmediate);
     updates.next();
     await new Promise(setImmediate);
 

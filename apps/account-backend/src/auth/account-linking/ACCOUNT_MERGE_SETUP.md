@@ -6,6 +6,7 @@ Account merging is asynchronous. The user proves ownership of both Keycloak acco
 
 - `pending`: the second account was authenticated and the user must choose the primary email.
 - `pending_score`: Account Manager is calculating local score and best-effort external scores.
+- `processing`: Account Manager has claimed the request and is applying the local merge.
 - `pending_merge`: local merge is done and external systems are being notified.
 - `completed`: all required work and external acknowledgements completed.
 - `failed`, `expired`, `cancelled`: terminal non-success states.
@@ -37,7 +38,7 @@ External scoring is optional. If a scoring backend returns an error or does not 
    - Moves status to `pending_score`.
    - Enqueues the BullMQ scoring/local-merge job.
 
-5. Frontend opens `GET /auth/account-linking/merge-requests/:id/events` as an SSE stream while status is `pending_score` or `pending_merge`. The first event is a full request snapshot; subsequent events are field-level deltas.
+5. Frontend opens `GET /auth/account-linking/merge-requests/:id/events` as an SSE stream while status is `pending_score`, `processing`, or `pending_merge`. The first event is a full request snapshot; subsequent events are field-level deltas.
 
 ## External Scoring Contract
 
@@ -53,14 +54,14 @@ The gRPC response contains:
 
 ```json
 {
-  "scores": {
-    "candidate-a": 10,
-    "candidate-b": 25
-  }
+  "scores": [
+    { "userId": "candidate-a", "score": 10 },
+    { "userId": "candidate-b", "score": 25 }
+  ]
 }
 ```
 
-Each score is a `UserScore { userId, score }`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is treated as no external score.
+Each score is a protobuf `UserScore` item with `userId` and `score`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is treated as no external score.
 
 ## External Merge Notification Contract
 

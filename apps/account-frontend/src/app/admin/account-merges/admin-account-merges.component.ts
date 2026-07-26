@@ -64,7 +64,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
   protected readonly mergeUpdatesFailed = signal(false);
   protected readonly isProcessing = computed(() => {
     const status = this.mergeRequest()?.status;
-    return status === 'pending_score' || status === 'pending_merge';
+    return status === 'pending_score' || status === 'processing' || status === 'pending_merge';
   });
   protected readonly canCreate = computed(() => {
     const firstUser = this.firstUser();
@@ -195,7 +195,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
       next: (delta) => {
         const request = { ...this.mergeRequest(), ...delta } as AccountMergeRequest;
         this.mergeRequest.set(request);
-        if (!['pending_score', 'pending_merge'].includes(request.status)) {
+        if (!['pending_score', 'processing', 'pending_merge'].includes(request.status)) {
           this.stopMergeUpdates();
         }
       },

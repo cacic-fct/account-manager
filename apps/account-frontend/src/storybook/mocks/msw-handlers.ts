@@ -64,7 +64,7 @@ export type DiscordManagedRoleOverridesStoryState = {
 };
 
 export type AdminAccountMergesStoryState = {
-  mergeState: 'selection' | 'pending' | 'pending_score' | 'pending_merge' | 'completed' | 'failed' | 'expired';
+  mergeState: 'selection' | 'pending' | 'pending_score' | 'processing' | 'pending_merge' | 'completed' | 'failed' | 'expired';
   searchMode: 'matches' | 'empty' | 'error';
   failureMode: 'none' | 'create' | 'confirm' | 'cancel';
   responseDelayMs: number;
@@ -193,7 +193,7 @@ const getAdminAccountMergeRequest = (): AccountMergeRequest => {
   const [firstUser, secondUser] = mockKeycloakPermissionUsers;
   const status = adminAccountMergesStoryState.mergeState as AccountMergeStatus;
   const isPending = status === 'pending';
-  const hasScores = ['pending_score', 'pending_merge', 'completed', 'failed', 'expired'].includes(status);
+  const hasScores = ['pending_score', 'processing', 'pending_merge', 'completed', 'failed', 'expired'].includes(status);
   const primaryEmail = firstUser?.email ?? 'conta-principal@example.com';
   const secondaryEmail = secondUser?.email ?? 'conta-secundaria@example.com';
 

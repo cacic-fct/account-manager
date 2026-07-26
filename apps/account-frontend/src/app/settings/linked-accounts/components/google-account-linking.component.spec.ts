@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { AccountMergeRequest } from '@cacic/shared-types';
-import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, NEVER, Subject, of, throwError } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { signal } from '@angular/core';
 import { ApiService } from '../../../shared/services/api.service';
@@ -73,7 +73,7 @@ describe('GoogleAccountLinkingComponent', () => {
     };
     authService = { currentUser: signal(null), refresh: vi.fn() };
     router = { navigate: vi.fn() };
-    snackBar = { open: vi.fn() };
+    snackBar = { open: vi.fn().mockReturnValue({ onAction: () => NEVER }) };
 
     await TestBed.configureTestingModule({
       imports: [GoogleAccountLinkingComponent],
@@ -124,6 +124,11 @@ describe('GoogleAccountLinkingComponent', () => {
     expect(snackBar.open).toHaveBeenCalledWith(
       'Não foi possível acompanhar a unificação em tempo real.',
       'OK',
+      { duration: 7000 },
+    );
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Não foi possível recuperar o status da unificação.',
+      'Tentar novamente',
       { duration: 7000 },
     );
   });

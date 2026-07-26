@@ -162,14 +162,14 @@ export class AccountLinkingService {
       throw new NotFoundException('Merge request not found');
     }
 
-    if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
+    if (!['pending', 'pending_score'].includes(request.status)) {
       return false;
     }
 
     const result = await this.prisma.accountMergeRequest.updateMany({
       where: {
         id: requestId,
-        status: { in: ['pending', 'pending_score', 'pending_merge'] },
+        status: { in: ['pending', 'pending_score'] },
         ...(sessionUserId ? { requesterUserId: sessionUserId } : {}),
       },
       data: { status: 'cancelled' },
@@ -290,13 +290,15 @@ export class AccountLinkingService {
   }
 
   async processScoreAndMerge(requestId: string): Promise<void> {
-    const request = await this.prisma.accountMergeRequest.findUnique({
-      where: { id: requestId },
+    const claimed = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'pending_score' },
+      data: { status: 'processing' },
     });
-
-    if (!request || request.status !== 'pending_score') {
+    if (claimed.count === 0) {
       return;
     }
+
+    const request = await this.prisma.accountMergeRequest.findUniqueOrThrow({ where: { id: requestId } });
 
     if (!request.selectedPrimaryEmail) {
       await this.failMerge(requestId, 'Primary email was not selected');
@@ -342,7 +344,7 @@ export class AccountLinkingService {
       );
       await this.keycloakService.setUserEnabled(decision.secondaryUserId, false);
 
-      const { notifications, updated } = await this.prisma.$transaction(
+      const { notifications, status } = await this.prisma.$transaction(
         async (tx) => {
           await this.transferLocalData(tx, decision.primaryUserId, decision.secondaryUserId);
 
@@ -352,10 +354,11 @@ export class AccountLinkingService {
             newUserId: decision.primaryUserId,
           });
 
-          const updated = await tx.accountMergeRequest.update({
-            where: { id: request.id },
+          const status = notifications.length > 0 ? 'pending_merge' : 'completed';
+          const updated = await tx.accountMergeRequest.updateMany({
+            where: { id: request.id, status: 'processing' },
             data: {
-              status: notifications.length > 0 ? 'pending_merge' : 'completed',
+              status,
               primaryUserId: decision.primaryUserId,
               secondaryUserId: decision.secondaryUserId,
               secondaryEmails,
@@ -365,7 +368,11 @@ export class AccountLinkingService {
             },
           });
 
-          return { notifications, updated };
+          if (updated.count === 0) {
+            throw new Error('Merge request is no longer being processed');
+          }
+
+          return { notifications, status };
         },
         {
           maxWait: 10_000,
@@ -439,7 +446,7 @@ export class AccountLinkingService {
         throw error;
       }
 
-      if (updated.status === 'completed') {
+      if (status === 'completed') {
         this.logger.debug('Account merge completed without external backends', {
           requestId,
         });
@@ -722,14 +729,16 @@ export class AccountLinkingService {
       requestId,
       errorMessage,
     });
-    await this.prisma.accountMergeRequest.update({
-      where: { id: requestId },
+    const failed = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'processing' },
       data: {
         status: 'failed',
         errorMessage,
       },
     });
-    this.publishMergeUpdate(requestId);
+    if (failed.count > 0) {
+      this.publishMergeUpdate(requestId);
+    }
   }
 
   private publishMergeUpdate(requestId: string): void {

@@ -65,7 +65,7 @@ const meta: Meta<StoryArgs> = {
   argTypes: {
     mergeState: {
       control: 'radio',
-      options: ['selection', 'pending', 'pending_score', 'pending_merge', 'completed', 'failed', 'expired'],
+      options: ['selection', 'pending', 'pending_score', 'processing', 'pending_merge', 'completed', 'failed', 'expired'],
     },
     searchMode: {
       control: 'radio',

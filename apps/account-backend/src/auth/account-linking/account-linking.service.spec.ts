@@ -73,7 +73,14 @@ describe('AccountLinkingService', () => {
         requesterUserId: primaryUserId,
         candidateUserId: secondaryUserId,
       }),
-      update: jest.fn().mockResolvedValue({ status: 'completed' }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: 'merge-request',
+        status: 'processing',
+        selectedPrimaryEmail: 'primary@example.org',
+        requesterUserId: primaryUserId,
+        candidateUserId: secondaryUserId,
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     const prisma = {
       accountMergeRequest,
@@ -123,6 +130,21 @@ describe('AccountLinkingService', () => {
     await service.processScoreAndMerge('merge-request');
 
     expect(keycloakService.addUserToGroupPath).toHaveBeenCalledWith(primaryUserId, '/Unesp');
+  });
+
+  it('does not run merge side effects when cancellation wins the processing claim', async () => {
+    const { service, keycloakService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as { scoreMergeCandidates: jest.Mock };
+    const prisma = (service as unknown as { prisma: { accountMergeRequest: { updateMany: jest.Mock } } }).prisma;
+    prisma.accountMergeRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.processScoreAndMerge('merge-request');
+
+    expect(serviceHarness.scoreMergeCandidates).not.toHaveBeenCalled();
+    expect(keycloakService.getUserAttributes).not.toHaveBeenCalled();
   });
 
   it('buffers a merge update once the Redis subscription is ready', async () => {

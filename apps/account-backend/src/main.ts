@@ -25,17 +25,20 @@ function registerGracefulShutdown(
     if (shuttingDown) return;
     shuttingDown = true;
     logger.log(`Received ${signal}; shutting down HTTP and gRPC servers.`);
+    const [httpShutdown] = await Promise.allSettled([app.close()]);
+    if (httpShutdown.status === 'rejected') {
+      logger.error('HTTP graceful shutdown failed', httpShutdown.reason);
+      return;
+    }
+
     const timeout = setTimeout(() => grpcServer.forceShutdown(), 10_000);
     try {
-      await Promise.all([
-        app.close(),
-        new Promise<void>((resolve) =>
-          grpcServer.tryShutdown((error) => {
-            if (error) logger.warn(`gRPC graceful shutdown failed: ${error.message}`);
-            resolve();
-          }),
-        ),
-      ]);
+      await new Promise<void>((resolve) =>
+        grpcServer.tryShutdown((error) => {
+          if (error) logger.warn(`gRPC graceful shutdown failed: ${error.message}`);
+          resolve();
+        }),
+      );
     } finally {
       clearTimeout(timeout);
     }

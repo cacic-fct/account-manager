@@ -18,7 +18,7 @@ export async function createMergeRequestStream(
   }
 
   const watch = await openWatch();
-  return concat(of(initialRequest), watch.updates.pipe(concatMap(() => from(loadRequest())))).pipe(
+  return concat(from(loadRequest()), watch.updates.pipe(concatMap(() => from(loadRequest())))).pipe(
     takeWhile((request) => !isTerminalMergeRequest(request), true),
     scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
       previous: null as AccountMergeRequest | null,
