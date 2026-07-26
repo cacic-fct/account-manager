@@ -25,7 +25,11 @@ export class EventManagerProfileSyncService {
     private readonly configService: ConfigService,
     private readonly eventManager: EventManagerGrpcClient,
   ) {
-    this.grpcTarget = this.configService.get<string>('EVENT_MANAGER_GRPC_URL')?.trim() || 'localhost:50051';
+    const configuredTarget = this.configService.get<string>('EVENT_MANAGER_GRPC_URL')?.trim();
+    this.grpcTarget = configuredTarget || 'localhost:50051';
+    if (!configuredTarget) {
+      this.logger.warn('EVENT_MANAGER_GRPC_URL is not configured; using the development fallback localhost:50051.');
+    }
     this.audience = this.configService.get<string>('EVENT_MANAGER_M2M_AUDIENCE');
   }
 

@@ -11,7 +11,7 @@
       "types": "./index.d.ts",
       "default": "./index.js"
     },
-    "./proto/account-manager-m2m.proto": "./proto/account-manager-m2m.proto"
+    "./proto/cacic/m2m/account_manager/v1.proto": "./proto/cacic/m2m/account_manager/v1.proto"
   },
   "repository": {
     "type": "git",

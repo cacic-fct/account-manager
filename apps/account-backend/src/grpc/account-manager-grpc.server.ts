@@ -49,7 +49,7 @@ export async function startAccountManagerGrpcServer(app: INestApplication): Prom
     'grpc.max_send_message_length': 4 * 1024 * 1024,
   });
   const service = loadGrpcServiceDefinition(
-    resolveGrpcProtoPath('account-manager-m2m.proto'),
+    resolveGrpcProtoPath('cacic/m2m/account_manager/v1.proto'),
     ['cacic', 'm2m', 'account_manager', 'v1'],
     'AccountManagerM2M',
   );

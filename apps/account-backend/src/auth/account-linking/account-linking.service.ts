@@ -167,7 +167,11 @@ export class AccountLinkingService {
     }
 
     const result = await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, ...(sessionUserId ? { requesterUserId: sessionUserId } : {}) },
+      where: {
+        id: requestId,
+        status: { in: ['pending', 'pending_score', 'pending_merge'] },
+        ...(sessionUserId ? { requesterUserId: sessionUserId } : {}),
+      },
       data: { status: 'cancelled' },
     });
     if (result.count > 0) {
@@ -254,13 +258,16 @@ export class AccountLinkingService {
       throw new BadRequestException('Primary email must belong to one account');
     }
 
-    await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
+    const update = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'pending', ...(requesterUserId ? { requesterUserId } : {}) },
       data: {
         status: 'pending_score',
         selectedPrimaryEmail: normalizedPrimaryEmail,
       },
     });
+    if (update.count === 0) {
+      throw new BadRequestException('Merge request is already being processed');
+    }
 
     const updated = await this.prisma.accountMergeRequest.findFirstOrThrow({
       where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },

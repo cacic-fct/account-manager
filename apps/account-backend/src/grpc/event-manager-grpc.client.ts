@@ -11,7 +11,7 @@ export class EventManagerGrpcClient implements OnModuleDestroy {
   private readonly logger = new Logger(EventManagerGrpcClient.name);
   private readonly clients = new Map<string, GrpcUnaryClient>();
   private readonly service = loadGrpcServiceDefinition(
-    resolveGrpcProtoPath('event-manager-m2m.proto'),
+    resolveGrpcProtoPath('cacic/m2m/event_manager/v1/event-manager-m2m.proto'),
     ['cacic', 'm2m', 'event_manager', 'v1'],
     'EventManagerM2M',
   );
@@ -81,6 +81,14 @@ export class EventManagerGrpcClient implements OnModuleDestroy {
     request: Record<string, unknown>,
   ): Promise<unknown> {
     return this.callJson(target, audience, 'DeleteLgpdData', request, true);
+  }
+
+  async cancelLgpdDeletion(
+    target: string,
+    audience: string | undefined,
+    request: Record<string, unknown>,
+  ): Promise<unknown> {
+    return this.callJson(target, audience, 'CancelLgpdDeletion', request, true);
   }
 
   onModuleDestroy(): void {

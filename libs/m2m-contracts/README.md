@@ -52,7 +52,7 @@ const userLookupBody: M2MUserEnrollmentLookupRequest = {
 Run `bunx nx build m2m-contracts` to build the library.
 
 The built package also includes the canonical
-`proto/account-manager-m2m.proto` gRPC contract. Runtime services should use
+`proto/cacic/m2m/account_manager/v1.proto` gRPC contract. Runtime services should use
 that contract over an internal, scoped network and continue sending Keycloak
 service-account tokens in gRPC metadata.
 

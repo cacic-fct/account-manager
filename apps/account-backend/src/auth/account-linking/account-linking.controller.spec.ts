@@ -361,6 +361,18 @@ describe('AccountLinkingController', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it('returns a terminal snapshot without opening a Redis watch', async () => {
+    const completedRequest = createMergeRequest();
+    accountLinkingService.getRequest.mockResolvedValue(completedRequest);
+
+    const stream = await controller.streamMergeRequest(completedRequest.id, session);
+    const events: Array<{ data: unknown }> = [];
+    stream.subscribe((event) => events.push(event));
+
+    expect(events).toEqual([{ data: completedRequest }]);
+    expect(accountLinkingService.openMergeRequestWatch).not.toHaveBeenCalled();
+  });
+
   it('covers private URL and comparison edge cases used by account-linking redirects', async () => {
     const internals = controller as unknown as {
       secureCompare: (a: string, b: string) => boolean;

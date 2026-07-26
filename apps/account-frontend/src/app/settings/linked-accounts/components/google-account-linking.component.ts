@@ -238,6 +238,15 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'OK', { duration: 7000 });
+        this.apiService.getAccountMergeRequest(requestId).subscribe({
+          next: (request) => {
+            this.mergeRequest.set(request);
+            if (!this.isProcessing(request) && request.status === 'completed') {
+              this.authService.refresh();
+              this.clearQueryParams();
+            }
+          },
+        });
       },
     });
   }

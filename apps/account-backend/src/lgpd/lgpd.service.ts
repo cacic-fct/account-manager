@@ -16,6 +16,7 @@
  * - Ensures data minimization and purpose limitation
  */
 
+import { status } from '@grpc/grpc-js';
 import {
   Injectable,
   NotFoundException,
@@ -999,6 +1000,8 @@ export class LgpdService {
         try {
           if (action === 'schedule') {
             await this.eventManagerGrpc.scheduleLgpdDeletion(backend.target, backend.audience, payload);
+          } else if (action === 'cancel') {
+            await this.eventManagerGrpc.cancelLgpdDeletion(backend.target, backend.audience, payload);
           } else if (action === 'delete') {
             await this.eventManagerGrpc.deleteLgpdData(backend.target, backend.audience, payload);
           }
@@ -1064,13 +1067,18 @@ export class LgpdService {
   }
 
   private isTimeoutError(error: unknown): boolean {
-    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+    return (
+      error instanceof Error &&
+      (error.name === 'TimeoutError' ||
+        error.name === 'AbortError' ||
+        ('code' in error && error.code === status.DEADLINE_EXCEEDED))
+    );
   }
 
   private getExternalDeletionBackends(): {
     name: string;
     target: string;
-    actions: ('schedule' | 'delete')[];
+    actions: ('schedule' | 'cancel' | 'delete')[];
     audience?: string;
   }[] {
     const raw = process.env.LGPD_DELETION_GRPC_BACKENDS;
@@ -1086,7 +1094,7 @@ export class LgpdService {
         ): backend is {
           name: string;
           target: string;
-          actions: ('schedule' | 'delete')[];
+          actions: ('schedule' | 'cancel' | 'delete')[];
           audience?: string;
         } => {
           if (typeof backend !== 'object' || backend === null) {
@@ -1098,7 +1106,7 @@ export class LgpdService {
             typeof candidate['name'] === 'string' &&
             typeof candidate['target'] === 'string' &&
             Array.isArray(candidate['actions']) &&
-            candidate['actions'].every((item) => ['schedule', 'delete'].includes(String(item)))
+            candidate['actions'].every((item) => ['schedule', 'cancel', 'delete'].includes(String(item)))
           );
         },
       );

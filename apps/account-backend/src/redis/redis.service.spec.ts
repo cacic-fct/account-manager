@@ -88,6 +88,20 @@ describe('RedisService', () => {
     subscription.unsubscribe();
   });
 
+  it('creates a replacement subscriber when a ready observable is resubscribed after shutdown', async () => {
+    const { service, client } = createService();
+    const readyChannel = await service.subscribeWhenReady('account-merge-updates');
+    const firstSubscription = readyChannel.subscribe();
+    firstSubscription.unsubscribe();
+    await waitForSubscription();
+
+    const secondSubscription = readyChannel.subscribe();
+    await waitForSubscription();
+
+    expect(client.duplicate).toHaveBeenCalledTimes(2);
+    secondSubscription.unsubscribe();
+  });
+
   it('contains subscriber shutdown failures during teardown', async () => {
     const unsubscribe = jest.fn().mockRejectedValue(new Error('unsubscribe failed'));
     const quit = jest.fn().mockRejectedValue(new Error('quit failed'));

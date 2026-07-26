@@ -39,9 +39,13 @@ describe('AdminAccountMergeController', () => {
   });
 
   it('requires the super-admin permission for every account merge operation', () => {
-    for (const handler of ['createMergeRequest', 'getMergeRequest', 'confirmMerge', 'cancelMerge'].map(
-      getControllerHandler,
-    )) {
+    for (const handler of [
+      'createMergeRequest',
+      'getMergeRequest',
+      'streamMergeRequest',
+      'confirmMerge',
+      'cancelMerge',
+    ].map(getControllerHandler)) {
       expect(Reflect.getMetadata(ACCOUNT_PERMISSIONS_KEY, handler)).toEqual({
         permissions: [AccountManagerPermission.SuperAdmin],
         mode: 'any',
@@ -108,5 +112,16 @@ describe('AdminAccountMergeController', () => {
     expect(events).toEqual([{ data: mergeRequest }, { data: { id: mergeRequest.id, status: 'pending_merge' } }]);
     subscription.unsubscribe();
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a Redis watch for a terminal request', async () => {
+    accountLinkingService.getAdminRequest.mockResolvedValue({ ...mergeRequest, status: 'completed' });
+
+    const stream = await controller.streamMergeRequest(mergeRequest.id);
+    const events: Array<{ data: unknown }> = [];
+    stream.subscribe((event) => events.push(event));
+
+    expect(events).toEqual([{ data: { ...mergeRequest, status: 'completed' } }]);
+    expect(accountLinkingService.openMergeRequestWatch).not.toHaveBeenCalled();
   });
 });

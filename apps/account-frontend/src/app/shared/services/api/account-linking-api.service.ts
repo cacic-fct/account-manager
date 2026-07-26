@@ -109,6 +109,10 @@ export class AccountLinkingApiService {
         }
       };
 
+      eventSource.onopen = () => {
+        consecutiveErrors = 0;
+      };
+
       eventSource.onmessage = (event) => {
         try {
           subscriber.next(JSON.parse(event.data) as AccountMergeRequestDelta);

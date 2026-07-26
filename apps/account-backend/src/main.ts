@@ -9,9 +9,40 @@ async function bootstrap() {
   const bootstrapLogger = new Logger('Bootstrap');
   const appConfig = createAppConfig(app.get(ConfigService));
 
-  await startAccountManagerGrpcServer(app);
+  const grpcServer = await startAccountManagerGrpcServer(app);
+  registerGracefulShutdown(app, grpcServer, bootstrapLogger);
   await app.listen(appConfig.port);
   bootstrapLogger.log(`Application is running on: ${appConfig.backendUrl}/${getAccountBackendGlobalPrefix()}`);
+}
+
+function registerGracefulShutdown(
+  app: Awaited<ReturnType<typeof createAccountBackendHttpApp>>,
+  grpcServer: import('@grpc/grpc-js').Server,
+  logger: Logger,
+): void {
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.log(`Received ${signal}; shutting down HTTP and gRPC servers.`);
+    const timeout = setTimeout(() => grpcServer.forceShutdown(), 10_000);
+    try {
+      await Promise.all([
+        app.close(),
+        new Promise<void>((resolve) =>
+          grpcServer.tryShutdown((error) => {
+            if (error) logger.warn(`gRPC graceful shutdown failed: ${error.message}`);
+            resolve();
+          }),
+        ),
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => void shutdown(signal));
+  }
 }
 const bootstrapFailureLogger = new Logger('Bootstrap');
 

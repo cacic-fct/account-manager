@@ -37,11 +37,11 @@ External scoring is optional. If a scoring backend returns an error or does not 
    - Moves status to `pending_score`.
    - Enqueues the BullMQ scoring/local-merge job.
 
-5. Frontend polls `GET /auth/account-linking/merge-requests/:id` while status is `pending_score` or `pending_merge`.
+5. Frontend opens `GET /auth/account-linking/merge-requests/:id/events` as an SSE stream while status is `pending_score` or `pending_merge`. The first event is a full request snapshot; subsequent events are field-level deltas.
 
 ## External Scoring Contract
 
-Configured score backends receive:
+Configured gRPC score backends receive `ScoreAccountMerge` with:
 
 ```json
 {
@@ -49,7 +49,7 @@ Configured score backends receive:
 }
 ```
 
-Expected response:
+The gRPC response contains:
 
 ```json
 {
@@ -60,20 +60,11 @@ Expected response:
 }
 ```
 
-Alternatively, an array is accepted:
-
-```json
-[
-  { "userId": "candidate-a", "score": 10 },
-  { "userId": "candidate-b", "score": 25 }
-]
-```
-
-Responses must be HTTP 200. Any non-200, invalid payload, or timeout after 30 minutes is treated as no external score.
+Each score is a `UserScore { userId, score }`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is treated as no external score.
 
 ## External Merge Notification Contract
 
-After the local merge succeeds, each configured merge backend receives:
+After the local merge succeeds, each configured merge backend receives an `ApplyAccountMerge` gRPC request:
 
 ```json
 {
@@ -85,7 +76,7 @@ After the local merge succeeds, each configured merge backend receives:
 }
 ```
 
-The backend must return HTTP 200 with this acknowledgement:
+The gRPC response must acknowledge the same event:
 
 ```json
 {
@@ -97,7 +88,7 @@ The backend must return HTTP 200 with this acknowledgement:
 }
 ```
 
-Only this validated response marks that backend as completed. A plain 200 without the acknowledgement is retried.
+Only this validated gRPC response marks that backend as completed. An unavailable, invalid, or failed response is retried.
 
 ## Retry Policy
 

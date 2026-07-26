@@ -20,6 +20,14 @@
             <p>Processando a unificação e notificando os sistemas externos.</p>
           }
 
+          @if (mergeUpdatesFailed()) {
+            <p class="warning">Não foi possível receber atualizações em tempo real.</p>
+            <button mat-stroked-button type="button" (click)="retryMergeUpdates()">
+              <mat-icon>refresh</mat-icon>
+              Tentar novamente
+            </button>
+          }
+
           @if (request.status === 'pending') {
             <mat-form-field appearance="outline">
               <mat-label>E-mail principal</mat-label>

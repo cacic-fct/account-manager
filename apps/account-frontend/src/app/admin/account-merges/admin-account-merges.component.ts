@@ -61,6 +61,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
   protected readonly confirming = signal(false);
   protected readonly mergeRequest = signal<AccountMergeRequest | null>(null);
   protected readonly selectedPrimaryEmail = signal('');
+  protected readonly mergeUpdatesFailed = signal(false);
   protected readonly isProcessing = computed(() => {
     const status = this.mergeRequest()?.status;
     return status === 'pending_score' || status === 'pending_merge';
@@ -152,6 +153,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
     this.selectedPrimaryEmail.set('');
     this.firstUser.set(null);
     this.secondUser.set(null);
+    this.mergeUpdatesFailed.set(false);
   }
 
   protected progressValue(score: number): number {
@@ -184,6 +186,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
 
   private startMergeUpdates(requestId: string): void {
     this.stopMergeUpdates();
+    this.mergeUpdatesFailed.set(false);
     if (!this.isBrowser) {
       return;
     }
@@ -197,9 +200,15 @@ export class AdminAccountMergesComponent implements OnDestroy {
         }
       },
       error: () => {
+        this.mergeUpdatesFailed.set(true);
         this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'Fechar', { duration: 7000 });
       },
     });
+  }
+
+  protected retryMergeUpdates(): void {
+    const requestId = this.mergeRequest()?.id;
+    if (requestId) this.startMergeUpdates(requestId);
   }
 
   private stopMergeUpdates(): void {

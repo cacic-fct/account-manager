@@ -166,7 +166,7 @@ describe('AccountLinkingService', () => {
     await service.confirmMerge('merge-request', 'requester-user', 'requester@example.org');
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: 'merge-request', requesterUserId: 'requester-user' },
+      where: { id: 'merge-request', requesterUserId: 'requester-user', status: 'pending' },
       data: { status: 'pending_score', selectedPrimaryEmail: 'requester@example.org' },
     });
     expect(accountMergeRequest.findFirstOrThrow).toHaveBeenCalledWith({
@@ -180,7 +180,7 @@ describe('AccountLinkingService', () => {
     await service.confirmAdminMerge('merge-request', 'requester@example.org', 'admin-user');
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: 'merge-request' },
+      where: { id: 'merge-request', status: 'pending' },
       data: { status: 'pending_score', selectedPrimaryEmail: 'requester@example.org' },
     });
     expect(accountMergeRequest.findFirstOrThrow).toHaveBeenCalledWith({ where: { id: 'merge-request' } });
