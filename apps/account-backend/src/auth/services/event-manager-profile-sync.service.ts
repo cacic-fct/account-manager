@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserProfile } from '../interfaces/auth.interface';
-import { JwtService } from '../jwt/jwt.service';
+import { EventManagerGrpcClient } from '../../grpc/event-manager-grpc.client';
 
 type EventManagerProfileUpdatePayload = {
   userId: string;
@@ -18,52 +18,34 @@ type EventManagerProfileUpdatePayload = {
 @Injectable()
 export class EventManagerProfileSyncService {
   private readonly logger = new Logger(EventManagerProfileSyncService.name);
-  private readonly profileUpdateUrl!: string;
+  private readonly grpcTarget: string;
   private readonly audience?: string;
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly jwtService: JwtService,
+    private readonly eventManager: EventManagerGrpcClient,
   ) {
-    this.profileUpdateUrl =
-      this.configService.get<string>('EVENT_MANAGER_PROFILE_UPDATE_URL') ??
-      `${(this.configService.get<string>('EVENT_MANAGER_API_URL') ?? 'https://eventos.cacic.com.br/api').replace(
-        /\/+$/,
-        '',
-      )}/internal/account-profile/updated`;
+    const configuredTarget = this.configService.get<string>('EVENT_MANAGER_GRPC_URL')?.trim();
+    this.grpcTarget = configuredTarget || 'localhost:50051';
+    if (!configuredTarget) {
+      this.logger.warn('EVENT_MANAGER_GRPC_URL is not configured; using the development fallback localhost:50051.');
+    }
     this.audience = this.configService.get<string>('EVENT_MANAGER_M2M_AUDIENCE');
   }
 
   async notifyProfileUpdated(profile: UserProfile): Promise<void> {
     const payload = this.toPayload(profile);
-    const token = await this.jwtService.getClientCredentialsToken({
-      audience: this.audience,
-    });
-
-    const response = await fetch(this.profileUpdateUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      this.logger.warn('Event Manager profile sync failed', {
-        status: response.status,
-        statusText: response.statusText,
+    try {
+      await this.eventManager.notifyProfileUpdated(this.grpcTarget, this.audience, payload);
+      this.logger.debug('Event Manager profile sync delivered', {
         userId: profile.keycloakId,
-        body,
       });
-      return;
+    } catch (error) {
+      this.logger.warn('Event Manager profile sync failed', {
+        userId: profile.keycloakId,
+        error: error instanceof Error ? error.message : 'Unknown gRPC error',
+      });
     }
-
-    this.logger.debug('Event Manager profile sync delivered', {
-      userId: profile.keycloakId,
-    });
   }
 
   private toPayload(profile: UserProfile): EventManagerProfileUpdatePayload {

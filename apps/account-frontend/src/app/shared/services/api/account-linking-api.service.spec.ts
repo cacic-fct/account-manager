@@ -11,6 +11,7 @@ class MockEventSource {
   static instance: MockEventSource | undefined;
   static urls: string[] = [];
   onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onopen: (() => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   readyState = 0;
   readonly close = vi.fn();
@@ -109,6 +110,22 @@ describe('AccountLinkingApiService', () => {
 
     expect(errors[0]?.message).toContain('repeatedly failed');
     expect(eventSource.close).toHaveBeenCalled();
+    stream.unsubscribe();
+  });
+
+  it('resets transient stream failures as soon as EventSource reconnects', () => {
+    const service = TestBed.inject(AccountLinkingApiService);
+    const errors: Error[] = [];
+    const stream = (service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> })
+      .createMergeRequestEventStream('/events')
+      .subscribe({ error: (error: Error) => errors.push(error) });
+    const eventSource = getEventSource();
+
+    for (let index = 0; index < 4; index += 1) eventSource.onerror?.(new Event('error'));
+    eventSource.onopen?.();
+    for (let index = 0; index < 4; index += 1) eventSource.onerror?.(new Event('error'));
+
+    expect(errors).toEqual([]);
     stream.unsubscribe();
   });
 

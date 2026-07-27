@@ -151,7 +151,7 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   }
 
   protected isProcessing(request: AccountMergeRequest): boolean {
-    return ['pending_score', 'pending_merge'].includes(request.status);
+    return ['pending_score', 'processing', 'pending_merge'].includes(request.status);
   }
 
   protected statusTitle(request: AccountMergeRequest): string {
@@ -160,6 +160,8 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         return 'Escolha o e-mail principal';
       case 'pending_score':
         return 'Calculando qual perfil deve permanecer ativo';
+      case 'processing':
+        return 'Unificação em andamento';
       case 'pending_merge':
         return 'Unificação em andamento';
       case 'completed':
@@ -179,6 +181,8 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         return 'Antes de calcularmos a pontuação, selecione qual endereço deve ficar como principal.';
       case 'pending_score':
         return 'Estamos avaliando os dados locais e aguardando, quando disponível, a pontuação de sistemas externos. Isso pode levar até 30 minutos.';
+      case 'processing':
+        return 'Estamos unificando os dados das contas. Não feche esta página enquanto o processo estiver em andamento.';
       case 'pending_merge':
         return 'A conta principal já foi definida. Estamos notificando os outros sistemas e repetiremos automaticamente o que ainda não confirmou recebimento.';
       case 'completed':
@@ -238,6 +242,23 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'OK', { duration: 7000 });
+        this.apiService.getAccountMergeRequest(requestId).subscribe({
+          next: (request) => {
+            this.mergeRequest.set(request);
+            if (this.isProcessing(request)) {
+              this.startMergeUpdates(request.id);
+            } else if (request.status === 'completed') {
+              this.authService.refresh();
+              this.clearQueryParams();
+            }
+          },
+          error: () => {
+            this.snackBar
+              .open('Não foi possível recuperar o status da unificação.', 'Tentar novamente', { duration: 7000 })
+              .onAction()
+              .subscribe(() => this.startMergeUpdates(requestId));
+          },
+        });
       },
     });
   }

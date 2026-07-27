@@ -20,6 +20,7 @@ import { GatewayIntentBits } from 'discord.js';
 import { PrismaModule } from './prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
+import { GrpcModule } from './grpc/grpc.module';
 
 const getRequiredEnv = (name: string): string => {
   const value = process.env[name];
@@ -56,6 +57,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     StudentVerificationModule,
     UniversityValidationModule,
     ConfigModule.forRoot(),
+    GrpcModule,
     FeatureFlagsModule,
     TotpModule,
     M2MUsersModule,

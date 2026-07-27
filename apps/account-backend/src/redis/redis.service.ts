@@ -92,13 +92,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   subscribe(channel: string): Observable<string> {
-    return this.observeChannelSubscription(this.getOrCreateChannelSubscription(channel));
+    return new Observable((subscriber) =>
+      this.observeChannelSubscription(this.getOrCreateChannelSubscription(channel)).subscribe(subscriber),
+    );
   }
 
   async subscribeWhenReady(channel: string): Promise<Observable<string>> {
-    const channelSubscription = this.getOrCreateChannelSubscription(channel);
-    await channelSubscription.ready;
-    return this.observeChannelSubscription(channelSubscription);
+    await this.getOrCreateChannelSubscription(channel).ready;
+    return new Observable((subscriber) =>
+      this.observeChannelSubscription(this.getOrCreateChannelSubscription(channel)).subscribe(subscriber),
+    );
   }
 
   private getOrCreateChannelSubscription(channel: string): ChannelSubscription {

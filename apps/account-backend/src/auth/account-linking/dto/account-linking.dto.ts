@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import type {
   AccountMergeRequest,
   AdminCreateAccountMergeRequest,
@@ -31,6 +31,7 @@ export class AdminCreateAccountMergeDto implements AdminCreateAccountMergeReques
   })
   @IsString()
   @IsNotEmpty()
+  @IsUUID()
   requesterUserId!: string;
 
   @ApiProperty({
@@ -39,6 +40,7 @@ export class AdminCreateAccountMergeDto implements AdminCreateAccountMergeReques
   })
   @IsString()
   @IsNotEmpty()
+  @IsUUID()
   candidateUserId!: string;
 }
 

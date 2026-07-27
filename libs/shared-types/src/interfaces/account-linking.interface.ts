@@ -1,6 +1,7 @@
 export type AccountMergeStatus =
   | 'pending'
   | 'pending_score'
+  | 'processing'
   | 'pending_merge'
   | 'completed'
   | 'cancelled'

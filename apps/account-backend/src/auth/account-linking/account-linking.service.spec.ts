@@ -45,8 +45,8 @@ describe('AccountLinkingService', () => {
       { accountMergeRequest } as never,
       keycloakService as never,
       {} as never,
-      {} as never,
       redisService as never,
+      {} as never,
       queue as never,
     );
 
@@ -73,10 +73,23 @@ describe('AccountLinkingService', () => {
         requesterUserId: primaryUserId,
         candidateUserId: secondaryUserId,
       }),
-      update: jest.fn().mockResolvedValue({ status: 'completed' }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: 'merge-request',
+        status: 'processing',
+        selectedPrimaryEmail: 'primary@example.org',
+        requesterUserId: primaryUserId,
+        candidateUserId: secondaryUserId,
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    };
+    const accountMergeExternalNotification = {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     const prisma = {
       accountMergeRequest,
+      accountMergeExternalNotification,
       $transaction: jest.fn((callback: (tx: { accountMergeRequest: typeof accountMergeRequest }) => unknown) =>
         Promise.resolve(callback({ accountMergeRequest })),
       ),
@@ -86,13 +99,14 @@ describe('AccountLinkingService', () => {
       publish: jest.fn((_channel: string, requestId: string) => Promise.resolve(mergeUpdates.next(requestId))),
       subscribeWhenReady: jest.fn().mockResolvedValue(mergeUpdates.asObservable()),
     };
+    const queue = { add: jest.fn().mockResolvedValue(undefined) };
     const service = new AccountLinkingService(
       prisma as never,
       keycloakService as never,
       {} as never,
-      {} as never,
       redisService as never,
-      { add: jest.fn() } as never,
+      {} as never,
+      queue as never,
     );
     const serviceHarness = service as unknown as {
       scoreMergeCandidates: jest.Mock;
@@ -111,7 +125,7 @@ describe('AccountLinkingService', () => {
     serviceHarness.transferLocalData = jest.fn().mockResolvedValue(undefined);
     serviceHarness.createExternalMergeNotifications = jest.fn().mockResolvedValue([]);
 
-    return { service, keycloakService, redisService };
+    return { service, keycloakService, redisService, prisma, queue };
   }
 
   it('adds the remaining user to Unesp when either merged account has a Unesp email', async () => {
@@ -123,6 +137,21 @@ describe('AccountLinkingService', () => {
     await service.processScoreAndMerge('merge-request');
 
     expect(keycloakService.addUserToGroupPath).toHaveBeenCalledWith(primaryUserId, '/Unesp');
+  });
+
+  it('does not run merge side effects when cancellation wins the processing claim', async () => {
+    const { service, keycloakService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as { scoreMergeCandidates: jest.Mock };
+    const prisma = (service as unknown as { prisma: { accountMergeRequest: { updateMany: jest.Mock } } }).prisma;
+    prisma.accountMergeRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.processScoreAndMerge('merge-request');
+
+    expect(serviceHarness.scoreMergeCandidates).not.toHaveBeenCalled();
+    expect(keycloakService.getUserAttributes).not.toHaveBeenCalled();
   });
 
   it('buffers a merge update once the Redis subscription is ready', async () => {
@@ -160,13 +189,84 @@ describe('AccountLinkingService', () => {
     expect(redisService.publish).toHaveBeenCalledWith('account-merge-updates', 'merge-request');
   });
 
+  it('recovers persisted external notifications when their initial enqueue fails', async () => {
+    const { service, prisma, queue } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as { createExternalMergeNotifications: jest.Mock };
+    serviceHarness.createExternalMergeNotifications.mockResolvedValue([{ id: 'notification-1' }]);
+    queue.add.mockRejectedValueOnce(new Error('queue unavailable'));
+
+    await service.processScoreAndMerge('merge-request');
+
+    const updateCalls = prisma.accountMergeRequest.updateMany.mock.calls as unknown as Array<
+      [{ data?: { status?: string } }]
+    >;
+    expect(updateCalls.some(([args]) => args.data?.status === 'failed')).toBe(false);
+
+    prisma.accountMergeExternalNotification.findMany.mockResolvedValue([{ id: 'notification-1', attemptCount: 0 }]);
+    await service.recoverPendingExternalNotifications();
+
+    expect(queue.add).toHaveBeenLastCalledWith(
+      'deliver-external-notification',
+      { notificationId: 'notification-1', deliveryClaim: expect.any(String) },
+      { jobId: 'recover-notify-notification-1-0', removeOnComplete: true },
+    );
+    expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'notification-1', status: 'pending' }),
+        data: expect.objectContaining({ deliveryClaim: expect.any(String) }),
+      }),
+    );
+  });
+
+  it('does not let a stale delivery claim overwrite a completed notification', async () => {
+    const { service, prisma, queue } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as {
+      eventManagerGrpc: { applyAccountMerge: jest.Mock };
+    };
+    serviceHarness.eventManagerGrpc = {
+      applyAccountMerge: jest.fn().mockResolvedValue({
+        eventId: 'event-1',
+        type: 'account.merged',
+        oldUserId: secondaryUserId,
+        newUserId: primaryUserId,
+        status: 'success',
+      }),
+    };
+    prisma.accountMergeExternalNotification.findFirst.mockResolvedValue({
+      id: 'notification-1',
+      status: 'pending',
+      attemptCount: 0,
+      eventId: 'event-1',
+      oldUserId: secondaryUserId,
+      newUserId: primaryUserId,
+      mergeRequestId: 'merge-request',
+      url: 'grpc://event-manager',
+      audience: null,
+      payload: {},
+    });
+    prisma.accountMergeExternalNotification.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.deliverExternalNotification('notification-1', 'stale-claim');
+
+    expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'notification-1', deliveryClaim: 'stale-claim' } }),
+    );
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
   it('scopes confirmation updates to the requester for a user-owned request', async () => {
     const { service, accountMergeRequest } = createConfirmationService();
 
     await service.confirmMerge('merge-request', 'requester-user', 'requester@example.org');
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: 'merge-request', requesterUserId: 'requester-user' },
+      where: { id: 'merge-request', requesterUserId: 'requester-user', status: 'pending' },
       data: { status: 'pending_score', selectedPrimaryEmail: 'requester@example.org' },
     });
     expect(accountMergeRequest.findFirstOrThrow).toHaveBeenCalledWith({
@@ -180,7 +280,7 @@ describe('AccountLinkingService', () => {
     await service.confirmAdminMerge('merge-request', 'requester@example.org', 'admin-user');
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: 'merge-request' },
+      where: { id: 'merge-request', status: 'pending' },
       data: { status: 'pending_score', selectedPrimaryEmail: 'requester@example.org' },
     });
     expect(accountMergeRequest.findFirstOrThrow).toHaveBeenCalledWith({ where: { id: 'merge-request' } });

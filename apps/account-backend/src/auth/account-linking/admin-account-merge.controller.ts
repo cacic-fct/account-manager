@@ -10,9 +10,9 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { AccountManagerPermission, AccountMergeRequest, AccountMergeRequestDelta } from '@cacic/shared-types';
+import { AccountManagerPermission } from '@cacic/shared-types';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { concat, concatMap, finalize, from, map, Observable, of, scan, takeWhile } from 'rxjs';
+import { Observable } from 'rxjs';
 import { AuthSession } from '../auth.controller';
 import { AccountPermissions } from '../guards/auth.decorator';
 import { CsrfGuard } from '../csrf/csrf.guard';
@@ -23,6 +23,7 @@ import {
   ConfirmAccountMergeDto,
   ConfirmAccountMergeResponseDto,
 } from './dto/account-linking.dto';
+import { createMergeRequestStream } from './merge-request-stream.util';
 
 const SUPER_ADMIN_PERMISSION = [AccountManagerPermission.SuperAdmin] as const;
 
@@ -79,31 +80,28 @@ export class AdminAccountMergeController {
     return this.accountLinkingService.getAdminRequest(id);
   }
 
-  @ApiOperation({ summary: 'Stream administrator account merge status updates' })
+  @ApiOperation({
+    summary: 'Stream administrator account merge status updates',
+    description: 'Sends a complete initial request followed by SSE deltas until the request is terminal.',
+  })
+  @ApiParam({ name: 'id', description: 'Account merge request id', example: '1d4e4762-42f9-4d79-a9e4-3949bb799d68' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'SSE events containing a full AccountMergeRequest snapshot first, then AccountMergeRequestDelta updates.',
+    type: Object,
+    example: { id: '1d4e4762-42f9-4d79-a9e4-3949bb799d68', status: 'pending_merge' },
+  })
+  @ApiResponse({ status: 404, description: 'Merge request does not exist' })
   @AccountPermissions(SUPER_ADMIN_PERMISSION)
   @Sse(':id/events')
   async streamMergeRequest(@Param('id') id: string): Promise<Observable<MessageEvent>> {
-    const watch = await this.accountLinkingService.openMergeRequestWatch(id);
-
-    try {
-      const initialRequest = await this.accountLinkingService.getAdminRequest(id);
-
-      return concat(
-        of(initialRequest),
-        watch.updates.pipe(concatMap(() => from(this.accountLinkingService.getAdminRequest(id)))),
-      ).pipe(
-        takeWhile((request) => !isTerminalMergeRequest(request), true),
-        scan((state, request) => ({ previous: request, delta: toMergeRequestDelta(state.previous, request) }), {
-          previous: null as AccountMergeRequest | null,
-          delta: null as AccountMergeRequestDelta | null,
-        }),
-        map(({ delta }) => ({ data: delta! })),
-        finalize(() => watch.close()),
-      );
-    } catch (error) {
-      watch.close();
-      throw error;
-    }
+    const initialRequest = await this.accountLinkingService.getAdminRequest(id);
+    return createMergeRequestStream(
+      initialRequest,
+      () => this.accountLinkingService.openMergeRequestWatch(id),
+      () => this.accountLinkingService.getAdminRequest(id),
+    );
   }
 
   @ApiOperation({
@@ -154,26 +152,4 @@ export class AdminAccountMergeController {
 
     return keycloakId;
   }
-}
-
-function toMergeRequestDelta(
-  previous: AccountMergeRequest | null,
-  current: AccountMergeRequest,
-): AccountMergeRequestDelta {
-  if (!previous) {
-    return current;
-  }
-
-  const delta: AccountMergeRequestDelta = { id: current.id };
-  for (const key of Object.keys(current) as Array<keyof AccountMergeRequest>) {
-    if (key !== 'id' && JSON.stringify(previous[key]) !== JSON.stringify(current[key])) {
-      Object.assign(delta, { [key]: current[key] });
-    }
-  }
-
-  return delta;
-}
-
-function isTerminalMergeRequest(request: AccountMergeRequest): boolean {
-  return ['completed', 'cancelled', 'expired', 'failed'].includes(request.status);
 }

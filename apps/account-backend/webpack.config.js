@@ -12,6 +12,7 @@ module.exports = {
       target: 'node',
       compiler: 'tsc',
       main: 'apps/account-backend/src/main.ts',
+      assets: ['apps/account-backend/src/assets'],
       tsConfig: 'apps/account-backend/tsconfig.build.json',
       outputFileName: 'main.js',
       buildLibsFromSource: true,

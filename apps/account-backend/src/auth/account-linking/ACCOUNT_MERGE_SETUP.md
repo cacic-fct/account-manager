@@ -6,6 +6,7 @@ Account merging is asynchronous. The user proves ownership of both Keycloak acco
 
 - `pending`: the second account was authenticated and the user must choose the primary email.
 - `pending_score`: Account Manager is calculating local score and best-effort external scores.
+- `processing`: Account Manager has claimed the request and is applying the local merge.
 - `pending_merge`: local merge is done and external systems are being notified.
 - `completed`: all required work and external acknowledgements completed.
 - `failed`, `expired`, `cancelled`: terminal non-success states.
@@ -37,11 +38,11 @@ External scoring is optional. If a scoring backend returns an error or does not 
    - Moves status to `pending_score`.
    - Enqueues the BullMQ scoring/local-merge job.
 
-5. Frontend polls `GET /auth/account-linking/merge-requests/:id` while status is `pending_score` or `pending_merge`.
+5. Frontend opens `GET /auth/account-linking/merge-requests/:id/events` as an SSE stream while status is `pending_score`, `processing`, or `pending_merge`. The first event is a full request snapshot; subsequent events are field-level deltas.
 
 ## External Scoring Contract
 
-Configured score backends receive:
+Configured gRPC score backends receive `ScoreAccountMerge` with:
 
 ```json
 {
@@ -49,31 +50,22 @@ Configured score backends receive:
 }
 ```
 
-Expected response:
+The gRPC response contains:
 
 ```json
 {
-  "scores": {
-    "candidate-a": 10,
-    "candidate-b": 25
-  }
+  "scores": [
+    { "userId": "candidate-a", "score": 10 },
+    { "userId": "candidate-b", "score": 25 }
+  ]
 }
 ```
 
-Alternatively, an array is accepted:
-
-```json
-[
-  { "userId": "candidate-a", "score": 10 },
-  { "userId": "candidate-b", "score": 25 }
-]
-```
-
-Responses must be HTTP 200. Any non-200, invalid payload, or timeout after 30 minutes is treated as no external score.
+Each score is a protobuf `UserScore` item with `userId` and `score`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is treated as no external score.
 
 ## External Merge Notification Contract
 
-After the local merge succeeds, each configured merge backend receives:
+After the local merge succeeds, each configured merge backend receives an `ApplyAccountMerge` gRPC request:
 
 ```json
 {
@@ -85,7 +77,7 @@ After the local merge succeeds, each configured merge backend receives:
 }
 ```
 
-The backend must return HTTP 200 with this acknowledgement:
+The gRPC response must acknowledge the same event:
 
 ```json
 {
@@ -97,7 +89,7 @@ The backend must return HTTP 200 with this acknowledgement:
 }
 ```
 
-Only this validated response marks that backend as completed. A plain 200 without the acknowledgement is retried.
+Only this validated gRPC response marks that backend as completed. An unavailable, invalid, or failed response is retried.
 
 ## Retry Policy
 
@@ -133,11 +125,10 @@ Docker Compose includes Redis health checks. In production, the backend service 
 ## External Backend Configuration
 
 ```json
-ACCOUNT_MERGE_EXTERNAL_BACKENDS=[
+ACCOUNT_MERGE_GRPC_BACKENDS=[
   {
     "name": "external-app-a",
-    "scoreUrl": "https://external-a.example.org/account-merge/score",
-    "mergeUrl": "https://external-a.example.org/account-merge/merge",
+    "target": "external-app-a:50051",
     "audience": "external-app-a-audience"
   }
 ]

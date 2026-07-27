@@ -25,6 +25,7 @@ export class AccountLinkingProcessor extends WorkerHost {
       case ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION:
         await this.accountLinkingService.deliverExternalNotification(
           (job.data as DeliverExternalNotificationJob).notificationId,
+          (job.data as DeliverExternalNotificationJob).deliveryClaim,
         );
         return;
       default:

@@ -11,6 +11,7 @@
         "target": "node",
         "compiler": "tsc",
         "main": "apps/account-backend/src/main.ts",
+        "assets": ["apps/account-backend/src/assets"],
         "tsConfig": "apps/account-backend/tsconfig.build.json",
         "webpackConfig": "apps/account-backend/webpack.config.js",
         "outputPath": "apps/account-backend/dist",

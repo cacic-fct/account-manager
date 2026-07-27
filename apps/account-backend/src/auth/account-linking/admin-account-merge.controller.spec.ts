@@ -39,9 +39,13 @@ describe('AdminAccountMergeController', () => {
   });
 
   it('requires the super-admin permission for every account merge operation', () => {
-    for (const handler of ['createMergeRequest', 'getMergeRequest', 'confirmMerge', 'cancelMerge'].map(
-      getControllerHandler,
-    )) {
+    for (const handler of [
+      'createMergeRequest',
+      'getMergeRequest',
+      'streamMergeRequest',
+      'confirmMerge',
+      'cancelMerge',
+    ].map(getControllerHandler)) {
       expect(Reflect.getMetadata(ACCOUNT_PERMISSIONS_KEY, handler)).toEqual({
         permissions: [AccountManagerPermission.SuperAdmin],
         mode: 'any',
@@ -95,18 +99,33 @@ describe('AdminAccountMergeController', () => {
     const updates = new Subject<void>();
     const close = jest.fn();
     const processingRequest = { ...mergeRequest, status: 'pending_merge' as const };
-    accountLinkingService.getAdminRequest.mockResolvedValueOnce(mergeRequest).mockResolvedValueOnce(processingRequest);
+    accountLinkingService.getAdminRequest
+      .mockResolvedValueOnce(mergeRequest)
+      .mockResolvedValueOnce(mergeRequest)
+      .mockResolvedValueOnce(processingRequest);
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(mergeRequest.id);
     const events: Array<{ data: unknown }> = [];
     const subscription = stream.subscribe((event) => events.push(event));
 
+    await new Promise(setImmediate);
     updates.next();
     await new Promise(setImmediate);
 
     expect(events).toEqual([{ data: mergeRequest }, { data: { id: mergeRequest.id, status: 'pending_merge' } }]);
     subscription.unsubscribe();
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a Redis watch for a terminal request', async () => {
+    accountLinkingService.getAdminRequest.mockResolvedValue({ ...mergeRequest, status: 'completed' });
+
+    const stream = await controller.streamMergeRequest(mergeRequest.id);
+    const events: Array<{ data: unknown }> = [];
+    stream.subscribe((event) => events.push(event));
+
+    expect(events).toEqual([{ data: { ...mergeRequest, status: 'completed' } }]);
+    expect(accountLinkingService.openMergeRequestWatch).not.toHaveBeenCalled();
   });
 });

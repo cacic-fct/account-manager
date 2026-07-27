@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
@@ -10,7 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { KeycloakFederatedIdentity, KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
-import { JwtService } from '../jwt/jwt.service';
+import { EventManagerGrpcClient } from '../../grpc/event-manager-grpc.client';
 import {
   ACCOUNT_MERGE_JOBS,
   ACCOUNT_MERGE_QUEUE,
@@ -20,8 +21,7 @@ import {
 
 interface ExternalMergeBackend {
   name: string;
-  scoreUrl?: string;
-  mergeUrl?: string;
+  target: string;
   audience?: string;
 }
 
@@ -42,13 +42,14 @@ export class AccountLinkingService {
   private readonly scoreTimeoutMs = 30 * 60 * 1000;
   private readonly initialRetryDelayMs = 10 * 60 * 1000;
   private readonly maxRetryDelayMs = 24 * 60 * 60 * 1000;
+  private readonly externalNotificationLeaseMs = 15 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
-    private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
+    private readonly eventManagerGrpc: EventManagerGrpcClient,
     @InjectQueue(ACCOUNT_MERGE_QUEUE)
     private readonly accountMergeQueue: Queue<ScoreAndMergeJob | DeliverExternalNotificationJob>,
   ) {}
@@ -163,12 +164,16 @@ export class AccountLinkingService {
       throw new NotFoundException('Merge request not found');
     }
 
-    if (!['pending', 'pending_score', 'pending_merge'].includes(request.status)) {
+    if (!['pending', 'pending_score'].includes(request.status)) {
       return false;
     }
 
     const result = await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, ...(sessionUserId ? { requesterUserId: sessionUserId } : {}) },
+      where: {
+        id: requestId,
+        status: { in: ['pending', 'pending_score'] },
+        ...(sessionUserId ? { requesterUserId: sessionUserId } : {}),
+      },
       data: { status: 'cancelled' },
     });
     if (result.count > 0) {
@@ -255,13 +260,16 @@ export class AccountLinkingService {
       throw new BadRequestException('Primary email must belong to one account');
     }
 
-    await this.prisma.accountMergeRequest.updateMany({
-      where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
+    const update = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'pending', ...(requesterUserId ? { requesterUserId } : {}) },
       data: {
         status: 'pending_score',
         selectedPrimaryEmail: normalizedPrimaryEmail,
       },
     });
+    if (update.count === 0) {
+      throw new BadRequestException('Merge request is already being processed');
+    }
 
     const updated = await this.prisma.accountMergeRequest.findFirstOrThrow({
       where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
@@ -284,13 +292,15 @@ export class AccountLinkingService {
   }
 
   async processScoreAndMerge(requestId: string): Promise<void> {
-    const request = await this.prisma.accountMergeRequest.findUnique({
-      where: { id: requestId },
+    const claimed = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'pending_score' },
+      data: { status: 'processing' },
     });
-
-    if (!request || request.status !== 'pending_score') {
+    if (claimed.count === 0) {
       return;
     }
+
+    const request = await this.prisma.accountMergeRequest.findUniqueOrThrow({ where: { id: requestId } });
 
     if (!request.selectedPrimaryEmail) {
       await this.failMerge(requestId, 'Primary email was not selected');
@@ -336,7 +346,7 @@ export class AccountLinkingService {
       );
       await this.keycloakService.setUserEnabled(decision.secondaryUserId, false);
 
-      const { notifications, updated } = await this.prisma.$transaction(
+      const { notifications, status } = await this.prisma.$transaction(
         async (tx) => {
           await this.transferLocalData(tx, decision.primaryUserId, decision.secondaryUserId);
 
@@ -346,10 +356,11 @@ export class AccountLinkingService {
             newUserId: decision.primaryUserId,
           });
 
-          const updated = await tx.accountMergeRequest.update({
-            where: { id: request.id },
+          const status = notifications.length > 0 ? 'pending_merge' : 'completed';
+          const updated = await tx.accountMergeRequest.updateMany({
+            where: { id: request.id, status: 'processing' },
             data: {
-              status: notifications.length > 0 ? 'pending_merge' : 'completed',
+              status,
               primaryUserId: decision.primaryUserId,
               secondaryUserId: decision.secondaryUserId,
               secondaryEmails,
@@ -359,7 +370,11 @@ export class AccountLinkingService {
             },
           });
 
-          return { notifications, updated };
+          if (updated.count === 0) {
+            throw new Error('Merge request is no longer being processed');
+          }
+
+          return { notifications, status };
         },
         {
           maxWait: 10_000,
@@ -368,15 +383,19 @@ export class AccountLinkingService {
       );
       this.publishMergeUpdate(requestId);
 
-      let failedNotificationIds: string[] = [];
-
       try {
         const enqueueResults = await Promise.all(
           notifications.map(async (notification) => {
             try {
+              const deliveryClaim = await this.claimExternalNotification(notification.id);
+
+              if (!deliveryClaim) {
+                return { notificationId: notification.id, queued: true };
+              }
+
               await this.accountMergeQueue.add(
                 ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
-                { notificationId: notification.id },
+                { notificationId: notification.id, deliveryClaim },
                 {
                   jobId: `notify-${notification.id}-0`,
                   removeOnComplete: true,
@@ -400,7 +419,6 @@ export class AccountLinkingService {
         );
 
         if (failedEnqueues.length > 0) {
-          failedNotificationIds = failedEnqueues.map(({ notificationId }) => notificationId);
           throw new Error(
             failedEnqueues
               .map(({ notificationId, error }) => {
@@ -415,25 +433,12 @@ export class AccountLinkingService {
 
         this.logger.error('Failed to enqueue account merge external notification jobs', {
           requestId,
-          notificationIds: failedNotificationIds,
+          notificationIds: notifications.map(({ id }) => id),
           errorMessage,
         });
-
-        if (failedNotificationIds.length > 0) {
-          await this.prisma.accountMergeExternalNotification.updateMany({
-            where: { id: { in: failedNotificationIds } },
-            data: {
-              status: 'failed',
-              lastError: errorMessage,
-              nextAttemptAt: null,
-            },
-          });
-        }
-
-        throw error;
       }
 
-      if (updated.status === 'completed') {
+      if (status === 'completed') {
         this.logger.debug('Account merge completed without external backends', {
           requestId,
         });
@@ -444,70 +449,80 @@ export class AccountLinkingService {
     }
   }
 
-  async deliverExternalNotification(notificationId: string): Promise<void> {
-    const notification = await this.prisma.accountMergeExternalNotification.findUnique({
-      where: { id: notificationId },
+  async deliverExternalNotification(notificationId: string, deliveryClaim?: string): Promise<void> {
+    const claim = deliveryClaim || (await this.claimExternalNotification(notificationId));
+
+    if (!claim) {
+      return;
+    }
+
+    const notification = await this.prisma.accountMergeExternalNotification.findFirst({
+      where: { id: notificationId, deliveryClaim: claim },
     });
 
-    if (!notification || notification.status === 'completed') {
+    if (!notification || notification.status !== 'pending') {
       return;
     }
 
     const attemptCount = notification.attemptCount + 1;
 
     try {
-      const response = await fetch(notification.url, {
-        method: 'POST',
-        headers: await this.externalHeaders({
-          name: notification.backendName,
-          audience: notification.audience || undefined,
-        }),
-        body: JSON.stringify(notification.payload),
-        signal: AbortSignal.timeout(30_000),
-      });
-      const responsePayload = await this.readJsonResponse(response);
+      const responsePayload = await this.eventManagerGrpc.applyAccountMerge(
+        notification.url,
+        notification.audience || undefined,
+        notification.payload as Record<string, unknown>,
+      );
 
       if (
-        response.status === 200 &&
         this.isValidMergeAcknowledgement(responsePayload, {
           eventId: notification.eventId,
           oldUserId: notification.oldUserId,
           newUserId: notification.newUserId,
         })
       ) {
-        await this.prisma.accountMergeExternalNotification.update({
-          where: { id: notification.id },
+        const completed = await this.prisma.accountMergeExternalNotification.updateMany({
+          where: { id: notification.id, deliveryClaim: claim },
           data: {
             status: 'completed',
             attemptCount,
             lastAttemptAt: new Date(),
-            lastStatusCode: response.status,
+            lastStatusCode: 0,
             lastResponse: responsePayload as Prisma.InputJsonValue,
             lastError: null,
             nextAttemptAt: null,
             completedAt: new Date(),
+            deliveryClaim: null,
+            claimExpiresAt: null,
           },
         });
+        if (completed.count === 0) {
+          return;
+        }
         this.publishMergeUpdate(notification.mergeRequestId);
         await this.completeMergeIfNotificationsFinished(notification.mergeRequestId);
         return;
       }
 
-      throw new Error(`Invalid acknowledgement: ${response.status} ${response.statusText}`);
+      throw new Error('Invalid gRPC account merge acknowledgement.');
     } catch (error) {
       const delay = this.getNotificationRetryDelayMs(attemptCount);
       const nextAttemptAt = new Date(Date.now() + delay);
 
-      await this.prisma.accountMergeExternalNotification.update({
-        where: { id: notification.id },
+      const retried = await this.prisma.accountMergeExternalNotification.updateMany({
+        where: { id: notification.id, deliveryClaim: claim },
         data: {
           status: 'pending',
           attemptCount,
           lastAttemptAt: new Date(),
           lastError: error instanceof Error ? error.message : 'Unknown error',
           nextAttemptAt,
+          deliveryClaim: null,
+          claimExpiresAt: null,
         },
       });
+      if (retried.count === 0) {
+        return;
+      }
       this.publishMergeUpdate(notification.mergeRequestId);
 
       await this.accountMergeQueue.add(
@@ -520,6 +535,62 @@ export class AccountLinkingService {
         },
       );
     }
+  }
+
+  @Cron('*/5 * * * *')
+  async recoverPendingExternalNotifications(): Promise<void> {
+    const notifications = await this.prisma.accountMergeExternalNotification.findMany({
+      where: {
+        status: 'pending',
+        nextAttemptAt: { lte: new Date() },
+        OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lte: new Date() } }],
+      },
+      select: { id: true, attemptCount: true },
+    });
+
+    await Promise.all(
+      notifications.map(async (notification) => {
+        try {
+          const deliveryClaim = await this.claimExternalNotification(notification.id);
+
+          if (!deliveryClaim) {
+            return;
+          }
+
+          await this.accountMergeQueue.add(
+            ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
+            { notificationId: notification.id, deliveryClaim },
+            {
+              jobId: `recover-notify-${notification.id}-${notification.attemptCount}`,
+              removeOnComplete: true,
+            },
+          );
+        } catch (error) {
+          this.logger.error('Failed to recover account merge external notification job', {
+            notificationId: notification.id,
+            error: error instanceof Error ? error.message : 'Unknown queue error',
+          });
+        }
+      }),
+    );
+  }
+
+  private async claimExternalNotification(notificationId: string): Promise<string | null> {
+    const deliveryClaim = randomUUID();
+    const claimed = await this.prisma.accountMergeExternalNotification.updateMany({
+      where: {
+        id: notificationId,
+        status: 'pending',
+        nextAttemptAt: { lte: new Date() },
+        OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lte: new Date() } }],
+      },
+      data: {
+        deliveryClaim,
+        claimExpiresAt: new Date(Date.now() + this.externalNotificationLeaseMs),
+      },
+    });
+
+    return claimed.count === 1 ? deliveryClaim : null;
   }
 
   private async scoreMergeCandidates(firstUserId: string, secondUserId: string): Promise<MergeDecision> {
@@ -612,23 +683,17 @@ export class AccountLinkingService {
   }
 
   private async getExternalScores(userIds: string[]): Promise<ExternalAccountMergeScore[]> {
-    const backends = this.getExternalBackends().filter((backend) => backend.scoreUrl);
+    const backends = this.getExternalBackends();
 
     return Promise.all(
       backends.map(async (backend) => {
         try {
-          const response = await fetch(backend.scoreUrl!, {
-            method: 'POST',
-            headers: await this.externalHeaders(backend),
-            body: JSON.stringify({ userIds }),
-            signal: AbortSignal.timeout(this.scoreTimeoutMs),
-          });
-
-          if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`);
-          }
-
-          const payload = (await response.json()) as unknown;
+          const payload = await this.eventManagerGrpc.scoreAccounts(
+            backend.target,
+            backend.audience,
+            userIds,
+            this.scoreTimeoutMs,
+          );
           return {
             backend: backend.name,
             scores: this.normalizeExternalScores(payload, userIds),
@@ -653,7 +718,7 @@ export class AccountLinkingService {
     },
   ) {
     const occurredAt = new Date().toISOString();
-    const backends = this.getExternalBackends().filter((backend) => backend.mergeUrl);
+    const backends = this.getExternalBackends();
 
     return Promise.all(
       backends.map((backend) => {
@@ -671,7 +736,7 @@ export class AccountLinkingService {
             mergeRequestId: payload.mergeRequestId,
             eventId,
             backendName: backend.name,
-            url: backend.mergeUrl!,
+            url: backend.target,
             audience: backend.audience,
             oldUserId: payload.oldUserId,
             newUserId: payload.newUserId,
@@ -728,14 +793,16 @@ export class AccountLinkingService {
       requestId,
       errorMessage,
     });
-    await this.prisma.accountMergeRequest.update({
-      where: { id: requestId },
+    const failed = await this.prisma.accountMergeRequest.updateMany({
+      where: { id: requestId, status: 'processing' },
       data: {
         status: 'failed',
         errorMessage,
       },
     });
-    this.publishMergeUpdate(requestId);
+    if (failed.count > 0) {
+      this.publishMergeUpdate(requestId);
+    }
   }
 
   private publishMergeUpdate(requestId: string): void {
@@ -746,19 +813,6 @@ export class AccountLinkingService {
 
   private getNotificationRetryDelayMs(attemptCount: number): number {
     return Math.min(this.initialRetryDelayMs * Math.max(attemptCount, 1) ** 2, this.maxRetryDelayMs);
-  }
-
-  private async readJsonResponse(response: Response): Promise<unknown> {
-    const text = await response.text();
-    if (!text) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      return { raw: text };
-    }
   }
 
   private isValidMergeAcknowledgement(
@@ -991,7 +1045,7 @@ export class AccountLinkingService {
   }
 
   private getExternalBackends(): ExternalMergeBackend[] {
-    const raw = process.env.ACCOUNT_MERGE_EXTERNAL_BACKENDS || process.env.ACCOUNT_LINKING_EXTERNAL_BACKENDS;
+    const raw = process.env.ACCOUNT_MERGE_GRPC_BACKENDS;
 
     if (!raw) {
       return [];
@@ -1007,25 +1061,13 @@ export class AccountLinkingService {
         .filter((item): item is ExternalMergeBackend => this.isExternalMergeBackend(item))
         .map((item) => ({
           name: item.name,
-          scoreUrl: item.scoreUrl,
-          mergeUrl: item.mergeUrl,
+          target: item.target,
           audience: item.audience,
         }));
     } catch (error) {
-      this.logger.error('Invalid ACCOUNT_MERGE_EXTERNAL_BACKENDS JSON', error);
+      this.logger.error('Invalid ACCOUNT_MERGE_GRPC_BACKENDS JSON', error);
       return [];
     }
-  }
-
-  private async externalHeaders(backend: ExternalMergeBackend): Promise<Record<string, string>> {
-    const token = await this.jwtService.getClientCredentialsToken({
-      audience: backend.audience,
-    });
-
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
   }
 
   private normalizeExternalScores(payload: unknown, userIds: string[]): Record<string, number> {
@@ -1127,8 +1169,7 @@ export class AccountLinkingService {
     const record = value as Record<string, unknown>;
     return (
       typeof record.name === 'string' &&
-      (record.scoreUrl === undefined || typeof record.scoreUrl === 'string') &&
-      (record.mergeUrl === undefined || typeof record.mergeUrl === 'string') &&
+      typeof record.target === 'string' &&
       (record.audience === undefined || typeof record.audience === 'string')
     );
   }
