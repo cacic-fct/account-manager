@@ -11,4 +11,5 @@ export interface ScoreAndMergeJob {
 
 export interface DeliverExternalNotificationJob {
   notificationId: string;
+  deliveryClaim?: string;
 }

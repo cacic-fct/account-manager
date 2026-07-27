@@ -84,6 +84,8 @@ describe('AccountLinkingService', () => {
     };
     const accountMergeExternalNotification = {
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     const prisma = {
       accountMergeRequest,
@@ -198,20 +200,64 @@ describe('AccountLinkingService', () => {
 
     await service.processScoreAndMerge('merge-request');
 
-    expect(prisma.accountMergeRequest.updateMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'failed' }) }),
-    );
+    const updateCalls = prisma.accountMergeRequest.updateMany.mock.calls as unknown as Array<
+      [{ data?: { status?: string } }]
+    >;
+    expect(updateCalls.some(([args]) => args.data?.status === 'failed')).toBe(false);
 
-    prisma.accountMergeExternalNotification.findMany.mockResolvedValue([
-      { id: 'notification-1', attemptCount: 0 },
-    ]);
+    prisma.accountMergeExternalNotification.findMany.mockResolvedValue([{ id: 'notification-1', attemptCount: 0 }]);
     await service.recoverPendingExternalNotifications();
 
     expect(queue.add).toHaveBeenLastCalledWith(
       'deliver-external-notification',
-      { notificationId: 'notification-1' },
+      { notificationId: 'notification-1', deliveryClaim: expect.any(String) },
       { jobId: 'recover-notify-notification-1-0', removeOnComplete: true },
     );
+    expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'notification-1', status: 'pending' }),
+        data: expect.objectContaining({ deliveryClaim: expect.any(String) }),
+      }),
+    );
+  });
+
+  it('does not let a stale delivery claim overwrite a completed notification', async () => {
+    const { service, prisma, queue } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as {
+      eventManagerGrpc: { applyAccountMerge: jest.Mock };
+    };
+    serviceHarness.eventManagerGrpc = {
+      applyAccountMerge: jest.fn().mockResolvedValue({
+        eventId: 'event-1',
+        type: 'account.merged',
+        oldUserId: secondaryUserId,
+        newUserId: primaryUserId,
+        status: 'success',
+      }),
+    };
+    prisma.accountMergeExternalNotification.findFirst.mockResolvedValue({
+      id: 'notification-1',
+      status: 'pending',
+      attemptCount: 0,
+      eventId: 'event-1',
+      oldUserId: secondaryUserId,
+      newUserId: primaryUserId,
+      mergeRequestId: 'merge-request',
+      url: 'grpc://event-manager',
+      audience: null,
+      payload: {},
+    });
+    prisma.accountMergeExternalNotification.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.deliverExternalNotification('notification-1', 'stale-claim');
+
+    expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'notification-1', deliveryClaim: 'stale-claim' } }),
+    );
+    expect(queue.add).not.toHaveBeenCalled();
   });
 
   it('scopes confirmation updates to the requester for a user-owned request', async () => {

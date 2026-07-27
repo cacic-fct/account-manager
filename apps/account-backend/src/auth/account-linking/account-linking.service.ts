@@ -42,6 +42,7 @@ export class AccountLinkingService {
   private readonly scoreTimeoutMs = 30 * 60 * 1000;
   private readonly initialRetryDelayMs = 10 * 60 * 1000;
   private readonly maxRetryDelayMs = 24 * 60 * 60 * 1000;
+  private readonly externalNotificationLeaseMs = 15 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -386,9 +387,15 @@ export class AccountLinkingService {
         const enqueueResults = await Promise.all(
           notifications.map(async (notification) => {
             try {
+              const deliveryClaim = await this.claimExternalNotification(notification.id);
+
+              if (!deliveryClaim) {
+                return { notificationId: notification.id, queued: true };
+              }
+
               await this.accountMergeQueue.add(
                 ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
-                { notificationId: notification.id },
+                { notificationId: notification.id, deliveryClaim },
                 {
                   jobId: `notify-${notification.id}-0`,
                   removeOnComplete: true,
@@ -442,12 +449,18 @@ export class AccountLinkingService {
     }
   }
 
-  async deliverExternalNotification(notificationId: string): Promise<void> {
-    const notification = await this.prisma.accountMergeExternalNotification.findUnique({
-      where: { id: notificationId },
+  async deliverExternalNotification(notificationId: string, deliveryClaim?: string): Promise<void> {
+    const claim = deliveryClaim || (await this.claimExternalNotification(notificationId));
+
+    if (!claim) {
+      return;
+    }
+
+    const notification = await this.prisma.accountMergeExternalNotification.findFirst({
+      where: { id: notificationId, deliveryClaim: claim },
     });
 
-    if (!notification || notification.status === 'completed') {
+    if (!notification || notification.status !== 'pending') {
       return;
     }
 
@@ -467,8 +480,8 @@ export class AccountLinkingService {
           newUserId: notification.newUserId,
         })
       ) {
-        await this.prisma.accountMergeExternalNotification.update({
-          where: { id: notification.id },
+        const completed = await this.prisma.accountMergeExternalNotification.updateMany({
+          where: { id: notification.id, deliveryClaim: claim },
           data: {
             status: 'completed',
             attemptCount,
@@ -478,8 +491,13 @@ export class AccountLinkingService {
             lastError: null,
             nextAttemptAt: null,
             completedAt: new Date(),
+            deliveryClaim: null,
+            claimExpiresAt: null,
           },
         });
+        if (completed.count === 0) {
+          return;
+        }
         this.publishMergeUpdate(notification.mergeRequestId);
         await this.completeMergeIfNotificationsFinished(notification.mergeRequestId);
         return;
@@ -490,16 +508,21 @@ export class AccountLinkingService {
       const delay = this.getNotificationRetryDelayMs(attemptCount);
       const nextAttemptAt = new Date(Date.now() + delay);
 
-      await this.prisma.accountMergeExternalNotification.update({
-        where: { id: notification.id },
+      const retried = await this.prisma.accountMergeExternalNotification.updateMany({
+        where: { id: notification.id, deliveryClaim: claim },
         data: {
           status: 'pending',
           attemptCount,
           lastAttemptAt: new Date(),
           lastError: error instanceof Error ? error.message : 'Unknown error',
           nextAttemptAt,
+          deliveryClaim: null,
+          claimExpiresAt: null,
         },
       });
+      if (retried.count === 0) {
+        return;
+      }
       this.publishMergeUpdate(notification.mergeRequestId);
 
       await this.accountMergeQueue.add(
@@ -520,6 +543,7 @@ export class AccountLinkingService {
       where: {
         status: 'pending',
         nextAttemptAt: { lte: new Date() },
+        OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lte: new Date() } }],
       },
       select: { id: true, attemptCount: true },
     });
@@ -527,9 +551,15 @@ export class AccountLinkingService {
     await Promise.all(
       notifications.map(async (notification) => {
         try {
+          const deliveryClaim = await this.claimExternalNotification(notification.id);
+
+          if (!deliveryClaim) {
+            return;
+          }
+
           await this.accountMergeQueue.add(
             ACCOUNT_MERGE_JOBS.DELIVER_EXTERNAL_NOTIFICATION,
-            { notificationId: notification.id },
+            { notificationId: notification.id, deliveryClaim },
             {
               jobId: `recover-notify-${notification.id}-${notification.attemptCount}`,
               removeOnComplete: true,
@@ -543,6 +573,24 @@ export class AccountLinkingService {
         }
       }),
     );
+  }
+
+  private async claimExternalNotification(notificationId: string): Promise<string | null> {
+    const deliveryClaim = randomUUID();
+    const claimed = await this.prisma.accountMergeExternalNotification.updateMany({
+      where: {
+        id: notificationId,
+        status: 'pending',
+        nextAttemptAt: { lte: new Date() },
+        OR: [{ claimExpiresAt: null }, { claimExpiresAt: { lte: new Date() } }],
+      },
+      data: {
+        deliveryClaim,
+        claimExpiresAt: new Date(Date.now() + this.externalNotificationLeaseMs),
+      },
+    });
+
+    return claimed.count === 1 ? deliveryClaim : null;
   }
 
   private async scoreMergeCandidates(firstUserId: string, secondUserId: string): Promise<MergeDecision> {

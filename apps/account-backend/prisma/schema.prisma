@@ -149,6 +149,8 @@ model AccountMergeExternalNotification {
   newUserId      String                     @map("new_user_id")
   payload        Json
   status         ExternalNotificationStatus @default(pending)
+  deliveryClaim  String?                    @map("delivery_claim")
+  claimExpiresAt DateTime?                  @map("claim_expires_at")
   attemptCount   Int                        @default(0) @map("attempt_count")
   nextAttemptAt  DateTime?                  @map("next_attempt_at")
   lastAttemptAt  DateTime?                  @map("last_attempt_at")
@@ -163,6 +165,7 @@ model AccountMergeExternalNotification {
 
   @@index([mergeRequestId])
   @@index([status, nextAttemptAt])
+  @@index([status, claimExpiresAt])
   @@map("account_merge_external_notifications")
 }
 
