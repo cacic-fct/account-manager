@@ -208,15 +208,24 @@ describe('AccountLinkingService', () => {
     prisma.accountMergeExternalNotification.findMany.mockResolvedValue([{ id: 'notification-1', attemptCount: 0 }]);
     await service.recoverPendingExternalNotifications();
 
+    const anyDeliveryClaim = expect.any(String) as unknown as string;
+    const pendingNotificationWhere = expect.objectContaining({
+      id: 'notification-1',
+      status: 'pending',
+    }) as unknown as { id: string; status: string };
+    const claimedNotificationData = expect.objectContaining({
+      deliveryClaim: anyDeliveryClaim,
+    }) as unknown as { deliveryClaim: string };
+
     expect(queue.add).toHaveBeenLastCalledWith(
       'deliver-external-notification',
-      { notificationId: 'notification-1', deliveryClaim: expect.any(String) },
+      { notificationId: 'notification-1', deliveryClaim: anyDeliveryClaim },
       { jobId: 'recover-notify-notification-1-0', removeOnComplete: true },
     );
     expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: 'notification-1', status: 'pending' }),
-        data: expect.objectContaining({ deliveryClaim: expect.any(String) }),
+        where: pendingNotificationWhere,
+        data: claimedNotificationData,
       }),
     );
   });
