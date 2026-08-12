@@ -40,9 +40,9 @@ export class PrivacyService {
 
     if (!settings) {
       return {
-        analyticsTracking: false,
-        errorDebugging: false,
-        performanceMonitoring: false,
+        analyticsTracking: true,
+        errorDebugging: true,
+        performanceMonitoring: true,
         cookieBannerAccepted: false,
       };
     }

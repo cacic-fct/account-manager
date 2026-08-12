@@ -223,12 +223,12 @@ export class PrivacyController {
         errorDebugging: {
           type: 'data-handling',
           name: 'error-debugging',
-          action: cookieBannerAccepted && settingValues.error_debugging ? 'enable' : 'disable',
+          action: settingValues.error_debugging ? 'enable' : 'disable',
         },
         performanceMonitoring: {
           type: 'data-handling',
           name: 'performance-monitoring',
-          action: cookieBannerAccepted && settingValues.performance_monitoring ? 'enable' : 'disable',
+          action: settingValues.performance_monitoring ? 'enable' : 'disable',
         },
       },
       userId: session.user!.keycloakId,

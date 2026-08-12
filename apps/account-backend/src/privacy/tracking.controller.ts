@@ -6,7 +6,7 @@ import { AuthSession } from '../auth/auth.controller';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { SkipCsrf } from '../auth/csrf/csrf.guard';
 import { PrivacyService } from './privacy.service';
-import type { PrivacySettings } from './constants/privacy-setting.constants';
+import { createDefaultPrivacySettings, type PrivacySettings } from './constants/privacy-setting.constants';
 import { clearCacicTrackingCookies, refreshCacicTrackingCookies } from './tracking-cookie.utils';
 import type { CacicTrackingSessionResponse } from './constants/privacy-directives';
 
@@ -82,7 +82,7 @@ export class TrackingController {
 
     if (!settings) {
       return {
-        analyticsAllowed: false,
+        analyticsAllowed: createDefaultPrivacySettings().analytics_tracking,
         cookieBannerAccepted: false,
         updatedAt: new Date(),
       };

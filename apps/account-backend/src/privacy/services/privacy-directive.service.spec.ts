@@ -11,8 +11,8 @@ describe('PrivacyDirectiveService', () => {
           settings: {
             analytics_tracking: true,
             cookie_banner_accepted: false,
-            error_debugging: false,
-            performance_monitoring: false,
+            error_debugging: true,
+            performance_monitoring: true,
           },
           updatedAt: new Date('2026-07-07T12:00:00.000Z'),
         }),
@@ -26,7 +26,33 @@ describe('PrivacyDirectiveService', () => {
     expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING)?.value).toBe(
       DIRECTIVE_VALUES.ALLOW,
     );
-    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(DIRECTIVE_VALUES.BLOCK);
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(
+      DIRECTIVE_VALUES.ALLOW,
+    );
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING)?.value).toBe(
+      DIRECTIVE_VALUES.ALLOW,
+    );
+  });
+
+  it('allows default data collection for a user without a privacy row', async () => {
+    const service = new PrivacyDirectiveService(
+      {
+        findUserSettings: jest.fn().mockResolvedValue(null),
+      } as unknown as PrivacyService,
+      createConfigService(),
+    );
+
+    const directives = await service.generateDirectivesForUser('keycloak-subject');
+
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING)?.value).toBe(
+      DIRECTIVE_VALUES.ALLOW,
+    );
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(
+      DIRECTIVE_VALUES.ALLOW,
+    );
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING)?.value).toBe(
+      DIRECTIVE_VALUES.ALLOW,
+    );
   });
 });
 

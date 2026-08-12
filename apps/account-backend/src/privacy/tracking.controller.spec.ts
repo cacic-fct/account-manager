@@ -38,6 +38,33 @@ describe('TrackingController', () => {
       userId: 'keycloak-subject',
     });
   });
+
+  it('allows tracking when the user has no privacy row yet', async () => {
+    const response = {
+      cookie: jest.fn(),
+    } as unknown as Response;
+    const controller = new TrackingController(
+      {
+        findUserSettingsForIdentity: jest.fn().mockResolvedValue(null),
+      } as unknown as PrivacyService,
+      createConfigService(),
+    );
+
+    const result = await controller.refreshSessionTracking(
+      {
+        user: {
+          keycloakId: 'keycloak-subject',
+        },
+      } as never,
+      response,
+    );
+
+    expect(result).toMatchObject({
+      analyticsAllowed: true,
+      cookieBannerAccepted: false,
+      userId: 'keycloak-subject',
+    });
+  });
 });
 
 function createConfigService(): ConfigService {

@@ -15,18 +15,18 @@ export type CacicAccountPrivacyProviderConfig = Partial<
   unavailablePreferences?: Partial<CacicPrivacyPreferences>;
 };
 
-const disabledPreferences: CacicPrivacyPreferences = {
-  analytics_tracking: false,
-  error_debugging: false,
-  performance_monitoring: false,
+const defaultPreferences: CacicPrivacyPreferences = {
+  analytics_tracking: true,
+  error_debugging: true,
+  performance_monitoring: true,
   cookie_banner_accepted: false,
 };
 
 export const DEFAULT_CACIC_ACCOUNT_PRIVACY_CONFIG: CacicAccountPrivacyConfig = {
   apiBaseUrl: 'https://account.cacic.com.br/api',
-  initialPreferences: disabledPreferences,
-  unavailablePreferences: disabledPreferences,
-  requireCookieBannerAcceptance: true,
+  initialPreferences: defaultPreferences,
+  unavailablePreferences: defaultPreferences,
+  requireCookieBannerAcceptance: false,
 };
 
 export const CACIC_ACCOUNT_PRIVACY_CONFIG = new InjectionToken<CacicAccountPrivacyConfig>(

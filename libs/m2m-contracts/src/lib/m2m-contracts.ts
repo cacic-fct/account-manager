@@ -121,9 +121,9 @@ export interface PrivacySettings {
 }
 
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
-  analytics_tracking: false,
-  error_debugging: false,
-  performance_monitoring: false,
+  analytics_tracking: true,
+  error_debugging: true,
+  performance_monitoring: true,
   cookie_banner_accepted: false,
 };
 

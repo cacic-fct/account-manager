@@ -16,6 +16,7 @@ import {
   PrivacyUiDirectiveType,
   PrivacyUiDirectiveValue,
 } from '../constants/privacy-directives';
+import { createDefaultPrivacySettings } from '../constants/privacy-setting.constants';
 import { PrivacyService } from '../privacy.service';
 import type { PrivacyUserIdentity } from '../privacy.service';
 import { Response } from 'express';
@@ -70,29 +71,30 @@ export class PrivacyDirectiveService {
         },
       );
 
-      // Block all data handling until consent is given
+      const defaultSettings = createDefaultPrivacySettings();
+
+      // Defaults allow collection until the user explicitly opts out.
       directives.push(
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING,
-          value: DIRECTIVE_VALUES.BLOCK,
-          metadata: { reason: 'no_consent', timestamp: new Date() },
+          value: defaultSettings.analytics_tracking ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          metadata: { reason: 'default_preference', timestamp: new Date() },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING,
-          value: DIRECTIVE_VALUES.BLOCK,
-          metadata: { reason: 'no_consent', timestamp: new Date() },
+          value: defaultSettings.error_debugging ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          metadata: { reason: 'default_preference', timestamp: new Date() },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING,
-          value: DIRECTIVE_VALUES.BLOCK,
-          metadata: { reason: 'no_consent', timestamp: new Date() },
+          value: defaultSettings.performance_monitoring ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          metadata: { reason: 'default_preference', timestamp: new Date() },
         },
       );
     } else {
       const settings = userSettings.settings;
-      const hasCookieConsent = settings.cookie_banner_accepted;
       // Existing user - check if cookie banner was accepted
-      if (!hasCookieConsent) {
+      if (!settings.cookie_banner_accepted) {
         directives.push({
           type: PRIVACY_DIRECTIVE_TYPES.UI_COOKIE_BANNER,
           value: DIRECTIVE_VALUES.SHOW,
@@ -118,17 +120,17 @@ export class PrivacyDirectiveService {
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING,
-          value: hasCookieConsent && settings.error_debugging ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          value: settings.error_debugging ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
+            reason: 'user_preference',
             timestamp: userSettings.updatedAt,
           },
         },
         {
           type: PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING,
-          value: hasCookieConsent && settings.performance_monitoring ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
+          value: settings.performance_monitoring ? DIRECTIVE_VALUES.ALLOW : DIRECTIVE_VALUES.BLOCK,
           metadata: {
-            reason: hasCookieConsent ? 'user_preference' : 'no_consent',
+            reason: 'user_preference',
             timestamp: userSettings.updatedAt,
           },
         },

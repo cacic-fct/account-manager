@@ -82,15 +82,15 @@ export class AnalyticsComponent implements OnInit {
 
     // Handle the new JSONB structure
     const settingsObj = settings?.settings || {
-      analytics_tracking: false,
-      error_debugging: false,
-      performance_monitoring: false,
+      analytics_tracking: true,
+      error_debugging: true,
+      performance_monitoring: true,
       cookie_banner_accepted: false,
     };
 
     return this.baseToggles.map((toggle) => ({
       ...toggle,
-      enabled: settingsObj[toggle.key as keyof typeof settingsObj] ?? false,
+      enabled: settingsObj[toggle.key as keyof typeof settingsObj] ?? true,
       loading: loadingStates[toggle.key] || false,
     }));
   });
