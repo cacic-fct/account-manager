@@ -156,7 +156,7 @@ export class PdfProcessingService {
         }
       }
 
-      await pdfDocument.destroy();
+      await loadingTask.destroy();
 
       const finalText = fullText.trim();
       this.logger.debug('PDF text extraction completed', {
