@@ -26,9 +26,7 @@ describe('PrivacyDirectiveService', () => {
     expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING)?.value).toBe(
       DIRECTIVE_VALUES.ALLOW,
     );
-    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(
-      DIRECTIVE_VALUES.ALLOW,
-    );
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(DIRECTIVE_VALUES.ALLOW);
     expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING)?.value).toBe(
       DIRECTIVE_VALUES.ALLOW,
     );
@@ -47,9 +45,7 @@ describe('PrivacyDirectiveService', () => {
     expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ANALYTICS_TRACKING)?.value).toBe(
       DIRECTIVE_VALUES.ALLOW,
     );
-    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(
-      DIRECTIVE_VALUES.ALLOW,
-    );
+    expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_ERROR_DEBUGGING)?.value).toBe(DIRECTIVE_VALUES.ALLOW);
     expect(findDirective(directives, PRIVACY_DIRECTIVE_TYPES.DATA_PERFORMANCE_MONITORING)?.value).toBe(
       DIRECTIVE_VALUES.ALLOW,
     );

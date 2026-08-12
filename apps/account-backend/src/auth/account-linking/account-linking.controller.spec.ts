@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import type { MessageEvent } from '@nestjs/common';
 import { Response } from 'express';
 import { AccountMergeRequest } from '@cacic/shared-types';
 import { Subject } from 'rxjs';
@@ -343,7 +344,7 @@ describe('AccountLinkingController', () => {
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(pendingRequest.id, session);
-    const events: Array<{ data: unknown }> = [];
+    const events: MessageEvent[] = [];
     const subscription = stream.subscribe((event) => events.push(event));
 
     await new Promise(setImmediate);
@@ -370,7 +371,7 @@ describe('AccountLinkingController', () => {
     accountLinkingService.getRequest.mockResolvedValue(completedRequest);
 
     const stream = await controller.streamMergeRequest(completedRequest.id, session);
-    const events: Array<{ data: unknown }> = [];
+    const events: MessageEvent[] = [];
     stream.subscribe((event) => events.push(event));
 
     expect(events).toEqual([{ data: completedRequest }]);
@@ -385,7 +386,7 @@ describe('AccountLinkingController', () => {
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates: new Subject<void>(), close });
 
     const stream = await controller.streamMergeRequest(pendingRequest.id, session);
-    const events: Array<{ data: unknown }> = [];
+    const events: MessageEvent[] = [];
     stream.subscribe((event) => events.push(event));
 
     await new Promise(setImmediate);

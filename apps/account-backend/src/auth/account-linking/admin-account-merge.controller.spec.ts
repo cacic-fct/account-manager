@@ -1,3 +1,4 @@
+import type { MessageEvent } from '@nestjs/common';
 import { AccountManagerPermission, AccountMergeRequest } from '@cacic/shared-types';
 import { Subject } from 'rxjs';
 import { ACCOUNT_PERMISSIONS_KEY } from '../guards/account-permission.guard';
@@ -106,7 +107,7 @@ describe('AdminAccountMergeController', () => {
     accountLinkingService.openMergeRequestWatch.mockResolvedValue({ updates, close });
 
     const stream = await controller.streamMergeRequest(mergeRequest.id);
-    const events: Array<{ data: unknown }> = [];
+    const events: MessageEvent[] = [];
     const subscription = stream.subscribe((event) => events.push(event));
 
     await new Promise(setImmediate);
@@ -122,7 +123,7 @@ describe('AdminAccountMergeController', () => {
     accountLinkingService.getAdminRequest.mockResolvedValue({ ...mergeRequest, status: 'completed' });
 
     const stream = await controller.streamMergeRequest(mergeRequest.id);
-    const events: Array<{ data: unknown }> = [];
+    const events: MessageEvent[] = [];
     stream.subscribe((event) => events.push(event));
 
     expect(events).toEqual([{ data: { ...mergeRequest, status: 'completed' } }]);
