@@ -122,4 +122,95 @@ describe('M2MUsersService', () => {
     expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identityDocument', '12345678901', { max: 10 });
     expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '00000000000', { max: 10 });
   });
+
+  it('maps normalized optional profile claims from camelCase and snake_case attributes', async () => {
+    const camelCaseUser = keycloakUser({
+      id: 'camel-case-user',
+      email: 'Camel.Case@UNESP.BR',
+      attributes: {
+        ...keycloakUser().attributes,
+        unespRole: [' aluno-graduacao '],
+        unespRoleVerified: [' TRUE '],
+        secondaryEmails: ['Personal@Example.com, second@example.com', '["THIRD@example.com", "personal@example.com"]'],
+      },
+    });
+    const snakeCaseUser = keycloakUser({
+      id: 'snake-case-user',
+      email: 'snake.case@unesp.br',
+      attributes: {
+        ...keycloakUser().attributes,
+        unesp_role: ['servidor'],
+        unesp_role_verified: ['false'],
+        secondary_emails: ['secondary@Example.com'],
+      },
+    });
+    keycloak.findUserByEmail.mockResolvedValueOnce(camelCaseUser).mockResolvedValueOnce(snakeCaseUser);
+
+    await expect(
+      service.lookupByIdentifiers([
+        {
+          requestId: 'camel-case',
+          identifierType: 'email',
+          identifierValue: 'camel.case@unesp.br',
+        },
+        {
+          requestId: 'snake-case',
+          identifierType: 'email',
+          identifierValue: 'snake.case@unesp.br',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        requestId: 'camel-case',
+        userId: 'camel-case-user',
+        enrollmentNumber: '24123456',
+        name: 'Ana Souza',
+        email: 'Camel.Case@UNESP.BR',
+        unespRole: 'aluno-graduacao',
+        unespRoleVerified: true,
+        secondaryEmails: ['personal@example.com', 'second@example.com', 'third@example.com'],
+      },
+      {
+        requestId: 'snake-case',
+        userId: 'snake-case-user',
+        enrollmentNumber: '24123456',
+        name: 'Ana Souza',
+        email: 'snake.case@unesp.br',
+        unespRole: 'servidor',
+        unespRoleVerified: false,
+        secondaryEmails: ['secondary@example.com'],
+      },
+    ]);
+  });
+
+  it('omits malformed UNESP verification values instead of treating them as true', async () => {
+    keycloak.findUserByEmail.mockResolvedValueOnce(
+      keycloakUser({
+        attributes: {
+          ...keycloakUser().attributes,
+          unespRole: ['aluno-pos-graduacao'],
+          unespRoleVerified: ['yes'],
+        },
+      }),
+    );
+
+    await expect(
+      service.lookupByIdentifiers([
+        {
+          requestId: 'malformed-verification',
+          identifierType: 'email',
+          identifierValue: 'ana.souza@unesp.br',
+        },
+      ]),
+    ).resolves.toEqual([
+      {
+        requestId: 'malformed-verification',
+        userId: 'user-1',
+        enrollmentNumber: '24123456',
+        name: 'Ana Souza',
+        email: 'ana.souza@unesp.br',
+        unespRole: 'aluno-pos-graduacao',
+      },
+    ]);
+  });
 });

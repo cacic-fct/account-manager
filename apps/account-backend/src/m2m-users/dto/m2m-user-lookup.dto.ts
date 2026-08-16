@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsBoolean,
   IsArray,
   IsIn,
   IsNotEmpty,
@@ -106,6 +107,32 @@ export class M2MUserProfileDto implements M2MUserProfile {
   })
   @IsOptional()
   email?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'UNESP role stored in Keycloak, when present.',
+    example: 'aluno-graduacao',
+  })
+  @IsOptional()
+  @IsString()
+  unespRole?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the UNESP role has been verified, when the source value is an explicit boolean.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  unespRoleVerified?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Normalized secondary email addresses stored in Keycloak.',
+    example: ['ana.souza.pessoal@example.com'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  secondaryEmails?: string[];
 }
 
 export class M2MUserEnrollmentLookupResponseDto implements M2MUserEnrollmentLookupResponse {

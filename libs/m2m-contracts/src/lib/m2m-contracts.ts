@@ -23,6 +23,9 @@ export interface M2MUserProfile {
   enrollmentNumber?: string | null;
   name: string;
   email?: string | null;
+  secondaryEmails?: string[];
+  unespRole?: string;
+  unespRoleVerified?: boolean;
 }
 
 export interface M2MUserEnrollmentLookupRequest {

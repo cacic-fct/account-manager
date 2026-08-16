@@ -201,11 +201,18 @@ export class M2MUsersService {
       return null;
     }
 
+    const unespRole = this.firstAttributeValue(user, 'unespRole', 'unesp_role');
+    const unespRoleVerified = this.booleanAttributeValue(user, 'unespRoleVerified', 'unesp_role_verified');
+    const secondaryEmails = this.normalizeSecondaryEmails(user);
+
     return {
       userId,
       name,
       email: email ?? null,
       enrollmentNumber: this.normalizeEnrollmentNumber(this.firstAttributeValue(user, 'enrollmentNumber')) ?? null,
+      ...(unespRole ? { unespRole } : {}),
+      ...(unespRoleVerified === undefined ? {} : { unespRoleVerified }),
+      ...(secondaryEmails.length ? { secondaryEmails } : {}),
     };
   }
 
@@ -213,13 +220,71 @@ export class M2MUsersService {
     const attributes = user.attributes ?? {};
 
     for (const attributeName of attributeNames) {
-      const value = attributes[attributeName]?.[0];
-      if (value?.trim()) {
+      const value = attributes[attributeName]?.find((candidate) => candidate.trim());
+      if (value) {
         return value.trim();
       }
     }
 
     return undefined;
+  }
+
+  private booleanAttributeValue(user: KeycloakUserData, ...attributeNames: string[]): boolean | undefined {
+    const value = this.firstAttributeValue(user, ...attributeNames)?.toLowerCase();
+    if (value === 'true') {
+      return true;
+    }
+
+    if (value === 'false') {
+      return false;
+    }
+
+    return undefined;
+  }
+
+  private normalizeSecondaryEmails(user: KeycloakUserData): string[] {
+    const normalized = new Set<string>();
+
+    for (const value of this.attributeValues(user, 'secondaryEmails', 'secondary_emails')) {
+      for (const candidate of this.parseStringList(value)) {
+        const email = this.normalizeEmail(candidate);
+        if (email) {
+          normalized.add(email);
+        }
+      }
+    }
+
+    return [...normalized];
+  }
+
+  private attributeValues(user: KeycloakUserData, ...attributeNames: string[]): string[] {
+    const attributes = user.attributes ?? {};
+    return attributeNames.flatMap((attributeName) => attributes[attributeName] ?? []);
+  }
+
+  private parseStringList(value: string): string[] {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item): item is string => typeof item === 'string');
+        }
+      } catch {
+        return [trimmed];
+      }
+    }
+
+    return trimmed.split(',').map((item) => item.trim());
+  }
+
+  private normalizeEmail(value: string): string | null {
+    const normalized = value.trim().toLowerCase();
+    return normalized || null;
   }
 
   private firstNonEmpty(...values: readonly (string | undefined | null)[]): string | undefined {
