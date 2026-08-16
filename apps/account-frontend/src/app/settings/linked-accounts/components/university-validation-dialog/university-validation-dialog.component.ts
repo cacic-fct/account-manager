@@ -1,4 +1,4 @@
-import { Component, inject, signal, Inject } from '@angular/core';
+import { Component, inject, signal, Inject, OnDestroy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -12,8 +12,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   UniversityValidationService,
-  CaptchaResponse,
-  ValidationResponse,
   AtomicValidationResponse,
 } from '../../../../shared/services/university-validation/university-validation.service';
 
@@ -195,7 +193,7 @@ export interface UniversityValidationDialogData {
     MatTooltipModule,
   ],
 })
-export class UniversityValidationDialogComponent {
+export class UniversityValidationDialogComponent implements OnDestroy {
   private universityValidationService = inject(UniversityValidationService);
   private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<UniversityValidationDialogComponent>);
@@ -214,6 +212,7 @@ export class UniversityValidationDialogComponent {
   private cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: UniversityValidationDialogData) {
+    this.dialogRef.beforeClosed().subscribe(() => this.clearSessionBestEffort());
     // Validate that we have a PDF file
     if (!data.pdfFile) {
       this.errorMessage.set('Arquivo PDF não fornecido. Feche este diálogo e tente novamente com um arquivo válido.');
@@ -244,19 +243,18 @@ export class UniversityValidationDialogComponent {
       }
     } catch (error: unknown) {
       console.error('Erro ao processar PDF:', error);
-      console.error('Error details:', {
-        status: (error as any)?.status,
-        message: (error as any)?.message,
-        errorMessage: (error as any)?.error?.message,
-        errorObject: (error as any)?.error,
-        fullError: JSON.stringify(error, null, 2),
-      });
 
       // Categorize the error for the parent component
       let errorType = 'GENERIC_ERROR';
       let errorMessage = 'Erro ao processar PDF. Tente fechar e abrir novamente.';
 
       const httpError = error as HttpErrorResponse;
+      if (httpError.error?.fallbackToManual === true) {
+        this.snackBar.open('Documento enviado para análise manual.', 'Fechar', { duration: 5000 });
+        this.dialogRef.close({ success: true, pendingManualReview: true });
+        return;
+      }
+
       if (httpError.status === 400) {
         if (httpError.error?.message?.includes('PDF é obrigatório')) {
           errorType = 'PDF_REQUIRED';
@@ -393,7 +391,10 @@ export class UniversityValidationDialogComponent {
       next: (result: AtomicValidationResponse) => {
         this.validating.set(false);
 
-        if (result.success) {
+        if (result.fallbackToManual && result.manualApprovalId) {
+          this.snackBar.open('Documento enviado para análise manual.', 'Fechar', { duration: 5000 });
+          this.dialogRef.close({ success: true, pendingManualReview: true });
+        } else if (result.success) {
           if (result.valid) {
             this.snackBar.open('Documento validado com sucesso na universidade!', 'Fechar', { duration: 5000 });
             this.dialogRef.close({ success: true, validated: true });
@@ -518,5 +519,20 @@ export class UniversityValidationDialogComponent {
     // Clean up cooldown timer
     this.stopCooldownTimer();
     this.dialogRef.close({ success: false });
+  }
+
+  ngOnDestroy(): void {
+    this.stopCooldownTimer();
+    this.clearSessionBestEffort();
+  }
+
+  private clearSessionBestEffort(): void {
+    const currentSessionId = this.sessionId();
+    if (!currentSessionId) return;
+
+    this.sessionId.set(null);
+    this.universityValidationService.clearSession(currentSessionId).subscribe({
+      error: () => undefined,
+    });
   }
 }

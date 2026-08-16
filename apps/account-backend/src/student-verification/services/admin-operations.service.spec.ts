@@ -215,6 +215,9 @@ describe('AdminOperationsService', () => {
         id: 'document-1',
         email: 'alice@example.com',
         fullName: 'Alice Example',
+        storedFileName: '',
+        filePath: '',
+        s3Key: null,
       }),
     ]);
     expect(keycloakService.getUserAttributes).toHaveBeenCalledWith('user-1');
@@ -237,28 +240,34 @@ describe('AdminOperationsService', () => {
     ]);
   });
 
-  it('falls back to placeholder user information when Keycloak enrichment fails', async () => {
+  it('omits user information when Keycloak enrichment fails', async () => {
     const { service, prisma, keycloakService } = createContext();
     prisma.studentVerificationDocument.findMany.mockResolvedValue([createDocument()]);
     keycloakService.getUserAttributes.mockRejectedValue(new Error('Keycloak unavailable'));
 
     await expect(service.getAllPendingDocuments()).resolves.toEqual([
       expect.objectContaining({
-        email: 'temp@example.com',
-        fullName: 'Unknown User',
+        email: undefined,
+        fullName: undefined,
+        storedFileName: '',
+        filePath: '',
+        s3Key: null,
       }),
     ]);
   });
 
-  it('falls back to placeholder user information after non-Error enrichment failures', async () => {
+  it('omits user information after non-Error enrichment failures', async () => {
     const { service, prisma, keycloakService } = createContext();
     prisma.studentVerificationDocument.findMany.mockResolvedValue([createDocument()]);
     keycloakService.getUserAttributes.mockRejectedValue('Keycloak unavailable');
 
     await expect(service.getAllPendingDocuments()).resolves.toEqual([
       expect.objectContaining({
-        email: 'temp@example.com',
-        fullName: 'Unknown User',
+        email: undefined,
+        fullName: undefined,
+        storedFileName: '',
+        filePath: '',
+        s3Key: null,
       }),
     ]);
   });

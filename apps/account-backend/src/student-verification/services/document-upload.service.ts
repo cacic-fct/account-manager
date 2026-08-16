@@ -6,19 +6,19 @@ import { PdfProcessingService } from '../../university-validation/services/pdf-p
 import { v7 as uuidv7 } from 'uuid';
 import { PdfVerificationService } from './pdf-verification.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Readable } from 'stream';
 
 interface LogMetadata {
   fileName: string;
   fileSize: number;
   mimeType: string;
-  authenticationCode: string | null;
   isManualFallback: boolean;
 }
 
 @Injectable()
 export class DocumentUploadService {
   private readonly logger = new Logger(DocumentUploadService.name);
-  private readonly uploadLockScope = 'student-verification-upload';
+  private readonly uploadLockScope = 'student-verification-user';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -101,8 +101,16 @@ export class DocumentUploadService {
     }
 
     const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('Arquivo vazio ou inválido.');
+    }
+
+    if (file.buffer.length > maxSize || file.size > maxSize) {
       throw new BadRequestException('Arquivo muito grande. Tamanho máximo: 10MB.');
+    }
+
+    if (file.mimetype === 'application/pdf' && !file.buffer.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+      throw new BadRequestException('Arquivo não corresponde a um PDF válido.');
     }
 
     const existingDocument = await this.prisma.studentVerificationDocument.findFirst({
@@ -114,7 +122,7 @@ export class DocumentUploadService {
 
     this.rejectActiveDocument(existingDocument);
 
-    const fileExtension = file.originalname.split('.').pop() || '';
+    const fileExtension = file.mimetype === 'application/pdf' ? 'pdf' : 'txt';
     const storedFileName = `${uuidv7()}.${fileExtension}`;
     const s3Key = this.s3Service.generateFileKey('student-verification', userId, storedFileName);
 
@@ -133,7 +141,7 @@ export class DocumentUploadService {
     let pdfVerificationResult: PdfVerificationResult | null = null;
     let extractedAuthCode: string | null = null;
 
-    if (file.mimetype === 'application/pdf') {
+    if (file.mimetype === 'application/pdf' && !isManualFallback) {
       try {
         extractedAuthCode = await this.pdfProcessingService.extractAuthCodeFromPdf(file.buffer);
 
@@ -167,10 +175,7 @@ export class DocumentUploadService {
     let initialStatus: 'pending' | 'rejected' = 'pending';
     let rejectionReason: string | null = null;
 
-    if (pdfVerificationResult && !pdfVerificationResult.success) {
-      initialStatus = 'rejected';
-      rejectionReason = `Erro na verificação do PDF: ${pdfVerificationResult.error}`;
-    } else if (pdfVerificationResult?.data && !pdfVerificationResult.data.isValid) {
+    if (pdfVerificationResult?.success && pdfVerificationResult.data && !pdfVerificationResult.data.isValid) {
       initialStatus = 'rejected';
       rejectionReason = pdfVerificationResult.data.error || 'Documento inválido ou expirado';
     }
@@ -199,7 +204,6 @@ export class DocumentUploadService {
       fileName: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
-      authenticationCode: extractedAuthCode,
       isManualFallback,
     };
 
@@ -254,8 +258,132 @@ export class DocumentUploadService {
       message,
       documentId: savedDocument.id,
       status: savedDocument.status,
-      authenticationCode: extractedAuthCode || undefined,
       extractedName: undefined,
     };
+  }
+
+  async storeAutomatedApproval(
+    pdfBuffer: Buffer,
+    userId: string,
+    authenticationCode?: string,
+    emissionDate?: string,
+    expirationDate?: string,
+  ): Promise<StudentVerificationDocument> {
+    const maxSize = 10 * 1024 * 1024;
+    if (
+      pdfBuffer.length === 0 ||
+      pdfBuffer.length > maxSize ||
+      !pdfBuffer.subarray(0, 5).equals(Buffer.from('%PDF-'))
+    ) {
+      throw new BadRequestException('Resposta inválida recebida do serviço de verificação.');
+    }
+
+    const existingApproved = await this.prisma.studentVerificationDocument.findFirst({
+      where: { userId, status: 'approved' },
+      orderBy: { verificationDate: 'desc' },
+    });
+    if (existingApproved) {
+      return existingApproved;
+    }
+
+    const storedFileName = `${uuidv7()}.pdf`;
+    const s3Key = this.s3Service.generateFileKey('student-verification', userId, storedFileName);
+    const uploadResult = await this.s3Service.uploadFile(s3Key, pdfBuffer, 'application/pdf', {
+      userId,
+      source: 'university-validation',
+      uploadedAt: new Date().toISOString(),
+    });
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.lockUserUpload(tx, userId);
+
+        const activeDocument = await tx.studentVerificationDocument.findFirst({
+          where: { userId, status: { in: ['pending', 'approved'] } },
+          orderBy: { verificationDate: 'desc' },
+        });
+        this.rejectActiveDocument(activeDocument);
+
+        const verificationDate = new Date();
+        const document = await tx.studentVerificationDocument.create({
+          data: {
+            userId,
+            originalFileName: 'documento-validado-unesp.pdf',
+            storedFileName,
+            filePath: s3Key,
+            s3Key,
+            mimeType: 'application/pdf',
+            fileSize: uploadResult.size,
+            status: 'approved',
+            verifiedBy: 'university-validation-system',
+            verificationDate,
+            authenticationCode: authenticationCode || null,
+            documentEmissionDate: emissionDate ? new Date(emissionDate) : null,
+            documentExpirationDate: expirationDate ? new Date(expirationDate) : null,
+            isDocumentValid: true,
+          },
+        });
+
+        await tx.studentVerificationLog.create({
+          data: {
+            documentId: document.id,
+            userId,
+            action: 'automated_approved',
+            performedBy: 'university-validation-system',
+            reason: 'Documento confirmado no serviço externo da universidade.',
+          },
+        });
+
+        return document;
+      });
+    } catch (error) {
+      return await this.cleanupUploadedFileAfterFailure(s3Key, error);
+    }
+  }
+
+  async storeManualReviewDocument(pdfBuffer: Buffer, userId: string): Promise<UploadResponseDto> {
+    const file: Express.Multer.File = {
+      fieldname: 'document',
+      originalname: 'documento-validacao-externa.pdf',
+      encoding: '7bit',
+      mimetype: 'application/pdf',
+      size: pdfBuffer.length,
+      buffer: pdfBuffer,
+      stream: Readable.from(pdfBuffer),
+      destination: '',
+      filename: '',
+      path: '',
+    };
+    return this.uploadDocument(file, userId, true);
+  }
+
+  async deferAutomatedApproval(documentId: string, userId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.studentVerificationDocument.updateMany({
+        where: {
+          id: documentId,
+          userId,
+          status: 'approved',
+          verifiedBy: 'university-validation-system',
+        },
+        data: {
+          status: 'pending',
+          verifiedBy: null,
+          verificationDate: null,
+        },
+      });
+
+      if (updated.count > 0) {
+        await tx.studentVerificationLog.create({
+          data: {
+            documentId,
+            userId,
+            action: 'upload',
+            performedBy: 'university-validation-system',
+            reason: 'Sincronização de identidade indisponível; encaminhado para análise manual.',
+          },
+        });
+      }
+    });
   }
 }

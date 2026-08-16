@@ -10,6 +10,9 @@ import { StatusManagementService } from './services/status-management.service';
 import { AdminOperationsService } from './services/admin-operations.service';
 import { DocumentManagementService } from './services/document-management.service';
 import { PdfVerificationService } from './services/pdf-verification.service';
+import { ConfigModule } from '@nestjs/config';
+import { RedisModule } from '../redis/redis.module';
+import { StudentVerificationRateLimitService } from './services/student-verification-rate-limit.service';
 
 @Module({
   imports: [
@@ -20,6 +23,8 @@ import { PdfVerificationService } from './services/pdf-verification.service';
     }),
     AuthModule,
     CommonModule,
+    ConfigModule,
+    RedisModule,
   ],
   controllers: [StudentVerificationController],
   providers: [
@@ -30,6 +35,7 @@ import { PdfVerificationService } from './services/pdf-verification.service';
     AdminOperationsService,
     DocumentManagementService,
     PdfVerificationService,
+    StudentVerificationRateLimitService,
   ],
   exports: [StudentVerificationService],
 })

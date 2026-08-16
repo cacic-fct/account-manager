@@ -63,17 +63,57 @@ export class DocumentValidationService {
     userId: string,
   ): Promise<ValidationResult> {
     try {
+      if (!session.authCode) {
+        return { success: false, error: 'Código de autenticidade ausente na sessão' };
+      }
+
+      const returnedAuthCode = await this.pdfProcessingService.extractAuthCodeFromPdf(pdfBuffer);
+      const normalizeAuthCode = (value: string) => value.replace(/[^a-f0-9]/gi, '').toUpperCase();
+      if (normalizeAuthCode(returnedAuthCode) !== normalizeAuthCode(session.authCode)) {
+        this.logger.warn('University response authentication code did not match the requested document');
+        return { success: false, error: 'A resposta da universidade não corresponde ao documento enviado' };
+      }
+
+      const pdfVerification = await this.studentVerificationService.verifyPdfDocument(pdfBuffer);
+      if (!pdfVerification.success || !pdfVerification.data) {
+        const manual = await this.studentVerificationService.storeManualReviewDocument(pdfBuffer, userId);
+        return {
+          success: false,
+          error: 'Não foi possível confirmar a validade do documento automaticamente.',
+          fallbackToManual: true,
+          manualApprovalId: manual.documentId,
+        };
+      }
+      if (!pdfVerification.data.isValid) {
+        return {
+          success: false,
+          error: pdfVerification.data.expirationDate
+            ? 'O documento retornado pela universidade está expirado.'
+            : 'Não foi possível confirmar a validade do documento.',
+        };
+      }
+
       this.logger.debug('Validating PDF document:', {
         pdfSize: pdfBuffer.length,
-        enrollmentNumber,
-        sessionId,
       });
 
-      // Determine verification type
-      const isExternal = await this.userVerificationService.isExternalUser(userId);
+      let isExternal: boolean;
+      let userFullname: string;
+      try {
+        isExternal = await this.userVerificationService.isExternalUser(userId);
+        userFullname = await this.userVerificationService.getUserFullname(userId);
+      } catch {
+        this.logger.warn('Identity data unavailable; routing verified provider PDF to manual review');
+        const manual = await this.studentVerificationService.storeManualReviewDocument(pdfBuffer, userId);
+        return {
+          success: false,
+          error: 'Não foi possível confirmar os dados do perfil automaticamente.',
+          fallbackToManual: true,
+          manualApprovalId: manual.documentId,
+        };
+      }
 
       this.logger.debug('User verification type determined:', {
-        userId,
         isExternal,
       });
 
@@ -82,21 +122,9 @@ export class DocumentValidationService {
 
       if (isExternal) {
         // External user verification by fullname
-        const userFullname = await this.userVerificationService.getUserFullname(userId);
-        if (!userFullname) {
-          return {
-            success: false,
-            error: 'Nome completo não encontrado no perfil do usuário',
-          };
-        }
+        const externalVerification = await this.userVerificationService.verifyExternalUser(pdfBuffer, userFullname);
 
-        const externalVerification = await this.userVerificationService.verifyExternalUser(
-          userId,
-          pdfBuffer,
-          userFullname,
-        );
-
-        verificationResult = externalVerification.nameMatches;
+        verificationResult = externalVerification.nameMatches && externalVerification.extractedEnrollment !== null;
         verificationDetails = {
           verificationType: 'external_user',
           nameMatches: externalVerification.nameMatches,
@@ -105,13 +133,11 @@ export class DocumentValidationService {
         };
       } else {
         // Unesp student verification by enrollment + fullname
-        const userFullname = await this.userVerificationService.getUserFullname(userId);
-
         const unespVerification = await this.userVerificationService.verifyUnespStudent(
           userId,
           pdfBuffer,
           enrollmentNumber,
-          userFullname || undefined,
+          userFullname,
         );
 
         verificationResult = unespVerification.combinedResult;
@@ -127,12 +153,41 @@ export class DocumentValidationService {
 
       // Set verification status in Keycloak if successful
       if (verificationResult) {
-        await this.userVerificationService.setVerificationStatus(
+        const approval = await this.studentVerificationService.storeAutomatedApproval(
+          pdfBuffer,
           userId,
-          true,
-          isExternal ? 'external_user' : 'unesp_student',
-          verificationDetails,
+          session.authCode,
+          pdfVerification.data.emissionDate,
+          pdfVerification.data.expirationDate,
         );
+
+        try {
+          await this.userVerificationService.setVerificationStatus(
+            userId,
+            true,
+            isExternal ? 'external_user' : 'unesp_student',
+            verificationDetails,
+          );
+
+          if (isExternal && verificationDetails.extractedEnrollment) {
+            await this.userVerificationService.applyExternalUserVerification(
+              userId,
+              verificationDetails.extractedEnrollment,
+            );
+          }
+        } catch (error) {
+          await this.userVerificationService
+            .setVerificationStatus(userId, false, isExternal ? 'external_user' : 'unesp_student')
+            .catch(() => undefined);
+          await this.studentVerificationService.deferAutomatedApproval(approval.id, userId);
+          this.logger.error('Identity synchronization failed after provider verification', error);
+          return {
+            success: false,
+            error: 'Documento confirmado, mas encaminhado para análise manual por falha de sincronização.',
+            fallbackToManual: true,
+            manualApprovalId: approval.id,
+          };
+        }
       }
 
       // Save captcha training data for successful validations
@@ -155,7 +210,6 @@ export class DocumentValidationService {
         isValid: verificationResult,
         error: verificationResult ? undefined : errorMessage,
         data: {
-          authCode: session.authCode,
           validationTimestamp: new Date().toISOString(),
           responseType: 'pdf',
           pdfSize: pdfBuffer.length,
@@ -164,6 +218,18 @@ export class DocumentValidationService {
       };
     } catch (error) {
       this.logger.error('Error validating PDF document:', error);
+      try {
+        const manual = await this.studentVerificationService.storeManualReviewDocument(pdfBuffer, userId);
+        return {
+          success: false,
+          error: 'Documento encaminhado para análise manual após falha na validação automática.',
+          fallbackToManual: true,
+          manualApprovalId: manual.documentId,
+        };
+      } catch {
+        // The original error remains the most useful safe outcome when the
+        // durable manual queue is also unavailable.
+      }
       return {
         success: false,
         error: 'Erro ao processar documento PDF',

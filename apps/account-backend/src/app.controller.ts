@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { AppService } from './app.service';
 
 @ApiTags('Health Check')
@@ -40,13 +41,33 @@ export class AppController {
           type: 'object',
           properties: {
             redis: { type: 'string', example: 'connected' },
+            externalUniversityVerification: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                state: {
+                  type: 'string',
+                  enum: ['disabled', 'open', 'half_open', 'overloaded', 'available'],
+                },
+                inFlightRequests: { type: 'number' },
+                retryAfterMs: { type: 'number' },
+              },
+            },
           },
         },
       },
     },
   })
+  @ApiResponse({
+    status: 503,
+    description: 'A required dependency is unavailable',
+  })
   @Get('health')
-  async getHealth() {
-    return await this.appService.getHealth();
+  async getHealth(@Res({ passthrough: true }) response?: Response) {
+    const health = await this.appService.getHealth();
+    if (health.status !== 'ok') {
+      response?.status(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    return health;
   }
 }

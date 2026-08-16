@@ -38,6 +38,9 @@ export class AdminOperationsService {
 
           return {
             ...document,
+            storedFileName: '',
+            filePath: '',
+            s3Key: null,
             email,
             fullName,
           };
@@ -50,8 +53,11 @@ export class AdminOperationsService {
           );
           return {
             ...document,
-            email: 'temp@example.com',
-            fullName: 'Unknown User',
+            storedFileName: '',
+            filePath: '',
+            s3Key: null,
+            email: undefined,
+            fullName: undefined,
           };
         }
       }),

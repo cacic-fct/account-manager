@@ -169,7 +169,12 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     });
 
     dialogRef.afterClosed().subscribe((result) => {
-      if (result?.success) {
+      if (result?.pendingManualReview) {
+        this.banners.showInfo('Documento enviado', 'Seu documento foi encaminhado para análise manual.');
+        this.loadVerificationStatus();
+        this.selectedFile.set(null);
+        this.hasAttemptedValidation.set(false);
+      } else if (result?.success) {
         this.banners.showSuccess('Documento validado', 'Documento verificado com sucesso pela universidade!');
         this.loadVerificationStatus(); // Reload status after successful validation
         this.selectedFile.set(null); // Clear selected file

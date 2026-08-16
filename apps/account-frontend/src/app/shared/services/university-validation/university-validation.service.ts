@@ -10,17 +10,6 @@ export interface CaptchaResponse {
   enrollmentNumber?: string; // From user profile
 }
 
-export interface ValidationRequest {
-  captchaCode: string;
-}
-
-export interface ValidationResponse {
-  success: boolean;
-  valid?: boolean;
-  message?: string;
-  needsNewCaptcha?: boolean;
-}
-
 export interface AtomicValidationRequest {
   captchaCode: string;
   sessionId: string; // Required to retrieve authCode from server-side session
@@ -32,6 +21,9 @@ export interface AtomicValidationResponse {
   message?: string;
   captchaImage?: string; // Base64 encoded image for retry cases
   needsCaptcha?: boolean; // Indicates if a new captcha is needed
+  error?: string;
+  fallbackToManual?: boolean;
+  manualApprovalId?: string;
   // authCode removed for security - never sent to frontend
   enrollmentNumber?: string; // From user profile
 }
@@ -59,29 +51,12 @@ export class UniversityValidationService {
     });
   }
 
-  validateDocument(sessionId: string, request: ValidationRequest): Observable<ValidationResponse> {
-    return this.http.post<ValidationResponse>(`${this.apiUrl}/validate/${sessionId}`, request, {
-      withCredentials: true,
-    });
-  }
-
   clearSession(sessionId: string): Observable<{ success: boolean }> {
     return this.http.post<{ success: boolean }>(
       `${this.apiUrl}/clear-session/${sessionId}`,
       {},
       { withCredentials: true },
     );
-  }
-
-  // New atomic validation method
-  validateDocumentAtomic(pdfFile: File, captchaCode: string): Observable<AtomicValidationResponse> {
-    const formData = new FormData();
-    formData.append('pdfFile', pdfFile);
-    formData.append('captchaCode', captchaCode);
-
-    return this.http.post<AtomicValidationResponse>(`${this.apiUrl}/validate-atomic`, formData, {
-      withCredentials: true,
-    });
   }
 
   // Get captcha for atomic flow (just processes PDF and returns captcha)

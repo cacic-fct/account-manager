@@ -205,4 +205,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async expire(key: string, ttl: number): Promise<boolean> {
     return this.client.expire(key, ttl);
   }
+
+  async incrementWithExpiry(key: string, ttlSeconds: number): Promise<number> {
+    const result = await this.client.eval(
+      `local value = redis.call('INCR', KEYS[1])
+if value == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return value`,
+      {
+        keys: [key],
+        arguments: [ttlSeconds.toString()],
+      },
+    );
+
+    if (typeof result !== 'number') {
+      throw new Error('Redis returned an invalid rate-limit counter');
+    }
+
+    return result;
+  }
 }

@@ -41,7 +41,6 @@ type LogMetadata = {
   fileName: string;
   fileSize: number;
   mimeType: string;
-  authenticationCode: string | null;
   isManualFallback: boolean;
 };
 
@@ -228,24 +227,6 @@ describe('DocumentUploadService', () => {
     bufferFromSpy.mockRestore();
   });
 
-  it('keeps the original filename when filename decoding throws a non-Error value', () => {
-    class DecodeFailure {}
-
-    const { service } = createContext();
-    const bufferFromSpy = jest.spyOn(Buffer, 'from');
-    bufferFromSpy.mockImplementationOnce(() => {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw new DecodeFailure();
-    });
-    const internals = service as unknown as {
-      fixFilenameEncoding: (originalFilename: string) => string;
-    };
-
-    expect(internals.fixFilenameEncoding('comprovanteÃ©.pdf')).toBe('comprovanteÃ©.pdf');
-
-    bufferFromSpy.mockRestore();
-  });
-
   it('rejects unsupported file types and oversized uploads before storage', async () => {
     const { service, s3Service } = createContext();
 
@@ -319,7 +300,6 @@ describe('DocumentUploadService', () => {
       message: 'Documento enviado com sucesso! Aguarde a verificação.',
       documentId: 'document-new',
       status: 'pending',
-      authenticationCode: 'AUTH-CODE',
       extractedName: undefined,
     });
     const uploadCall = s3Service.uploadFile.mock.calls[0];
@@ -362,7 +342,7 @@ describe('DocumentUploadService', () => {
     expect(logMetadata.fileName).toBe('proof.pdf');
     expect(logMetadata.fileSize).toBe(file.size);
     expect(logMetadata.mimeType).toBe('application/pdf');
-    expect(logMetadata.authenticationCode).toBe('AUTH-CODE');
+    expect(logMetadata).not.toHaveProperty('authenticationCode');
     expect(logMetadata.isManualFallback).toBe(false);
   });
 
@@ -407,15 +387,15 @@ describe('DocumentUploadService', () => {
     expect(logArgs.data.reason).toBe(rejectionReason);
   });
 
-  it('records an automated rejection when PDF buffer verification throws', async () => {
+  it('queues manual review when PDF buffer verification throws', async () => {
     const { service, s3Service, tx, pdfProcessingService, pdfVerificationService } = createContext();
     const file = createFile({
       originalname: 'comprovanteÃ©.pdf',
     });
     const savedDocument = createDocument({
       id: 'document-rejected',
-      status: 'rejected',
-      rejectionReason: 'Erro na verificação do PDF: Falha na verificação do documento PDF',
+      status: 'pending',
+      rejectionReason: null,
       authenticationCode: 'AUTH-CODE',
     });
 
@@ -426,20 +406,20 @@ describe('DocumentUploadService', () => {
 
     const result = await service.uploadDocument(file, 'user-1');
 
-    expect(result.status).toBe('rejected');
+    expect(result.status).toBe('pending');
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
     expect(createArgs.data.originalFileName).not.toBe('comprovanteÃ©.pdf');
-    expect(createArgs.data.status).toBe('rejected');
-    expect(createArgs.data.rejectionReason).toBe('Erro na verificação do PDF: Falha na verificação do documento PDF');
+    expect(createArgs.data.status).toBe('pending');
+    expect(createArgs.data.rejectionReason).toBeNull();
   });
 
-  it('records verifier error messages when PDF buffer verification throws an Error', async () => {
+  it('does not reject or persist verifier outage messages when verification throws an Error', async () => {
     const { service, s3Service, tx, pdfProcessingService, pdfVerificationService } = createContext();
     const file = createFile();
     const savedDocument = createDocument({
       id: 'document-rejected',
-      status: 'rejected',
-      rejectionReason: 'Erro na verificação do PDF: verifier offline',
+      status: 'pending',
+      rejectionReason: null,
       authenticationCode: 'AUTH-CODE',
     });
 
@@ -450,18 +430,18 @@ describe('DocumentUploadService', () => {
 
     const result = await service.uploadDocument(file, 'user-1');
 
-    expect(result.status).toBe('rejected');
+    expect(result.status).toBe('pending');
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
-    expect(createArgs.data.rejectionReason).toBe('Erro na verificação do PDF: verifier offline');
+    expect(createArgs.data.rejectionReason).toBeNull();
   });
 
-  it('records an automated rejection when PDF auth-code extraction throws', async () => {
+  it('queues manual review when PDF auth-code extraction throws', async () => {
     const { service, s3Service, tx, pdfProcessingService, pdfVerificationService } = createContext();
     const file = createFile();
     const savedDocument = createDocument({
       id: 'document-rejected',
-      status: 'rejected',
-      rejectionReason: 'Erro na verificação do PDF: extraction failed',
+      status: 'pending',
+      rejectionReason: null,
     });
 
     s3Service.uploadFile.mockResolvedValue({ key: s3Key, size: file.size });
@@ -470,17 +450,17 @@ describe('DocumentUploadService', () => {
 
     const result = await service.uploadDocument(file, 'user-1');
 
-    expect(result.status).toBe('rejected');
+    expect(result.status).toBe('pending');
     expect(pdfVerificationService.verifyPdfDocumentFromBuffer).not.toHaveBeenCalled();
   });
 
-  it('records the default extraction error when PDF auth-code extraction throws a non-Error value', async () => {
+  it('queues manual review when PDF auth-code extraction throws a non-Error value', async () => {
     const { service, s3Service, tx, pdfProcessingService, pdfVerificationService } = createContext();
     const file = createFile();
     const savedDocument = createDocument({
       id: 'document-rejected',
-      status: 'rejected',
-      rejectionReason: 'Erro na verificação do PDF: Falha na extração do código de autenticidade',
+      status: 'pending',
+      rejectionReason: null,
     });
 
     s3Service.uploadFile.mockResolvedValue({ key: s3Key, size: file.size });
@@ -489,11 +469,9 @@ describe('DocumentUploadService', () => {
 
     const result = await service.uploadDocument(file, 'user-1');
 
-    expect(result.status).toBe('rejected');
+    expect(result.status).toBe('pending');
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
-    expect(createArgs.data.rejectionReason).toBe(
-      'Erro na verificação do PDF: Falha na extração do código de autenticidade',
-    );
+    expect(createArgs.data.rejectionReason).toBeNull();
     expect(pdfVerificationService.verifyPdfDocumentFromBuffer).not.toHaveBeenCalled();
   });
 
@@ -588,7 +566,7 @@ describe('DocumentUploadService', () => {
 
     expect(result.status).toBe('pending');
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
-    expect(createArgs.data.storedFileName).toBe('00000000-0000-7000-8000-000000000001.');
+    expect(createArgs.data.storedFileName).toBe('00000000-0000-7000-8000-000000000001.txt');
     expect(createArgs.data.originalFileName).toBe('');
   });
 

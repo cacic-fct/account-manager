@@ -12,6 +12,7 @@ import {
   BadRequestException,
   UseGuards,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
@@ -23,6 +24,7 @@ import { AccountPermissions, Auth, UniversityValidation } from '../auth/guards/a
 import { AccountManagerPermission } from '@cacic/shared-types';
 import { FileValidationService } from '../auth/services/file-validation.service';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
+import { StudentVerificationRateLimitService } from './services/student-verification-rate-limit.service';
 
 interface AuthSession {
   user?: SessionUser;
@@ -37,6 +39,10 @@ const ALLOWED_DOCUMENT_MIME_TYPES = new Set(['application/pdf']);
 const studentVerificationUploadOptions = {
   limits: {
     fileSize: MAX_UPLOAD_FILE_SIZE,
+    files: 1,
+    fields: 1,
+    parts: 2,
+    fieldSize: 1024,
   },
   fileFilter: (
     _request: unknown,
@@ -71,7 +77,15 @@ export class StudentVerificationController {
   constructor(
     private readonly studentVerificationService: StudentVerificationService,
     private readonly fileValidationService: FileValidationService,
+    private readonly rateLimitService: StudentVerificationRateLimitService,
   ) {}
+
+  private requireUser(session: AuthSession): SessionUser {
+    if (!session.user) {
+      throw new UnauthorizedException('Autenticação necessária.');
+    }
+    return session.user;
+  }
 
   @UniversityValidation()
   @UseGuards(CsrfGuard)
@@ -154,11 +168,10 @@ export class StudentVerificationController {
     // Validate file using the security service
     this.fileValidationService.validateFile(file, isManualFallback);
 
-    return this.studentVerificationService.uploadDocument(
-      file,
-      session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
-      isManualFallback,
-    );
+    const userId = this.requireUser(session).keycloakId;
+    await this.rateLimitService.consumeUpload(userId);
+
+    return this.studentVerificationService.uploadDocument(file, userId, isManualFallback);
   }
 
   @Auth()
@@ -178,9 +191,7 @@ export class StudentVerificationController {
     description: 'Unauthorized - Authentication required',
   })
   async getVerificationStatus(@Session() session: AuthSession): Promise<VerificationStatusDto> {
-    return this.studentVerificationService.getVerificationStatus(
-      session.user!.keycloakId, // Safe to use ! because AuthGuard ensures user exists
-    );
+    return this.studentVerificationService.getVerificationStatus(this.requireUser(session).keycloakId);
   }
 
   @AccountPermissions([AccountManagerPermission.StudentVerificationRead])
@@ -247,7 +258,7 @@ export class StudentVerificationController {
     return this.studentVerificationService.updateVerificationStatus(
       documentId,
       updateDto,
-      session.user!.email, // Safe to use ! because AuthGuard ensures user exists
+      this.requireUser(session).email,
     );
   }
 

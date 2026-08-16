@@ -70,15 +70,17 @@ export class UniversityValidationService {
    * Get enrollment number from session
    */
   getEnrollmentFromSession(sessionId: string, userId: string): string | undefined {
-    this.logger.debug(`Retrieving enrollment from session: ${sessionId} for user: ${userId}`);
+    this.logger.debug('Retrieving enrollment from owned university validation session');
 
     const session = this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {
-      this.logger.error(`Session not found: ${sessionId}`);
+      this.logger.error('University validation session not found');
       throw new Error('Session not found');
     }
 
-    this.logger.debug(`Session found and authorized, enrollment: ${session.enrollmentNumber || 'not set'}`);
+    this.logger.debug('University validation session found and authorized', {
+      hasEnrollmentNumber: !!session.enrollmentNumber,
+    });
     return session.enrollmentNumber;
   }
 
@@ -86,20 +88,20 @@ export class UniversityValidationService {
    * Get auth code from session
    */
   getAuthCodeFromSession(sessionId: string, userId: string): string {
-    this.logger.debug(`Retrieving auth code from session: ${sessionId} for user: ${userId}`);
+    this.logger.debug('Retrieving authentication code from owned university validation session');
 
     const session = this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {
-      this.logger.error(`Session not found: ${sessionId}`);
+      this.logger.error('University validation session not found');
       throw new Error('Session not found');
     }
 
     if (!session.authCode) {
-      this.logger.error(`Auth code not found in session: ${sessionId}`);
+      this.logger.error('Authentication code not found in university validation session');
       throw new Error('Auth code not found in session');
     }
 
-    this.logger.debug(`Auth code found in session ${sessionId}`);
+    this.logger.debug('Authentication code found in university validation session');
     return session.authCode;
   }
 
@@ -108,6 +110,6 @@ export class UniversityValidationService {
    */
   clearSession(sessionId: string, userId: string): void {
     this.captchaManagementService.clearSession(sessionId, userId);
-    this.logger.debug(`Session ${sessionId} cleared for user ${userId}`);
+    this.logger.debug('University validation session cleared');
   }
 }
