@@ -16,16 +16,12 @@
     padding: 1.5rem 1rem 1rem;
 
     .app-logo {
-      max-height: 64px;
-      max-width: 64px;
+      display: block;
+      width: 64px;
+      height: 64px;
+      max-width: 100%;
+      margin: 0 auto;
       object-fit: contain;
-    }
-
-    .default-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      color: rgba(0, 0, 0, 0.54);
     }
   }
 

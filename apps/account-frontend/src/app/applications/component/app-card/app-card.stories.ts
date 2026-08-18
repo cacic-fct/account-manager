@@ -29,3 +29,13 @@ export const WithoutUrl: Story = {
     },
   },
 };
+
+export const WithoutLogo: Story = {
+  args: {
+    app: {
+      ...mockApplication,
+      iconUrl: undefined,
+      description: 'Aplicação usando o ícone padrão quando não há logo configurado.',
+    },
+  },
+};

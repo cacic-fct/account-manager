@@ -44,6 +44,12 @@ import { TotpService } from '../totp/totp.service';
 import { redirectAfterSessionSave, saveSession } from './session-redirect.utils';
 
 const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
+const DEFAULT_APPLICATION_ICON_URL = '/app/assets/default-app-icon.svg';
+
+const resolveApplicationIconUrl = (logoUri: string | undefined): string => {
+  const normalizedLogoUri = logoUri?.trim();
+  return normalizedLogoUri || DEFAULT_APPLICATION_ICON_URL;
+};
 
 export interface AuthSession {
   user?: SessionUser;
@@ -1208,7 +1214,7 @@ export class AuthController {
         name: app.name || app.clientId,
         description: app.description || `Access ${app.name || app.clientId}`,
         url: app.baseUrl || app.adminUrl,
-        iconUrl: app.attributes?.['logo_uri'] || '/app/assets/default-app-icon.svg',
+        iconUrl: resolveApplicationIconUrl(app.attributes?.['logo_uri']),
         category: app.attributes?.['category'] || 'Application',
         enabled: app.enabled,
       }));

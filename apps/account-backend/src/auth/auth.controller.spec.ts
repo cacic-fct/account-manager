@@ -6,7 +6,10 @@ import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
 import { TotpService } from '../totp/totp.service';
 
-type KeycloakServiceMock = Pick<jest.Mocked<KeycloakService>, 'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl'>;
+type KeycloakServiceMock = Pick<
+  jest.Mocked<KeycloakService>,
+  'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl' | 'getUserApplications'
+>;
 
 type UserServiceMock = Pick<
   jest.Mocked<UserService>,
@@ -18,6 +21,7 @@ const createController = () => {
     exchangeCodeForTokens: jest.fn(),
     getUserInfo: jest.fn(),
     getAuthUrl: jest.fn(),
+    getUserApplications: jest.fn(),
   };
   const userService: UserServiceMock = {
     findByKeycloakId: jest.fn(),
@@ -85,5 +89,56 @@ describe('AuthController OAuth callback cleanup', () => {
     expect(session.redirectTo).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
+  });
+});
+
+describe('AuthController applications', () => {
+  it('uses the OIDC logo_uri and falls back to the default icon when it is not configured', async () => {
+    const { controller, keycloakService } = createController();
+    keycloakService.getUserApplications.mockResolvedValue([
+      {
+        id: 'svg-app',
+        clientId: 'svg-app',
+        name: 'SVG app',
+        baseUrl: 'https://example.org/svg-app',
+        enabled: true,
+        publicClient: true,
+        attributes: {
+          logo_uri: '  https://example.org/app-logo.svg  ',
+        },
+      },
+      {
+        id: 'default-app',
+        clientId: 'default-app',
+        name: 'Default app',
+        baseUrl: 'https://example.org/default-app',
+        enabled: true,
+        publicClient: true,
+        attributes: {
+          logo_uri: '  ',
+        },
+      },
+    ]);
+
+    const applications = await controller.getUserApplications({
+      user: {
+        id: 'user-1',
+        email: 'user@example.org',
+        keycloakId: 'keycloak-user-1',
+        isOnboarded: true,
+      },
+      destroy: jest.fn(),
+    });
+
+    expect(applications).toEqual([
+      expect.objectContaining({
+        id: 'svg-app',
+        iconUrl: 'https://example.org/app-logo.svg',
+      }),
+      expect.objectContaining({
+        id: 'default-app',
+        iconUrl: '/app/assets/default-app-icon.svg',
+      }),
+    ]);
   });
 });
