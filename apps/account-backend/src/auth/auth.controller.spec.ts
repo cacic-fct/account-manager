@@ -93,7 +93,7 @@ describe('AuthController OAuth callback cleanup', () => {
 });
 
 describe('AuthController applications', () => {
-  it('uses the OIDC logo_uri and falls back to the default icon when it is not configured', async () => {
+  it("uses Keycloak's canonical logoUri attribute and falls back when it is not configured", async () => {
     const { controller, keycloakService } = createController();
     keycloakService.getUserApplications.mockResolvedValue([
       {
@@ -104,7 +104,7 @@ describe('AuthController applications', () => {
         enabled: true,
         publicClient: true,
         attributes: {
-          logo_uri: '  https://example.org/app-logo.svg  ',
+          logoUri: '  https://example.org/app-logo.svg  ',
         },
       },
       {
@@ -115,7 +115,7 @@ describe('AuthController applications', () => {
         enabled: true,
         publicClient: true,
         attributes: {
-          logo_uri: '  ',
+          logoUri: '  ',
         },
       },
     ]);

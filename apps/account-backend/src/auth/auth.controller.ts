@@ -46,7 +46,8 @@ import { redirectAfterSessionSave, saveSession } from './session-redirect.utils'
 const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
 const DEFAULT_APPLICATION_ICON_URL = '/app/assets/default-app-icon.svg';
 
-const resolveApplicationIconUrl = (logoUri: string | undefined): string => {
+const resolveApplicationIconUrl = (attributes: Record<string, string> | undefined): string => {
+  const logoUri = attributes?.['logoUri'] ?? attributes?.['logo_uri'];
   const normalizedLogoUri = logoUri?.trim();
   return normalizedLogoUri || DEFAULT_APPLICATION_ICON_URL;
 };
@@ -1214,7 +1215,7 @@ export class AuthController {
         name: app.name || app.clientId,
         description: app.description || `Access ${app.name || app.clientId}`,
         url: app.baseUrl || app.adminUrl,
-        iconUrl: resolveApplicationIconUrl(app.attributes?.['logo_uri']),
+        iconUrl: resolveApplicationIconUrl(app.attributes),
         category: app.attributes?.['category'] || 'Application',
         enabled: app.enabled,
       }));
