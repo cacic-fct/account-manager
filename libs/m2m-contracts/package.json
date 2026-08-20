@@ -1,6 +1,6 @@
 {
   "name": "@cacic-fct/account-manager-m2m-contracts",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Framework-agnostic CACiC Account Manager M2M API contracts.",
   "license": "AGPL-3.0-only",
   "type": "commonjs",
