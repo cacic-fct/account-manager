@@ -5,7 +5,9 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiService, type PasswordLoginResponse } from '../api.service';
 import { CsrfService } from '../csrf.service';
+import { LoggerService } from '../logger.service';
 import { AuthService } from './auth.service';
+import { SilentSsoService } from './silent-sso.service';
 import type { User } from '../../interfaces/user.interface';
 
 describe('AuthService password login', () => {
@@ -24,6 +26,14 @@ describe('AuthService password login', () => {
     clearToken: ReturnType<typeof vi.fn>;
   };
   let originalProduction: boolean;
+  const silentSso = {
+    check: vi.fn<() => Promise<'authenticated' | 'unauthenticated'>>(),
+  };
+  const logger = {
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  };
 
   const loginResponse: PasswordLoginResponse = {
     success: true,
@@ -66,6 +76,8 @@ describe('AuthService password login', () => {
       fetchToken: vi.fn().mockReturnValue(of({})),
       clearToken: vi.fn(),
     };
+    silentSso.check.mockReset();
+    logger.warn.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -77,6 +89,14 @@ describe('AuthService password login', () => {
         {
           provide: CsrfService,
           useValue: csrfService,
+        },
+        {
+          provide: SilentSsoService,
+          useValue: silentSso,
+        },
+        {
+          provide: LoggerService,
+          useValue: logger,
         },
         {
           provide: PLATFORM_ID,
@@ -160,4 +180,45 @@ describe('AuthService password login', () => {
     expect(service.logoutError()).toBe('Não foi possível confirmar o encerramento da sessão. Tente novamente.');
     expect(service.isLoading()).toBe(false);
   });
+
+  it('uses the existing redirect check when the iframe SSO check fails', async () => {
+    const service = TestBed.inject(AuthService);
+    const failure = new Error('Third-party cookies are unavailable');
+    silentSso.check.mockRejectedValue(failure);
+    const redirectFallback = vi
+      .spyOn(service as unknown as { redirectToExistingSsoSession: () => void }, 'redirectToExistingSsoSession')
+      .mockImplementation(() => undefined);
+
+    await invokeCheckExistingSsoSession(service);
+
+    expect(redirectFallback).toHaveBeenCalledOnce();
+    expect(logger.warn).toHaveBeenCalledWith('Silent SSO check failed; falling back to redirect', failure);
+  });
+
+  it('finishes initialization without redirecting when no SSO session exists', async () => {
+    const service = TestBed.inject(AuthService);
+    silentSso.check.mockResolvedValue('unauthenticated');
+
+    await invokeCheckExistingSsoSession(service);
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.isLoading()).toBe(false);
+  });
+
+  it('refreshes the local session after a successful iframe SSO check', async () => {
+    const service = TestBed.inject(AuthService);
+    silentSso.check.mockResolvedValue('authenticated');
+    apiService.checkAuth.mockReturnValue(of({ isAuthenticated: true, isOnboarded: true }));
+
+    await invokeCheckExistingSsoSession(service);
+
+    expect(apiService.clearAuthCache).toHaveBeenCalledOnce();
+    expect(apiService.checkAuth).toHaveBeenCalledOnce();
+    expect(service.isAuthenticated()).toBe(true);
+  });
+
+  async function invokeCheckExistingSsoSession(service: AuthService): Promise<void> {
+    const check = Reflect.get(service, 'checkExistingSsoSession') as () => Promise<void>;
+    await check.call(service);
+  }
 });

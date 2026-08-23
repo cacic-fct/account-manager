@@ -6,6 +6,7 @@ import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
 import { environment } from '../../../../environments/environment';
 import { LoggerService } from '../logger.service';
+import { SilentSsoService } from './silent-sso.service';
 
 @Service()
 export class AuthService {
@@ -14,6 +15,7 @@ export class AuthService {
   private document = inject(DOCUMENT);
   private csrfService = inject(CsrfService);
   private logger = inject(LoggerService);
+  private silentSso = inject(SilentSsoService);
   private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   // Signals for reactive state management
@@ -177,10 +179,43 @@ export class AuthService {
     }
 
     sessionStorage.setItem(this.silentLoginAttemptKey, 'true');
+    void this.checkExistingSsoSession();
+    return true;
+  }
+
+  private async checkExistingSsoSession(): Promise<void> {
+    try {
+      const result = await this.silentSso.check();
+      if (result === 'authenticated') {
+        this.apiService.clearAuthCache();
+        this.checkAuthStatus();
+        return;
+      }
+
+      this.completeUnauthenticatedAuthCheck();
+    } catch (error) {
+      this.logger.warn('Silent SSO check failed; falling back to redirect', error);
+      this.clearSilentLoginAttempt();
+      this.redirectToExistingSsoSession();
+    }
+  }
+
+  private redirectToExistingSsoSession(): void {
+    const currentUrl = new URL(window.location.href);
+    sessionStorage.setItem(this.silentLoginAttemptKey, 'true');
     window.location.href = this.apiService.getSilentLoginUrl(
       this.resolveApplicationReturnPath(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`),
     );
-    return true;
+  }
+
+  private completeUnauthenticatedAuthCheck(): void {
+    this.authStatusSignal.set({
+      isAuthenticated: false,
+      isOnboarded: false,
+    });
+    this.isAuthenticatedSubject$.next(false);
+    this.isDoneLoadingSubject$.next(true);
+    this.isLoadingSignal.set(false);
   }
 
   private clearSilentLoginAttempt(): void {
