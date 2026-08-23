@@ -1,4 +1,4 @@
-import { Injectable, inject, PLATFORM_ID } from '@angular/core';
+import { Service, inject, PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { Observable, BehaviorSubject, of } from 'rxjs';
@@ -9,9 +9,7 @@ import { getApiBaseUrl } from '../utils/api-url.util';
  * Service for managing CSRF tokens
  * Implements automatic token fetching and storage
  */
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class CsrfService {
   private http = inject(HttpClient);
   private readonly baseUrl = getApiBaseUrl();

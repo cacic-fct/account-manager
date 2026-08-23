@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Service, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
@@ -7,9 +7,7 @@ import { PrivacyDirectives, PrivacyDirectiveResponse } from '../interfaces/priva
 import { getApiBaseUrl } from '../utils/api-url.util';
 import { LoggerService } from './logger.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class PrivacyDirectiveService {
   private http = inject(HttpClient);
   private baseUrl = getApiBaseUrl();

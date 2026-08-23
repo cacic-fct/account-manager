@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable, of, BehaviorSubject } from 'rxjs';
 import { tap, shareReplay, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
@@ -27,9 +27,7 @@ interface RouteDataCache {
  * Specialized service for route guards to minimize API calls during navigation.
  * Provides aggressive caching with smart invalidation strategies.
  */
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class RouteCacheService {
   private http = inject(HttpClient);
   private authService = inject(AuthService);

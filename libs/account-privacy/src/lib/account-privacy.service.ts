@@ -1,6 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { PLATFORM_ID, Service, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, firstValueFrom, map, of, shareReplay, tap } from 'rxjs';
 import { CACIC_ACCOUNT_PRIVACY_CONFIG, CacicAccountPrivacyConfig } from './account-privacy.config.js';
 import type {
@@ -9,7 +9,7 @@ import type {
   CacicTrackingSession,
 } from './account-privacy.types.js';
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class CacicAccountPrivacyService {
   private readonly config = inject(CACIC_ACCOUNT_PRIVACY_CONFIG);
   private readonly http = inject(HttpClient);

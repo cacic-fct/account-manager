@@ -1,13 +1,11 @@
-import { Injectable, isDevMode, inject } from '@angular/core';
+import { Service, isDevMode, inject } from '@angular/core';
 import { ErrorTrackingService } from './error-tracking.service';
 
 /**
  * Centralized logging service that only logs in development mode
  * Prevents console pollution in production
  */
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class LoggerService {
   private readonly isDev = isDevMode();
   private errorTracking = inject(ErrorTrackingService);

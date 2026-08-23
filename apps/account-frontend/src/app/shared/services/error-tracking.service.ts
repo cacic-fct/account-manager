@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Service } from '@angular/core';
 import { isDevMode } from '@angular/core';
 
 export interface ErrorContext {
@@ -17,9 +17,7 @@ export interface ErrorLog {
   severity: 'error' | 'warning' | 'critical';
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class ErrorTrackingService {
   private errorLog: ErrorLog[] = [];
   private readonly MAX_LOG_SIZE = 100;

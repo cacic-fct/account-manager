@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import type {
   KeycloakPermissionDefinition,
@@ -19,9 +19,7 @@ import type {
 } from '@cacic/shared-types';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class KeycloakPermissionsApiService {
   private readonly baseUrl = getApiBaseUrl();
   private http = inject(HttpClient);

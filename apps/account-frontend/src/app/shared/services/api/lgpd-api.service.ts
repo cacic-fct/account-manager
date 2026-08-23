@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type {
@@ -13,9 +13,7 @@ import { CacheService } from '../cache.service';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_DURATIONS, API_CACHE_KEYS } from './api-cache.constants';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class LgpdApiService {
   private readonly baseUrl = getApiBaseUrl();
   private http = inject(HttpClient);

@@ -1,4 +1,4 @@
-import { Injectable, Injector, computed, effect, inject, signal } from '@angular/core';
+import { Injector, Service, computed, effect, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
 import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
 import { Observable, from, of } from 'rxjs';
@@ -16,9 +16,7 @@ export interface PrivacyPreferences {
   cookieBannerAccepted: boolean;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class PrivacyService {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);

@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import type {
   User,
@@ -111,9 +111,7 @@ export type {
 } from '@cacic/shared-types';
 export type { PasswordLoginRequest, PasswordLoginResponse };
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class ApiService {
   private cacheService = inject(CacheService);
   private accountLinkingApi = inject(AccountLinkingApiService);

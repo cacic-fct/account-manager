@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type {
@@ -15,9 +15,7 @@ import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_KEYS } from './api-cache.constants';
 import { AuthApiService } from './auth-api.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class AccountLinkingApiService {
   private readonly maxConsecutiveEventSourceErrors = 5;
   private readonly baseUrl = getApiBaseUrl();

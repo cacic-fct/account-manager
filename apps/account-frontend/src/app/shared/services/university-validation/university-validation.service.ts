@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { getApiBaseUrl } from '../../utils/api-url.util';
@@ -35,9 +35,7 @@ export interface CooldownStatus {
   nextCooldownSeconds: number;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class UniversityValidationService {
   private http = inject(HttpClient);
   private apiUrl = `${getApiBaseUrl()}/university-validation`;

@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { DestroyRef, PLATFORM_ID, Service, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -25,9 +25,7 @@ declare global {
   }
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class AnalyticsService {
   private privacyService = inject(PrivacyService);
   private platformId = inject(PLATFORM_ID);

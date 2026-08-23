@@ -1,10 +1,10 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../api.service';
 import { AuthService } from './auth.service';
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class AdminGuard implements CanActivate {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);

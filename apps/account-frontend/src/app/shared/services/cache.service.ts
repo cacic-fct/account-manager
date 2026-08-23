@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Service } from '@angular/core';
 import { Observable, of, shareReplay, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 
@@ -13,9 +13,7 @@ interface CacheEntry<T> {
   observable?: Observable<T>;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class CacheService {
   private cache = new Map<string, CacheEntry<any>>();
 

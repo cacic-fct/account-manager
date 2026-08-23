@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Service } from '@angular/core';
 import {
   CountryCode,
   AsYouType,
@@ -13,9 +13,7 @@ export interface ParsedPhoneValue {
   e164: string;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class PhoneValidationService {
   // Parse phone string into country, national number, and E.164.
   private normalizeCountryCode(countryCode: string): CountryCode {

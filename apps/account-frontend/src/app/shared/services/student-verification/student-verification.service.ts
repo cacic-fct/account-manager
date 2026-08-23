@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import type {
@@ -14,9 +14,7 @@ export type VerificationStatus = StudentVerificationStatusResponse;
 export type StudentDocument = StudentVerificationDocument;
 export type VerificationUpdateResponse = StudentVerificationUpdateResponse;
 
-@Injectable({
-  providedIn: 'root',
-})
+@Service()
 export class StudentVerificationService {
   private http = inject(HttpClient);
   private readonly baseUrl = `${getApiBaseUrl()}/student-verification`;

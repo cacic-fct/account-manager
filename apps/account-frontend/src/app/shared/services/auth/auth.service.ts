@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed, PLATFORM_ID } from '@angular/core';
+import { Service, inject, signal, computed, PLATFORM_ID } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject, catchError, Observable, of, tap, throwError } from 'rxjs';
 import { ApiService, type PasswordLoginResponse } from '../api.service';
@@ -6,7 +6,7 @@ import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
 import { environment } from '../../../../environments/environment';
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class AuthService {
   private readonly silentLoginAttemptKey = 'cacic.silentLoginAttempted';
   private apiService = inject(ApiService);

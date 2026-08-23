@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { RouteCacheService } from '../route-cache.service';
 import { User } from '../../interfaces/user.interface';
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class OnboardingGuard implements CanActivate {
   private authService = inject(AuthService);
   private router = inject(Router);
