@@ -1,4 +1,5 @@
-import { Controller, Delete, Get, Post, Session, UseGuards } from '@nestjs/common';
+import { Controller, Delete, ForbiddenException, Get, Post, Res, Session, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthSession } from '../auth/auth.controller';
 import { Auth } from '../auth/guards/auth.decorator';
@@ -43,7 +44,12 @@ export class TotpController {
     description: 'Current user TOTP seed.',
     type: TotpSeedDto,
   })
-  getOrCreateSeed(@Session() session: AuthSession): Promise<TotpSeedDto> {
+  getOrCreateSeed(
+    @Session() session: AuthSession,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<TotpSeedDto> {
+    this.assertRecentlyAuthenticated(session);
+    this.preventSeedCaching(response);
     return this.totpService.getOrCreateSeed({
       keycloakId: session.user!.keycloakId,
       primaryEmail: session.user!.email,
@@ -63,7 +69,9 @@ export class TotpController {
     description: 'Rotated current user TOTP seed.',
     type: TotpSeedDto,
   })
-  rotateSeed(@Session() session: AuthSession): Promise<TotpSeedDto> {
+  rotateSeed(@Session() session: AuthSession, @Res({ passthrough: true }) response: Response): Promise<TotpSeedDto> {
+    this.assertRecentlyAuthenticated(session);
+    this.preventSeedCaching(response);
     return this.totpService.rotateSeed({
       keycloakId: session.user!.keycloakId,
       primaryEmail: session.user!.email,
@@ -85,5 +93,17 @@ export class TotpController {
   })
   disableSeed(@Session() session: AuthSession): Promise<TotpStatusDto> {
     return this.totpService.disableSeed(session.user!.keycloakId);
+  }
+
+  private assertRecentlyAuthenticated(session: AuthSession): void {
+    const maximumAgeMs = 5 * 60 * 1000;
+    if (!session.authenticatedAt || Date.now() - session.authenticatedAt > maximumAgeMs) {
+      throw new ForbiddenException('Recent authentication is required to reveal or rotate the TOTP seed.');
+    }
+  }
+
+  private preventSeedCaching(response: Response): void {
+    response.setHeader('Cache-Control', 'no-store, private');
+    response.setHeader('Pragma', 'no-cache');
   }
 }

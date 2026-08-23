@@ -300,11 +300,11 @@ export class DiscordRoleController {
   async getUserRoles(@Session() session: AuthSession): Promise<UserRolesDto> {
     try {
       // Check if user is authenticated
-      if (!session?.user?.id) {
+      if (!session?.user?.keycloakId) {
         throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
       }
 
-      const userId: string = session.user.id;
+      const userId: string = session.user.keycloakId;
       const client = this.discordClientService.getClient();
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
@@ -370,17 +370,17 @@ export class DiscordRoleController {
   ): Promise<RoleSelectionResponseDto> {
     try {
       // Check if user is authenticated
-      if (!session?.user?.id) {
+      if (!session?.user?.keycloakId) {
         throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
       }
 
-      const userId: string = session.user.id;
+      const userId: string = session.user.keycloakId;
       const action = 'updateRoles';
 
       // Check cooldown
-      if (this.cooldownService.isOnCooldown(userId, action)) {
-        const remainingSeconds = this.cooldownService.getRemainingCooldown(userId, action);
-        const attempts = this.cooldownService.getAttempts(userId, action);
+      if (await this.cooldownService.isOnCooldown(userId, action)) {
+        const remainingSeconds = await this.cooldownService.getRemainingCooldown(userId, action);
+        const attempts = await this.cooldownService.getAttempts(userId, action);
 
         throw new HttpException(
           {
@@ -403,12 +403,12 @@ export class DiscordRoleController {
         const result = await this.roleManagementService.updateUserRoles(userId, dto, client, guildId);
 
         // Clear cooldown on successful update
-        this.cooldownService.clearCooldown(userId, action);
+        await this.cooldownService.clearCooldown(userId, action);
 
         return result;
       } catch (updateError) {
         // Set cooldown on failure
-        const cooldownEntry = this.cooldownService.setCooldown(userId, action);
+        const cooldownEntry = await this.cooldownService.setCooldown(userId, action);
         const cooldownSeconds = Math.pow(2, cooldownEntry.attempts);
 
         // If it's a validation error or similar, don't mask the original error

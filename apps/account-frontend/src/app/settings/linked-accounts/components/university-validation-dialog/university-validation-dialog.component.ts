@@ -14,6 +14,7 @@ import {
   UniversityValidationService,
   AtomicValidationResponse,
 } from '../../../../shared/services/university-validation/university-validation.service';
+import { LoggerService } from '../../../../shared/services/logger.service';
 
 export interface UniversityValidationDialogData {
   pdfFile: File;
@@ -197,6 +198,7 @@ export class UniversityValidationDialogComponent implements OnDestroy {
   private universityValidationService = inject(UniversityValidationService);
   private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<UniversityValidationDialogComponent>);
+  private logger = inject(LoggerService);
 
   loading = signal(false);
   validating = signal(false);
@@ -242,7 +244,7 @@ export class UniversityValidationDialogComponent implements OnDestroy {
         throw new Error('Resposta vazia do servidor');
       }
     } catch (error: unknown) {
-      console.error('Erro ao processar PDF:', error);
+      this.logger.error('Erro ao processar PDF', error, { operation: 'university-validation' });
 
       // Categorize the error for the parent component
       let errorType = 'GENERIC_ERROR';
@@ -347,7 +349,7 @@ export class UniversityValidationDialogComponent implements OnDestroy {
       },
       error: (error) => {
         this.loading.set(false);
-        console.error('Error refreshing captcha:', error);
+        this.logger.error('Error refreshing captcha', error, { operation: 'university-captcha' });
 
         if (error.status === 400 && error.error?.message?.includes('Aguarde')) {
           // Handle cooldown error
@@ -449,7 +451,7 @@ export class UniversityValidationDialogComponent implements OnDestroy {
         }
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Validation error:', error);
+        this.logger.error('Validation error', error, { operation: 'university-validation' });
         this.validating.set(false);
 
         // Close dialog and show banner for network/server errors
@@ -510,7 +512,7 @@ export class UniversityValidationDialogComponent implements OnDestroy {
         this.stopCooldownTimer();
       }
     } catch (error) {
-      console.warn('Failed to sync cooldown status:', error);
+      this.logger.warn('Failed to sync cooldown status', error, { operation: 'university-cooldown' });
       // Don't block the UI if cooldown sync fails
     }
   }

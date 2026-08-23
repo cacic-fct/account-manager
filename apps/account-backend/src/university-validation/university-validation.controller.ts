@@ -17,6 +17,8 @@ import {
   HttpException,
   UseGuards,
   ServiceUnavailableException,
+  ParseUUIDPipe,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -167,7 +169,7 @@ export class UniversityValidationController {
     this.fileValidationService.validateFile(pdfFile);
 
     // AuthGuard ensures user is authenticated
-    const userId = session.user?.id;
+    const userId = session.user?.keycloakId;
     if (!userId) {
       throw new BadRequestException('User authentication required');
     }
@@ -175,7 +177,7 @@ export class UniversityValidationController {
     await this.universityVerificationRateLimit.consumeCaptchaRequest(userId);
 
     // Check cooldown before processing captcha request
-    const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+    const cooldownStatus = await this.captchaService.isUserInCooldown(userId);
     if (cooldownStatus.inCooldown) {
       throw new BadRequestException(
         `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
@@ -187,8 +189,8 @@ export class UniversityValidationController {
 
     try {
       // Check if user is authenticated
-      if (session.user?.id) {
-        const userProfile = await this.userService.findById(session.user.id);
+      if (session.user?.keycloakId) {
+        const userProfile = await this.userService.findById(session.user.keycloakId);
         enrollmentNumber = userProfile?.enrollmentNumber;
         this.logger.debug('Retrieved enrollment status for authenticated user', {
           hasEnrollmentNumber: !!enrollmentNumber,
@@ -198,7 +200,7 @@ export class UniversityValidationController {
       }
     } catch (error) {
       this.logger.error('Error retrieving user enrollment number:', error);
-      // Continue without enrollment number - it's optional
+      throw new ServiceUnavailableException('Não foi possível consultar o perfil acadêmico. Tente novamente.');
     }
 
     // Extract authCode from PDF
@@ -239,7 +241,7 @@ export class UniversityValidationController {
     }
 
     // Record captcha request attempt to start cooldown for next request
-    this.captchaService.recordCaptchaRequest(userId);
+    await this.captchaService.recordCaptchaRequest(userId);
 
     if (!captchaSession.captchaImageBase64) {
       throw new InternalServerErrorException('Não foi possível obter a imagem do captcha');
@@ -261,17 +263,17 @@ export class UniversityValidationController {
     description: 'Sessão limpa com sucesso',
     type: Object,
   })
-  clearSession(
+  async clearSession(
     @Session() session: AuthSession & { universityValidationId?: string },
-    @Param('sessionId') paramSessionId: string,
-  ): { success: boolean } {
+    @Param('sessionId', new ParseUUIDPipe({ version: '4' })) paramSessionId: string,
+  ): Promise<{ success: boolean }> {
     // AuthGuard ensures user is authenticated
-    const userId = session.user?.id;
+    const userId = session.user?.keycloakId;
     if (!userId) {
       throw new BadRequestException('User authentication required');
     }
 
-    this.universityValidationService.clearSession(paramSessionId, userId);
+    await this.universityValidationService.clearSession(paramSessionId, userId);
     if (session.universityValidationId === paramSessionId) {
       delete session.universityValidationId;
     }
@@ -295,14 +297,14 @@ export class UniversityValidationController {
       },
     },
   })
-  getCooldownStatus(@Session() session: AuthSession): {
+  async getCooldownStatus(@Session() session: AuthSession): Promise<{
     inCooldown: boolean;
     remainingSeconds: number;
     attempts: number;
     nextCooldownSeconds: number;
-  } {
+  }> {
     // AuthGuard ensures user is authenticated
-    const userId = session.user?.id;
+    const userId = session.user?.keycloakId;
     if (!userId) {
       throw new BadRequestException('User authentication required');
     }
@@ -348,23 +350,15 @@ export class UniversityValidationController {
     manualApprovalId?: string;
   }> {
     // AuthGuard ensures user is authenticated
-    const userId = session.user?.id;
+    const userId = session.user?.keycloakId;
     if (!userId) {
       throw new BadRequestException('User authentication required');
     }
 
     try {
-      // Ensure we have sessionId and captchaCode for session-based validation
-      if (!body.sessionId || !body.captchaCode) {
-        return {
-          success: false,
-          error: 'SessionId and captchaCode are required for validation',
-        };
-      }
-
       await this.universityVerificationRateLimit.consumeValidationAttempt(userId, body.sessionId);
 
-      const validationCooldown = this.captchaService.isUserInCooldown(userId);
+      const validationCooldown = await this.captchaService.isUserInCooldown(userId);
       if (validationCooldown.inCooldown) {
         throw new HttpException(
           `Aguarde ${validationCooldown.remainingSeconds} segundos antes de tentar novamente`,
@@ -373,7 +367,7 @@ export class UniversityValidationController {
       }
       // Consume the attempt synchronously before any external I/O. This closes
       // the direct-POST and concurrent-request bypass of the frontend cooldown.
-      this.captchaService.recordCaptchaRequest(userId);
+      await this.captchaService.recordCaptchaRequest(userId);
 
       const user = await this.userService.findById(userId);
       if (!user) {
@@ -383,7 +377,13 @@ export class UniversityValidationController {
       // CRITICAL: Always fetch fresh user attributes from Keycloak to avoid caching issues
       // This ensures validation uses the most up-to-date enrollment number
       this.logger.debug('Fetching fresh user attributes from Keycloak to avoid cache');
-      const freshAttributes = await this.keycloakService.getUserAttributes(userId);
+      let freshAttributes: Record<string, string[]>;
+      try {
+        freshAttributes = await this.keycloakService.getUserAttributes(userId);
+      } catch (error) {
+        this.logger.error('Unable to retrieve fresh Keycloak attributes for validation', error);
+        throw new ServiceUnavailableException('Não foi possível consultar o perfil acadêmico. Tente novamente.');
+      }
       const enrollmentNumber = freshAttributes.enrollmentNumber?.[0];
 
       this.logger.debug('Fresh enrollment number from Keycloak:', {
@@ -394,10 +394,7 @@ export class UniversityValidationController {
 
       // Ensure we have an enrollment number
       if (!enrollmentNumber) {
-        return {
-          success: false,
-          error: 'Número de matrícula não encontrado no perfil do usuário',
-        };
+        throw new UnprocessableEntityException('Número de matrícula não encontrado no perfil do usuário');
       }
 
       this.logger.debug('About to call validateDocument with stored session:', {
@@ -417,7 +414,7 @@ export class UniversityValidationController {
       // Handle cooldown based on validation result
       if (result.success && result.isValid) {
         // Success: clear cooldown
-        this.captchaService.recordSuccessfulAttempt(userId);
+        await this.captchaService.recordSuccessfulAttempt(userId);
       }
 
       // Transform the result to match the expected response format
@@ -487,7 +484,7 @@ export class UniversityValidationController {
       this.fileValidationService.validateFile(file);
 
       // AuthGuard ensures user is authenticated
-      const userId = userSession.user?.id;
+      const userId = userSession.user?.keycloakId;
       if (!userId) {
         throw new BadRequestException('User authentication required');
       }
@@ -495,7 +492,7 @@ export class UniversityValidationController {
       await this.universityVerificationRateLimit.consumeCaptchaRequest(userId);
 
       // Check cooldown before processing captcha request
-      const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+      const cooldownStatus = await this.captchaService.isUserInCooldown(userId);
       if (cooldownStatus.inCooldown) {
         throw new BadRequestException(
           `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
@@ -530,7 +527,7 @@ export class UniversityValidationController {
       }
 
       // Record captcha request attempt to start cooldown for next request
-      this.captchaService.recordCaptchaRequest(userId);
+      await this.captchaService.recordCaptchaRequest(userId);
 
       return {
         captchaImage: `data:image/jpeg;base64,${session.captchaImageBase64}`,
@@ -540,7 +537,7 @@ export class UniversityValidationController {
       this.logger.error('Error in atomic captcha', error instanceof Error ? error.message : String(error));
 
       if (error instanceof ExternalVerificationUnavailableError) {
-        const userId = userSession.user?.id;
+        const userId = userSession.user?.keycloakId;
         if (!userId) {
           throw new BadRequestException('User authentication required');
         }
@@ -586,7 +583,7 @@ export class UniversityValidationController {
     @Session() session: AuthSession,
   ): Promise<{ captchaImage: string; sessionId: string }> {
     // AuthGuard ensures user is authenticated
-    const userId = session.user?.id;
+    const userId = session.user?.keycloakId;
     if (!userId) {
       throw new BadRequestException('User authentication required');
     }
@@ -602,7 +599,7 @@ export class UniversityValidationController {
     await this.universityVerificationRateLimit.consumeCaptchaRequest(userId);
 
     // Check if user is in cooldown period
-    const cooldownStatus = this.captchaService.isUserInCooldown(userId);
+    const cooldownStatus = await this.captchaService.isUserInCooldown(userId);
     if (cooldownStatus.inCooldown) {
       throw new BadRequestException(
         `Aguarde ${cooldownStatus.remainingSeconds} segundos antes de solicitar um novo captcha`,
@@ -618,7 +615,7 @@ export class UniversityValidationController {
       }
 
       // Record captcha request attempt to start cooldown for next request
-      this.captchaService.recordCaptchaRequest(userId);
+      await this.captchaService.recordCaptchaRequest(userId);
 
       return {
         captchaImage: `data:image/jpeg;base64,${newSession.captchaImageBase64}`,

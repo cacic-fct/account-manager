@@ -4,6 +4,7 @@ import {
   Get,
   MessageEvent,
   Param,
+  ParseUUIDPipe,
   Post,
   Session,
   Sse,
@@ -76,7 +77,7 @@ export class AdminAccountMergeController {
   @ApiResponse({ status: 404, description: 'Merge request does not exist' })
   @AccountPermissions(SUPER_ADMIN_PERMISSION)
   @Get(':id')
-  getMergeRequest(@Param('id') id: string): Promise<AccountMergeRequestDto> {
+  getMergeRequest(@Param('id', new ParseUUIDPipe({ version: '7' })) id: string): Promise<AccountMergeRequestDto> {
     return this.accountLinkingService.getAdminRequest(id);
   }
 
@@ -95,7 +96,9 @@ export class AdminAccountMergeController {
   @ApiResponse({ status: 404, description: 'Merge request does not exist' })
   @AccountPermissions(SUPER_ADMIN_PERMISSION)
   @Sse(':id/events')
-  async streamMergeRequest(@Param('id') id: string): Promise<Observable<MessageEvent>> {
+  async streamMergeRequest(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+  ): Promise<Observable<MessageEvent>> {
     const initialRequest = await this.accountLinkingService.getAdminRequest(id);
     return createMergeRequestStream(
       initialRequest,
@@ -121,7 +124,7 @@ export class AdminAccountMergeController {
   @UseGuards(CsrfGuard)
   @Post(':id/confirm')
   confirmMerge(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
     @Body() dto: ConfirmAccountMergeDto,
     @Session() session: AuthSession,
   ): Promise<ConfirmAccountMergeResponseDto> {
@@ -139,8 +142,29 @@ export class AdminAccountMergeController {
   @AccountPermissions(SUPER_ADMIN_PERMISSION)
   @UseGuards(CsrfGuard)
   @Post(':id/cancel')
-  async cancelMerge(@Param('id') id: string, @Session() session: AuthSession): Promise<{ success: true }> {
+  async cancelMerge(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Session() session: AuthSession,
+  ): Promise<{ success: true }> {
     await this.accountLinkingService.cancelAdminRequest(id, this.getSessionUserId(session));
+    return { success: true };
+  }
+
+  @ApiOperation({
+    summary: 'Retry a terminally failed external merge notification',
+    description: 'Reopens one failed downstream notification and schedules one bounded manual retry sequence.',
+  })
+  @ApiParam({ name: 'id', description: 'Account merge request id' })
+  @ApiParam({ name: 'notificationId', description: 'External notification id' })
+  @ApiResponse({ status: 200, description: 'Notification retry scheduled' })
+  @AccountPermissions(SUPER_ADMIN_PERMISSION)
+  @UseGuards(CsrfGuard)
+  @Post(':id/notifications/:notificationId/retry')
+  async retryNotification(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Param('notificationId', new ParseUUIDPipe({ version: '7' })) notificationId: string,
+  ): Promise<{ success: true }> {
+    await this.accountLinkingService.retryExternalNotification(id, notificationId);
     return { success: true };
   }
 

@@ -1,59 +1,63 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { S3Service } from '../../common/services/s3.service';
-
-interface UserCooldown {
-  attempts: number;
-  lastAttemptTime: number;
-  cooldownUntil: number;
-}
+import { RedisService } from '../../redis/redis.service';
 
 @Injectable()
 export class CaptchaService {
   private readonly logger = new Logger(CaptchaService.name);
-  private readonly userCooldowns = new Map<string, UserCooldown>();
-  private readonly resetThresholdMs = 10 * 60 * 1000;
-  private readonly maxCooldownEntries = 10_000;
+  private readonly resetThresholdSeconds = 10 * 60;
 
-  constructor(private readonly s3Service: S3Service) {}
+  constructor(
+    private readonly s3Service: S3Service,
+    @Optional() private readonly redisService?: RedisService,
+  ) {}
 
-  isUserInCooldown(userId: string): {
+  async isUserInCooldown(userId: string): Promise<{
     inCooldown: boolean;
     remainingSeconds: number;
-  } {
-    const cooldown = this.userCooldowns.get(userId);
-    if (!cooldown || Date.now() >= cooldown.cooldownUntil) {
-      return { inCooldown: false, remainingSeconds: 0 };
-    }
-
+  }> {
+    const status = await this.getCooldownStatus(userId);
     return {
-      inCooldown: true,
-      remainingSeconds: Math.ceil((cooldown.cooldownUntil - Date.now()) / 1000),
+      inCooldown: status.inCooldown,
+      remainingSeconds: status.remainingSeconds,
     };
   }
 
-  recordFailedAttempt(userId: string): { cooldownSeconds: number } {
+  async recordFailedAttempt(userId: string): Promise<{ cooldownSeconds: number }> {
     return this.recordAttempt(userId);
   }
 
-  recordCaptchaRequest(userId: string): { cooldownSeconds: number } {
+  async recordCaptchaRequest(userId: string): Promise<{ cooldownSeconds: number }> {
     return this.recordAttempt(userId);
   }
 
-  recordSuccessfulAttempt(userId: string): void {
-    this.userCooldowns.delete(userId);
+  async recordSuccessfulAttempt(userId: string): Promise<void> {
+    const redis = this.requireRedis();
+    await Promise.all([redis.del(this.cooldownKey(userId)), redis.del(this.attemptsKey(userId))]);
   }
 
-  getCooldownStatus(userId: string): {
+  async getCooldownStatus(userId: string): Promise<{
     inCooldown: boolean;
     remainingSeconds: number;
     attempts: number;
     nextCooldownSeconds: number;
-  } {
-    const cooldownCheck = this.isUserInCooldown(userId);
-    const attempts = this.userCooldowns.get(userId)?.attempts ?? 0;
+  }> {
+    const redis = this.requireRedis();
+    const [cooldownValue, attemptsValue] = await Promise.all([
+      redis.get(this.cooldownKey(userId)),
+      redis.get(this.attemptsKey(userId)),
+    ]);
+    const attempts = this.parseAttempts(attemptsValue ?? cooldownValue);
+    const cooldownTtl = cooldownValue ? await redis.ttl(this.cooldownKey(userId)) : 0;
+    // Redis TTL rounds down to whole seconds. Treat a live key with a zero
+    // TTL as one second remaining so a boundary request cannot bypass the
+    // cooldown before the key is actually expired.
+    const remainingSeconds = cooldownValue && cooldownTtl === 0 ? 1 : Math.max(0, cooldownTtl);
+
     return {
-      ...cooldownCheck,
+      inCooldown: remainingSeconds > 0,
+      remainingSeconds,
       attempts,
       nextCooldownSeconds: Math.pow(attempts + 1, 2),
     };
@@ -85,31 +89,56 @@ export class CaptchaService {
     }
   }
 
-  private recordAttempt(userId: string): { cooldownSeconds: number } {
-    const now = Date.now();
-    const existing = this.userCooldowns.get(userId);
-    const attempts = existing && now - existing.lastAttemptTime <= this.resetThresholdMs ? existing.attempts + 1 : 1;
-    const cooldownSeconds = Math.pow(attempts, 2);
-
-    this.pruneCooldowns(now);
-    this.userCooldowns.set(userId, {
-      attempts,
-      lastAttemptTime: now,
-      cooldownUntil: now + cooldownSeconds * 1000,
-    });
-    return { cooldownSeconds };
+  private async recordAttempt(userId: string): Promise<{ cooldownSeconds: number }> {
+    const redis = this.requireRedis();
+    const result = await redis.eval(
+      `local attempts = redis.call('INCR', KEYS[1])
+if attempts == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local cooldown = attempts * attempts
+redis.call('SET', KEYS[2], tostring(attempts), 'EX', cooldown)
+return { attempts, cooldown }`,
+      [this.attemptsKey(userId), this.cooldownKey(userId)],
+      [this.resetThresholdSeconds.toString()],
+    );
+    const [attempts, cooldownSeconds] = this.parseEvalResult(result);
+    return { cooldownSeconds: cooldownSeconds ?? Math.pow(attempts, 2) };
   }
 
-  private pruneCooldowns(now: number): void {
-    for (const [userId, cooldown] of this.userCooldowns) {
-      if (now - cooldown.lastAttemptTime > this.resetThresholdMs) {
-        this.userCooldowns.delete(userId);
-      }
+  private parseEvalResult(result: unknown): [number, number | undefined] {
+    if (!Array.isArray(result)) {
+      throw new Error('Redis returned an invalid CAPTCHA cooldown result');
     }
+    const attempts = Number(result[0]);
+    const cooldownSeconds = result.length > 1 ? Number(result[1]) : undefined;
+    if (
+      !Number.isSafeInteger(attempts) ||
+      attempts < 1 ||
+      (cooldownSeconds !== undefined && !Number.isFinite(cooldownSeconds))
+    ) {
+      throw new Error('Redis returned an invalid CAPTCHA cooldown result');
+    }
+    return [attempts, cooldownSeconds];
+  }
 
-    if (this.userCooldowns.size >= this.maxCooldownEntries) {
-      const oldestUserId = this.userCooldowns.keys().next().value;
-      if (oldestUserId) this.userCooldowns.delete(oldestUserId);
+  private parseAttempts(value: string | null): number {
+    const attempts = Number(value ?? 0);
+    return Number.isSafeInteger(attempts) && attempts >= 0 ? attempts : 0;
+  }
+
+  private requireRedis(): RedisService {
+    if (!this.redisService) {
+      throw new Error('Distributed CAPTCHA state is unavailable');
     }
+    return this.redisService;
+  }
+
+  private attemptsKey(userId: string): string {
+    return `university-validation:captcha:attempts:${encodeURIComponent(userId)}`;
+  }
+
+  private cooldownKey(userId: string): string {
+    return `university-validation:captcha:cooldown:${encodeURIComponent(userId)}`;
   }
 }

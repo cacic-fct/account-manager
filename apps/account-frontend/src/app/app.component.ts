@@ -5,6 +5,7 @@ import { hasAcceptedCookieBanner } from '@cacic-fct/account-manager-cookie-banne
 import { MatIconRegistry } from '@angular/material/icon';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
 import { AuthService } from './shared/services/auth/auth.service';
+import { LoggerService } from './shared/services/logger.service';
 import type { PrivacyDirectives } from './shared/interfaces/privacy-directive.interface';
 
 @Component({
@@ -19,6 +20,9 @@ export class AppComponent {
   iconRegistry = inject(MatIconRegistry);
   private privacyDirectiveService = inject(PrivacyDirectiveService);
   private authService = inject(AuthService);
+  private logger = inject(LoggerService);
+
+  logoutError = this.authService.logoutError;
 
   cookieBannerConfig: CookieBannerOptions;
 
@@ -31,7 +35,7 @@ export class AppComponent {
         this.syncAuthenticatedCookieBannerAcceptance(directives);
       },
       error: (error) => {
-        console.warn('Failed to fetch privacy directives:', error);
+        this.logger.warn('Failed to fetch privacy directives', error, { operation: 'privacy-directives' });
       },
     });
 
@@ -55,12 +59,12 @@ export class AppComponent {
             this.privacyDirectiveService.acceptCookieBanner().subscribe({
               next: (success) => {
                 if (!success) {
-                  console.error('Failed to accept cookie banner');
+                  this.logger.warn('Cookie banner acceptance was not confirmed', { operation: 'cookie-banner' });
                 }
                 resolve(!success ? false : undefined);
               },
               error: (error) => {
-                console.error('Error accepting cookie banner:', error);
+                this.logger.error('Error accepting cookie banner', error, { operation: 'cookie-banner' });
                 resolve(false);
               },
             });
@@ -81,7 +85,7 @@ export class AppComponent {
 
     this.privacyDirectiveService.acceptCookieBanner().subscribe({
       error: (error) => {
-        console.warn('Failed to sync cookie banner acceptance:', error);
+        this.logger.warn('Failed to sync cookie banner acceptance', error, { operation: 'cookie-banner' });
       },
     });
   }

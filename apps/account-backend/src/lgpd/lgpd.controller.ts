@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  ParseUUIDPipe,
   Session,
   Res,
   Body,
@@ -14,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { Response } from 'express';
+import { pipeline } from 'stream/promises';
 import { LgpdService } from './lgpd.service';
 import { LgpdRequestDto, LgpdRequestListDto } from './dto/lgpd-request.dto';
 import {
@@ -148,7 +150,10 @@ export class LgpdController {
   @Auth()
   @UseGuards(CurrentUserGuard)
   @Get('request/:id')
-  async getRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<LgpdRequestDto> {
+  async getRequest(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Session() session: AuthSession,
+  ): Promise<LgpdRequestDto> {
     const user = this.getSessionUser(session);
 
     return await this.lgpdService.getRequestById(id, user.keycloakId);
@@ -195,7 +200,11 @@ export class LgpdController {
   @Auth()
   @UseGuards(CurrentUserGuard)
   @Get('download/:id')
-  async downloadFile(@Param('id') id: string, @Session() session: AuthSession, @Res() res: Response): Promise<void> {
+  async downloadFile(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Session() session: AuthSession,
+    @Res() res: Response,
+  ): Promise<void> {
     const user = this.getSessionUser(session);
 
     try {
@@ -205,20 +214,18 @@ export class LgpdController {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', this.getContentDisposition(fileName));
 
-      // Stream the file from S3
-      stream.pipe(res);
-
-      stream.on('error', (error) => {
-        this.logger.error('Error streaming file', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Erro ao baixar o arquivo' });
-        }
-      });
+      // pipeline closes the source on response aborts and propagates both source and destination
+      // errors. downloadedAt is written only after the response has fully flushed.
+      await pipeline(stream, res);
+      await this.lgpdService.markDownloadDelivered(id, user.keycloakId);
     } catch (error) {
+      this.logger.error('Error streaming LGPD file', error);
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
+      if (!res.headersSent) {
+        throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
     }
   }
 
@@ -268,7 +275,9 @@ export class LgpdController {
   @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/undo')
-  async undoAccountDeletionRequest(@Param('id') id: string): Promise<AdminDeleteAccountRequestDto> {
+  async undoAccountDeletionRequest(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+  ): Promise<AdminDeleteAccountRequestDto> {
     return await this.lgpdService.undoAccountDeletionRequest(id);
   }
 
@@ -278,7 +287,9 @@ export class LgpdController {
   @AccountPermissions([AccountManagerPermission.AccountDeletionUpdate])
   @UseGuards(CsrfGuard)
   @Post('admin/delete-account-requests/:id/delete-now')
-  async deleteAccountNow(@Param('id') id: string): Promise<AdminDeleteAccountRequestDto> {
+  async deleteAccountNow(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+  ): Promise<AdminDeleteAccountRequestDto> {
     return await this.lgpdService.deleteAccountNow(id);
   }
 }

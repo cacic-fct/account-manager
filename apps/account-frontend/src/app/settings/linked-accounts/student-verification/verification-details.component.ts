@@ -23,6 +23,7 @@ import {
 import { environment } from '../../../../environments/environment';
 import { UniversityValidationDialogComponent } from '../components/university-validation-dialog/university-validation-dialog.component';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-student-verification-details',
@@ -48,6 +49,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private location = inject(Location);
+  private logger = inject(LoggerService);
 
   isLoading = signal(false);
   uploading = signal(false);
@@ -86,7 +88,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Error loading verification status:', error);
+        this.logger.error('Error loading verification status', error, { operation: 'student-verification' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
       },
@@ -244,10 +246,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
 
   private handleUploadError(error: HttpErrorResponse): void {
     this.uploading.set(false);
-    console.error('Upload error:', error);
-    console.error('Error details:', error.error);
-    console.error('Error message:', error.message);
-    console.error('Error status:', error.status);
+    this.logger.error('Upload error', error, { operation: 'student-verification-upload' });
 
     let errorMessage = 'Falha no upload. Tente novamente.';
     if (error.status === 400) {

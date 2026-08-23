@@ -1280,6 +1280,36 @@ describe('KeycloakPermissionsService', () => {
     expect(prisma.keycloakPermissionGrant.update).not.toHaveBeenCalled();
   });
 
+  it('restores the previous Keycloak role when the desired-state update fails', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    const existingGrant = createGrant({
+      permission: AccountManagerPermission.PermissionGrantRead,
+      clientId: 'cacic-account-manager',
+      roleName: 'permission-grant#read',
+    });
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(existingGrant).mockResolvedValueOnce(null);
+    prisma.keycloakPermissionGrant.update.mockRejectedValueOnce(new Error('database unavailable'));
+
+    await expect(
+      service.updateGrant(
+        existingGrant.id,
+        { permission: AccountManagerPermission.DiscordManagementUpdate },
+        'admin-1',
+      ),
+    ).rejects.toThrow('database unavailable');
+
+    expect(keycloakService.removeUserClientRoles).toHaveBeenCalledWith(
+      existingGrant.userId,
+      [existingGrant.roleName],
+      existingGrant.clientId,
+    );
+    expect(keycloakService.addUserClientRoles).toHaveBeenCalledWith(
+      existingGrant.userId,
+      [existingGrant.roleName],
+      existingGrant.clientId,
+    );
+  });
+
   it('marks direct grants deleted after removing the external Keycloak role', async () => {
     const { keycloakService, prisma, service } = createContext();
     const grant = createGrant();

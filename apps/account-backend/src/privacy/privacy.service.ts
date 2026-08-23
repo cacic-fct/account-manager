@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import type { Prisma, PrivacySetting } from '@prisma/client';
 import {
   PrivacySettings,
@@ -118,29 +118,13 @@ export class PrivacyService {
     settingType: PrivacySettingTypeValue,
     updateData: UpdatePrivacySettingDto,
   ): Promise<PrivacySettingRecord> {
-    const userSettings = await this.getUserPrivacySettings(userId);
-    const currentSettings = userSettings.settings;
-
-    currentSettings[settingType] = updateData.enabled;
-
-    let metadata: Record<string, unknown> = userSettings.metadata ?? {};
-
-    if (updateData.metadata) {
-      metadata = {
-        ...metadata,
-        [`${settingType}_metadata`]: updateData.metadata,
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-
-    const updated = await this.prisma.privacySetting.update({
-      where: { id: userSettings.id },
-      data: {
-        settings: currentSettings as unknown as Prisma.InputJsonValue,
-        metadata: metadata as unknown as Prisma.InputJsonValue,
-      },
+    return this.updateWithOptimisticConcurrency(userId, (settings, metadata) => {
+      settings[settingType] = updateData.enabled;
+      if (updateData.metadata) {
+        metadata[`${settingType}_metadata`] = updateData.metadata;
+        metadata['lastUpdated'] = new Date().toISOString();
+      }
     });
-    return this.toRecord(updated);
   }
 
   async updatePrivacySettingForIdentity(
@@ -160,38 +144,20 @@ export class PrivacyService {
     userId: string,
     updateData: BulkUpdatePrivacySettingsDto,
   ): Promise<PrivacySettingRecord> {
-    const userSettings = await this.getUserPrivacySettings(userId);
-    const settings = userSettings.settings;
-    let metadata: Record<string, unknown> = userSettings.metadata ?? {};
+    return this.updateWithOptimisticConcurrency(userId, (settings, metadata) => {
+      const settingTypes = Object.keys(updateData) as PrivacySettingTypeValue[];
+      for (const settingType of settingTypes) {
+        const setting = updateData[settingType];
+        if (setting) {
+          settings[settingType] = setting.enabled;
 
-    const settingTypes = Object.keys(updateData) as PrivacySettingTypeValue[];
-    for (const settingType of settingTypes) {
-      const setting = updateData[settingType];
-      if (setting) {
-        settings[settingType] = setting.enabled;
-
-        if (setting.metadata) {
-          metadata = {
-            ...metadata,
-            [`${settingType}_metadata`]: setting.metadata,
-          };
+          if (setting.metadata) {
+            metadata[`${settingType}_metadata`] = setting.metadata;
+          }
         }
       }
-    }
-
-    metadata = {
-      ...metadata,
-      lastBulkUpdate: new Date().toISOString(),
-    };
-
-    const updated = await this.prisma.privacySetting.update({
-      where: { id: userSettings.id },
-      data: {
-        settings: settings as unknown as Prisma.InputJsonValue,
-        metadata: metadata as unknown as Prisma.InputJsonValue,
-      },
+      metadata['lastBulkUpdate'] = new Date().toISOString();
     });
-    return this.toRecord(updated);
   }
 
   async bulkUpdatePrivacySettingsForIdentity(
@@ -244,6 +210,38 @@ export class PrivacyService {
    */
   async initializeUserPrivacySettings(userId: string): Promise<PrivacySettingRecord> {
     return this.getUserPrivacySettings(userId);
+  }
+
+  private async updateWithOptimisticConcurrency(
+    userId: string,
+    mutate: (settings: PrivacySettings, metadata: Record<string, unknown>) => void,
+  ): Promise<PrivacySettingRecord> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const current = await this.getUserPrivacySettings(userId);
+      const settings = { ...current.settings };
+      const metadata = { ...(current.metadata ?? {}) };
+      mutate(settings, metadata);
+
+      const result = await this.prisma.privacySetting.updateMany({
+        where: {
+          id: current.id,
+          updatedAt: current.updatedAt,
+        },
+        data: {
+          settings,
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+      });
+
+      if (result.count === 1) {
+        const updated = await this.prisma.privacySetting.findUnique({ where: { id: current.id } });
+        if (updated) {
+          return this.toRecord(updated);
+        }
+      }
+    }
+
+    throw new ConflictException('Privacy settings changed concurrently. Retry the request.');
   }
 
   /**

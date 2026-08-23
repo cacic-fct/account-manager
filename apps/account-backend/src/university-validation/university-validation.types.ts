@@ -1,6 +1,6 @@
 import { AxiosInstance } from 'axios';
 import { CookieJar } from 'tough-cookie';
-import { IsString, IsNotEmpty, IsOptional, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, Matches, MaxLength } from 'class-validator';
 
 export interface CaptchaSession {
   sessionId: string;
@@ -53,11 +53,11 @@ export class ValidateDocumentDto {
 }
 
 export class AtomicValidationDto {
-  @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(16)
   @Matches(/^[A-Za-z0-9]+$/)
-  captchaCode?: string; // Optional - if not provided, returns captcha image
+  captchaCode!: string;
 
   @IsString()
   @IsNotEmpty()

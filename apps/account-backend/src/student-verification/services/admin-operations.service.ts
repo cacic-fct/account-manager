@@ -214,19 +214,12 @@ export class AdminOperationsService {
   }
 
   private async undoKeycloakApprovalIfNoApprovedDocument(userId: string): Promise<void> {
+    let hasApprovedDocument: boolean;
+
     try {
-      await this.prisma.$transaction(async (tx) => {
+      hasApprovedDocument = await this.prisma.$transaction(async (tx) => {
         await this.lockUserTransition(tx, userId);
-        const hasApprovedDocument = await this.hasApprovedDocumentForUser(tx, userId);
-
-        if (hasApprovedDocument) {
-          this.logger.warn(
-            `Skipped unespRoleVerified rollback for user ${userId} because an approved document already exists.`,
-          );
-          return;
-        }
-
-        await this.rollbackKeycloakApproval(userId);
+        return this.hasApprovedDocumentForUser(tx, userId);
       }, this.transactionOptions);
     } catch (error) {
       this.logger.warn(
@@ -234,7 +227,51 @@ export class AdminOperationsService {
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      return;
     }
+
+    if (hasApprovedDocument) {
+      this.logger.warn(
+        `Skipped unespRoleVerified rollback for user ${userId} because an approved document already exists.`,
+      );
+      return;
+    }
+
+    // Never await Keycloak while a database transaction/advisory lock is open.
+    await this.rollbackKeycloakApproval(userId);
+  }
+
+  private async prepareApprovalTransition(documentId: string): Promise<{
+    document: StudentVerificationDocument;
+    hadApprovedDocumentBeforeApproval: boolean;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockDocumentTransition(tx, documentId);
+
+      const document = await this.getPendingDocumentFromTransaction(tx, documentId);
+      await this.lockUserTransition(tx, document.userId);
+
+      return {
+        document,
+        hadApprovedDocumentBeforeApproval: await this.hasApprovedDocumentForUser(tx, document.userId),
+      };
+    }, this.transactionOptions);
+  }
+
+  private async persistApprovalAfterExternalMutation(
+    documentId: string,
+    updateDto: UpdateVerificationStatusDto,
+    verifiedBy: string,
+    rejectionReason: string | null,
+  ): Promise<StudentVerificationDocument> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockDocumentTransition(tx, documentId);
+
+      const document = await this.getPendingDocumentFromTransaction(tx, documentId);
+      await this.lockUserTransition(tx, document.userId);
+
+      return this.persistVerificationTransitionInTransaction(tx, document, updateDto, verifiedBy, rejectionReason);
+    }, this.transactionOptions);
   }
 
   private async approveVerificationTransition(
@@ -246,39 +283,19 @@ export class AdminOperationsService {
     let approvalUserId: string | null = null;
     let keycloakApprovalApplied = false;
     let hadApprovedDocumentBeforeApproval = false;
-    let rollbackHandled = false;
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        await this.lockDocumentTransition(tx, documentId);
+      const prepared = await this.prepareApprovalTransition(documentId);
+      approvalUserId = prepared.document.userId;
+      hadApprovedDocumentBeforeApproval = prepared.hadApprovedDocumentBeforeApproval;
 
-        const document = await this.getPendingDocumentFromTransaction(tx, documentId);
-        approvalUserId = document.userId;
+      // The remote identity mutation is deliberately outside both short database transactions.
+      await this.markUserAsVerifiedInKeycloak(approvalUserId);
+      keycloakApprovalApplied = true;
 
-        await this.lockUserTransition(tx, document.userId);
-        hadApprovedDocumentBeforeApproval = await this.hasApprovedDocumentForUser(tx, document.userId);
-
-        await this.markUserAsVerifiedInKeycloak(document.userId);
-        keycloakApprovalApplied = true;
-
-        try {
-          return await this.persistVerificationTransitionInTransaction(
-            tx,
-            document,
-            updateDto,
-            verifiedBy,
-            rejectionReason,
-          );
-        } catch (error) {
-          if (!hadApprovedDocumentBeforeApproval) {
-            await this.rollbackKeycloakApproval(document.userId);
-          }
-          rollbackHandled = true;
-          throw error;
-        }
-      }, this.transactionOptions);
+      return await this.persistApprovalAfterExternalMutation(documentId, updateDto, verifiedBy, rejectionReason);
     } catch (error) {
-      if (approvalUserId && keycloakApprovalApplied && !hadApprovedDocumentBeforeApproval && !rollbackHandled) {
+      if (approvalUserId && keycloakApprovalApplied && !hadApprovedDocumentBeforeApproval) {
         await this.undoKeycloakApprovalIfNoApprovedDocument(approvalUserId);
       }
 

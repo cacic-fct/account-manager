@@ -358,7 +358,6 @@ describe('KeycloakService client roles', () => {
           via: '1.1 cloudflare',
           wwwAuthenticate: 'Bearer error="invalid_request"',
         }) as unknown,
-        bodyPreview: '<html>cloudflare challenge</html>',
       }),
     );
   });

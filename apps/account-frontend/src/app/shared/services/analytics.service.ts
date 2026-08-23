@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PrivacyService } from './privacy.service';
+import { LoggerService } from './logger.service';
 
 interface SentryBrowserClient {
   getOptions(): { enabled?: boolean };
@@ -28,6 +29,7 @@ declare global {
 @Service()
 export class AnalyticsService {
   private privacyService = inject(PrivacyService);
+  private logger = inject(LoggerService);
   private platformId = inject(PLATFORM_ID);
   private destroyRef = inject(DestroyRef);
   private initialized = false;
@@ -137,6 +139,6 @@ export class AnalyticsService {
       return;
     }
 
-    console.error('Tracked error:', error, context);
+    this.logger.error('Tracked error', error, { operation: 'analytics-error', context });
   }
 }

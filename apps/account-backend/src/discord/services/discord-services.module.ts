@@ -7,9 +7,10 @@ import { DiscordSettingsService } from './discord-settings.service';
 import { AuthModule } from '../../auth/auth.module';
 import { DiscordBotModule } from '../bot/discord-bot.module';
 import { CooldownService } from '../../common/services/cooldown.service';
+import { RedisModule } from '../../redis/redis.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule, DiscordBotModule],
+  imports: [ConfigModule, AuthModule, DiscordBotModule, RedisModule],
   providers: [
     DiscordOAuthService,
     DiscordLinkService,

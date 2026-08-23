@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { M2MUserIdentifierLookupItem, M2MUserIdentifierLookupMatch, M2MUserProfile } from '@cacic/m2m-contracts';
 import { KeycloakService, KeycloakUserData } from '../auth/services/keycloak.service';
 import { M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS, M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS } from './dto/m2m-user-lookup.dto';
 
-const KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER = 10;
+const KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER = 50;
+const LOOKUP_CONCURRENCY = 10;
 
 @Injectable()
 export class M2MUsersService {
@@ -17,51 +18,55 @@ export class M2MUsersService {
       M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS,
       (value) => this.normalizeEnrollmentNumber(value),
     );
-    const users: M2MUserProfile[] = [];
+    const resultGroups = await this.mapWithConcurrency(
+      normalizedEnrollmentNumbers,
+      LOOKUP_CONCURRENCY,
+      async (enrollmentNumber) => {
+        const matches = await this.findUsersByAttributeValues(
+          ['enrollmentNumber'],
+          [enrollmentNumber],
+          (user) =>
+            this.normalizeEnrollmentNumber(this.firstAttributeValue(user, 'enrollmentNumber')) === enrollmentNumber,
+        );
 
-    for (const enrollmentNumber of normalizedEnrollmentNumbers) {
-      const matches = await this.findUsersByAttributeValues(
-        ['enrollmentNumber'],
-        [enrollmentNumber],
-        (user) =>
-          this.normalizeEnrollmentNumber(this.firstAttributeValue(user, 'enrollmentNumber')) === enrollmentNumber,
-      );
+        return matches.flatMap((match) => {
+          const profile = this.toUserProfile(match);
+          if (!profile?.enrollmentNumber) {
+            return [];
+          }
+          return [profile];
+        });
+      },
+    );
 
-      for (const match of matches) {
-        const profile = this.toUserProfile(match);
-        if (!profile?.enrollmentNumber) {
-          continue;
-        }
-
-        users.push(profile);
-      }
-    }
-
-    return this.dedupeUsers(users);
+    return this.dedupeUsers(resultGroups.flat());
   }
 
   async lookupByIdentifiers(
     identifiers: readonly M2MUserIdentifierLookupItem[],
   ): Promise<M2MUserIdentifierLookupMatch[]> {
     const normalizedIdentifiers = this.normalizeIdentifiers(identifiers);
-    const matches: M2MUserIdentifierLookupMatch[] = [];
-
-    for (const identifier of normalizedIdentifiers) {
-      const users = await this.findUsersForIdentifier(identifier);
-      for (const user of users) {
-        const profile = this.toUserProfile(user);
-        if (!profile) {
-          continue;
-        }
-
-        matches.push({
-          ...profile,
-          requestId: identifier.requestId,
+    const resultGroups = await this.mapWithConcurrency(
+      normalizedIdentifiers,
+      LOOKUP_CONCURRENCY,
+      async (identifier) => {
+        const users = await this.findUsersForIdentifier(identifier);
+        return users.flatMap((user) => {
+          const profile = this.toUserProfile(user);
+          if (!profile) {
+            return [];
+          }
+          return [
+            {
+              ...profile,
+              requestId: identifier.requestId,
+            },
+          ];
         });
-      }
-    }
+      },
+    );
 
-    return this.dedupeIdentifierMatches(matches);
+    return this.dedupeIdentifierMatches(resultGroups.flat());
   }
 
   private async findUsersForIdentifier(identifier: M2MUserIdentifierLookupItem): Promise<KeycloakUserData[]> {
@@ -73,7 +78,7 @@ export class M2MUsersService {
       case 'cpf': {
         const normalizedCpf = this.normalizeCpf(identifier.identifierValue);
         if (!normalizedCpf) {
-          return [];
+          throw new BadRequestException(`Invalid CPF for request ${identifier.requestId}.`);
         }
 
         return this.findUsersByAttributeValues(
@@ -87,7 +92,7 @@ export class M2MUsersService {
       case 'phone': {
         const normalizedPhone = this.normalizePhone(identifier.identifierValue);
         if (!normalizedPhone) {
-          return [];
+          throw new BadRequestException(`Invalid phone for request ${identifier.requestId}.`);
         }
 
         return this.findUsersByAttributeValues(
@@ -112,6 +117,9 @@ export class M2MUsersService {
           const users = await this.keycloakService.searchUsersByAttribute(attributeName, attributeValue, {
             max: KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER,
           });
+          if (users.length >= KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER) {
+            throw new ServiceUnavailableException('Keycloak lookup is ambiguous and cannot be returned completely.');
+          }
 
           for (const user of users) {
             if (isExactMatch(user)) {
@@ -132,15 +140,21 @@ export class M2MUsersService {
   }
 
   private normalizeIdentifiers(identifiers: readonly M2MUserIdentifierLookupItem[]): M2MUserIdentifierLookupItem[] {
+    if (identifiers.length > M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS) {
+      throw new BadRequestException(`At most ${M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS} identifiers are allowed.`);
+    }
     const normalized: M2MUserIdentifierLookupItem[] = [];
     const seen = new Set<string>();
 
-    for (const identifier of identifiers.slice(0, M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS)) {
+    for (const identifier of identifiers) {
       const requestId = identifier.requestId.trim();
       const identifierValue = identifier.identifierValue.trim();
 
       if (!requestId || !identifierValue) {
-        continue;
+        throw new BadRequestException('Every identifier requires a requestId and identifierValue.');
+      }
+      if (!['cpf', 'phone', 'email'].includes(identifier.identifierType)) {
+        throw new BadRequestException('identifierType must be cpf, phone, or email.');
       }
 
       const key = `${requestId}:${identifier.identifierType}:${identifierValue}`;
@@ -164,12 +178,18 @@ export class M2MUsersService {
     maxItems: number,
     normalize: (value: string) => string | null,
   ): string[] {
+    if (values.length > maxItems) {
+      throw new BadRequestException(`At most ${maxItems} lookup values are allowed.`);
+    }
     const normalized: string[] = [];
     const seen = new Set<string>();
 
-    for (const value of values.slice(0, maxItems)) {
+    for (const value of values) {
       const normalizedValue = normalize(value);
-      if (!normalizedValue || seen.has(normalizedValue)) {
+      if (!normalizedValue) {
+        throw new BadRequestException('Lookup values must be non-empty and valid.');
+      }
+      if (seen.has(normalizedValue)) {
         continue;
       }
 
@@ -329,5 +349,23 @@ export class M2MUsersService {
     }
 
     return [...usersByKey.values()];
+  }
+
+  private async mapWithConcurrency<T, R>(
+    values: readonly T[],
+    concurrency: number,
+    mapper: (value: T) => Promise<R>,
+  ): Promise<R[]> {
+    const results = new Array<R>(values.length);
+    let nextIndex = 0;
+    const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+      while (nextIndex < values.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(values[index]);
+      }
+    });
+    await Promise.all(workers);
+    return results;
   }
 }

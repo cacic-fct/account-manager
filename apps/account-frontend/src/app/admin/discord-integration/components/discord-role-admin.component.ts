@@ -21,6 +21,7 @@ import { DiscordRoleOptionComponent } from '../../../shared/components/discord-r
 import { ApiService } from '../../../shared/services/api.service';
 import { normalizeDiscordRoleColor } from '../../../shared/utils/discord-role-color.util';
 import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-role-admin',
@@ -45,6 +46,7 @@ export class DiscordRoleAdminComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private formBuilder = inject(FormBuilder);
   private dialog = inject(MatDialog);
+  private logger = inject(LoggerService);
 
   // Form
   roleForm = this.formBuilder.group({
@@ -125,7 +127,7 @@ export class DiscordRoleAdminComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Error loading Discord roles:', error);
+        this.logger.error('Error loading Discord roles', error, { operation: 'discord-role-admin' });
         this.isLoading.set(false);
         this.snackBar.open('Não foi possível carregar os cargos.', 'Fechar', {
           duration: 5000,
@@ -341,7 +343,7 @@ export class DiscordRoleAdminComponent implements OnInit {
         this.isSaving.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error updating role selection:', error);
+        this.logger.error('Error updating role selection', error, { operation: 'discord-role-admin' });
         this.snackBar.open('Não foi possível salvar os cargos.', 'Fechar', { duration: 5000 });
         this.isSaving.set(false);
       },
@@ -387,7 +389,7 @@ export class DiscordRoleAdminComponent implements OnInit {
         this.isSyncing.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error syncing Discord roles:', error);
+        this.logger.error('Error syncing Discord roles', error, { operation: 'discord-role-admin' });
         this.snackBar.open('Não foi possível sincronizar os cargos.', 'Fechar', { duration: 5000 });
         this.isSyncing.set(false);
       },

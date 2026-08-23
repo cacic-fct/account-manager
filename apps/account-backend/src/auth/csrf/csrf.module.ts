@@ -2,6 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { CsrfService } from './csrf.service';
 import { CsrfGuard } from './csrf.guard';
 import { CsrfController } from './csrf.controller';
+import { APP_GUARD } from '@nestjs/core';
 
 /**
  * Global CSRF protection module
@@ -10,7 +11,14 @@ import { CsrfController } from './csrf.controller';
 @Global()
 @Module({
   controllers: [CsrfController],
-  providers: [CsrfService, CsrfGuard],
+  providers: [
+    CsrfService,
+    CsrfGuard,
+    {
+      provide: APP_GUARD,
+      useExisting: CsrfGuard,
+    },
+  ],
   exports: [CsrfService, CsrfGuard],
 })
 export class CsrfModule {}

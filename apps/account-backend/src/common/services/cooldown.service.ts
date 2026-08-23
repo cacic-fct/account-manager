@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { RedisService } from '../../redis/redis.service';
 
-interface CooldownEntry {
+export interface CooldownEntry {
   attempts: number;
   lastAttempt: Date;
   cooldownEndTime: Date;
@@ -8,104 +9,105 @@ interface CooldownEntry {
 
 @Injectable()
 export class CooldownService {
-  private cooldowns = new Map<string, CooldownEntry>();
+  private readonly attemptsTtlSeconds = 10 * 60;
+
+  constructor(private readonly redis: RedisService) {}
 
   /**
-   * Check if user is currently on cooldown
+   * Check if user is currently on cooldown. Redis is authoritative so every
+   * replica observes the same retry window.
    */
-  isOnCooldown(userId: string, action: string): boolean {
-    const key = `${userId}:${action}`;
-    const entry = this.cooldowns.get(key);
-
-    if (!entry) {
-      return false;
-    }
-
-    const now = new Date();
-    if (now >= entry.cooldownEndTime) {
-      // Cooldown has expired, remove entry
-      this.cooldowns.delete(key);
-      return false;
-    }
-
-    return true;
+  async isOnCooldown(userId: string, action: string): Promise<boolean> {
+    return (await this.getRemainingCooldown(userId, action)) > 0;
   }
 
-  /**
-   * Get remaining cooldown time in seconds
-   */
-  getRemainingCooldown(userId: string, action: string): number {
-    const key = `${userId}:${action}`;
-    const entry = this.cooldowns.get(key);
-
-    if (!entry) {
+  /** Get remaining cooldown time in seconds. */
+  async getRemainingCooldown(userId: string, action: string): Promise<number> {
+    const stateKey = this.stateKey(userId, action);
+    const state = await this.redis.get(stateKey);
+    if (!state) {
       return 0;
     }
 
-    const now = new Date();
-    const remainingMs = entry.cooldownEndTime.getTime() - now.getTime();
-
-    if (remainingMs <= 0) {
-      this.cooldowns.delete(key);
-      return 0;
-    }
-
-    return Math.ceil(remainingMs / 1000);
+    const ttl = await this.redis.ttl(stateKey);
+    // Redis TTL rounds down to whole seconds. A live key reported as zero
+    // still represents an active retry window, so fail closed for one second.
+    return ttl === 0 ? 1 : ttl > 0 ? ttl : 0;
   }
 
-  /**
-   * Get current attempts count for user action
-   */
-  getAttempts(userId: string, action: string): number {
-    const key = `${userId}:${action}`;
-    const entry = this.cooldowns.get(key);
-    return entry?.attempts || 0;
+  /** Get current attempts count for user action. */
+  async getAttempts(userId: string, action: string): Promise<number> {
+    const value = await this.redis.get(this.attemptsKey(userId, action));
+    const attempts = Number(value ?? 0);
+    return Number.isSafeInteger(attempts) && attempts >= 0 ? attempts : 0;
   }
 
-  /**
-   * Add or increment cooldown for user action (exponential backoff: 2^n seconds)
-   */
-  setCooldown(userId: string, action: string): CooldownEntry {
-    const key = `${userId}:${action}`;
-    const existing = this.cooldowns.get(key);
+  /** Add or increment cooldown for user action (exponential backoff: 2^n seconds). */
+  async setCooldown(userId: string, action: string): Promise<CooldownEntry> {
     const now = new Date();
+    const result = await this.redis.eval(
+      `local attempts = redis.call('INCR', KEYS[1])
+if attempts == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local effectiveAttempts = attempts
+if effectiveAttempts > 30 then
+  effectiveAttempts = 30
+end
+local cooldown = 2 ^ effectiveAttempts
+redis.call('SET', KEYS[2], tostring(effectiveAttempts), 'EX', cooldown)
+return { effectiveAttempts, cooldown }`,
+      [this.attemptsKey(userId, action), this.stateKey(userId, action)],
+      [this.attemptsTtlSeconds.toString()],
+    );
+    const [attempts, cooldownSeconds] = this.parseEvalResult(result);
 
-    const attempts = (existing?.attempts || 0) + 1;
-    const cooldownSeconds = Math.pow(2, attempts);
-    const cooldownEndTime = new Date(now.getTime() + cooldownSeconds * 1000);
-
-    const entry: CooldownEntry = {
+    return {
       attempts,
       lastAttempt: now,
-      cooldownEndTime,
+      cooldownEndTime: new Date(now.getTime() + cooldownSeconds * 1000),
     };
-
-    this.cooldowns.set(key, entry);
-    return entry;
   }
 
-  /**
-   * Clear cooldown for user action (used on successful operations)
-   */
-  clearCooldown(userId: string, action: string): void {
-    const key = `${userId}:${action}`;
-    this.cooldowns.delete(key);
+  /** Clear cooldown for user action (used on successful operations). */
+  async clearCooldown(userId: string, action: string): Promise<void> {
+    await Promise.all([
+      this.redis.del(this.stateKey(userId, action)),
+      this.redis.del(this.attemptsKey(userId, action)),
+    ]);
   }
 
-  /**
-   * Clean up expired cooldowns (optional maintenance method)
-   */
+  /** Redis TTLs clean up expired entries; no process-local sweep is needed. */
   cleanupExpiredCooldowns(): number {
-    const now = new Date();
-    let removedCount = 0;
+    return 0;
+  }
 
-    for (const [key, entry] of this.cooldowns.entries()) {
-      if (now >= entry.cooldownEndTime) {
-        this.cooldowns.delete(key);
-        removedCount++;
-      }
+  private parseEvalResult(result: unknown): [number, number] {
+    if (!Array.isArray(result)) {
+      throw new Error('Redis returned an invalid cooldown result');
     }
+    const attempts = Number(result[0]);
+    const cooldownSeconds = Number(result[1]);
+    if (
+      !Number.isSafeInteger(attempts) ||
+      attempts < 1 ||
+      !Number.isSafeInteger(cooldownSeconds) ||
+      cooldownSeconds < 1
+    ) {
+      throw new Error('Redis returned an invalid cooldown result');
+    }
+    return [attempts, cooldownSeconds];
+  }
 
-    return removedCount;
+  private keyPart(value: string): string {
+    return encodeURIComponent(value);
+  }
+
+  private attemptsKey(userId: string, action: string): string {
+    return `discord:cooldown:attempts:${this.keyPart(userId)}:${this.keyPart(action)}`;
+  }
+
+  private stateKey(userId: string, action: string): string {
+    return `discord:cooldown:state:${this.keyPart(userId)}:${this.keyPart(action)}`;
   }
 }

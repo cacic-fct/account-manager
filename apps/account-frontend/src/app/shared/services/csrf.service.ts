@@ -4,6 +4,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Observable, BehaviorSubject, of } from 'rxjs';
 import { tap, catchError, shareReplay, map } from 'rxjs/operators';
 import { getApiBaseUrl } from '../utils/api-url.util';
+import { LoggerService } from './logger.service';
 
 /**
  * Service for managing CSRF tokens
@@ -12,6 +13,7 @@ import { getApiBaseUrl } from '../utils/api-url.util';
 @Service()
 export class CsrfService {
   private http = inject(HttpClient);
+  private logger = inject(LoggerService);
   private readonly baseUrl = getApiBaseUrl();
 
   // Store CSRF token in memory
@@ -45,7 +47,7 @@ export class CsrfService {
         map((response: { csrfToken: string }) => response.csrfToken),
         shareReplay({ bufferSize: 1, refCount: true }),
         catchError((error) => {
-          console.error('Failed to fetch CSRF token:', error);
+          this.logger.error('Failed to fetch CSRF token', error, { operation: 'auth-csrf' });
           throw error;
         }),
       );

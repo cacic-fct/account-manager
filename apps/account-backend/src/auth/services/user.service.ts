@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { UserProfile, KeycloakUser } from '../interfaces/auth.interface';
 import { CreateUserProfileDto, UserProfileDto } from '../dto/user-profile.dto';
 import { KeycloakService } from './keycloak.service';
@@ -71,7 +71,18 @@ export class UserService {
 
   private normalizeIdentityDocument(identityDocument: string, isForeigner: boolean): string {
     const trimmed = identityDocument.trim();
-    return isForeigner ? trimmed : trimmed.replace(/\D/g, '');
+    if (isForeigner) {
+      if (trimmed.length < 5 || trimmed.length > 64 || !/^[\p{L}\p{N} .'-]+$/u.test(trimmed)) {
+        throw new BadRequestException('Invalid passport document format.');
+      }
+      return trimmed;
+    }
+
+    const cpf = trimmed.replace(/\D/g, '');
+    if (cpf.length !== 11) {
+      throw new BadRequestException('CPF must contain exactly 11 digits.');
+    }
+    return cpf;
   }
 
   private assertRegisteredIdentityFieldsUnchanged(
@@ -81,10 +92,12 @@ export class UserService {
     fullName: string;
     identityDocument: string;
     isForeigner: boolean;
+    passportCountry?: string;
   } {
     const currentFullName = currentAttributes.fullName?.[0]?.trim() || '';
     const currentIdentityDocument = currentAttributes['identity-document']?.[0]?.trim() || '';
     const currentIsForeigner = currentAttributes.isForeigner?.[0] === 'true';
+    const currentPassportCountry = currentAttributes.passportCountry?.[0]?.trim().toUpperCase() || undefined;
     const effectiveIsForeigner = currentIdentityDocument ? currentIsForeigner : updateData.isForeigner;
     const hasRegisteredIdentity = currentFullName !== '' || currentIdentityDocument !== '';
 
@@ -93,6 +106,9 @@ export class UserService {
         fullName: updateData.fullname.trim(),
         identityDocument: this.normalizeIdentityDocument(updateData.identityDocument, updateData.isForeigner),
         isForeigner: updateData.isForeigner,
+        ...(updateData.isForeigner && updateData.passportCountry
+          ? { passportCountry: updateData.passportCountry }
+          : {}),
       };
     }
 
@@ -121,10 +137,15 @@ export class UserService {
       );
     }
 
+    if (effectiveIsForeigner && currentPassportCountry && updateData.passportCountry !== currentPassportCountry) {
+      throw new BadRequestException('País emissor do passaporte não pode ser alterado após o cadastro.');
+    }
+
     return {
       fullName: currentFullName || updateData.fullname.trim(),
       identityDocument: currentIdentityDocument || normalizedIncomingIdentityDocument,
       isForeigner: effectiveIsForeigner,
+      ...(effectiveIsForeigner ? { passportCountry: currentPassportCountry || updateData.passportCountry } : {}),
     };
   }
 
@@ -150,7 +171,7 @@ export class UserService {
       return profile;
     } catch (error) {
       this.logger.error('Error finding user by Keycloak ID', error);
-      return null;
+      throw error;
     }
   }
 
@@ -167,7 +188,7 @@ export class UserService {
       return profile;
     } catch (error) {
       this.logger.error('Error finding user by email', error);
-      return null;
+      throw error;
     }
   }
 
@@ -177,13 +198,7 @@ export class UserService {
       return existingUser;
     }
 
-    this.logger.debug('Creating user from Keycloak data', {
-      sub: keycloakUser.sub,
-      email: keycloakUser.email,
-      name: keycloakUser.name,
-      picture: keycloakUser.picture,
-      hasPicture: !!keycloakUser.picture,
-    });
+    this.logger.debug('Creating user from Keycloak data', { userId: keycloakUser.sub });
 
     const isUnespUser = await this.isUnespUser(keycloakUser.email, keycloakUser.sub);
     const displayName =
@@ -208,10 +223,9 @@ export class UserService {
       updatedAt: [new Date().toISOString()],
     };
 
-    this.logger.debug('Attributes to be stored in Keycloak', {
-      hasPictureInAttributes: !!attributes.picture,
-      pictureValue: attributes.picture,
-      allAttributeKeys: Object.keys(attributes),
+    this.logger.debug('Prepared initial Keycloak attributes', {
+      userId: keycloakUser.sub,
+      attributeCount: Object.keys(attributes).length,
     });
 
     try {
@@ -229,11 +243,7 @@ export class UserService {
       return profile;
     } catch (error) {
       this.logger.error('Error updating user attributes during creation', error);
-      // If updating attributes fails, still return a basic user profile
-      // This ensures the user can still log in and complete onboarding later
-      const profile = this.attributesToUserProfile(keycloakUser.sub, attributes);
-      await this.upsertLeanUser(profile);
-      return profile;
+      throw error;
     }
   }
 
@@ -245,7 +255,7 @@ export class UserService {
       const userBasicInfo = await this.keycloakService.getUserBasicInfo(userId);
       if (!userBasicInfo) {
         this.logger.error('User not found in Keycloak', { userId });
-        throw new Error('User not found');
+        throw new NotFoundException('User not found');
       }
 
       const currentAttributes = await this.keycloakService.getUserAttributes(userId);
@@ -259,12 +269,8 @@ export class UserService {
       // But we know the user exists from the previous check
       const userEmail = currentAttributes.email?.[0] || userBasicInfo.email;
       if (!userEmail) {
-        this.logger.error('User found but has no email in basic info or attributes', {
-          userId,
-          userBasicInfo,
-          currentAttributes,
-        });
-        throw new Error('User found but missing email information');
+        this.logger.error('User found but has no email in basic info or attributes', { userId });
+        throw new BadRequestException('User is missing required email information');
       }
 
       // Validate that all required fields are provided before marking as onboarded
@@ -283,9 +289,8 @@ export class UserService {
         this.logger.error('Cannot mark user as onboarded - missing required fields', {
           userId,
           missingRequiredFields,
-          updateData,
         });
-        throw new Error(`Missing required fields: ${missingRequiredFields.join(', ')}`);
+        throw new BadRequestException(`Missing required fields: ${missingRequiredFields.join(', ')}`);
       }
 
       const immutableIdentityFields = this.assertRegisteredIdentityFieldsUnchanged(currentAttributes, updateData);
@@ -298,7 +303,7 @@ export class UserService {
       const currentFullName = currentAttributes.fullName?.[0];
 
       if (isFullNameLocked && currentFullName && updateData.fullname !== currentFullName) {
-        throw new Error(
+        throw new BadRequestException(
           'Nome completo não pode ser alterado após verificação por documento. Entre em contato com o suporte se necessário.',
         );
       }
@@ -319,6 +324,9 @@ export class UserService {
         phone: [updateData.phone],
         'identity-document': [immutableIdentityFields.identityDocument],
         isForeigner: [immutableIdentityFields.isForeigner.toString()],
+        ...(immutableIdentityFields.passportCountry
+          ? { passportCountry: [immutableIdentityFields.passportCountry] }
+          : {}),
         isOnboarded: ['true'], // Only set to true if all validations pass
         updatedAt: [new Date().toISOString()],
       };
@@ -337,7 +345,7 @@ export class UserService {
 
       // Enforce enrollment number only for student roles
       if (hasEnrollmentInput && (!effectiveUnespRole || !isStudentRole(effectiveUnespRole))) {
-        throw new Error('Enrollment number can only be set for student roles');
+        throw new BadRequestException('Enrollment number can only be set for student roles');
       }
 
       // Add enrollmentNumber only if provided
@@ -349,8 +357,6 @@ export class UserService {
           shouldInvalidateVerification = true;
           this.logger.debug('Enrollment number changed, will invalidate verification', {
             userId,
-            from: currentEnrollmentNumber,
-            to: normalizedEnrollmentNumber,
           });
         }
       }
@@ -371,7 +377,7 @@ export class UserService {
 
         // Validate enrollment number is required for student roles
         if (isStudentRole(updateData.unespRole) && !hasEnrollmentInput && !currentEnrollmentNumber) {
-          throw new Error('Enrollment number is required for student roles');
+          throw new BadRequestException('Enrollment number is required for student roles');
         }
 
         // Clear stale enrollment when switching away from student roles
@@ -403,7 +409,7 @@ export class UserService {
 
       return updatedProfile;
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof HttpException) {
         throw error;
       }
 
@@ -470,6 +476,8 @@ export class UserService {
       isOnboarded: user.isOnboarded,
       unespRole: user.unespRole,
       unespRoleVerified: user.unespRoleVerified,
+      externalUserVerified: user.externalUserVerified,
+      fullNameLocked: user.fullNameLocked,
       isAdmin,
       adminGroups,
       createdAt: user.createdAt,
@@ -561,20 +569,16 @@ export class UserService {
   async updateFromKeycloakOAuth(keycloakUser: KeycloakUser): Promise<UserProfile> {
     try {
       this.logger.debug('Updating user data from Keycloak OAuth', {
-        sub: keycloakUser.sub,
-        email: keycloakUser.email,
-        name: keycloakUser.name,
-        picture: keycloakUser.picture,
-        hasPicture: !!keycloakUser.picture,
+        userId: keycloakUser.sub,
       });
 
       // Get current user attributes
       const currentAttributes = await this.keycloakService.getUserAttributes(keycloakUser.sub);
 
       this.logger.debug('Current user attributes before update', {
-        currentPicture: currentAttributes.picture?.[0],
+        userId: keycloakUser.sub,
         hasCurrentPicture: !!currentAttributes.picture?.[0],
-        attributeKeys: Object.keys(currentAttributes),
+        attributeCount: Object.keys(currentAttributes).length,
       });
 
       // Always update display name and picture from OAuth
@@ -590,9 +594,8 @@ export class UserService {
       };
 
       this.logger.debug('Updated attributes to be stored', {
+        userId: keycloakUser.sub,
         willStorePicture: !!updatedAttributes.picture,
-        pictureValue: updatedAttributes.picture,
-        incomingPicture: keycloakUser.picture,
       });
 
       // For Unesp users, also update fullName if it's empty or if we got a new name from OAuth
@@ -615,7 +618,10 @@ export class UserService {
       await this.upsertLeanUser(profile);
       return profile;
     } catch (error) {
-      this.logger.error('Error updating user from Keycloak OAuth', error);
+      this.logger.error('Error updating user from Keycloak OAuth', {
+        userId: keycloakUser.sub,
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
       // If update fails, still return the current user profile
       const existingUser = await this.findByKeycloakId(keycloakUser.sub);
       if (!existingUser) {
@@ -727,12 +733,8 @@ export class UserService {
 
     const pictureValue = getFirst('picture');
     this.logger.debug('Converting attributes to UserProfile', {
-      keycloakId,
-      email,
-      pictureFromAttributes: pictureValue,
-      hasPictureInAttributes: !!pictureValue,
-      attributeKeys: Object.keys(attributes),
-      pictureAttribute: attributes.picture,
+      userId: keycloakId,
+      attributeCount: Object.keys(attributes).length,
     });
 
     return {
@@ -747,6 +749,7 @@ export class UserService {
       enrollmentNumber: attributes.enrollmentNumber?.[0] || undefined,
       identityDocument: getFirst('identity-document'), // Map from Keycloak's identity-document
       isForeigner: getBooleanFirst('isForeigner', false),
+      passportCountry: getFirst('passportCountry') || undefined,
       isOnboarded: getBooleanFirst('isOnboarded', false),
       unespRole: (attributes.unespRole?.[0] as UnespRole) || undefined,
       unespRoleVerified: getBooleanFirst('unespRoleVerified', false),

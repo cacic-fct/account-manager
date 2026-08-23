@@ -6,6 +6,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import type { User } from '@cacic/shared-types';
 import { ProfileFormComponent } from '../../../shared/components/profile-form/profile-form.component';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-edit',
@@ -17,6 +18,7 @@ export class EditProfileComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
+  private logger = inject(LoggerService);
 
   isSubmitting = signal(false);
 
@@ -49,7 +51,7 @@ export class EditProfileComponent {
   }
 
   onProfileSaveSuccess(updatedUser: User): void {
-    console.log('Profile update successful:', updatedUser);
+    this.logger.debug('Profile update successful', { operation: 'profile-update', userId: updatedUser.id });
 
     this.snackBar.open('Dados atualizados com sucesso!', 'Close', {
       duration: 3000,
@@ -60,7 +62,7 @@ export class EditProfileComponent {
   }
 
   onProfileSaveError(error: unknown): void {
-    console.error('Profile update error:', error);
+    this.logger.error('Profile update failed', error, { operation: 'profile-update' });
     this.snackBar.open('Failed to update profile. Please try again.', 'Close', {
       duration: 5000,
       panelClass: ['error-snackbar'],

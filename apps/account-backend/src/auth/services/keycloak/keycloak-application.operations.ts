@@ -9,7 +9,7 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
 
       this.logger.debug('Getting applications for user', { userId });
 
-      const response = await fetch(clientsUrl, {
+      const response = await this.fetchWithTimeout(clientsUrl, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
         },
@@ -25,7 +25,6 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
           userId,
           contentType: details.contentType,
           responseHeaders: details.headers,
-          bodyPreview: details.bodyPreview,
         });
 
         throw new Error(`Failed to get applications: ${response.status} ${response.statusText}`);

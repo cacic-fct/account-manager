@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { KeycloakClientAuthMethod, KeycloakTokenError } from './keycloak.types';
+import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 
 export abstract class KeycloakBaseOperations {
   protected readonly logger = new Logger('KeycloakService');
@@ -13,6 +14,7 @@ export abstract class KeycloakBaseOperations {
   protected readonly loginIdpHint?: string;
   protected readonly clientUuidCache = new Map<string, string>();
   private readonly realmHealthCheckTimeoutMs = 5_000;
+  private readonly requestTimeoutMs: number;
 
   constructor() {
     this.keycloakUrl = this.readEnvWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
@@ -26,6 +28,7 @@ export abstract class KeycloakBaseOperations {
     );
     this.adminClientSecret = this.resolveAdminClientSecret();
     this.loginIdpHint = this.resolveLoginIdpHint();
+    this.requestTimeoutMs = this.readPositiveInteger('KEYCLOAK_REQUEST_TIMEOUT_MS', 10_000);
 
     if (this.isProduction() && !this.adminClientSecret) {
       throw new Error('KEYCLOAK_ADMIN_CLIENT_SECRET must be configured in production');
@@ -47,6 +50,9 @@ export abstract class KeycloakBaseOperations {
     ];
 
     if (error instanceof Error) {
+      if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+        return true;
+      }
       return connectionErrorMessages.some(
         (msg) => error.message.includes(msg) || (error.cause instanceof Error && error.cause.message.includes(msg)),
       );
@@ -82,6 +88,46 @@ export abstract class KeycloakBaseOperations {
 
   protected isProduction(): boolean {
     return process.env.NODE_ENV === 'production';
+  }
+
+  protected async fetchWithTimeout(input: string | URL | Request, init: RequestInit = {}): Promise<Response> {
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: init.signal ?? AbortSignal.timeout(this.requestTimeoutMs),
+      });
+      if (response.status === 429 || response.status >= 500) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new KeycloakConnectionException(`Authentication service is temporarily unavailable (${response.status})`);
+      }
+      return response;
+    } catch (error) {
+      if (error instanceof KeycloakConnectionException) {
+        throw error;
+      }
+      if (this.isConnectionError(error)) {
+        throw new KeycloakConnectionException(
+          'Unable to connect to authentication service',
+          error instanceof Error ? error : undefined,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private readPositiveInteger(name: string, fallback: number): number {
+    const value = this.readOptionalEnv(name);
+    if (!value) {
+      return fallback;
+    }
+    if (!/^\d+$/.test(value)) {
+      throw new Error(`${name} must be a positive integer`);
+    }
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+      throw new Error(`${name} must be a positive integer`);
+    }
+    return parsed;
   }
 
   async isRealmReachable(): Promise<boolean> {

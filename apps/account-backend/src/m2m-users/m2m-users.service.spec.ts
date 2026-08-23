@@ -55,8 +55,8 @@ describe('M2MUsersService', () => {
     ]);
 
     expect(keycloak.searchUsersByAttribute).toHaveBeenCalledTimes(2);
-    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(1, 'enrollmentNumber', '24123456', { max: 10 });
-    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(2, 'enrollmentNumber', '99999999', { max: 10 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(1, 'enrollmentNumber', '24123456', { max: 50 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(2, 'enrollmentNumber', '99999999', { max: 50 });
   });
 
   it('matches private identifiers without echoing unmatched values', async () => {
@@ -118,9 +118,9 @@ describe('M2MUsersService', () => {
     ]);
 
     expect(keycloak.findUserByEmail).toHaveBeenCalledWith('ana.souza@unesp.br');
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '12345678901', { max: 10 });
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identityDocument', '12345678901', { max: 10 });
-    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '00000000000', { max: 10 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '12345678901', { max: 50 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identityDocument', '12345678901', { max: 50 });
+    expect(keycloak.searchUsersByAttribute).toHaveBeenCalledWith('identity-document', '00000000000', { max: 50 });
   });
 
   it('maps normalized optional profile claims from camelCase and snake_case attributes', async () => {

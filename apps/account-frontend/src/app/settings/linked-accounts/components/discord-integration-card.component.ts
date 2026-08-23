@@ -6,6 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService, DiscordLinkStatus } from '../../../shared/services/api.service';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-integration-card',
@@ -169,6 +170,7 @@ import { ApiService, DiscordLinkStatus } from '../../../shared/services/api.serv
 export class DiscordIntegrationCardComponent implements OnInit, OnDestroy {
   private apiService = inject(ApiService);
   private router = inject(Router);
+  private logger = inject(LoggerService);
 
   isLoading = signal(false);
   discordStatus = signal<DiscordLinkStatus | null>(null);
@@ -202,7 +204,7 @@ export class DiscordIntegrationCardComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
       error: (error: unknown) => {
-        console.error('Error loading Discord status:', error);
+        this.logger.error('Error loading Discord status', error, { operation: 'discord-status' });
         this.isLoading.set(false);
       },
     });

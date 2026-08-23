@@ -63,16 +63,16 @@ export class UniversityValidationService {
    * Clean up old sessions periodically
    */
   cleanupOldSessions(): void {
-    this.sessionManagementService.cleanupOldSessions();
+    void this.sessionManagementService.cleanupOldSessions();
   }
 
   /**
    * Get enrollment number from session
    */
-  getEnrollmentFromSession(sessionId: string, userId: string): string | undefined {
+  async getEnrollmentFromSession(sessionId: string, userId: string): Promise<string | undefined> {
     this.logger.debug('Retrieving enrollment from owned university validation session');
 
-    const session = this.captchaManagementService.getSession(sessionId, userId);
+    const session = await this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {
       this.logger.error('University validation session not found');
       throw new Error('Session not found');
@@ -87,10 +87,10 @@ export class UniversityValidationService {
   /**
    * Get auth code from session
    */
-  getAuthCodeFromSession(sessionId: string, userId: string): string {
+  async getAuthCodeFromSession(sessionId: string, userId: string): Promise<string> {
     this.logger.debug('Retrieving authentication code from owned university validation session');
 
-    const session = this.captchaManagementService.getSession(sessionId, userId);
+    const session = await this.captchaManagementService.getSession(sessionId, userId);
     if (!session) {
       this.logger.error('University validation session not found');
       throw new Error('Session not found');
@@ -108,8 +108,8 @@ export class UniversityValidationService {
   /**
    * Clear session with security check
    */
-  clearSession(sessionId: string, userId: string): void {
-    this.captchaManagementService.clearSession(sessionId, userId);
+  async clearSession(sessionId: string, userId: string): Promise<void> {
+    await this.captchaManagementService.clearSession(sessionId, userId);
     this.logger.debug('University validation session cleared');
   }
 }

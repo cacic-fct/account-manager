@@ -77,7 +77,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       sendsClientSecretInBody: body.has('client_secret'),
     });
 
-    const response = await fetch(tokenUrl, {
+    const response = await this.fetchWithTimeout(tokenUrl, {
       method: 'POST',
       headers,
       body: body.toString(),
@@ -101,7 +101,6 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
         errorDescription: details.errorDescription,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to exchange code for tokens');
@@ -147,7 +146,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       sendsClientSecretInBody: body.has('client_secret'),
     });
 
-    const response = await fetch(tokenUrl, {
+    const response = await this.fetchWithTimeout(tokenUrl, {
       method: 'POST',
       headers,
       body: body.toString(),
@@ -169,7 +168,6 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
         errorDescription: details.errorDescription,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to exchange password credentials for tokens');
@@ -187,7 +185,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   async getUserInfo(accessToken: string): Promise<KeycloakUser> {
     const userInfoUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/userinfo`;
 
-    const response = await fetch(userInfoUrl, {
+    const response = await this.fetchWithTimeout(userInfoUrl, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -202,7 +200,6 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
         userInfoUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to get user info');
@@ -244,7 +241,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       sendsClientSecretInBody: body.has('client_secret'),
     });
 
-    const response = await fetch(tokenUrl, {
+    const response = await this.fetchWithTimeout(tokenUrl, {
       method: 'POST',
       headers,
       body: body.toString(),
@@ -266,7 +263,6 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
         errorDescription: details.errorDescription,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to refresh token');
@@ -297,7 +293,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       sendsClientSecretInBody: body.has('client_secret'),
     });
 
-    const response = await fetch(logoutUrl, {
+    const response = await this.fetchWithTimeout(logoutUrl, {
       method: 'POST',
       headers,
       body: body.toString(),
@@ -319,7 +315,6 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
         errorDescription: details.errorDescription,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to logout from Keycloak');

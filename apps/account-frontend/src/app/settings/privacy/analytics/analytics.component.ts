@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../shared/services/api.service';
 import { PrivacyService } from '../../../shared/services/privacy.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 interface PrivacyToggle {
   key: string;
@@ -42,6 +43,7 @@ export class AnalyticsComponent implements OnInit {
   private privacyService = inject(PrivacyService);
   private snackBar = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
+  private logger = inject(LoggerService);
 
   // Remove the loading state - show options immediately
   isUpdating = signal(false);
@@ -110,7 +112,7 @@ export class AnalyticsComponent implements OnInit {
           // No need to manually update toggles
         },
         error: (error) => {
-          console.error('Error loading privacy settings:', error);
+          this.logger.error('Error loading privacy settings', error, { operation: 'privacy-settings' });
           this.snackBar.open('Erro ao carregar configurações de privacidade', 'Fechar', {
             duration: 5000,
             panelClass: ['error-snackbar'],
@@ -143,7 +145,7 @@ export class AnalyticsComponent implements OnInit {
           });
         },
         error: (error) => {
-          console.error('Error updating privacy setting:', error);
+          this.logger.error('Error updating privacy setting', error, { operation: 'privacy-settings' });
 
           // Clear loading state
           this.toggleLoadingStates.update((states) => ({

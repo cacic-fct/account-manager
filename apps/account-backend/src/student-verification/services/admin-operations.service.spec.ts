@@ -386,6 +386,7 @@ describe('AdminOperationsService', () => {
     tx.studentVerificationDocument.update.mockResolvedValue(approvedDocument);
     tx.studentVerificationDocument.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(approvedDocument);
     prisma.$transaction
+      .mockImplementationOnce(async (callback) => callback(tx))
       .mockImplementationOnce(async (callback) => {
         await callback(tx);
         throw commitError;
@@ -422,6 +423,7 @@ describe('AdminOperationsService', () => {
     tx.studentVerificationDocument.findFirst.mockResolvedValue(null);
     keycloakService.updateUserAttributes.mockResolvedValueOnce(undefined).mockRejectedValueOnce('rollback unavailable');
     prisma.$transaction
+      .mockImplementationOnce(async (callback) => callback(tx))
       .mockImplementationOnce(async (callback) => {
         await callback(tx);
         throw commitError;
@@ -448,6 +450,7 @@ describe('AdminOperationsService', () => {
     tx.studentVerificationDocument.findUnique.mockResolvedValue(createDocument());
     tx.studentVerificationDocument.update.mockResolvedValue(createDocument({ status: 'approved' }));
     prisma.$transaction
+      .mockImplementationOnce(async (callback) => callback(tx))
       .mockImplementationOnce(async (callback) => {
         await callback(tx);
         throw commitError;
@@ -565,6 +568,7 @@ describe('AdminOperationsService', () => {
     tx.studentVerificationDocument.findUnique.mockResolvedValue(createDocument());
     tx.studentVerificationDocument.update.mockResolvedValue(createDocument({ status: 'approved' }));
     prisma.$transaction
+      .mockImplementationOnce(async (callback) => callback(tx))
       .mockImplementationOnce(async (callback) => {
         await callback(tx);
         throw commitError;

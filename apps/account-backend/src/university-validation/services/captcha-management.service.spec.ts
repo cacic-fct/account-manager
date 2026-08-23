@@ -4,14 +4,41 @@ jest.mock('./document-validation.service', () => ({
 
 import type { AxiosInstance } from 'axios';
 import type { CookieJar } from 'tough-cookie';
+import type { ConfigService } from '@nestjs/config';
+import type { RedisService } from '../../redis/redis.service';
 import { CaptchaManagementService } from './captcha-management.service';
 import type { DocumentValidationService } from './document-validation.service';
 import type { ExternalVerificationResilienceService } from './external-verification-resilience.service';
 import type { HtmlResponseService } from './html-response.service';
 import type { SessionManagementService } from './session-management.service';
 
+const createSharedLockRedis = () => {
+  const values = new Map<string, { value: string; expiresAt: number }>();
+  const expireStale = (key: string) => {
+    const entry = values.get(key);
+    if (entry && entry.expiresAt <= Date.now()) {
+      values.delete(key);
+      return undefined;
+    }
+    return entry;
+  };
+  return {
+    setIfAbsent: jest.fn((key: string, value: string, ttlSeconds: number) => {
+      if (expireStale(key)) return Promise.resolve(false);
+      values.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+      return Promise.resolve(true);
+    }),
+    releaseIfOwned: jest.fn((key: string, value: string) => {
+      const entry = expireStale(key);
+      if (!entry || entry.value !== value) return Promise.resolve(false);
+      values.delete(key);
+      return Promise.resolve(true);
+    }),
+  } as unknown as RedisService;
+};
+
 describe('CaptchaManagementService', () => {
-  const createContext = () => {
+  const createContext = (sharedRedis = createSharedLockRedis()) => {
     const sessions = {
       getOwnedSession: jest.fn(),
       getSession: jest.fn(),
@@ -35,8 +62,12 @@ describe('CaptchaManagementService', () => {
       html as unknown as HtmlResponseService,
       documentValidation as unknown as DocumentValidationService,
       resilience as unknown as ExternalVerificationResilienceService,
+      sharedRedis,
+      {
+        get: jest.fn((name: string) => (name === 'UNIVERSITY_EXTERNAL_OPERATION_LOCK_TTL_MS' ? '1000' : undefined)),
+      } as unknown as ConfigService,
     );
-    return { service, sessions, documentValidation };
+    return { service, sessions, documentValidation, redis: sharedRedis };
   };
 
   it('rejects refresh for a session not owned by the authenticated user before upstream I/O', async () => {
@@ -138,5 +169,27 @@ describe('CaptchaManagementService', () => {
       data: providerPdf,
     });
     await expect(firstValidation).resolves.toMatchObject({ success: true });
+  });
+
+  it('shares the active-operation lock across replicas and releases it after TTL/restart', async () => {
+    jest.useFakeTimers();
+    try {
+      const redis = createSharedLockRedis();
+      const firstReplica = createContext(redis).service;
+      const restartedReplica = createContext(redis).service;
+      const firstLock = (
+        firstReplica as unknown as { tryStartSessionOperation: (sessionId: string) => Promise<boolean> }
+      ).tryStartSessionOperation;
+      const secondLock = (
+        restartedReplica as unknown as { tryStartSessionOperation: (sessionId: string) => Promise<boolean> }
+      ).tryStartSessionOperation;
+
+      await expect(firstLock.call(firstReplica, 'session-1')).resolves.toBe(true);
+      await expect(secondLock.call(restartedReplica, 'session-1')).resolves.toBe(false);
+      jest.advanceTimersByTime(1001);
+      await expect(secondLock.call(restartedReplica, 'session-1')).resolves.toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

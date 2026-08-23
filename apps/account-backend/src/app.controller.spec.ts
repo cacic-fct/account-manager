@@ -42,10 +42,16 @@ describe('AppController', () => {
 
     it('returns HTTP 503 when a required dependency is degraded', async () => {
       const degradedHealth = {
-        status: 'degraded',
+        status: 'degraded' as const,
         timestamp: '2026-08-16T00:00:00.000Z',
         services: {
           redis: 'disconnected',
+          database: 'connected',
+          keycloak: 'connected',
+          storage: 'connected',
+          grpc: 'listening',
+          queues: 'unavailable',
+          discord: 'disabled',
           externalUniversityVerification: {
             enabled: true,
             state: 'available' as const,
@@ -53,7 +59,6 @@ describe('AppController', () => {
             retryAfterMs: 0,
           },
         },
-        error: 'Redis unavailable',
       };
       jest.spyOn(appService, 'getHealth').mockResolvedValueOnce(degradedHealth);
       const status = jest.fn();

@@ -48,10 +48,25 @@ import {
   type AccountDeletionFailure,
 } from './lgpd.constants';
 
+interface LgpdCollectionResult {
+  data: Record<string, unknown>;
+  mandatoryErrors: string[];
+  optionalWarnings: string[];
+}
+
+class LgpdCollectionError extends Error {
+  constructor(readonly sources: string[]) {
+    super(`Mandatory LGPD data sources failed: ${sources.join(', ')}`);
+    this.name = 'LgpdCollectionError';
+  }
+}
+
 @Injectable()
 export class LgpdService {
   private readonly logger = new Logger(LgpdService.name);
   private readonly externalRequestTimeoutMs = 30_000;
+  private readonly operationLeaseMs = 30 * 60 * 1000;
+  private readonly cleanupPageSize = 100;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -163,11 +178,6 @@ export class LgpdService {
     try {
       const { stream } = await this.s3Service.downloadFile(request.s3Key);
 
-      await this.prisma.lgpdRequest.updateMany({
-        where: { id, userId },
-        data: { downloadedAt: new Date() },
-      });
-
       return {
         stream,
         fileName: request.fileName || 'dados-lgpd.zip',
@@ -177,11 +187,15 @@ export class LgpdService {
     }
   }
 
-  async processRequest(requestId: string): Promise<void> {
-    const request = await this.prisma.lgpdRequest.findUnique({
-      where: { id: requestId },
+  async markDownloadDelivered(id: string, userId: string): Promise<void> {
+    await this.prisma.lgpdRequest.updateMany({
+      where: { id, userId, status: 'completed' },
+      data: { downloadedAt: new Date() },
     });
+  }
 
+  async processRequest(requestId: string): Promise<void> {
+    const request = await this.claimLgpdRequest(requestId);
     if (!request) return;
 
     if (this.isActiveRequestExpired(request)) {
@@ -189,18 +203,30 @@ export class LgpdService {
       return;
     }
 
+    let archiveUploaded = false;
+    let finalizationStarted = false;
+
     try {
-      await this.prisma.lgpdRequest.update({
-        where: { id: requestId },
-        data: { status: 'processing' },
-      });
+      const collection = await this.collectUserData(request.userId);
+      if (collection.mandatoryErrors.length > 0) {
+        throw new LgpdCollectionError(collection.mandatoryErrors);
+      }
 
-      const userData = await this.collectUserData(request.userId);
+      if (collection.optionalWarnings.length > 0) {
+        collection.data.erros_coleta_opcionais = collection.optionalWarnings;
+      }
 
-      const { s3Key, fileName, fileSize } = await this.createAndUploadZipFile(request.userId, userData);
+      const { s3Key, fileName, fileSize } = await this.createAndUploadZipFile(
+        requestId,
+        request.userId,
+        collection.data,
+        request.s3Key,
+      );
+      archiveUploaded = true;
 
-      await this.prisma.lgpdRequest.update({
-        where: { id: requestId },
+      finalizationStarted = true;
+      const finalized = await this.prisma.lgpdRequest.updateMany({
+        where: { id: requestId, status: 'processing', s3Key },
         data: {
           status: 'completed',
           s3Key,
@@ -209,10 +235,22 @@ export class LgpdService {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
+
+      if (finalized.count === 0) {
+        throw new Error(`LGPD request ${requestId} changed before archive finalization`);
+      }
     } catch (error) {
-      this.logger.error('Error processing LGPD request', error);
-      await this.prisma.lgpdRequest.update({
-        where: { id: requestId },
+      this.logger.error(`Error processing LGPD request ${requestId}`, error);
+
+      // Once an upload has been acknowledged, s3Key was persisted before the upload. Leave the
+      // row in processing if finalization failed so a lease-recovered worker can finalize/overwrite
+      // the deterministic object rather than creating an orphan archive.
+      if (archiveUploaded && finalizationStarted) {
+        return;
+      }
+
+      await this.prisma.lgpdRequest.updateMany({
+        where: { id: requestId, status: 'processing' },
         data: {
           status: 'failed',
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
@@ -221,11 +259,31 @@ export class LgpdService {
     }
   }
 
-  private async collectUserData(userId: string): Promise<Record<string, unknown>> {
+  private async claimLgpdRequest(requestId: string): Promise<LgpdRequest | null> {
+    const staleBefore = new Date(Date.now() - this.operationLeaseMs);
+    const claimed = await this.prisma.lgpdRequest.updateMany({
+      where: {
+        id: requestId,
+        OR: [{ status: 'pending' }, { status: 'processing', updatedAt: { lt: staleBefore } }],
+      },
+      data: { status: 'processing', errorMessage: null },
+    });
+
+    if (claimed.count === 0) {
+      return null;
+    }
+
+    return this.prisma.lgpdRequest.findUnique({ where: { id: requestId } });
+  }
+
+  private async collectUserData(userId: string): Promise<LgpdCollectionResult> {
     const data: Record<string, unknown> = {};
+    const mandatoryErrors: string[] = [];
+    const optionalWarnings: string[] = [];
+    let userProfile: Awaited<ReturnType<UserService['findByKeycloakId']>> = null;
 
     try {
-      const userProfile = await this.userService.findByKeycloakId(userId);
+      userProfile = await this.userService.findByKeycloakId(userId);
       if (userProfile) {
         data.perfil_usuario = {
           id: userProfile.id,
@@ -241,18 +299,33 @@ export class LgpdService {
           data_criacao: userProfile.createdAt,
           data_atualizacao: userProfile.updatedAt,
         };
+      } else {
+        mandatoryErrors.push('perfil_usuario');
       }
+    } catch (error) {
+      this.logger.error('Error collecting user profile data', error);
+      mandatoryErrors.push('perfil_usuario');
+    }
 
+    try {
       const keycloakAttributes = await this.keycloakService.getUserAttributes(userId);
-      if (keycloakAttributes) {
-        data.atributos_cacic_sso = keycloakAttributes;
-      }
+      if (keycloakAttributes) data.atributos_cacic_sso = keycloakAttributes;
+      else mandatoryErrors.push('atributos_cacic_sso');
+    } catch (error) {
+      this.logger.error('Error collecting Keycloak attributes', error);
+      mandatoryErrors.push('atributos_cacic_sso');
+    }
 
+    try {
       const userGroups = await this.keycloakService.getUserGroups(userId);
-      if (userGroups) {
-        data.grupos_cacic_sso = userGroups;
-      }
+      if (userGroups) data.grupos_cacic_sso = userGroups;
+      else mandatoryErrors.push('grupos_cacic_sso');
+    } catch (error) {
+      this.logger.error('Error collecting Keycloak groups', error);
+      mandatoryErrors.push('grupos_cacic_sso');
+    }
 
+    try {
       const basicInfo = await this.keycloakService.getUserBasicInfo(userId);
       if (basicInfo) {
         data.informacoes_basicas_cacic_sso = {
@@ -260,8 +333,15 @@ export class LgpdService {
           email: basicInfo.email,
           atributos: basicInfo.attributes,
         };
+      } else {
+        mandatoryErrors.push('informacoes_basicas_cacic_sso');
       }
+    } catch (error) {
+      this.logger.error('Error collecting Keycloak basic info', error);
+      mandatoryErrors.push('informacoes_basicas_cacic_sso');
+    }
 
+    try {
       const lgpdHistory = await this.prisma.lgpdRequest.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
@@ -278,48 +358,50 @@ export class LgpdService {
         tamanho_arquivo: req.fileSize,
         mensagem_erro: req.errorMessage,
       }));
-
-      try {
-        const discordLinks = await this.discordLinkService.getAllDiscordLinksForUser(userId, true);
-        data.contas_discord_vinculadas = discordLinks.map((link) => ({
-          id: link.id,
-          discord_id: link.discordId,
-          discord_username: link.discordUsername,
-          discord_nome_global: link.discordGlobalName,
-          discord_avatar_hash: link.discordAvatarHash,
-          verificado: link.isVerified,
-          papel_atribuido: link.assignedRole,
-          servidor_convite_usado: link.serverInviteUsed,
-          data_criacao: link.createdAt,
-          data_atualizacao: link.updatedAt,
-          excluido: link.deleted,
-          data_exclusao: link.deletedAt,
-          status: link.deleted ? 'desvinculado' : 'ativo',
-        }));
-      } catch (error) {
-        this.logger.error('Error collecting Discord links data', error);
-        data.contas_discord_vinculadas = {
-          erro: 'Erro ao coletar dados de contas Discord',
-          detalhes: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
-
-      const externalData = await this.collectExternalData(userId, userProfile?.email || '');
-      Object.assign(data, externalData);
     } catch (error) {
-      this.logger.error('Error collecting user data', error);
-      data.erro_coleta = {
-        mensagem: 'Erro ao coletar alguns dados do usuário',
+      this.logger.error('Error collecting LGPD request history', error);
+      mandatoryErrors.push('historico_solicitacoes_lgpd');
+    }
+
+    try {
+      const discordLinks = await this.discordLinkService.getAllDiscordLinksForUser(userId, true);
+      data.contas_discord_vinculadas = discordLinks.map((link) => ({
+        id: link.id,
+        discord_id: link.discordId,
+        discord_username: link.discordUsername,
+        discord_nome_global: link.discordGlobalName,
+        discord_avatar_hash: link.discordAvatarHash,
+        verificado: link.isVerified,
+        papel_atribuido: link.assignedRole,
+        servidor_convite_usado: link.serverInviteUsed,
+        data_criacao: link.createdAt,
+        data_atualizacao: link.updatedAt,
+        excluido: link.deleted,
+        data_exclusao: link.deletedAt,
+        status: link.deleted ? 'desvinculado' : 'ativo',
+      }));
+    } catch (error) {
+      this.logger.error('Error collecting Discord links data', error);
+      optionalWarnings.push('contas_discord_vinculadas');
+      data.contas_discord_vinculadas = {
+        erro: 'Erro ao coletar dados de contas Discord',
         detalhes: error instanceof Error ? error.message : 'Unknown error',
-        data_erro: new Date().toISOString(),
       };
     }
 
-    return data;
+    const external = await this.collectExternalData(userId, userProfile?.email || '');
+    Object.assign(data, external.data);
+    mandatoryErrors.push(...external.errors);
+
+    return { data, mandatoryErrors, optionalWarnings };
   }
 
-  private async collectExternalData(userId: string, email: string): Promise<Record<string, unknown>> {
+  private async collectExternalData(
+    userId: string,
+    email: string,
+  ): Promise<{ data: Record<string, unknown>; errors: string[] }> {
     const externalData: Record<string, unknown> = {};
+    const errors: string[] = [];
     const backends = this.getExternalLgpdBackends();
 
     await Promise.all(
@@ -338,21 +420,36 @@ export class LgpdService {
             detalhes: error instanceof Error ? error.message : 'Unknown error',
             data_erro: new Date().toISOString(),
           };
+          errors.push(category);
         }
       }),
     );
 
-    return externalData;
+    return { data: externalData, errors };
   }
 
   private async createAndUploadZipFile(
+    requestId: string,
     userId: string,
     userData: Record<string, unknown>,
+    existingS3Key?: string | null,
   ): Promise<{ s3Key: string; fileName: string; fileSize: number }> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `dados-lgpd-${userId.substring(0, 8)}-${timestamp}.zip`;
+    const generationDate = new Date();
+    const timestamp = generationDate.toISOString().replace(/[:.]/g, '-');
+    // The request id is part of the name so recovery overwrites one deterministic object instead of
+    // producing a new unreferenced archive on every retry.
+    const fileName = `dados-lgpd-${userId.substring(0, 8)}-${requestId}.zip`;
+    const s3Key = existingS3Key ?? this.s3Service.generateFileKey('lgpd', userId, fileName, generationDate);
 
-    const s3Key = this.s3Service.generateFileKey('lgpd', userId, fileName);
+    if (!existingS3Key) {
+      const prepared = await this.prisma.lgpdRequest.updateMany({
+        where: { id: requestId, status: 'processing', s3Key: null },
+        data: { s3Key, fileName },
+      });
+      if (prepared.count === 0) {
+        throw new Error(`LGPD request ${requestId} changed before archive preparation`);
+      }
+    }
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     const uploadStream = new PassThrough();
@@ -425,24 +522,50 @@ export class LgpdService {
 
   async cleanupExpiredFiles(): Promise<number> {
     const now = new Date();
-    const expiredRequests = await this.prisma.lgpdRequest.findMany({
-      where: {
-        status: 'completed',
-        expiresAt: { lt: now },
-      },
-    });
-
     const deletedRequestIds: string[] = [];
+    const seenRequestIds = new Set<string>();
+    let cursor: string | undefined;
 
-    for (const request of expiredRequests) {
-      if (request.s3Key) {
+    while (true) {
+      const expiredRequests = await this.prisma.lgpdRequest.findMany({
+        where: {
+          status: 'completed',
+          expiresAt: { lt: now },
+          ...(cursor ? { id: { gt: cursor } } : {}),
+        },
+        orderBy: { id: 'asc' },
+        take: this.cleanupPageSize,
+      });
+
+      const newRequests = expiredRequests.filter((request) => !seenRequestIds.has(request.id));
+      if (newRequests.length === 0) {
+        break;
+      }
+
+      for (const request of newRequests) {
+        seenRequestIds.add(request.id);
+        cursor = request.id;
+        if (!request.s3Key) {
+          continue;
+        }
+
         try {
           await this.s3Service.deleteFile(request.s3Key);
           deletedRequestIds.push(request.id);
           this.logger.debug(`Deleted expired LGPD file from S3: ${request.s3Key}`);
         } catch (error) {
           this.logger.error(`Error deleting S3 file ${request.s3Key}`, error);
+          // Keep the object reference and persist the failure so the next scheduler run has a
+          // durable retry obligation instead of silently forgetting the object.
+          await this.prisma.lgpdRequest.updateMany({
+            where: { id: request.id, status: 'completed', s3Key: request.s3Key },
+            data: { errorMessage: this.serializeFailureDetails('cleanupExpiredFiles', error) },
+          });
         }
+      }
+
+      if (newRequests.length < this.cleanupPageSize) {
+        break;
       }
     }
 
@@ -470,6 +593,137 @@ export class LgpdService {
     return this.expireStaleActiveRequests();
   }
 
+  async enqueueDueHardDeletions(): Promise<number> {
+    let enqueued = 0;
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const requests = await this.prisma.deleteAccountRequest.findMany({
+        where: {
+          status: { in: ['pending', 'failed'] },
+          cancelledAt: null,
+          completedAt: null,
+          scheduledHardDeleteAt: { lte: new Date() },
+        },
+        orderBy: { id: 'asc' },
+        take: this.cleanupPageSize,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      for (const request of requests) {
+        try {
+          await this.lgpdQueue.add(
+            LGPD_JOBS.HARD_DELETE_ACCOUNT,
+            { requestId: request.id },
+            { jobId: `lgpd-hard-delete-${request.id}` },
+          );
+          enqueued += 1;
+          if (request.status === 'failed') {
+            await this.prisma.deleteAccountRequest.updateMany({
+              where: { id: request.id, status: 'failed', cancelledAt: null, completedAt: null },
+              data: { status: 'pending', errorMessage: null },
+            });
+          }
+        } catch (error) {
+          this.logger.error(`Failed to recover hard deletion job ${request.id}`, error);
+        }
+      }
+      if (requests.length < this.cleanupPageSize) break;
+      cursor = requests.at(-1)?.id;
+    }
+
+    return enqueued;
+  }
+
+  async enqueuePendingSoftDeletions(): Promise<number> {
+    let enqueued = 0;
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const requests = await this.prisma.deleteAccountRequest.findMany({
+        where: {
+          status: { in: ['pending', 'failed'] },
+          softDeletedAt: null,
+          cancelledAt: null,
+          completedAt: null,
+        },
+        orderBy: { id: 'asc' },
+        take: this.cleanupPageSize,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      for (const request of requests) {
+        try {
+          await this.lgpdQueue.add(
+            LGPD_JOBS.SOFT_DELETE_ACCOUNT,
+            { requestId: request.id },
+            { jobId: `lgpd-soft-delete-${request.id}` },
+          );
+          enqueued += 1;
+          if (request.status === 'failed') {
+            await this.prisma.deleteAccountRequest.updateMany({
+              where: { id: request.id, status: 'failed', softDeletedAt: null, cancelledAt: null, completedAt: null },
+              data: { status: 'pending', errorMessage: null },
+            });
+          }
+        } catch (error) {
+          this.logger.error(`Failed to recover soft deletion job ${request.id}`, error);
+        }
+      }
+      if (requests.length < this.cleanupPageSize) break;
+      cursor = requests.at(-1)?.id;
+    }
+
+    return enqueued;
+  }
+
+  async reconcileCancelledAccountDeletions(): Promise<number> {
+    let reconciled = 0;
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const requests = await this.prisma.deleteAccountRequest.findMany({
+        where: {
+          status: 'completed',
+          cancelledAt: { not: null },
+          errorMessage: { not: null },
+        },
+        orderBy: { id: 'asc' },
+        take: this.cleanupPageSize,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      for (const request of requests) {
+        try {
+          await this.keycloakService.setUserEnabled(request.userId, true);
+          await this.keycloakService.updateUserAttributes(
+            request.userId,
+            {
+              accountDeletionRequested: ['false'],
+              accountDeletionRequestId: [''],
+              accountDeletionScheduledHardDeleteAt: [''],
+            },
+            { skipValidation: true },
+          );
+          await this.notifyExternalDeletionBackends('cancel', request);
+          await this.prisma.deleteAccountRequest.updateMany({
+            where: { id: request.id, status: 'completed', cancelledAt: { not: null }, errorMessage: { not: null } },
+            data: {
+              servicesNotified: [
+                'cancellation.recorded',
+                'keycloak.enabled',
+                'keycloak.attributes-cleared',
+                'external-backends.cancel',
+              ],
+              errorMessage: null,
+            },
+          });
+          reconciled += 1;
+        } catch (error) {
+          this.logger.error(`Failed to reconcile cancelled account deletion ${request.id}`, error);
+        }
+      }
+      if (requests.length < this.cleanupPageSize) break;
+      cursor = requests.at(-1)?.id;
+    }
+
+    return reconciled;
+  }
+
   private async expireStaleActiveRequests(userId?: string): Promise<number> {
     const result = await this.prisma.lgpdRequest.updateMany({
       where: {
@@ -491,8 +745,8 @@ export class LgpdService {
   }
 
   private async markActiveRequestExpired(requestId: string): Promise<void> {
-    await this.prisma.lgpdRequest.update({
-      where: { id: requestId },
+    await this.prisma.lgpdRequest.updateMany({
+      where: { id: requestId, status: 'processing' },
       data: {
         status: 'failed',
         errorMessage: LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE,
@@ -590,125 +844,145 @@ export class LgpdService {
     };
   }
 
-  async processAccountSoftDeletion(requestId: string): Promise<void> {
-    const request = await this.prisma.deleteAccountRequest.findUnique({
-      where: { id: requestId },
+  private async claimDeleteAccountRequest(
+    requestId: string,
+    options: { requireSoftDeletionPending?: boolean } = {},
+  ): Promise<DeleteAccountRequest | null> {
+    const staleBefore = new Date(Date.now() - this.operationLeaseMs);
+    const claimed = await this.prisma.deleteAccountRequest.updateMany({
+      where: {
+        id: requestId,
+        cancelledAt: null,
+        completedAt: null,
+        ...(options.requireSoftDeletionPending ? { softDeletedAt: null } : {}),
+        OR: [{ status: 'pending' }, { status: 'processing', updatedAt: { lt: staleBefore } }],
+      },
+      data: { status: 'processing', errorMessage: null },
     });
+
+    if (claimed.count === 0) {
+      return null;
+    }
+
+    return this.prisma.deleteAccountRequest.findUnique({ where: { id: requestId } });
+  }
+
+  async processAccountSoftDeletion(requestId: string): Promise<void> {
+    const request = await this.claimDeleteAccountRequest(requestId, { requireSoftDeletionPending: true });
 
     if (!request) {
       this.logger.warn(`Delete account request ${requestId} not found`);
       return;
     }
 
+    const notifiedServices: string[] = [];
+    const failures: AccountDeletionFailure[] = [];
+    let externalScheduleAttempted = false;
+
     try {
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
-        data: { status: 'processing' },
-      });
+      await this.keycloakService.setUserEnabled(request.userId, false);
+      notifiedServices.push('keycloak.setUserEnabled');
 
-      const notifiedServices: string[] = [];
-      const softDeletionServices = [
-        'keycloak.setUserEnabled',
-        'keycloak.updateUserAttributes',
-        'external-backends.schedule',
-      ];
+      await this.keycloakService.updateUserAttributes(
+        request.userId,
+        {
+          accountDeletionRequested: ['true'],
+          accountDeletionRequestId: [request.id],
+          accountDeletionScheduledHardDeleteAt: [
+            (request.scheduledHardDeleteAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)).toISOString(),
+          ],
+        },
+        { skipValidation: true },
+      );
+      notifiedServices.push('keycloak.updateUserAttributes');
 
-      try {
-        await this.keycloakService.setUserEnabled(request.userId, false);
-        notifiedServices.push('keycloak.setUserEnabled');
-      } catch (error) {
-        await this.markAccountDeletionFailed(
-          requestId,
-          notifiedServices,
-          [this.toAccountDeletionFailure('keycloak', 'setUserEnabled', error)],
-          softDeletionServices.filter(
-            (service) => !notifiedServices.includes(service) && service !== 'keycloak.setUserEnabled',
-          ),
-        );
-        return;
-      }
+      externalScheduleAttempted = true;
+      await this.notifyExternalDeletionBackends('schedule', request);
+      notifiedServices.push('external-backends.schedule');
 
-      try {
-        await this.keycloakService.updateUserAttributes(
-          request.userId,
-          {
-            accountDeletionRequested: ['true'],
-            accountDeletionRequestId: [request.id],
-            accountDeletionScheduledHardDeleteAt: [
-              (request.scheduledHardDeleteAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)).toISOString(),
-            ],
-          },
-          { skipValidation: true },
-        );
-        notifiedServices.push('keycloak.updateUserAttributes');
-      } catch (error) {
-        await this.markAccountDeletionFailed(
-          requestId,
-          notifiedServices,
-          [this.toAccountDeletionFailure('keycloak', 'updateUserAttributes', error)],
-          softDeletionServices.filter(
-            (service) => !notifiedServices.includes(service) && service !== 'keycloak.updateUserAttributes',
-          ),
-        );
-        return;
-      }
-
-      try {
-        await this.notifyExternalDeletionBackends('schedule', request);
-        notifiedServices.push('external-backends.schedule');
-      } catch (error) {
-        await this.markAccountDeletionFailed(
-          requestId,
-          notifiedServices,
-          [this.toAccountDeletionFailure('external-backends', 'schedule', error)],
-          softDeletionServices.filter(
-            (service) => !notifiedServices.includes(service) && service !== 'external-backends.schedule',
-          ),
-        );
-        return;
-      }
-
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
+      const finalized = await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, status: 'processing' },
         data: {
           status: 'pending',
           softDeletedAt: new Date(),
           servicesNotified: notifiedServices,
+          errorMessage: null,
         },
       });
+      if (finalized.count === 0) {
+        throw new Error(`Account deletion request ${requestId} changed before soft deletion was finalized`);
+      }
 
       this.logger.debug(
         `Account soft deletion completed for user ${request.userId}. Services notified: ${notifiedServices.join(', ')}`,
       );
     } catch (error) {
-      this.logger.error('Error processing account deletion', error);
-
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'failed',
-          servicesNotified: [],
-          errorMessage: this.serializeFailureDetails('processAccountSoftDeletion', error),
-        },
-      });
+      failures.push(this.toAccountDeletionFailure('soft-deletion', 'apply', error));
+      failures.push(...(await this.compensateSoftDeletion(request, notifiedServices, externalScheduleAttempted)));
+      await this.markAccountDeletionFailed(
+        requestId,
+        notifiedServices,
+        failures,
+        ['keycloak.setUserEnabled', 'keycloak.updateUserAttributes', 'external-backends.schedule'].filter(
+          (service) => !notifiedServices.includes(service),
+        ),
+      );
     }
   }
 
+  private async compensateSoftDeletion(
+    request: DeleteAccountRequest,
+    notifiedServices: string[],
+    externalScheduleAttempted: boolean,
+  ): Promise<AccountDeletionFailure[]> {
+    const failures: AccountDeletionFailure[] = [];
+
+    if (externalScheduleAttempted) {
+      try {
+        await this.notifyExternalDeletionBackends('cancel', request);
+        notifiedServices.push('external-backends.cancel');
+      } catch (error) {
+        failures.push(this.toAccountDeletionFailure('external-backends', 'cancel', error));
+      }
+    }
+
+    if (notifiedServices.includes('keycloak.updateUserAttributes')) {
+      try {
+        await this.keycloakService.updateUserAttributes(
+          request.userId,
+          {
+            accountDeletionRequested: ['false'],
+            accountDeletionRequestId: [''],
+            accountDeletionScheduledHardDeleteAt: [''],
+          },
+          { skipValidation: true },
+        );
+        notifiedServices.push('keycloak.updateUserAttributes.compensated');
+      } catch (error) {
+        failures.push(this.toAccountDeletionFailure('keycloak', 'clearDeletionAttributes', error));
+      }
+    }
+
+    if (notifiedServices.includes('keycloak.setUserEnabled')) {
+      try {
+        await this.keycloakService.setUserEnabled(request.userId, true);
+        notifiedServices.push('keycloak.setUserEnabled.compensated');
+      } catch (error) {
+        failures.push(this.toAccountDeletionFailure('keycloak', 'setUserEnabled.compensate', error));
+      }
+    }
+
+    return failures;
+  }
+
   async processAccountHardDeletion(requestId: string): Promise<void> {
-    const request = await this.prisma.deleteAccountRequest.findUnique({
-      where: { id: requestId },
-    });
+    const request = await this.claimDeleteAccountRequest(requestId);
 
     if (!request || request.cancelledAt || request.status === 'completed') {
       return;
     }
 
     try {
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
-        data: { status: 'processing' },
-      });
-
       const notifiedServices: string[] = [];
       const failures: AccountDeletionFailure[] = [];
       const hardDeletionServices = [
@@ -735,8 +1009,8 @@ export class LgpdService {
       }
 
       if (failures.some((failure) => failure.service === 'application-data')) {
-        await this.prisma.deleteAccountRequest.update({
-          where: { id: requestId },
+        await this.prisma.deleteAccountRequest.updateMany({
+          where: { id: requestId, status: 'processing' },
           data: {
             status: 'failed',
             servicesNotified: notifiedServices,
@@ -766,8 +1040,8 @@ export class LgpdService {
       }
 
       if (failures.length > 0) {
-        await this.prisma.deleteAccountRequest.update({
-          where: { id: requestId },
+        await this.prisma.deleteAccountRequest.updateMany({
+          where: { id: requestId, status: 'processing' },
           data: {
             status: 'failed',
             servicesNotified: notifiedServices,
@@ -780,8 +1054,8 @@ export class LgpdService {
         return;
       }
 
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
+      const finalized = await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, status: 'processing' },
         data: {
           status: 'completed',
           completedAt: new Date(),
@@ -792,10 +1066,13 @@ export class LgpdService {
           reason: null,
         },
       });
+      if (finalized.count === 0) {
+        throw new Error(`Account deletion request ${requestId} changed before hard deletion was finalized`);
+      }
     } catch (error) {
       this.logger.error('Error processing account hard deletion', error);
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
+      await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, status: 'processing' },
         data: {
           status: 'failed',
           servicesNotified: [],
@@ -855,6 +1132,9 @@ export class LgpdService {
       this.logger.warn(
         `Failed to delete ${fileDeletionFailures.length} S3 file(s): ${fileDeletionFailures.join('; ')}`,
       );
+      // Keep every source row and its object key. The hard-deletion request is marked failed by
+      // the caller, and the preserved references make the failed storage obligations retryable.
+      throw new Error(`Mandatory storage deletion failed: ${fileDeletionFailures.join('; ')}`);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -920,25 +1200,66 @@ export class LgpdService {
       throw new NotFoundException('Solicitação de exclusão não encontrada');
     }
 
-    await this.keycloakService.setUserEnabled(request.userId, true);
-    await this.keycloakService.updateUserAttributes(
-      request.userId,
-      {
-        accountDeletionRequested: ['false'],
-        accountDeletionRequestId: [''],
-        accountDeletionScheduledHardDeleteAt: [''],
+    // Record cancellation before touching any external system. A deletion worker can only claim
+    // pending rows, so a successful claim here prevents it from starting afterward.
+    const cancellationTime = new Date();
+    const claimed = await this.prisma.deleteAccountRequest.updateMany({
+      where: {
+        id: requestId,
+        status: { in: ['pending', 'failed'] },
+        cancelledAt: null,
+        completedAt: null,
       },
-      { skipValidation: true },
-    );
-    await this.notifyExternalDeletionBackends('cancel', request);
-
-    const updated = await this.prisma.deleteAccountRequest.update({
-      where: { id: requestId },
       data: {
         status: 'completed',
-        cancelledAt: new Date(),
-        completedAt: new Date(),
+        cancelledAt: cancellationTime,
+        completedAt: cancellationTime,
+        servicesNotified: ['cancellation.recorded'],
       },
+    });
+
+    if (claimed.count === 0) {
+      throw new BadRequestException('A solicitação já está sendo processada ou foi finalizada.');
+    }
+
+    try {
+      await this.keycloakService.setUserEnabled(request.userId, true);
+      await this.keycloakService.updateUserAttributes(
+        request.userId,
+        {
+          accountDeletionRequested: ['false'],
+          accountDeletionRequestId: [''],
+          accountDeletionScheduledHardDeleteAt: [''],
+        },
+        { skipValidation: true },
+      );
+      await this.notifyExternalDeletionBackends('cancel', request);
+      await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, status: 'completed', cancelledAt: cancellationTime },
+        data: {
+          servicesNotified: [
+            'cancellation.recorded',
+            'keycloak.enabled',
+            'keycloak.attributes-cleared',
+            'external-backends.cancel',
+          ],
+          errorMessage: null,
+        },
+      });
+    } catch (error) {
+      // Keep the terminal local cancellation and retain a durable reconciliation error. No worker
+      // can claim this row, so a later repair process can safely retry the external cancellation.
+      await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, status: 'completed', cancelledAt: cancellationTime },
+        data: {
+          errorMessage: this.serializeFailureDetails('undoAccountDeletionRequest.reconcile', error),
+        },
+      });
+      throw error;
+    }
+
+    const updated = await this.prisma.deleteAccountRequest.findUniqueOrThrow({
+      where: { id: requestId },
     });
 
     return this.toAdminDeleteAccountRequestDto(updated);
@@ -953,21 +1274,25 @@ export class LgpdService {
       throw new NotFoundException('Solicitação de exclusão não encontrada');
     }
 
-    await this.prisma.deleteAccountRequest.update({
-      where: { id: requestId },
-      data: { scheduledHardDeleteAt: new Date() },
+    const scheduledHardDeleteAt = new Date();
+    const scheduled = await this.prisma.deleteAccountRequest.updateMany({
+      where: { id: requestId, cancelledAt: null, completedAt: null },
+      data: { scheduledHardDeleteAt },
     });
+    if (scheduled.count === 0) {
+      throw new BadRequestException('A solicitação já está sendo processada ou foi finalizada.');
+    }
 
     try {
       await this.lgpdQueue.add(
         LGPD_JOBS.HARD_DELETE_ACCOUNT,
         { requestId },
-        { jobId: `lgpd-hard-delete-now-${requestId}-${Date.now()}` },
+        { jobId: `lgpd-hard-delete-${requestId}` },
       );
     } catch (error) {
       this.logger.error(`Failed to enqueue immediate hard deletion request ${requestId}`, error);
-      await this.prisma.deleteAccountRequest.update({
-        where: { id: requestId },
+      await this.prisma.deleteAccountRequest.updateMany({
+        where: { id: requestId, cancelledAt: null, completedAt: null },
         data: {
           status: 'failed',
           errorMessage: this.serializeFailureDetails('lgpdQueue.add.hard-delete-now', error),
@@ -1028,8 +1353,8 @@ export class LgpdService {
       failures,
     );
 
-    await this.prisma.deleteAccountRequest.update({
-      where: { id: requestId },
+    await this.prisma.deleteAccountRequest.updateMany({
+      where: { id: requestId, status: 'processing' },
       data: {
         status: 'failed',
         servicesNotified: notifiedServices,
@@ -1050,6 +1375,9 @@ export class LgpdService {
     return JSON.stringify({
       failures,
       remainingServices,
+      partialState: failures.some((failure) => failure.operation.includes('compensate'))
+        ? 'partially_disabled'
+        : undefined,
       failedAt: new Date().toISOString(),
     });
   }
@@ -1082,13 +1410,20 @@ export class LgpdService {
     audience?: string;
   }[] {
     const raw = process.env.LGPD_DELETION_GRPC_BACKENDS;
-    if (!raw) return [];
+    if (!raw) {
+      if (process.env.NODE_ENV === 'production' && process.env.LGPD_DELETION_ALLOW_NO_BACKENDS !== 'true') {
+        throw new Error(
+          'LGPD_DELETION_GRPC_BACKENDS is required in production; set LGPD_DELETION_ALLOW_NO_BACKENDS=true to opt out explicitly',
+        );
+      }
+      return [];
+    }
 
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return [];
+      if (!Array.isArray(parsed)) throw new Error('LGPD_DELETION_GRPC_BACKENDS must be a JSON array');
 
-      return parsed.filter(
+      const isValid = parsed.every(
         (
           backend,
         ): backend is {
@@ -1110,9 +1445,24 @@ export class LgpdService {
           );
         },
       );
+      if (!isValid) {
+        throw new Error('LGPD_DELETION_GRPC_BACKENDS contains an invalid backend entry');
+      }
+      const backends = parsed as {
+        name: string;
+        target: string;
+        actions: ('schedule' | 'cancel' | 'delete')[];
+        audience?: string;
+      }[];
+      if (new Set(backends.map((backend) => backend.name)).size !== backends.length) {
+        throw new Error('LGPD_DELETION_GRPC_BACKENDS contains duplicate backend names');
+      }
+      return backends;
     } catch (error) {
-      this.logger.error('Invalid LGPD_DELETION_GRPC_BACKENDS JSON', error);
-      return [];
+      this.logger.error('Invalid LGPD_DELETION_GRPC_BACKENDS configuration', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      throw error;
     }
   }
 
@@ -1123,39 +1473,61 @@ export class LgpdService {
     category?: string;
   }[] {
     const raw = process.env.LGPD_GRPC_BACKENDS;
-    if (!raw) return [];
+    if (!raw) {
+      if (process.env.NODE_ENV === 'production' && process.env.LGPD_ALLOW_NO_BACKENDS !== 'true') {
+        throw new Error(
+          'LGPD_GRPC_BACKENDS is required in production; set LGPD_ALLOW_NO_BACKENDS=true to opt out explicitly',
+        );
+      }
+      return [];
+    }
 
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return [];
+      if (!Array.isArray(parsed)) throw new Error('LGPD_GRPC_BACKENDS must be a JSON array');
 
-      return parsed
-        .filter(
-          (
-            backend,
-          ): backend is {
-            name: string;
-            target: string;
-            audience?: string;
-            category?: string;
-          } => {
-            if (typeof backend !== 'object' || backend === null) {
-              return false;
-            }
+      const isValid = parsed.every(
+        (
+          backend,
+        ): backend is {
+          name: string;
+          target: string;
+          audience?: string;
+          category?: string;
+        } => {
+          if (typeof backend !== 'object' || backend === null) {
+            return false;
+          }
 
-            const candidate = backend as Record<string, unknown>;
-            return typeof candidate['name'] === 'string' && typeof candidate['target'] === 'string';
-          },
-        )
-        .map((backend) => ({
-          name: backend.name,
-          target: backend.target,
-          audience: backend.audience,
-          category: backend.category,
-        }));
+          const candidate = backend as Record<string, unknown>;
+          return typeof candidate['name'] === 'string' && typeof candidate['target'] === 'string';
+        },
+      );
+      if (!isValid) {
+        throw new Error('LGPD_GRPC_BACKENDS contains an invalid backend entry');
+      }
+      const backends = (
+        parsed as {
+          name: string;
+          target: string;
+          audience?: string;
+          category?: string;
+        }[]
+      ).map((backend) => ({
+        name: backend.name,
+        target: backend.target,
+        audience: backend.audience,
+        category: backend.category,
+      }));
+      if (new Set(backends.map((backend) => backend.name)).size !== backends.length) {
+        throw new Error('LGPD_GRPC_BACKENDS contains duplicate backend names');
+      }
+      return backends;
     } catch (error) {
-      this.logger.error('Invalid LGPD_GRPC_BACKENDS JSON', error);
-      return [];
+      this.logger.error('Invalid LGPD_GRPC_BACKENDS configuration', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      throw error;
     }
   }
 

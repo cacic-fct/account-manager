@@ -129,20 +129,20 @@ describe('DocumentManagementService', () => {
   });
 
   it('removes approved document storage and sensitive fields', async () => {
-    const { service, prisma, s3Service } = createContext();
+    const { service, s3Service, tx } = createContext();
     const document = createDocument();
 
     await service.cleanupApprovedDocument(document);
 
     expect(s3Service.deleteFile).toHaveBeenCalledWith('student-verification/user-1/generated-proof.pdf');
-    expect(prisma.studentVerificationDocument.update).toHaveBeenCalledWith({
-      where: { id: 'document-1' },
-      data: {
-        authenticationCode: null,
-        s3Key: null,
-        filePath: '',
-      },
-    });
+    expect(tx.studentVerificationDocument.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({ id: 'document-1', s3Key: 'student-verification/user-1/generated-proof.pdf' }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({ authenticationCode: null, s3Key: null, filePath: '' }),
+      }),
+    );
   });
 
   it('clears sensitive fields even when an approved document has no S3 key', async () => {
@@ -165,18 +165,18 @@ describe('DocumentManagementService', () => {
     });
   });
 
-  it('logs cleanup failures without throwing', async () => {
-    const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.update.mockRejectedValue(new Error('database unavailable'));
+  it('surfaces cleanup failures while retaining the durable row reference', async () => {
+    const { service, tx } = createContext();
+    tx.studentVerificationDocument.updateMany.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(service.cleanupApprovedDocument(createDocument())).resolves.toBeUndefined();
+    await expect(service.cleanupApprovedDocument(createDocument())).rejects.toThrow('database unavailable');
   });
 
-  it('logs non-Error cleanup failures without throwing', async () => {
-    const { service, prisma } = createContext();
-    prisma.studentVerificationDocument.update.mockRejectedValue('database unavailable');
+  it('surfaces non-Error cleanup failures', async () => {
+    const { service, tx } = createContext();
+    tx.studentVerificationDocument.updateMany.mockRejectedValue('database unavailable');
 
-    await expect(service.cleanupApprovedDocument(createDocument())).resolves.toBeUndefined();
+    await expect(service.cleanupApprovedDocument(createDocument())).rejects.toBe('database unavailable');
   });
 
   it('purges expired pending and rejected files while preserving audit records', async () => {
@@ -189,7 +189,7 @@ describe('DocumentManagementService', () => {
 
     expect(s3Service.deleteFile).toHaveBeenCalledWith('pending-key');
     expect(s3Service.deleteFile).toHaveBeenCalledWith('rejected-key');
-    expect(tx.studentVerificationDocument.updateMany).toHaveBeenCalledTimes(2);
+    expect(tx.studentVerificationDocument.updateMany).toHaveBeenCalledTimes(4);
     expect(tx.studentVerificationLog.create).toHaveBeenCalledTimes(1);
     const logCall = tx.studentVerificationLog.create.mock.calls[0][0];
     expect(logCall.data).toMatchObject({
@@ -208,6 +208,6 @@ describe('DocumentManagementService', () => {
     s3Service.deleteFile.mockRejectedValue(new Error('storage unavailable'));
 
     await expect(service.cleanupExpiredDocuments()).resolves.toBeUndefined();
-    expect(tx.studentVerificationDocument.updateMany).not.toHaveBeenCalled();
+    expect(tx.studentVerificationDocument.updateMany).toHaveBeenCalledTimes(1);
   });
 });

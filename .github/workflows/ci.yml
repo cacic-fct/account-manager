@@ -68,6 +68,7 @@ jobs:
         project:
           - account-backend
           - account-frontend
+          - account-privacy
           - cookie-banner
 
     if: >
@@ -152,6 +153,7 @@ jobs:
         project:
           - account-backend
           - account-frontend
+          - account-privacy
           - cookie-banner
 
     if: >
@@ -252,6 +254,9 @@ jobs:
 
       - name: Build apps and libraries
         run: bunx nx run-many --target=build --projects=account-frontend,account-backend,m2m-contracts,account-privacy,cookie-banner,shared-types,shared-utils --parallel=3
+
+      - name: Verify published package artifacts
+        run: bun run verify:packages
 
   checks:
     name: Lint, test, and build

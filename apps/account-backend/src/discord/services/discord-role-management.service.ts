@@ -12,6 +12,7 @@ import {
 import { PERMISSION_GROUP_DISCORD_ROLE_IDS } from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DISCORD_AUTOMATED_ROLE_IDS } from '../constants/discord-managed-roles';
+import { withDiscordTimeout } from './discord-timeout.util';
 
 type RoleSettingInput = {
   roleId: string;
@@ -65,12 +66,12 @@ export class DiscordRoleManagementService {
 
   async syncRolesFromDiscord(client: Client, guildId: string): Promise<void> {
     try {
-      const guild = await client.guilds.fetch(guildId);
+      const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
       if (!guild) {
         throw new HttpException('Guild not found', HttpStatus.NOT_FOUND);
       }
 
-      const roles = await guild.roles.fetch();
+      const roles = await withDiscordTimeout(guild.roles.fetch());
 
       for (const [, role] of roles) {
         if (role.name === '@everyone') continue;
@@ -161,23 +162,25 @@ export class DiscordRoleManagementService {
       throw new HttpException(`Some roles are not selectable: ${invalidRoleNames.join(', ')}`, HttpStatus.BAD_REQUEST);
     }
 
-    await this.prisma.discordRoleSetting.updateMany({
-      data: { isEnabledForSelection: false },
-    });
-
-    if (enabledRoleIds.length > 0) {
-      await this.prisma.discordRoleSetting.updateMany({
-        where: {
-          roleId: { in: enabledRoleIds },
-          isBlacklisted: false,
-          hasPermissions: false,
-          NOT: {
-            roleId: { in: this.getAutomatedRoleIds() },
-          },
-        },
-        data: { isEnabledForSelection: true },
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.discordRoleSetting.updateMany({
+        data: { isEnabledForSelection: false },
       });
-    }
+
+      if (enabledRoleIds.length > 0) {
+        await transaction.discordRoleSetting.updateMany({
+          where: {
+            roleId: { in: enabledRoleIds },
+            isBlacklisted: false,
+            hasPermissions: false,
+            NOT: {
+              roleId: { in: this.getAutomatedRoleIds() },
+            },
+          },
+          data: { isEnabledForSelection: true },
+        });
+      }
+    });
 
     this.logger.debug(`Updated role selection: ${enabledRoleIds.length} roles enabled`);
   }
@@ -192,7 +195,7 @@ export class DiscordRoleManagementService {
         throw new HttpException('Discord account not linked', HttpStatus.BAD_REQUEST);
       }
 
-      const guild = await client.guilds.fetch(guildId);
+      const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
 
       if (!guild) {
         throw new HttpException('Discord guild not found', HttpStatus.INTERNAL_SERVER_ERROR);
@@ -200,7 +203,7 @@ export class DiscordRoleManagementService {
 
       let member: GuildMember;
       try {
-        member = await guild.members.fetch(discordLink.discordId);
+        member = await withDiscordTimeout(guild.members.fetch(discordLink.discordId));
       } catch {
         throw new HttpException('User not found in Discord server. Please rejoin the server.', HttpStatus.BAD_REQUEST);
       }
@@ -258,8 +261,8 @@ export class DiscordRoleManagementService {
       throw new HttpException('Some roles are not selectable', HttpStatus.BAD_REQUEST);
     }
 
-    const guild = await client.guilds.fetch(guildId);
-    const member = await guild.members.fetch(discordLink.discordId);
+    const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
+    const member = await withDiscordTimeout(guild.members.fetch(discordLink.discordId));
 
     const allSelectableRoles = await this.prisma.discordRoleSetting.findMany({
       where: {
@@ -279,23 +282,36 @@ export class DiscordRoleManagementService {
     const rolesToAdd = dto.selectedRoleIds.filter((roleId) => !currentSelectableRoleIds.includes(roleId));
     const reason = `CACiC self-service role selection by account ${userId}`;
 
+    const failedRoleIds: string[] = [];
     for (const roleId of rolesToRemove) {
       try {
-        await member.roles.remove(roleId, reason);
+        await withDiscordTimeout(member.roles.remove(roleId, reason));
       } catch (error) {
         this.logger.warn(`Failed to remove role ${roleId} from user ${userId}:`, error);
+        failedRoleIds.push(roleId);
       }
     }
 
     for (const roleId of rolesToAdd) {
       try {
-        await member.roles.add(roleId, reason);
+        await withDiscordTimeout(member.roles.add(roleId, reason));
       } catch (error) {
         this.logger.warn(`Failed to add role ${roleId} to user ${userId}:`, error);
+        failedRoleIds.push(roleId);
       }
     }
 
-    await member.fetch(true);
+    if (failedRoleIds.length > 0) {
+      throw new HttpException(
+        {
+          message: 'Discord role update completed only partially.',
+          failedRoleIds,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    await withDiscordTimeout(member.fetch(true));
     const updatedRoles = selectableRoles.filter((role) => member.roles.cache.has(role.roleId));
 
     this.logger.debug(`Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`);

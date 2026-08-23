@@ -109,6 +109,7 @@ export class DiscordOAuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -126,6 +127,7 @@ export class DiscordOAuthService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

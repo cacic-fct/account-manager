@@ -33,7 +33,6 @@ type AccountLinkingServiceMock = {
 
 const createSession = (keycloakId = 'secondary-user'): AuthSession => ({
   user: {
-    id: 'local-secondary-user',
     email: 'secondary@example.com',
     keycloakId,
     isOnboarded: true,
@@ -123,24 +122,19 @@ describe('AccountLinkingController', () => {
     );
   });
 
-  it('switches the session when a completed merge keeps another account', async () => {
+  it('destroys the secondary session when a completed merge keeps another account', async () => {
     accountLinkingService.getRequest.mockResolvedValue(createMergeRequest());
-    userService.findByKeycloakId.mockResolvedValue({
-      id: 'local-primary-user',
-      email: 'primary@example.com',
-      keycloakId: 'primary-user',
-      isOnboarded: true,
-    });
 
-    await controller.getMergeRequest('merge-request-1', session);
+    await expect(controller.getMergeRequest('merge-request-1', session)).rejects.toThrow(
+      'Account merge completed; sign in again with the primary account',
+    );
 
     expect(accountLinkingService.getRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
-    expect(session.user).toEqual({
-      id: 'local-primary-user',
-      email: 'primary@example.com',
-      keycloakId: 'primary-user',
-      isOnboarded: true,
-    });
+    expect(session.user).toBeUndefined();
+    expect(session.accessToken).toBeUndefined();
+    expect(session.refreshToken).toBeUndefined();
+    expect(session.idToken).toBeUndefined();
+    expect(session.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('starts Google linking by storing state and returning the Keycloak end-session URL', () => {
@@ -319,16 +313,20 @@ describe('AccountLinkingController', () => {
     expect(accountLinkingService.cancelRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
   });
 
-  it('leaves the session unchanged when a completed merge primary user cannot be loaded', async () => {
+  it('destroys the session even when the completed merge primary user cannot be loaded', async () => {
     accountLinkingService.getRequest.mockResolvedValue(createMergeRequest());
     userService.findByKeycloakId.mockResolvedValue(null);
 
-    await expect(controller.getMergeRequest('merge-request-1', session)).resolves.toEqual(createMergeRequest());
+    await expect(controller.getMergeRequest('merge-request-1', session)).rejects.toThrow(
+      'Account merge completed; sign in again with the primary account',
+    );
 
-    expect(session.user?.keycloakId).toBe('secondary-user');
+    expect(session.user).toBeUndefined();
+    expect(session.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('streams an initial authorized snapshot and then only changed fields', async () => {
+    session.user!.keycloakId = 'primary-user';
     const updates = new Subject<void>();
     const close = jest.fn();
     const pendingRequest = { ...createMergeRequest(), status: 'pending' as const, completedAt: undefined };
@@ -367,6 +365,7 @@ describe('AccountLinkingController', () => {
   });
 
   it('returns a terminal snapshot without opening a Redis watch', async () => {
+    session.user!.keycloakId = 'primary-user';
     const completedRequest = createMergeRequest();
     accountLinkingService.getRequest.mockResolvedValue(completedRequest);
 
@@ -379,6 +378,7 @@ describe('AccountLinkingController', () => {
   });
 
   it('revalidates after opening the Redis watch so a terminal update is not missed', async () => {
+    session.user!.keycloakId = 'primary-user';
     const pendingRequest = { ...createMergeRequest(), status: 'pending_score' as const };
     const completedRequest = { ...pendingRequest, status: 'completed' as const };
     const close = jest.fn();
@@ -395,23 +395,11 @@ describe('AccountLinkingController', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('covers private URL and comparison edge cases used by account-linking redirects', async () => {
+  it('covers private URL and comparison edge cases used by account-linking redirects', () => {
     const internals = controller as unknown as {
       secureCompare: (a: string, b: string) => boolean;
       googleIntegrationUrl: () => string;
-      switchSessionToUser: (session: AuthSession, keycloakId: string) => Promise<void>;
     };
-    const emptySession = {
-      destroy: jest.fn(),
-    } as AuthSession;
-    userService.findByKeycloakId.mockResolvedValue({
-      id: 'local-primary-user',
-      email: 'primary@example.com',
-      keycloakId: 'primary-user',
-      isOnboarded: true,
-    });
-
-    await internals.switchSessionToUser(emptySession, 'primary-user');
 
     expect(internals.googleIntegrationUrl()).toBe('http://localhost:4200/settings/linked-accounts/google');
     expect(internals.secureCompare(Symbol('bad') as unknown as string, 'state-1')).toBe(false);

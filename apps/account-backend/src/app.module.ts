@@ -21,18 +21,20 @@ import { PrismaModule } from './prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GrpcModule } from './grpc/grpc.module';
+import { OperationalMetricsController } from './common/controllers/operational-metrics.controller';
+import { OperationalMetricsService } from './common/services/operational-metrics.service';
+import { validateStartupConfig } from './config/startup-contract';
 
-const getRequiredEnv = (name: string): string => {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} environment variable is required`);
-  }
-
-  return value;
-};
-
-const discordBotToken = getRequiredEnv('DISCORD_BOT_TOKEN');
-const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
+const discordBotToken = process.env.DISCORD_BOT_TOKEN?.trim();
+const discordGuildId = process.env.DISCORD_GUILD_ID?.trim();
+if (Boolean(discordBotToken) !== Boolean(discordGuildId)) {
+  throw new Error('DISCORD_BOT_TOKEN and DISCORD_GUILD_ID must be configured together');
+}
+const discordEnabled = Boolean(discordBotToken && discordGuildId);
+const redisPortValue = process.env.REDIS_PORT?.trim() || '6379';
+if (!/^\d+$/.test(redisPortValue) || Number(redisPortValue) < 1 || Number(redisPortValue) > 65_535) {
+  throw new Error('REDIS_PORT must be an integer between 1 and 65535');
+}
 
 @Module({
   imports: [
@@ -40,7 +42,7 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
-        port: Number(process.env.REDIS_PORT || 6379),
+        port: Number(redisPortValue),
         ...(process.env.REDIS_PASSWORD && {
           password: process.env.REDIS_PASSWORD,
         }),
@@ -52,23 +54,27 @@ const discordGuildId = getRequiredEnv('DISCORD_GUILD_ID');
     CommonModule,
     LgpdModule,
     PrivacyModule,
-    DiscordModule,
     RedisModule,
     StudentVerificationModule,
     UniversityValidationModule,
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ validate: validateStartupConfig }),
     GrpcModule,
     FeatureFlagsModule,
     TotpModule,
     M2MUsersModule,
     PrismaModule,
-    NecordModule.forRoot({
-      token: discordBotToken,
-      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages],
-      development: [discordGuildId],
-    }),
+    ...(discordEnabled
+      ? [
+          DiscordModule,
+          NecordModule.forRoot({
+            token: discordBotToken!,
+            intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages],
+            development: [discordGuildId!],
+          }),
+        ]
+      : []),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, OperationalMetricsController],
+  providers: [AppService, OperationalMetricsService],
 })
 export class AppModule {}

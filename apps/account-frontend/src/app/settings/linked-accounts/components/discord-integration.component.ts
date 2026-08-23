@@ -14,6 +14,7 @@ import { ApiService, DiscordAuthUrl, DiscordLinkStatus } from '../../../shared/s
 import { ConfirmationDialogComponent } from '../../../shared/components/confirmation-dialog.component';
 import { getDiscordAvatarUrl } from '@cacic/shared-utils';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-integration',
@@ -36,6 +37,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private logger = inject(LoggerService);
 
   isLoading = signal(false);
   isLinking = signal(false);
@@ -184,7 +186,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
         this.updateBannerBasedOnStatus(); // Update banner based on the loaded status
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error loading Discord status:', error);
+        this.logger.error('Error loading Discord status', error, { operation: 'discord-status' });
         let errorMessage = 'Falha ao carregar status do Discord. Tente recarregar a página.';
 
         if (error.status === 401) {
@@ -208,7 +210,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
         window.location.href = response.authUrl;
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error getting Discord auth URL:', error);
+        this.logger.error('Error getting Discord auth URL', error, { operation: 'discord-link' });
         let errorMessage = 'Falha ao iniciar vinculação do Discord. Tente novamente.';
 
         // Check for specific error messages from the backend
@@ -252,7 +254,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
         this.isUnlinking.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error unlinking Discord:', error);
+        this.logger.error('Error unlinking Discord', error, { operation: 'discord-unlink' });
         let errorMessage = 'Falha ao desvincular conta do Discord. Tente novamente.';
 
         // Check for specific error messages from the backend

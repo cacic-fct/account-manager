@@ -30,6 +30,7 @@ export interface CreateUserProfile {
   phone: string;
   enrollmentNumber?: string;
   identityDocument: string;
+  passportCountry?: string;
   isForeigner: boolean;
   unespRole?: UnespRole;
 }

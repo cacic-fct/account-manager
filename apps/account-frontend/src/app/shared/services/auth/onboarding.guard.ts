@@ -5,12 +5,14 @@ import { map, catchError, switchMap } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { RouteCacheService } from '../route-cache.service';
 import { User } from '../../interfaces/user.interface';
+import { LoggerService } from '../logger.service';
 
 @Service()
 export class OnboardingGuard implements CanActivate {
   private authService = inject(AuthService);
   private router = inject(Router);
   private routeCache = inject(RouteCacheService);
+  private logger = inject(LoggerService);
 
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> {
     return this.authService.isDoneLoading$.pipe(
@@ -18,82 +20,48 @@ export class OnboardingGuard implements CanActivate {
         const isAuthenticated = this.authService.isAuthenticated();
 
         if (!isAuthenticated) {
-          console.log('User not authenticated, redirecting to login');
+          this.logger.info('Onboarding guard redirecting unauthenticated route', { operation: 'route-guard' });
           this.authService.login(state.url);
           return of(false);
         }
 
-        // Check if we already have current user data in memory
-        const currentUser = this.authService.currentUser();
-
-        if (currentUser) {
-          // Use cached user data if available
-          return this.handleOnboardingAccess(currentUser, isAuthenticated);
-        }
-
-        // Use route cache service for optimized data fetching
-        return this.routeCache.getUserForRouteGuard().pipe(
+        return this.routeCache.getUserForRouteGuard(true).pipe(
           map((user: User) => {
             // Update auth service with user data
             this.authService.updateCurrentUser(user);
             return this.handleOnboardingAccessSync(user, isAuthenticated);
           }),
           catchError((error) => {
-            console.error('OnboardingGuard error fetching user data:', error);
-
-            // Fallback to cached auth service data if backend call fails
-            const isOnboarded = this.authService.isOnboarded();
-            const cachedUser = this.authService.currentUser();
-
-            console.log('OnboardingGuard fallback to cached data:', {
-              isAuthenticated,
-              isOnboarded,
-              currentUser: cachedUser?.email,
+            this.logger.error('Onboarding guard could not verify current user', error, {
+              operation: 'route-guard',
             });
-
-            if (isOnboarded) {
-              console.log('User already onboarded (cached), redirecting to applications');
-              setTimeout(() => {
-                this.router.navigateByUrl('/applications');
-              }, 0);
-              return of(false);
-            }
-
-            // Allow access to onboarding if we can't verify status
-            console.log('Cannot verify onboarding status, allowing access to onboarding');
-            return of(true);
+            // An outage must not be treated as proof that onboarding is
+            // required. Keep route access closed until identity is verified.
+            this.authService.login(state.url);
+            return of(false);
           }),
         );
       }),
       catchError((error) => {
-        console.error('OnboardingGuard error:', error);
+        this.logger.error('Onboarding guard failed', error, { operation: 'route-guard' });
         this.authService.login(state.url);
         return of(false);
       }),
     );
   }
 
-  private handleOnboardingAccess(user: User, isAuthenticated: boolean): Observable<boolean> {
-    return of(this.handleOnboardingAccessSync(user, isAuthenticated));
-  }
-
   private handleOnboardingAccessSync(user: User, isAuthenticated: boolean): boolean {
     const isOnboarded = user.isOnboarded;
 
-    console.log('OnboardingGuard check with user data:', {
+    this.logger.debug('Onboarding guard evaluated current user', {
+      operation: 'route-guard',
       isAuthenticated,
       isOnboarded,
-      currentUser: user.email,
-      userHasData: !!user,
-      userPhone: user.phone,
-      userFullname: user.fullname,
-      userDisplayName: user.displayName,
-      userIdentityDocument: user.identityDocument,
     });
 
     // If user is already onboarded, redirect to applications
     if (isOnboarded) {
-      console.log('User already onboarded, redirecting to applications');
+      this.logger.info('Onboarding guard redirecting onboarded user', { operation: 'route-guard' });
       setTimeout(() => {
         this.router.navigateByUrl('/applications');
       }, 0);
@@ -101,7 +69,7 @@ export class OnboardingGuard implements CanActivate {
     }
 
     // User is authenticated but not onboarded, allow access to onboarding
-    console.log('User needs onboarding, allowing access');
+    this.logger.debug('Onboarding guard allowing onboarding route', { operation: 'route-guard' });
     return true;
   }
 }

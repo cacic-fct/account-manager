@@ -8,6 +8,7 @@ export interface AppConfig {
   sessionSecret: string;
   corsOrigins: string[];
   allowedRedirectUrls: string[];
+  swaggerEnabled: boolean;
   redis: {
     host: string;
     port: number;
@@ -18,20 +19,40 @@ export interface AppConfig {
 export const API_GLOBAL_PREFIX = 'api';
 
 export const createAppConfig = (configService: ConfigService): AppConfig => {
-  const parsePort = (value: string | number | undefined, fallback: number) => {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+  const environment = configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV ?? 'development';
+  const parsePort = (name: string, value: string | number | undefined, fallback: number) => {
+    if (value === undefined || value === '') {
+      return fallback;
+    }
 
-    return Number.isNaN(parsed) ? fallback : parsed;
+    if (
+      (typeof value === 'string' && !/^\d+$/.test(value)) ||
+      (typeof value === 'number' && !Number.isInteger(value))
+    ) {
+      throw new Error(`${name} environment variable must be an integer port`);
+    }
+
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+      throw new Error(`${name} environment variable must be between 1 and 65535`);
+    }
+
+    return parsed;
   };
 
-  const port = parsePort(configService.get<string | number>('PORT'), 3000);
+  const port = parsePort('PORT', configService.get<string | number>('PORT'), 3000);
   const backendUrl = configService.get<string>('BACKEND_URL');
   const frontendUrl = configService.get<string>('FRONTEND_URL');
   const sessionSecret = configService.get<string>('SESSION_SECRET');
 
   // Redis configuration
-  const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
-  const redisPort = parsePort(configService.get<string | number>('REDIS_PORT'), 6379);
+  const configuredRedisHost = configService.get<string>('REDIS_HOST');
+  const configuredRedisPort = configService.get<string | number>('REDIS_PORT');
+  if (environment === 'production' && (!configuredRedisHost || configuredRedisPort === undefined)) {
+    throw new Error('REDIS_HOST and REDIS_PORT environment variables are required in production');
+  }
+  const redisHost = configuredRedisHost || 'localhost';
+  const redisPort = parsePort('REDIS_PORT', configuredRedisPort, 6379);
   const redisPassword = configService.get<string>('REDIS_PASSWORD');
 
   // Validate required environment variables
@@ -48,6 +69,7 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
   }
 
   const normalizedBackendUrl = normalizePublicUrl('BACKEND_URL', backendUrl);
+  const normalizedFrontendUrl = normalizePublicUrl('FRONTEND_URL', frontendUrl);
   const apiBaseUrl = createApiBaseUrl(normalizedBackendUrl);
 
   // Parse CORS origins from environment or use default
@@ -57,21 +79,31 @@ export const createAppConfig = (configService: ConfigService): AppConfig => {
       ?.split(',')
       .map((origin) => origin.trim())
       .filter((origin) => origin.length > 0) ?? [];
-  const corsOrigins = parsedCorsOrigins.length > 0 ? parsedCorsOrigins : [frontendUrl];
+  const corsOrigins = (parsedCorsOrigins.length > 0 ? parsedCorsOrigins : [new URL(normalizedFrontendUrl).origin]).map(
+    (origin, index) => normalizeOrigin(`CORS_ORIGINS[${index}]`, origin),
+  );
 
   const allowedRedirectUrlsEnv = configService.get<string>('ALLOWED_REDIRECT_URLS', '');
   const allowedRedirectUrls = (
-    allowedRedirectUrlsEnv ? allowedRedirectUrlsEnv.split(',').map((url) => url.trim()) : [frontendUrl]
-  ).filter((url) => url.length > 0);
+    allowedRedirectUrlsEnv ? allowedRedirectUrlsEnv.split(',').map((url) => url.trim()) : [normalizedFrontendUrl]
+  )
+    .filter((url) => url.length > 0)
+    .map((url, index) => normalizePublicUrl(`ALLOWED_REDIRECT_URLS[${index}]`, url));
+  const swaggerEnabled = readBoolean(
+    'SWAGGER_ENABLED',
+    configService.get<string>('SWAGGER_ENABLED'),
+    environment !== 'production',
+  );
 
   return {
     port,
     backendUrl: normalizedBackendUrl,
     apiBaseUrl,
-    frontendUrl,
+    frontendUrl: normalizedFrontendUrl,
     sessionSecret,
     corsOrigins,
     allowedRedirectUrls,
+    swaggerEnabled,
     redis: {
       host: redisHost,
       port: redisPort,
@@ -106,11 +138,35 @@ function normalizePublicUrl(name: string, value: string): string {
     throw new Error(`${name} environment variable must use http or https`);
   }
 
-  if (url.search || url.hash) {
-    throw new Error(`${name} environment variable must not include query or hash`);
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error(`${name} environment variable must not include credentials, query, or hash`);
   }
 
   return trimTrailingSlash(url.toString());
+}
+
+function normalizeOrigin(name: string, value: string): string {
+  const normalized = normalizePublicUrl(name, value);
+  const url = new URL(normalized);
+  if (url.pathname !== '/' || url.username || url.password) {
+    throw new Error(`${name} must be an origin without a path or credentials`);
+  }
+  return url.origin;
+}
+
+function readBoolean(name: string, value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  throw new Error(`${name} environment variable must be a boolean`);
 }
 
 function trimTrailingSlash(value: string): string {

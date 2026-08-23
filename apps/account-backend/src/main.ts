@@ -1,8 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createAccountBackendHttpApp, getAccountBackendGlobalPrefix } from './bootstrap/account-backend-http-app';
+import {
+  closeAccountBackendHttpApp,
+  createAccountBackendHttpApp,
+  getAccountBackendGlobalPrefix,
+} from './bootstrap/account-backend-http-app';
 import { createAppConfig } from './config/app.config';
-import { startAccountManagerGrpcServer } from './grpc/account-manager-grpc.server';
+import { setAccountManagerGrpcReady, startAccountManagerGrpcServer } from './grpc/account-manager-grpc.server';
 
 async function bootstrap() {
   const app = await createAccountBackendHttpApp();
@@ -25,22 +29,20 @@ function registerGracefulShutdown(
     if (shuttingDown) return;
     shuttingDown = true;
     logger.log(`Received ${signal}; shutting down HTTP and gRPC servers.`);
-    const [httpShutdown] = await Promise.allSettled([app.close()]);
-    if (httpShutdown.status === 'rejected') {
-      logger.error('HTTP graceful shutdown failed', httpShutdown.reason);
-      return;
-    }
-
+    setAccountManagerGrpcReady(false);
+    const grpcShutdown = new Promise<void>((resolve, reject) =>
+      grpcServer.tryShutdown((error) => (error ? reject(error) : resolve())),
+    );
     const timeout = setTimeout(() => grpcServer.forceShutdown(), 10_000);
-    try {
-      await new Promise<void>((resolve) =>
-        grpcServer.tryShutdown((error) => {
-          if (error) logger.warn(`gRPC graceful shutdown failed: ${error.message}`);
-          resolve();
-        }),
-      );
-    } finally {
-      clearTimeout(timeout);
+    timeout.unref();
+    const results = await Promise.allSettled([closeAccountBackendHttpApp(app), grpcShutdown]);
+    clearTimeout(timeout);
+
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        logger.error('Graceful shutdown step failed', result.reason);
+        process.exitCode = 1;
+      }
     }
   };
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
@@ -54,5 +56,5 @@ void bootstrap().catch((error: unknown) => {
   const stack = error instanceof Error ? error.stack : undefined;
 
   bootstrapFailureLogger.fatal(`Failed to bootstrap application: ${message}`, stack);
-  process.exit(1);
+  process.exitCode = 1;
 });

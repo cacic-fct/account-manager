@@ -13,7 +13,12 @@ const createService = (values: ConfigValues = {}) => {
     get: jest.fn((key: string) => values[key]),
   };
 
-  return new FeatureFlagService(configService as unknown as ConfigService);
+  const redis = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+  };
+
+  return new FeatureFlagService(configService as unknown as ConfigService, redis as never);
 };
 
 const createFetchMock = (): FetchMock => jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>();
@@ -222,5 +227,39 @@ describe('FeatureFlagService', () => {
     });
 
     await expect(service.isEnabled('feature-a', true)).resolves.toBe(true);
+  });
+
+  it('coalesces concurrent refreshes for the same flag', async () => {
+    let resolveFetch!: (response: Response) => void;
+    const fetchMock = createFetchMock();
+    fetchMock.mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    global.fetch = fetchMock;
+    const service = createService({ UNLEASH_FRONTEND_CLIENT_KEY: 'client-key' });
+
+    const requests = Array.from({ length: 50 }, () => service.isEnabled('feature-a', false));
+    resolveFetch(new Response(JSON.stringify([{ name: 'feature-a', enabled: true }]), { status: 200 }));
+
+    await expect(Promise.all(requests)).resolves.toEqual(Array(50).fill(true));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses a shared Redis snapshot across replicas', async () => {
+    const configService = {
+      get: jest.fn((key: string) => (key === 'UNLEASH_FRONTEND_CLIENT_KEY' ? 'client-key' : undefined)),
+    } as unknown as ConfigService;
+    const redis = {
+      get: jest.fn().mockResolvedValue(JSON.stringify({ value: true, expiresAt: Date.now() + 30_000 })),
+      set: jest.fn(),
+    };
+    const service = new FeatureFlagService(configService, redis as never);
+    const fetchMock = createFetchMock();
+    global.fetch = fetchMock;
+
+    await expect(service.isEnabled('feature-a', false)).resolves.toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

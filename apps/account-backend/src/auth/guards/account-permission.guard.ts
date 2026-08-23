@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
 import { AccountPermissionService } from '../services/account-permission.service';
+import { CurrentUserGuard } from './current-user.guard';
 
 export const ACCOUNT_PERMISSIONS_KEY = 'accountPermissions';
 
@@ -32,6 +33,7 @@ export class AccountPermissionGuard implements CanActivate {
   constructor(
     private readonly accountPermissionService: AccountPermissionService,
     private readonly reflector: Reflector,
+    private readonly currentUserGuard: CurrentUserGuard,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,6 +45,8 @@ export class AccountPermissionGuard implements CanActivate {
     if (!config || config.permissions.length === 0) {
       throw new ForbiddenException('Required Account Manager permissions are not configured');
     }
+
+    await this.currentUserGuard.canActivate(context);
 
     const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const userId = request.session?.user?.keycloakId;

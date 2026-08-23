@@ -20,7 +20,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         grantType: 'client_credentials',
       });
 
-      const response = await fetch(tokenUrl, {
+      const response = await this.fetchWithTimeout(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -40,7 +40,6 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
           errorDescription: details.errorDescription,
           contentType: details.contentType,
           responseHeaders: details.headers,
-          bodyPreview: details.bodyPreview,
         });
 
         throw new Error('Failed to get admin token');
@@ -76,7 +75,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
           roleName,
         )}`;
 
-        const response = await fetch(roleUrl, {
+        const response = await this.fetchWithTimeout(roleUrl, {
           headers: {
             Authorization: `Bearer ${adminToken}`,
           },
@@ -97,7 +96,6 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
             roleUrl,
             contentType: details.contentType,
             responseHeaders: details.headers,
-            bodyPreview: details.bodyPreview,
           });
 
           throw new Error(
@@ -117,7 +115,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles?briefRepresentation=false`;
 
-    const response = await fetch(rolesUrl, {
+    const response = await this.fetchWithTimeout(rolesUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -133,7 +131,6 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         rolesUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to list client roles ${clientId}: ${response.status} ${response.statusText}`);
@@ -160,7 +157,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
       normalizedClientId,
     )}`;
 
-    const response = await fetch(clientsUrl, {
+    const response = await this.fetchWithTimeout(clientsUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -176,7 +173,6 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         clientsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(
@@ -210,7 +206,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
 
     const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/group-by-path/${encodedPath}`;
 
-    const response = await fetch(groupUrl, {
+    const response = await this.fetchWithTimeout(groupUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -231,7 +227,6 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         groupUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get Keycloak group ${groupPath}: ${response.status} ${response.statusText}`);

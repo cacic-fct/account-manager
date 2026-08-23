@@ -23,6 +23,7 @@ import {
   getDiscordManagedRoleForUser,
 } from '../constants/discord-managed-roles';
 import { DiscordManagedRoleOverridesService } from './discord-managed-role-overrides.service';
+import { withDiscordTimeout } from './discord-timeout.util';
 
 interface AssignManagedRoleOptions {
   client?: Client;
@@ -206,21 +207,16 @@ export class DiscordRoleService {
       registrationRoleApplied = await this.ensureRegistrationRoleForMember(member, options.reason);
     }
 
-    this.logger.debug(
-      `Discord managed role reconciled - User: ${discordLink.discordGlobalName}, Category: ${role.category}, Role: ${role.roleName}`,
-      {
-        userId: discordLink.userId,
-        discordId: discordLink.discordId,
-        userEmail: user?.email,
-        isVerified: user?.unespRoleVerified,
-        unespRole: user?.unespRole,
-        enrollmentNumber: user?.enrollmentNumber,
-        overrideCategory: override,
-        roleApplied,
-        registrationRoleApplied,
-        staleRolesRemoved,
-      },
-    );
+    this.logger.debug('Discord managed role reconciled', {
+      userId: discordLink.userId,
+      isVerified: user?.unespRoleVerified,
+      unespRole: user?.unespRole,
+      overrideCategory: override,
+      managedRoleCategory: role.category,
+      roleApplied,
+      registrationRoleApplied,
+      staleRolesRemoved,
+    });
 
     await this.reconcilePermissionGroupAffiliationRoles(
       discordLink.userId,
@@ -387,7 +383,7 @@ export class DiscordRoleService {
       };
     }
 
-    const guild = await client.guilds.fetch(guildId);
+    const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
     const [members, discordLinks] = await Promise.all([
       guild.members.fetch(),
       this.prisma.discordLink.findMany({
@@ -522,7 +518,7 @@ export class DiscordRoleService {
         if (!shouldHaveRole && hasRole) {
           try {
             this.markManagedRoleMutation(member);
-            await member.roles.remove(roleId, reason);
+            await withDiscordTimeout(member.roles.remove(roleId, reason));
             rolesRemoved += 1;
           } catch (error) {
             this.logger.warn(`Failed to remove Discord permission group role ${roleId} from ${member.id}:`, error);
@@ -568,8 +564,8 @@ export class DiscordRoleService {
     const discordUserId = options.discordUserId ?? discordLink.discordId;
 
     try {
-      const guild = await client.guilds.fetch(guildId);
-      return await guild.members.fetch(discordUserId);
+      const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
+      return await withDiscordTimeout(guild.members.fetch(discordUserId));
     } catch (error) {
       this.logger.debug(
         `Discord member ${discordUserId} not available for managed role sync`,
@@ -605,7 +601,7 @@ export class DiscordRoleService {
 
       try {
         this.markManagedRoleMutation(member);
-        await member.roles.remove(roleId, reason ?? 'CACiC managed role reconciliation');
+        await withDiscordTimeout(member.roles.remove(roleId, reason ?? 'CACiC managed role reconciliation'));
         removed += 1;
       } catch (error) {
         this.logger.warn(`Failed to remove stale Discord managed role ${roleId} from ${member.id}:`, error);
@@ -625,7 +621,7 @@ export class DiscordRoleService {
 
       try {
         this.markManagedRoleMutation(member);
-        await member.roles.remove(roleId, reason ?? 'CACiC permission group role cleanup');
+        await withDiscordTimeout(member.roles.remove(roleId, reason ?? 'CACiC permission group role cleanup'));
         removed += 1;
       } catch (error) {
         this.logger.warn(`Failed to remove Discord permission group role ${roleId} from ${member.id}:`, error);
@@ -638,7 +634,7 @@ export class DiscordRoleService {
   async ensureRegistrationRoleForMember(member: GuildMember, reason?: string): Promise<boolean> {
     const role =
       member.guild.roles.cache.get(DISCORD_REGISTRATION_ROLE.roleId) ??
-      (await member.guild.roles.fetch(DISCORD_REGISTRATION_ROLE.roleId).catch(() => null));
+      (await withDiscordTimeout(member.guild.roles.fetch(DISCORD_REGISTRATION_ROLE.roleId)).catch(() => null));
 
     if (!role) {
       this.logger.warn(
@@ -653,7 +649,9 @@ export class DiscordRoleService {
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.add(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC registration role reconciliation');
+      await withDiscordTimeout(
+        member.roles.add(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC registration role reconciliation'),
+      );
       return true;
     } catch (error) {
       this.logger.warn(
@@ -671,7 +669,9 @@ export class DiscordRoleService {
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.remove(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC managed role reconciliation');
+      await withDiscordTimeout(
+        member.roles.remove(DISCORD_REGISTRATION_ROLE.roleId, reason ?? 'CACiC managed role reconciliation'),
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to remove Discord registration role ${DISCORD_REGISTRATION_ROLE.roleId} from ${member.id}:`,
@@ -686,7 +686,9 @@ export class DiscordRoleService {
     roleName: string,
     reason?: string,
   ): Promise<boolean> {
-    const role = member.guild.roles.cache.get(roleId) ?? (await member.guild.roles.fetch(roleId).catch(() => null));
+    const role =
+      member.guild.roles.cache.get(roleId) ??
+      (await withDiscordTimeout(member.guild.roles.fetch(roleId)).catch(() => null));
 
     if (!role) {
       this.logger.warn(`Managed Discord role ${roleName} (${roleId}) not found in guild ${member.guild.id}`);
@@ -699,7 +701,7 @@ export class DiscordRoleService {
 
     try {
       this.markManagedRoleMutation(member);
-      await member.roles.add(roleId, reason ?? 'CACiC managed role reconciliation');
+      await withDiscordTimeout(member.roles.add(roleId, reason ?? 'CACiC managed role reconciliation'));
       return true;
     } catch (error) {
       this.logger.warn(`Failed to add Discord managed role ${roleName} (${roleId}) to ${member.id}:`, error);

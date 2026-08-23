@@ -1,2 +1,7 @@
 <router-outlet />
 <lib-cookie-banner [config]="cookieBannerConfig" />
+@if (logoutError()) {
+  <div class="session-warning" role="alert">
+    {{ logoutError() }}
+  </div>
+}

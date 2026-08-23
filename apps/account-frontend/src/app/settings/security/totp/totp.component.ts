@@ -22,6 +22,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { TOTP_PERIOD_SECONDS, formatTotpCode, generateTotpCode } from '@cacic/m2m-contracts';
 import type { TotpSeed, TotpStatus } from '@cacic/shared-types';
 import { ApiService } from '../../../shared/services/api.service';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 const TOTP_PERIOD_MS = TOTP_PERIOD_SECONDS * 1000;
 
@@ -48,6 +49,7 @@ export class TotpComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+  private readonly logger = inject(LoggerService);
   private codeRequest = 0;
   private animationFrame: number | null = null;
 
@@ -135,7 +137,7 @@ export class TotpComponent {
           });
         },
         error: (error) => {
-          console.error('Erro ao trocar segredo TOTP:', error);
+      this.logger.error('Erro ao trocar segredo TOTP', error, { operation: 'totp-rotate' });
           this.isRotating.set(false);
           this.snackBar.open('Erro ao trocar código secreto', 'Fechar', {
             duration: 5000,
@@ -181,7 +183,7 @@ export class TotpComponent {
           this.loadSeed();
         },
         error: (error) => {
-          console.error('Erro ao carregar status TOTP:', error);
+      this.logger.error('Erro ao carregar status TOTP', error, { operation: 'totp-status' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
           this.snackBar.open('Erro ao carregar código off-line', 'Fechar', {
@@ -203,7 +205,7 @@ export class TotpComponent {
           this.hasLoadError.set(false);
         },
         error: (error) => {
-          console.error('Erro ao preparar TOTP:', error);
+      this.logger.error('Erro ao preparar TOTP', error, { operation: 'totp-prepare' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
           this.snackBar.open('Erro ao preparar código off-line', 'Fechar', {
@@ -236,7 +238,7 @@ export class TotpComponent {
         this.code.set(code);
       }
     } catch (error) {
-      console.error('Erro ao gerar TOTP:', error);
+      this.logger.error('Erro ao gerar TOTP', error, { operation: 'totp-generate' });
       if (request === this.codeRequest) {
         this.code.set('');
       }

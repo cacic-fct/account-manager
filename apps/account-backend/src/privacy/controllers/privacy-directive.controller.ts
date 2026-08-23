@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards, BadRequestException } from '@nestjs/
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { M2M_PRIVACY_ROLES } from '@cacic/m2m-contracts';
 import { M2MGuard, M2MProtected, RequireRoles } from '../../auth/jwt/m2m.guard';
+import { SkipCsrf } from '../../auth/csrf/csrf.guard';
 import { PrivacyDirectiveService } from '../services/privacy-directive.service';
 import { PrivacyDirective, PrivacyDirectiveDataMap, PrivacyDirectiveUiMap } from '../constants/privacy-directives';
 
@@ -9,6 +10,7 @@ import { PrivacyDirective, PrivacyDirectiveDataMap, PrivacyDirectiveUiMap } from
 @Controller('privacy-directives')
 @UseGuards(M2MGuard)
 @M2MProtected()
+@SkipCsrf()
 export class PrivacyDirectiveController {
   constructor(private readonly privacyDirectiveService: PrivacyDirectiveService) {}
 

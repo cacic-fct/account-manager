@@ -9,6 +9,7 @@ import {
   M2MUserIdentifierLookupResponseDto,
 } from './dto/m2m-user-lookup.dto';
 import { M2MUsersService } from './m2m-users.service';
+import { SkipCsrf } from '../auth/csrf/csrf.guard';
 
 @ApiTags('External API - Users')
 @Controller('v1/users')
@@ -16,6 +17,7 @@ import { M2MUsersService } from './m2m-users.service';
 @M2MProtected()
 @RequireRoles(M2M_USER_ROLES.READ)
 @ApiBearerAuth()
+@SkipCsrf()
 export class M2MUsersApiController {
   constructor(private readonly users: M2MUsersService) {}
 

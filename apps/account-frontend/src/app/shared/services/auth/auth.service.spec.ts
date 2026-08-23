@@ -16,6 +16,8 @@ describe('AuthService password login', () => {
     clearTrackingCookies: ReturnType<typeof vi.fn>;
     clearAuthCache: ReturnType<typeof vi.fn>;
     clearUserCache: ReturnType<typeof vi.fn>;
+    checkAuth: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
   };
   let csrfService: {
     fetchToken: ReturnType<typeof vi.fn>;
@@ -57,6 +59,8 @@ describe('AuthService password login', () => {
       clearTrackingCookies: vi.fn().mockReturnValue(of({ cleared: true })),
       clearAuthCache: vi.fn(),
       clearUserCache: vi.fn(),
+      checkAuth: vi.fn().mockReturnValue(of({ isAuthenticated: false, isOnboarded: false })),
+      logout: vi.fn().mockReturnValue(of({ success: true })),
     };
     csrfService = {
       fetchToken: vi.fn().mockReturnValue(of({})),
@@ -131,5 +135,29 @@ describe('AuthService password login', () => {
     );
 
     expect(apiService.passwordLogin).not.toHaveBeenCalled();
+  });
+
+  it('completes the initial login wait after one auth status emission', async () => {
+    apiService.checkAuth.mockReturnValue(of({ isAuthenticated: false, isOnboarded: false }));
+    const service = TestBed.inject(AuthService);
+
+    await service.runInitialLoginSequence();
+
+    expect(apiService.checkAuth).toHaveBeenCalledOnce();
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.isLoading()).toBe(false);
+  });
+
+  it('does not claim logout when server-side session destruction fails', () => {
+    const service = TestBed.inject(AuthService);
+    service.updateCurrentUser(currentUser);
+    apiService.logout.mockReturnValue(throwError(() => new Error('session store unavailable')));
+
+    service.logout();
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.currentUser()).toEqual(currentUser);
+    expect(service.logoutError()).toBe('Não foi possível confirmar o encerramento da sessão. Tente novamente.');
+    expect(service.isLoading()).toBe(false);
   });
 });

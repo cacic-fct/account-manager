@@ -1,5 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import { CaptchaSession, ValidationResult } from '../university-validation.types';
+import { RedisService } from '../../redis/redis.service';
 import { SessionManagementService } from './session-management.service';
 import { HtmlResponseService } from './html-response.service';
 import { DocumentValidationService } from './document-validation.service';
@@ -11,14 +14,26 @@ import {
 @Injectable()
 export class CaptchaManagementService {
   private readonly logger = new Logger(CaptchaManagementService.name);
-  private readonly activeSessionOperations = new Set<string>();
+  private readonly activeSessionOperations = new Map<string, string>();
+  private readonly operationLockTtlSeconds: number;
 
   constructor(
     private readonly sessionManagementService: SessionManagementService,
     private readonly htmlResponseService: HtmlResponseService,
     private readonly documentValidationService: DocumentValidationService,
     private readonly externalVerificationResilience: ExternalVerificationResilienceService,
-  ) {}
+    private readonly redis: RedisService,
+    configService: ConfigService,
+  ) {
+    const configuredTtlMs = Number.parseInt(
+      configService.get<string>('UNIVERSITY_EXTERNAL_OPERATION_LOCK_TTL_MS') ?? '',
+      10,
+    );
+    this.operationLockTtlSeconds = Math.max(
+      1,
+      Math.ceil((Number.isFinite(configuredTtlMs) && configuredTtlMs > 0 ? configuredTtlMs : 10 * 60 * 1000) / 1000),
+    );
+  }
 
   /**
    * Get captcha for document validation
@@ -174,7 +189,7 @@ export class CaptchaManagementService {
       }
       session.captchaImageBase64 = captchaBuffer.toString('base64');
 
-      this.sessionManagementService.storeSession(session);
+      await this.sessionManagementService.storeSession(session);
 
       this.logger.debug('Captcha fetched successfully', {
         captchaSize: captchaBuffer.length,
@@ -191,16 +206,16 @@ export class CaptchaManagementService {
   async refreshCaptcha(sessionId: string, userId: string): Promise<CaptchaSession> {
     this.logger.debug('Refreshing university captcha');
 
-    const session = this.sessionManagementService.getOwnedSession(sessionId, userId);
-    if (!session?.axiosInstance) {
+    const session = await this.sessionManagementService.getOwnedSession(sessionId, userId);
+    if (!session) {
       throw new BadRequestException('Sessão de validação não encontrada ou expirada.');
     }
-    if (!this.tryStartSessionOperation(sessionId)) {
+    if (!(await this.tryStartSessionOperation(sessionId))) {
       throw new ConflictException('Já existe uma operação em andamento para esta sessão.');
     }
-    const axiosInstance = session.axiosInstance;
 
     try {
+      const axiosInstance = await this.ensureAxiosInstance(session);
       return await this.externalVerificationResilience.execute('refresh-captcha', async () => {
         const captchaUrl = 'https://sistemas.unesp.br/academico/captcha.jpg';
 
@@ -240,7 +255,7 @@ export class CaptchaManagementService {
         }
         session.captchaImageBase64 = captchaBuffer.toString('base64');
 
-        this.sessionManagementService.storeSession(session);
+        await this.sessionManagementService.storeSession(session);
 
         this.logger.debug('Captcha refreshed successfully', {
           captchaSize: captchaBuffer.length,
@@ -249,7 +264,7 @@ export class CaptchaManagementService {
         return session;
       });
     } finally {
-      this.finishSessionOperation(sessionId);
+      await this.finishSessionOperation(sessionId);
     }
   }
 
@@ -267,7 +282,7 @@ export class CaptchaManagementService {
 
     try {
       // Get session from local storage first, fallback to sessionManagementService
-      const session = this.sessionManagementService.getOwnedSession(sessionId, userId);
+      const session = await this.sessionManagementService.getOwnedSession(sessionId, userId);
 
       if (!session) {
         return {
@@ -276,7 +291,7 @@ export class CaptchaManagementService {
         };
       }
 
-      if (!this.tryStartSessionOperation(sessionId)) {
+      if (!(await this.tryStartSessionOperation(sessionId))) {
         return {
           success: false,
           error: 'Já existe uma operação em andamento para esta sessão.',
@@ -306,7 +321,7 @@ export class CaptchaManagementService {
         };
       }
 
-      const axiosInstance = session.axiosInstance;
+      const axiosInstance = await this.ensureAxiosInstance(session);
       if (!axiosInstance) {
         return { success: false, error: 'Sessão externa inválida ou expirada' };
       }
@@ -394,14 +409,14 @@ export class CaptchaManagementService {
         userId,
       );
       if (validationResult.success || validationResult.fallbackToManual) {
-        this.sessionManagementService.deleteSession(sessionId);
+        await this.sessionManagementService.deleteSession(sessionId);
       }
       return validationResult;
     } catch (error: unknown) {
       this.logger.error('Error in document validation', error instanceof Error ? error.message : String(error));
 
       // Clean up session on error
-      this.sessionManagementService.deleteSession(sessionId);
+      await this.sessionManagementService.deleteSession(sessionId);
 
       return {
         success: false,
@@ -413,7 +428,7 @@ export class CaptchaManagementService {
       };
     } finally {
       if (operationStarted) {
-        this.finishSessionOperation(sessionId);
+        await this.finishSessionOperation(sessionId);
       }
     }
   }
@@ -421,9 +436,9 @@ export class CaptchaManagementService {
   /**
    * Get session with security check
    */
-  getSession(sessionId: string, userId: string): CaptchaSession | undefined {
+  async getSession(sessionId: string, userId: string): Promise<CaptchaSession | undefined> {
     // Try local sessions first, fallback to sessionManagementService
-    const session = this.sessionManagementService.getOwnedSession(sessionId, userId);
+    const session = await this.sessionManagementService.getOwnedSession(sessionId, userId);
 
     if (!session) {
       return undefined;
@@ -435,16 +450,16 @@ export class CaptchaManagementService {
   /**
    * Clear session with security check
    */
-  clearSession(sessionId: string, userId: string): void {
+  async clearSession(sessionId: string, userId: string): Promise<void> {
     // Try local sessions first, fallback to sessionManagementService
-    const session = this.sessionManagementService.getSession(sessionId);
+    const session = await this.sessionManagementService.getSession(sessionId);
 
     if (session && session.userId !== userId) {
       this.logger.error('Unauthorized university validation session clear attempt');
       throw new Error('Unauthorized: Cannot clear session belonging to different user');
     }
 
-    this.sessionManagementService.deleteSession(sessionId);
+    await this.sessionManagementService.deleteSession(sessionId);
     this.logger.debug('University validation session cleared');
   }
 
@@ -465,13 +480,61 @@ export class CaptchaManagementService {
     }
   }
 
-  private tryStartSessionOperation(sessionId: string): boolean {
+  private async tryStartSessionOperation(sessionId: string): Promise<boolean> {
     if (this.activeSessionOperations.has(sessionId)) return false;
-    this.activeSessionOperations.add(sessionId);
-    return true;
+
+    const lockToken = randomUUID();
+    try {
+      const acquired = await this.redis.setIfAbsent(
+        this.operationLockKey(sessionId),
+        lockToken,
+        this.operationLockTtlSeconds,
+      );
+      if (!acquired) return false;
+
+      this.activeSessionOperations.set(sessionId, lockToken);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        'Unable to acquire university validation operation lock',
+        error instanceof Error ? error.message : String(error),
+      );
+      return false;
+    }
   }
 
-  private finishSessionOperation(sessionId: string): void {
+  private async finishSessionOperation(sessionId: string): Promise<void> {
+    const lockToken = this.activeSessionOperations.get(sessionId);
     this.activeSessionOperations.delete(sessionId);
+    if (!lockToken) return;
+
+    try {
+      await this.redis.releaseIfOwned(this.operationLockKey(sessionId), lockToken);
+    } catch (error) {
+      this.logger.warn(
+        'Unable to release university validation operation lock',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  private async ensureAxiosInstance(session: CaptchaSession): Promise<NonNullable<CaptchaSession['axiosInstance']>> {
+    if (session.axiosInstance) {
+      return session.axiosInstance;
+    }
+
+    const axios = await import('axios');
+    session.axiosInstance = axios.default.create({
+      timeout: this.externalVerificationResilience.timeoutMs,
+      maxRedirects: 0,
+      maxContentLength: this.externalVerificationResilience.maxResponseBytes,
+      maxBodyLength: this.externalVerificationResilience.maxResponseBytes,
+      withCredentials: true,
+    });
+    return session.axiosInstance;
+  }
+
+  private operationLockKey(sessionId: string): string {
+    return `university-validation:operation:${sessionId}`;
   }
 }

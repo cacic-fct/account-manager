@@ -11,11 +11,13 @@ import {
   HttpCode,
   UseGuards,
   Logger,
+  Req,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
 import { KeycloakConnectionException } from './exceptions/keycloak-connection.exception';
@@ -42,6 +44,7 @@ import { clearCacicTrackingCookies } from '../privacy/tracking-cookie.utils';
 import { createPkceChallenge } from './pkce.utils';
 import { TotpService } from '../totp/totp.service';
 import { redirectAfterSessionSave, saveSession } from './session-redirect.utils';
+import { RedisService } from '../redis/redis.service';
 
 const DATABASE_BACKED_ADMIN_MARKER = 'db-backed-admin' as const;
 const DEFAULT_APPLICATION_ICON_URL = '/app/assets/default-app-icon.svg';
@@ -67,7 +70,9 @@ export interface AuthSession {
   accountLinkingState?: string;
   accountLinkingUserId?: string;
   accountLinkingCodeVerifier?: string;
+  authenticatedAt?: number;
   save?: (callback: (err?: Error) => void) => void;
+  regenerate?: (callback: (err?: Error) => void) => void;
   destroy: (callback: (err?: Error) => void) => void;
 }
 
@@ -83,6 +88,7 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly accountPermissionService: AccountPermissionService,
     private readonly totpService: TotpService,
+    private readonly redisService: RedisService,
   ) {
     this.appConfig = createAppConfig(this.configService);
   }
@@ -137,18 +143,26 @@ export class AuthController {
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         return null;
       }
+      if (parsed.username || parsed.password || parsed.hash || /%(?:2f|5c)/i.test(parsed.pathname)) {
+        return null;
+      }
 
-      const allowedOrigins = this.appConfig.allowedRedirectUrls
-        .map((allowedUrl) => {
-          try {
-            return new URL(allowedUrl, this.appConfig.frontendUrl).origin;
-          } catch {
-            return null;
+      const allowed = this.appConfig.allowedRedirectUrls.some((allowedUrl) => {
+        try {
+          const configured = new URL(allowedUrl, this.appConfig.frontendUrl);
+          if (configured.origin !== parsed.origin || configured.username || configured.password || configured.hash) {
+            return false;
           }
-        })
-        .filter((origin): origin is string => origin !== null);
 
-      return allowedOrigins.includes(parsed.origin) ? parsed.toString() : null;
+          const allowedPath = configured.pathname.endsWith('/') ? configured.pathname : `${configured.pathname}/`;
+          const allowedRoot = allowedPath === '/' ? '/' : allowedPath.slice(0, -1);
+          return allowedRoot === '/' || parsed.pathname === allowedRoot || parsed.pathname.startsWith(allowedPath);
+        } catch {
+          return false;
+        }
+      });
+
+      return allowed ? parsed.toString() : null;
     } catch {
       return null;
     }
@@ -250,13 +264,7 @@ export class AuthController {
     keycloakUser: KeycloakUser,
     context: string,
   ): Promise<SessionUser> {
-    this.logger.debug(`${context} - Keycloak user data`, {
-      sub: keycloakUser.sub,
-      email: keycloakUser.email,
-      name: keycloakUser.name,
-      picture: keycloakUser.picture,
-      hasPicture: !!keycloakUser.picture,
-    });
+    this.logger.debug(`${context} - received Keycloak identity`, { userId: keycloakUser.sub });
 
     let user = await this.userService.findByKeycloakId(keycloakUser.sub);
     if (!user) {
@@ -294,8 +302,8 @@ export class AuthController {
       }
     }
 
+    await this.regenerateSession(session);
     session.user = {
-      id: user.id,
       email: user.email,
       keycloakId: user.keycloakId,
       isOnboarded,
@@ -303,6 +311,7 @@ export class AuthController {
     session.accessToken = tokens.access_token;
     session.refreshToken = tokens.refresh_token;
     session.idToken = tokens.id_token;
+    session.authenticatedAt = Date.now();
     this.applyKeycloakSessionLifetime(session, tokens);
 
     return session.user;
@@ -331,19 +340,7 @@ export class AuthController {
     const configured =
       this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ENABLED') ?? process.env.KEYCLOAK_PASSWORD_LOGIN_ENABLED;
 
-    if (configured !== undefined) {
-      const normalized = configured.trim().toLowerCase();
-
-      if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-        return true;
-      }
-
-      if (['0', 'false', 'no', 'off'].includes(normalized)) {
-        return false;
-      }
-    }
-
-    return process.env.NODE_ENV !== 'production';
+    return configured !== undefined && ['1', 'true', 'yes', 'on'].includes(configured.trim().toLowerCase());
   }
 
   private resolvePostLoginRedirectUrl(isOnboarded: boolean, requestedReturnUrl?: string): string {
@@ -353,7 +350,52 @@ export class AuthController {
       return returnUrl;
     }
 
-    return isOnboarded ? `${this.appConfig.frontendUrl}applications` : `${this.appConfig.frontendUrl}onboarding`;
+    return this.resolveFrontendPath(isOnboarded ? '/applications' : '/onboarding');
+  }
+
+  private regenerateSession(session: AuthSession): Promise<void> {
+    if (!session.regenerate) {
+      throw new ServiceUnavailableException('Unable to establish a secure authenticated session.');
+    }
+
+    return new Promise((resolve, reject) => {
+      session.regenerate!((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  private async consumePasswordLoginAttempt(email: string, request: Request): Promise<void> {
+    const source = request.ip || request.socket.remoteAddress || 'unknown';
+    const allowedSources = (
+      this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ALLOWED_IPS') || '127.0.0.1,::1,::ffff:127.0.0.1'
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (!allowedSources.includes(source)) {
+      throw new HttpException('Password login is not available from this network.', HttpStatus.FORBIDDEN);
+    }
+
+    const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+    const windowSeconds = 5 * 60;
+
+    try {
+      const [emailAttempts, sourceAttempts] = await Promise.all([
+        this.redisService.incrementWithExpiry(`auth:password-login:email:${digest(email)}`, windowSeconds),
+        this.redisService.incrementWithExpiry(`auth:password-login:source:${digest(source)}`, windowSeconds),
+      ]);
+
+      if (emailAttempts > 5 || sourceAttempts > 20) {
+        throw new HttpException('Too many login attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error('Unable to enforce password-login rate limit', error);
+      throw new ServiceUnavailableException('Password login is temporarily unavailable.');
+    }
   }
 
   @ApiOperation({
@@ -461,9 +503,7 @@ export class AuthController {
       delete session.redirectTo;
       if (requestedReturnUrl) {
         this.logger.warn(`Blocked unsafe return URL during ${routeName}`, {
-          requestedUrl: requestedReturnUrl,
           reason: 'URL origin not in ALLOWED_REDIRECT_URLS config',
-          allowedOrigins: this.appConfig.allowedRedirectUrls,
         });
       }
     }
@@ -514,9 +554,7 @@ export class AuthController {
       delete session.redirectTo;
       if (requestedReturnUrl) {
         this.logger.warn('Blocked unsafe return URL during silent login', {
-          requestedUrl: requestedReturnUrl,
           reason: 'URL origin not in ALLOWED_REDIRECT_URLS config',
-          allowedOrigins: this.appConfig.allowedRedirectUrls,
         });
       }
     }
@@ -531,7 +569,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Development password login',
     description:
-      'Authenticates with email and password through Keycloak direct access grants. Enabled by default outside production and controlled by KEYCLOAK_PASSWORD_LOGIN_ENABLED.',
+      'Authenticates with email and password through Keycloak direct access grants. Disabled by default, restricted by source, and controlled by KEYCLOAK_PASSWORD_LOGIN_ENABLED.',
   })
   @ApiBody({
     type: PasswordLoginDto,
@@ -550,12 +588,12 @@ export class AuthController {
     status: 403,
     description: 'Password login is disabled',
   })
-  @SkipCsrf()
   @HttpCode(HttpStatus.OK)
   @Post('password-login')
   async passwordLogin(
     @Body() body: PasswordLoginDto,
     @Session() session: AuthSession,
+    @Req() request: Request,
   ): Promise<PasswordLoginResponseDto> {
     if (!this.isPasswordLoginEnabled()) {
       throw new HttpException(
@@ -564,8 +602,10 @@ export class AuthController {
       );
     }
 
+    const email = body.email.trim().toLowerCase();
+    await this.consumePasswordLoginAttempt(email, request);
+
     try {
-      const email = body.email.trim().toLowerCase();
       const tokens = await this.keycloakService.exchangePasswordForTokens(email, body.password);
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
       const sessionUser = await this.createSessionFromKeycloakUser(session, tokens, keycloakUser, 'Password login');
@@ -585,8 +625,10 @@ export class AuthController {
         redirectUrl,
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.warn('Password login failed', {
-        email: body.email,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
@@ -661,7 +703,7 @@ export class AuthController {
         this.logger.warn('OAuth callback returned an error', {
           error: oauthError,
         });
-        await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}login?error=auth_failed`);
+        await redirectAfterSessionSave(session, res, this.resolveFrontendPath('/login?error=auth_failed'));
         return;
       }
 
@@ -681,14 +723,15 @@ export class AuthController {
       // Use constant-time comparison to prevent timing attacks
       if (!this.secureCompare(state, session.oauthState)) {
         this.logger.warn('OAuth callback state mismatch', {
-          receivedState: state.substring(0, 10) + '...',
-          expectedState: session.oauthState.substring(0, 10) + '...',
+          stateProvided: true,
+          sessionStateExists: true,
         });
         throw new HttpException('State parameter mismatch', HttpStatus.FORBIDDEN);
       }
 
       // Clear the state from session after successful validation
       const codeVerifier = session.oauthCodeVerifier;
+      const requestedReturnUrl = this.resolveSafeReturnUrl(session.redirectTo);
       delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
@@ -696,147 +739,18 @@ export class AuthController {
       const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
+      const sessionUser = await this.createSessionFromKeycloakUser(session, tokens, keycloakUser, 'OAuth callback');
+      const redirectUrl = this.resolvePostLoginRedirectUrl(sessionUser.isOnboarded, requestedReturnUrl ?? undefined);
 
-      this.logger.debug('Auth callback - Keycloak user data', {
-        sub: keycloakUser.sub,
-        email: keycloakUser.email,
-        name: keycloakUser.name,
-        picture: keycloakUser.picture,
-        hasPicture: !!keycloakUser.picture,
-      });
-
-      let user = await this.userService.findByKeycloakId(keycloakUser.sub);
-      if (!user) {
-        user = await this.userService.createFromKeycloak(keycloakUser);
-      } else {
-        // Update existing user with latest OAuth data (picture, display name, etc.)
-        user = await this.userService.updateFromKeycloakOAuth(keycloakUser);
-      }
-
-      // Always refresh user data to get the latest onboarding status
-      user = await this.userService.findByKeycloakId(keycloakUser.sub);
-
-      if (!user) {
-        throw new HttpException('Failed to create or find user', HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      // Check actual onboarding status based on required attributes
-      try {
-        const onboardingStatus = await this.userService.checkOnboardingStatus(user.keycloakId);
-
-        this.logger.debug('Auth callback - user onboarding status', {
-          userId: user.keycloakId,
-          userIsOnboarded: user.isOnboarded,
-          onboardingStatusNeedsOnboarding: onboardingStatus.needsOnboarding,
-          finalIsOnboarded: user.isOnboarded && !onboardingStatus.needsOnboarding,
-        });
-
-        session.user = {
-          id: user.id,
-          email: user.email,
-          keycloakId: user.keycloakId,
-          isOnboarded: user.isOnboarded && !onboardingStatus.needsOnboarding,
-        };
-        session.accessToken = tokens.access_token;
-        session.refreshToken = tokens.refresh_token;
-        session.idToken = tokens.id_token;
-        this.applyKeycloakSessionLifetime(session, tokens);
-
-        // Redirect to frontend based on actual onboarding status
-        const needsOnboarding = !session.user.isOnboarded;
-        const returnUrl = session.redirectTo;
-
-        if (!needsOnboarding && returnUrl) {
-          this.logger.debug('Redirecting user after callback to return_url', {
-            returnUrl,
-          });
-          delete session.redirectTo;
-          await redirectAfterSessionSave(session, res, returnUrl);
-          return;
-        }
-
-        const frontendUrl = needsOnboarding
-          ? `${this.appConfig.frontendUrl}onboarding`
-          : `${this.appConfig.frontendUrl}applications`;
-
-        this.logger.debug('Redirecting user after callback', {
-          frontendUrl,
-          needsOnboarding,
-        });
-        if (!needsOnboarding) {
-          delete session.redirectTo;
-        }
-        await redirectAfterSessionSave(session, res, frontendUrl);
-        return;
-      } catch (error) {
-        // For connection errors, assume the user needs onboarding to be safe
-        // This prevents incorrectly redirecting already-onboarded users to the main app
-        if (error instanceof KeycloakConnectionException) {
-          this.logger.error('Keycloak connection error during callback, redirecting to onboarding for safety', error);
-
-          session.user = {
-            id: user.id,
-            email: user.email,
-            keycloakId: user.keycloakId,
-            isOnboarded: false, // Safe default when we can't verify
-          };
-          session.accessToken = tokens.access_token;
-          session.refreshToken = tokens.refresh_token;
-          session.idToken = tokens.id_token;
-          this.applyKeycloakSessionLifetime(session, tokens);
-
-          // Redirect to onboarding to be safe - the onboarding page will show an error
-          await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}onboarding`);
-          return;
-        }
-
-        // For other errors, fall back to the user's stored onboarding status
-        this.logger.error('Error checking onboarding status during callback', error);
-
-        session.user = {
-          id: user.id,
-          email: user.email,
-          keycloakId: user.keycloakId,
-          isOnboarded: user.isOnboarded, // Use stored status as fallback
-        };
-        session.accessToken = tokens.access_token;
-        session.refreshToken = tokens.refresh_token;
-        session.idToken = tokens.id_token;
-        this.applyKeycloakSessionLifetime(session, tokens);
-
-        const needsOnboarding = !session.user.isOnboarded;
-        const returnUrl = session.redirectTo;
-
-        if (!needsOnboarding && returnUrl) {
-          this.logger.debug('Redirecting user after callback fallback to return_url', {
-            returnUrl,
-          });
-          delete session.redirectTo;
-          await redirectAfterSessionSave(session, res, returnUrl);
-          return;
-        }
-
-        const frontendUrl = needsOnboarding
-          ? `${this.appConfig.frontendUrl}onboarding`
-          : `${this.appConfig.frontendUrl}applications`;
-
-        this.logger.debug('Redirecting user after callback fallback', {
-          frontendUrl,
-          needsOnboarding,
-        });
-        if (!needsOnboarding) {
-          delete session.redirectTo;
-        }
-        await redirectAfterSessionSave(session, res, frontendUrl);
-        return;
-      }
+      await redirectAfterSessionSave(session, res, redirectUrl);
+      return;
     } catch (error) {
       delete session.redirectTo;
       delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       this.logger.error('Auth callback error', error);
-      await redirectAfterSessionSave(session, res, `${this.appConfig.frontendUrl}login?error=auth_failed`);
+      await redirectAfterSessionSave(session, res, this.resolveFrontendPath('/login?error=auth_failed'));
     }
   }
 
@@ -865,7 +779,7 @@ export class AuthController {
   @SkipCsrf()
   @Get('me')
   async getCurrentUser(@Session() session: AuthSession) {
-    const user = await this.userService.findById(session.user!.id); // Safe to use ! because AuthGuard ensures user exists
+    const user = await this.userService.findById(session.user!.keycloakId);
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
@@ -929,49 +843,13 @@ export class AuthController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('profile')
   async updateProfile(@Body() updateData: CreateUserProfileDto, @Session() session: AuthSession) {
-    const updatedUser = await this.userService.updateProfile(
-      session.user!.id, // Safe to use ! because AuthGuard ensures user exists
-      updateData,
-    );
+    const updatedUser = await this.userService.updateProfile(session.user!.keycloakId, updateData);
 
-    // Small delay to ensure Keycloak attributes are fully persisted
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    try {
-      // Check if onboarding is now complete
-      const onboardingStatus = await this.userService.checkOnboardingStatus(session.user!.keycloakId);
-
-      // Update session
-      if (session.user) {
-        session.user.isOnboarded = !onboardingStatus.needsOnboarding;
-      }
-
-      // Ensure the returned user has the correct onboarding status
-      const userDto = await this.userService.toDto(updatedUser);
-      userDto.isOnboarded = !onboardingStatus.needsOnboarding;
-
-      this.logger.debug('Profile updated for user', {
-        userId: session.user!.keycloakId,
-        onboardingStatus,
-        userDtoIsOnboarded: userDto.isOnboarded,
-        sessionIsOnboarded: session.user!.isOnboarded,
-      });
-
-      return userDto;
-    } catch (error) {
-      // For connection errors, throw them so the client gets a proper error response
-      if (error instanceof KeycloakConnectionException) {
-        this.logger.error('Keycloak connection error after profile update', error);
-        throw error;
-      }
-
-      // For other errors, return the updated user with uncertain onboarding status
-      this.logger.error('Error checking onboarding status after profile update', error);
-      const userDto = await this.userService.toDto(updatedUser);
-      // Keep existing session status as fallback
-      userDto.isOnboarded = session.user!.isOnboarded;
-      return userDto;
+    if (session.user) {
+      session.user.isOnboarded = updatedUser.isOnboarded;
     }
+
+    return this.userService.toDto(updatedUser);
   }
 
   @ApiOperation({
@@ -1012,7 +890,7 @@ export class AuthController {
 
     if (session.redirectTo && !this.resolveSafeReturnUrl(session.redirectTo)) {
       this.logger.warn('Post-onboarding redirect URL failed validation', {
-        userId: session.user?.id,
+        userId: session.user?.keycloakId,
         attemptedUrl: session.redirectTo,
         allowedOrigins: this.appConfig.allowedRedirectUrls,
       });
@@ -1038,6 +916,8 @@ export class AuthController {
     required: false,
     description: 'Optional logout redirect target. Must be a relative path or allowed origin.',
   })
+  @Auth()
+  @UseGuards(CurrentUserGuard)
   @Post('logout')
   logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
     const logoutUrl = this.keycloakService.getEndSessionUrl(
@@ -1046,10 +926,21 @@ export class AuthController {
     );
 
     clearCacicTrackingCookies(res, this.configService);
+    res.clearCookie('connect.sid', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
 
     session.destroy((err: unknown) => {
       if (err) {
         this.logger.error('Session destruction error', err);
+        res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+          success: false,
+          logoutUrl,
+          message: 'The browser session was cleared, but server-side revocation could not be confirmed.',
+        });
+        return;
       }
       res.json({ success: true, logoutUrl });
     });
@@ -1311,10 +1202,7 @@ export class AuthController {
       };
     } catch (error) {
       this.logger.error('Error checking admin status', error);
-      return {
-        isAdmin: false,
-        adminGroups: [],
-      };
+      throw new ServiceUnavailableException('Unable to determine administrator status.');
     }
   }
 }

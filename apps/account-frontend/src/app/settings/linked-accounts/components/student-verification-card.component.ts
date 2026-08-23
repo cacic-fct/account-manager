@@ -21,6 +21,7 @@ import { UniversityValidationDialogComponent } from './university-validation-dia
 import { environment } from '../../../../environments/environment';
 import { RouterLink } from '@angular/router';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-student-verification-card',
@@ -44,6 +45,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
   private studentVerificationService = inject(StudentVerificationService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private logger = inject(LoggerService);
 
   isLoading = signal(false);
   hasLoadError = signal(false);
@@ -99,7 +101,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
         this.updateBannerBasedOnStatus();
       },
       error: (error) => {
-        console.error('Error loading verification status:', error);
+        this.logger.error('Error loading verification status', error, { operation: 'student-verification' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
         this.showErrorBanner(
@@ -267,7 +269,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         this.uploading.set(false);
-        console.error('Upload error:', error);
+        this.logger.error('Upload error', error, { operation: 'student-verification-upload' });
 
         let errorMessage = 'Erro ao enviar documento. Tente novamente.';
         if (error?.error?.message) {

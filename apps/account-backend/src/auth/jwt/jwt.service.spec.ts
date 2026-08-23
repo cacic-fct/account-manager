@@ -35,6 +35,11 @@ const createPayload = (overrides: Partial<JwtPayload> = {}): JwtPayload => ({
 });
 
 describe('JwtService M2M authorization', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
   it('requires an explicit M2M audience', () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -156,5 +161,33 @@ describe('JwtService M2M authorization', () => {
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  });
+
+  it('coalesces concurrent client-credential token refreshes', async () => {
+    let resolveFetch!: (response: Response) => void;
+    const fetchMock = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    global.fetch = fetchMock;
+    const service = new JwtService(
+      createConfigService({
+        KEYCLOAK_M2M_CLIENT_ID: 'account-manager-m2m',
+        KEYCLOAK_M2M_CLIENT_SECRET: 'secret',
+      }),
+    );
+
+    const requests = Array.from({ length: 100 }, () => service.getClientCredentialsToken());
+    resolveFetch(
+      new Response(JSON.stringify({ access_token: 'shared-token', expires_in: 300 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(Promise.all(requests)).resolves.toEqual(Array(100).fill('shared-token'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 });

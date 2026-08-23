@@ -38,6 +38,7 @@ export class JwtService {
   private readonly requireServiceAccountToken!: boolean;
   private readonly allowedM2MClients!: string[];
   private readonly tokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
+  private readonly tokenRequests = new Map<string, Promise<string>>();
 
   constructor(private configService: ConfigService) {
     this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
@@ -242,14 +243,41 @@ export class JwtService {
       return cached.accessToken;
     }
 
+    const activeRequest = this.tokenRequests.get(cacheKey);
+    if (activeRequest) {
+      return activeRequest;
+    }
+
+    const request = this.requestClientCredentialsToken(clientId, clientSecret, options.audience)
+      .then(({ accessToken, expiresInSeconds }) => {
+        const refreshSkewSeconds = Math.min(45, Math.max(15, Math.round(expiresInSeconds * 0.1)));
+        const ttlMs = Math.max(expiresInSeconds - refreshSkewSeconds, 1) * 1000;
+        this.tokenCache.set(cacheKey, {
+          accessToken,
+          expiresAt: Date.now() + ttlMs,
+        });
+        return accessToken;
+      })
+      .finally(() => {
+        this.tokenRequests.delete(cacheKey);
+      });
+    this.tokenRequests.set(cacheKey, request);
+    return request;
+  }
+
+  private async requestClientCredentialsToken(
+    clientId: string,
+    clientSecret: string,
+    audience?: string,
+  ): Promise<{ accessToken: string; expiresInSeconds: number }> {
     const tokenUrl = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/token`;
     const body = new URLSearchParams();
     body.set('grant_type', 'client_credentials');
     body.set('client_id', clientId);
     body.set('client_secret', clientSecret);
 
-    if (options.audience) {
-      body.set('audience', options.audience);
+    if (audience) {
+      body.set('audience', audience);
     }
 
     const response = await fetch(tokenUrl, {
@@ -258,6 +286,7 @@ export class JwtService {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: body.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -278,13 +307,7 @@ export class JwtService {
 
     const expiresInSeconds =
       typeof tokenResponse.expires_in === 'number' && tokenResponse.expires_in > 0 ? tokenResponse.expires_in : 300;
-    const ttlMs = Math.max(expiresInSeconds - 30, 1) * 1000;
-    this.tokenCache.set(cacheKey, {
-      accessToken: tokenResponse.access_token,
-      expiresAt: Date.now() + ttlMs,
-    });
-
-    return tokenResponse.access_token;
+    return { accessToken: tokenResponse.access_token, expiresInSeconds };
   }
 
   private readRequiredConfig(name: string): string {

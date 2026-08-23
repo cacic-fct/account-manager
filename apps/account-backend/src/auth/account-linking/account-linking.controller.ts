@@ -7,11 +7,13 @@ import {
   Logger,
   MessageEvent,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Res,
   Session,
   Sse,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -29,7 +31,7 @@ import { CurrentUserGuard } from '../guards/current-user.guard';
 import { KeycloakService } from '../services/keycloak.service';
 import { UserService } from '../services/user.service';
 import { AccountLinkingService } from './account-linking.service';
-import { redirectAfterSessionSave, saveSession } from '../session-redirect.utils';
+import { redirectAfterSessionSave } from '../session-redirect.utils';
 import {
   AccountLinkingStartUrlDto,
   AccountMergeRequestDto,
@@ -176,7 +178,10 @@ export class AccountLinkingController {
   @Auth()
   @SkipCsrf()
   @Get('merge-requests/:id')
-  async getMergeRequest(@Param('id') id: string, @Session() session: AuthSession): Promise<AccountMergeRequestDto> {
+  async getMergeRequest(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Session() session: AuthSession,
+  ): Promise<AccountMergeRequestDto> {
     return this.getMergeRequestForSession(id, session);
   }
 
@@ -197,7 +202,7 @@ export class AccountLinkingController {
   @SkipCsrf()
   @Sse('merge-requests/:id/events')
   async streamMergeRequest(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
     @Session() session: AuthSession,
   ): Promise<Observable<MessageEvent>> {
     const initialRequest = await this.getMergeRequestForSession(id, session);
@@ -216,8 +221,7 @@ export class AccountLinkingController {
       ['pending_merge', 'completed'].includes(request.status) &&
       session.user?.keycloakId !== request.primaryUserId
     ) {
-      await this.switchSessionToUser(session, request.primaryUserId);
-      await saveSession(session);
+      this.destroySecondarySession(session);
     }
 
     return request;
@@ -229,7 +233,7 @@ export class AccountLinkingController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('merge-requests/:id/confirm')
   async confirmMerge(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
     @Body() dto: ConfirmAccountMergeDto,
     @Session() session: AuthSession,
   ): Promise<ConfirmAccountMergeResponseDto> {
@@ -242,7 +246,10 @@ export class AccountLinkingController {
   @Auth()
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @Post('merge-requests/:id/cancel')
-  async cancelMerge(@Param('id') id: string, @Session() session: AuthSession): Promise<{ success: true }> {
+  async cancelMerge(
+    @Param('id', new ParseUUIDPipe({ version: '7' })) id: string,
+    @Session() session: AuthSession,
+  ): Promise<{ success: true }> {
     await this.accountLinkingService.cancelRequest(id, session.user!.keycloakId);
     return { success: true };
   }
@@ -278,22 +285,18 @@ export class AccountLinkingController {
     return `${this.appConfig.apiBaseUrl}/auth/account-linking/google/callback`;
   }
 
-  private async switchSessionToUser(session: AuthSession, keycloakId: string): Promise<void> {
-    const primaryUser = await this.userService.findByKeycloakId(keycloakId);
-    if (!primaryUser) {
-      this.logger.warn(`Unable to switch session: user not found for keycloakId ${keycloakId}`);
-      return;
-    }
+  private destroySecondarySession(session: AuthSession): never {
+    delete session.user;
+    delete session.accessToken;
+    delete session.refreshToken;
+    delete session.idToken;
 
-    if (!session.user) {
-      return;
-    }
+    session.destroy((error?: Error) => {
+      if (error) {
+        this.logger.error('Failed to destroy the secondary account session after merge', error);
+      }
+    });
 
-    session.user = {
-      id: primaryUser.id,
-      email: primaryUser.email,
-      keycloakId: primaryUser.keycloakId,
-      isOnboarded: primaryUser.isOnboarded,
-    };
+    throw new UnauthorizedException('Account merge completed; sign in again with the primary account');
   }
 }

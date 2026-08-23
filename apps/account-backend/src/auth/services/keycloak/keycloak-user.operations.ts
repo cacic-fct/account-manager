@@ -11,7 +11,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     const adminToken = await this.getAdminToken();
     const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
 
-    const getUserResponse = await fetch(userUrl, {
+    const getUserResponse = await this.fetchWithTimeout(userUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -27,7 +27,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         userId,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to get current user data');
@@ -94,7 +93,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       }
     }
 
-    const updateResponse = await fetch(userUrl, {
+    const updateResponse = await this.fetchWithTimeout(userUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -139,7 +138,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
       this.logger.debug('Getting user attributes', { userId, userUrl });
 
-      const response = await fetch(userUrl, {
+      const response = await this.fetchWithTimeout(userUrl, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
         },
@@ -155,7 +154,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
           url: userUrl,
           contentType: details.contentType,
           responseHeaders: details.headers,
-          bodyPreview: details.bodyPreview,
         });
 
         if (response.status === 404) {
@@ -169,7 +167,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
       this.logger.debug('User attributes retrieved', {
         id: userData.id,
-        email: userData.email,
         attributesKeys: Object.keys(userData.attributes || {}),
       });
 
@@ -194,7 +191,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     const adminToken = await this.getAdminToken();
     const usersUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users?email=${encodeURIComponent(email)}&exact=true`;
 
-    const response = await fetch(usersUrl, {
+    const response = await this.fetchWithTimeout(usersUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -210,7 +207,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         email,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error('Failed to find user by email');
@@ -254,7 +250,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     const responses = await Promise.allSettled(
       [...requestUrls].map(async (url) => {
-        const response = await fetch(url, {
+        const response = await this.fetchWithTimeout(url, {
           headers: {
             Authorization: `Bearer ${adminToken}`,
           },
@@ -270,7 +266,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
             query: normalizedQuery,
             contentType: details.contentType,
             responseHeaders: details.headers,
-            bodyPreview: details.bodyPreview,
           });
 
           throw new Error(`Failed to search users: ${response.status} ${response.statusText}`);
@@ -318,7 +313,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     });
     const usersUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`;
 
-    const response = await fetch(usersUrl, {
+    const response = await this.fetchWithTimeout(usersUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -334,7 +329,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         attributeName: normalizedAttributeName,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to search users by attribute: ${response.status} ${response.statusText}`);
@@ -349,7 +343,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     this.logger.debug('Getting basic user info', { userId });
 
-    const response = await fetch(userUrl, {
+    const response = await this.fetchWithTimeout(userUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -370,7 +364,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         userUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get basic user info: ${response.status} ${response.statusText}`);
@@ -380,7 +373,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     this.logger.debug('Basic user info retrieved', {
       id: userData.id,
-      email: userData.email,
     });
 
     return userData;
@@ -390,7 +382,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     const adminToken = await this.getAdminToken();
     const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
 
-    const currentResponse = await fetch(userUrl, {
+    const currentResponse = await this.fetchWithTimeout(userUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -406,7 +398,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         userUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(
@@ -416,7 +407,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     const currentUser = (await currentResponse.json()) as KeycloakUserData;
 
-    const updateResponse = await fetch(userUrl, {
+    const updateResponse = await this.fetchWithTimeout(userUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -438,7 +429,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         userUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to update user: ${updateResponse.status} ${updateResponse.statusText}`);
@@ -453,7 +443,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     const adminToken = await this.getAdminToken();
     const identitiesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity`;
 
-    const response = await fetch(identitiesUrl, {
+    const response = await this.fetchWithTimeout(identitiesUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -473,7 +463,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         identitiesUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get federated identities: ${response.status} ${response.statusText}`);
@@ -488,7 +477,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       identity.identityProvider,
     )}`;
 
-    const response = await fetch(identityUrl, {
+    const response = await this.fetchWithTimeout(identityUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -508,7 +497,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         identityUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to add federated identity: ${response.status} ${response.statusText}`);
@@ -521,7 +509,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       identityProvider,
     )}`;
 
-    const response = await fetch(identityUrl, {
+    const response = await this.fetchWithTimeout(identityUrl, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -539,7 +527,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         identityUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to remove federated identity: ${response.status} ${response.statusText}`);
@@ -552,7 +539,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
     this.logger.debug('Deleting user from Keycloak', { userId });
 
-    const response = await fetch(userUrl, {
+    const response = await this.fetchWithTimeout(userUrl, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -574,7 +561,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         userUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to delete user from Keycloak: ${response.status} ${response.statusText}`);

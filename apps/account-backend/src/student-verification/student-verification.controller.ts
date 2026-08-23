@@ -7,6 +7,7 @@ import {
   UploadedFile,
   Body,
   Param,
+  ParseUUIDPipe,
   Res,
   Session,
   BadRequestException,
@@ -17,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { Response } from 'express';
+import { pipeline } from 'stream/promises';
 import { StudentVerificationService } from './student-verification.service';
 import { UploadResponseDto, VerificationStatusDto, UpdateVerificationStatusDto } from './dto/student-verification.dto';
 import { SessionUser } from '../auth/interfaces/auth.interface';
@@ -251,7 +253,7 @@ export class StudentVerificationController {
     description: 'Document not found',
   })
   async updateVerificationStatus(
-    @Param('documentId') documentId: string,
+    @Param('documentId', new ParseUUIDPipe({ version: '7' })) documentId: string,
     @Body() updateDto: UpdateVerificationStatusDto,
     @Session() session: AuthSession,
   ) {
@@ -299,7 +301,10 @@ export class StudentVerificationController {
     status: 404,
     description: 'Document not found',
   })
-  async downloadDocument(@Param('documentId') documentId: string, @Res() res: Response) {
+  async downloadDocument(
+    @Param('documentId', new ParseUUIDPipe({ version: '7' })) documentId: string,
+    @Res() res: Response,
+  ) {
     const document = await this.studentVerificationService.getDocumentFile(documentId);
 
     // Properly encode filename for UTF-8 support (handles accents)
@@ -312,10 +317,9 @@ export class StudentVerificationController {
       `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
     );
 
-    // Stream the file from S3
-    document.stream.pipe(res);
-
-    document.stream.on('error', (error) => {
+    try {
+      await pipeline(document.stream, res);
+    } catch (error: unknown) {
       this.logger.error(
         `Error streaming file for document ${documentId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
@@ -323,6 +327,6 @@ export class StudentVerificationController {
       if (!res.headersSent) {
         res.status(500).json({ error: 'Erro ao baixar o arquivo' });
       }
-    });
+    }
   }
 }

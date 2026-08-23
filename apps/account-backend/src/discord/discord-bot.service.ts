@@ -4,6 +4,7 @@ import type { DiscordLink } from '@prisma/client';
 import { UserService } from '../auth/services/user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiscordRoleService } from './services/discord-role.service';
+import { withDiscordTimeout } from './services/discord-timeout.util';
 
 @Injectable()
 export class DiscordBotService {
@@ -27,7 +28,7 @@ export class DiscordBotService {
         return;
       }
 
-      const member = await guild.members.fetch(discordUserId);
+      const member = await withDiscordTimeout(guild.members.fetch(discordUserId));
       if (!member) {
         this.logger.warn(`Member not found: ${discordUserId}`);
         return;
@@ -107,7 +108,7 @@ export class DiscordBotService {
         return;
       }
 
-      const member = await guild.members.fetch(discordUserId);
+      const member = await withDiscordTimeout(guild.members.fetch(discordUserId));
       if (!member) {
         this.logger.warn(`Member not found: ${discordUserId}`);
         return;
@@ -141,7 +142,7 @@ export class DiscordBotService {
         return;
       }
 
-      const member = await guild.members.fetch(discordUserId);
+      const member = await withDiscordTimeout(guild.members.fetch(discordUserId));
       if (member) {
         await member.kick('Account deleted from CACiC system');
         this.logger.debug(`Removed user ${member.user.username} from guild due to account deletion`);
@@ -170,6 +171,6 @@ export class DiscordBotService {
   }
 
   private async getGuild(client: Client, guildId: string): Promise<Guild> {
-    return await client.guilds.fetch(guildId);
+    return await withDiscordTimeout(client.guilds.fetch(guildId));
   }
 }

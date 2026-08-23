@@ -1,9 +1,18 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../auth/services/user.service';
+import { RedisService } from '../redis/redis.service';
 import {
   TOTP_ALGORITHM,
   TOTP_DIGITS,
@@ -60,6 +69,7 @@ export class TotpService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly redis: RedisService,
   ) {}
 
   async getStatus(userId: string): Promise<TotpStatusResult> {
@@ -91,8 +101,13 @@ export class TotpService {
 
     const seed = this.generateSeed();
     const encryptedSeed = this.encryptSeed(seed);
-    const updatedUser = await this.prisma.user.update({
-      where: { keycloakId: input.keycloakId },
+    const claimed = await this.prisma.user.updateMany({
+      where: {
+        keycloakId: input.keycloakId,
+        totpSecretEncrypted: null,
+        totpSecretIv: null,
+        totpSecretAuthTag: null,
+      },
       data: {
         ...encryptedSeed,
         totpSecretCreatedAt: new Date(),
@@ -100,7 +115,19 @@ export class TotpService {
       },
     });
 
-    return this.toSeedResult(updatedUser, seed);
+    if (claimed.count === 1) {
+      const persisted = await this.prisma.user.findUnique({ where: { keycloakId: input.keycloakId } });
+      if (!persisted) {
+        throw new ConflictException('TOTP seed user disappeared during enrollment');
+      }
+      return this.toSeedResult(persisted, seed);
+    }
+
+    const persisted = await this.prisma.user.findUnique({ where: { keycloakId: input.keycloakId } });
+    if (!persisted || !this.hasEncryptedSeed(persisted)) {
+      throw new ConflictException('TOTP seed enrollment conflicted; retry the request');
+    }
+    return this.toSeedResult(persisted, this.decryptSeed(persisted));
   }
 
   async rotateSeed(input: EnsureUserInput): Promise<TotpSeedResult> {
@@ -147,8 +174,9 @@ export class TotpService {
     });
   }
 
-  async validateCode(primaryEmail: string, rawCode: string): Promise<TotpValidationResult> {
+  async validateCode(primaryEmail: string, rawCode: string, caller = 'unknown'): Promise<TotpValidationResult> {
     const normalizedEmail = this.normalizeEmail(primaryEmail);
+    await this.consumeValidationAttempt(normalizedEmail, caller);
     const code = this.normalizeCode(rawCode);
     const serverTime = new Date();
 
@@ -171,6 +199,16 @@ export class TotpService {
       const timestamp = now + offset * TOTP_PERIOD_SECONDS * 1000;
       const expectedCode = this.generateCode(seed, timestamp);
       if (this.safeCodeEquals(code, expectedCode)) {
+        const counter = Math.floor(timestamp / 1000 / TOTP_PERIOD_SECONDS);
+        const accepted = await this.redis.setIfAbsent(
+          `totp:used:${user.keycloakId}:${counter}`,
+          '1',
+          TOTP_PERIOD_SECONDS * (TOTP_VALIDATION_WINDOW_STEPS * 2 + 2),
+        );
+        if (!accepted) {
+          this.logger.warn('Rejected replayed TOTP time step', { userId: user.keycloakId });
+          return { valid: false, serverTime };
+        }
         return {
           valid: true,
           serverTime,
@@ -202,6 +240,26 @@ export class TotpService {
 
   normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private async consumeValidationAttempt(normalizedEmail: string, caller: string): Promise<void> {
+    const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+    const windowSeconds = 60;
+    try {
+      const [identityAttempts, callerAttempts] = await Promise.all([
+        this.redis.incrementWithExpiry(`totp:rate:identity:${digest(normalizedEmail)}`, windowSeconds),
+        this.redis.incrementWithExpiry(`totp:rate:caller:${digest(caller)}`, windowSeconds),
+      ]);
+      if (identityAttempts > 10 || callerAttempts > 100) {
+        throw new HttpException('Too many TOTP validation attempts.', HttpStatus.TOO_MANY_REQUESTS);
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Unable to enforce TOTP validation rate limit', error);
+      throw new ServiceUnavailableException('TOTP validation is temporarily unavailable.');
+    }
   }
 
   private async ensureUser(input: EnsureUserInput): Promise<User> {

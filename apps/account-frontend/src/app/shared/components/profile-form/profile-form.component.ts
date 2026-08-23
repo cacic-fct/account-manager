@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   input,
@@ -10,6 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -96,6 +98,7 @@ export class ProfileFormComponent implements OnInit {
   private phoneValidationService = inject(PhoneValidationService);
   private apiService = inject(ApiService);
   private dialog = inject(MatDialog);
+  private destroyRef = inject(DestroyRef);
   private fixedLineDialogShownFor = '';
   private logger = inject(LoggerService);
 
@@ -255,41 +258,50 @@ export class ProfileFormComponent implements OnInit {
 
   private setupFormWatchers(): void {
     // Watch form changes
-    this.profileForm.valueChanges.subscribe(() => {
+    this.profileForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.emitFormState();
     });
 
     // Watch isForeigner changes to update identity document validation
-    this.personalGroup.get('isForeigner')?.valueChanges.subscribe(() => {
-      this.personalGroup.get('identityDocument')?.updateValueAndValidity();
-      this.updatePassportCountryRules();
+    this.personalGroup
+      .get('isForeigner')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.personalGroup.get('identityDocument')?.updateValueAndValidity();
+        this.updatePassportCountryRules();
 
-      if (!this.personalGroup.get('isForeigner')?.value) {
-        this.personalGroup.get('passportCountry')?.setValue('BR', { emitEvent: false });
-      }
-    });
+        if (!this.personalGroup.get('isForeigner')?.value) {
+          this.personalGroup.get('passportCountry')?.setValue('BR', { emitEvent: false });
+        }
+      });
 
     // Watch country code changes so validation and formatted output use the selected region
-    this.personalGroup.get('countryCode')?.valueChanges.subscribe((countryCode: string | null) => {
-      const currentCountry = countryCode || 'BR';
-      this.countryCodeValue.set(currentCountry);
+    this.personalGroup
+      .get('countryCode')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((countryCode: string | null) => {
+        const currentCountry = countryCode || 'BR';
+        this.countryCodeValue.set(currentCountry);
 
-      const phoneControl = this.personalGroup.get('phone');
-      const currentValue = phoneControl?.value || '';
-      const formattedValue = this.phoneValidationService.formatToNational(currentValue, currentCountry);
+        const phoneControl = this.personalGroup.get('phone');
+        const currentValue = phoneControl?.value || '';
+        const formattedValue = this.phoneValidationService.formatToNational(currentValue, currentCountry);
 
-      if (formattedValue !== currentValue) {
-        phoneControl?.setValue(formattedValue, { emitEvent: false });
-      }
+        if (formattedValue !== currentValue) {
+          phoneControl?.setValue(formattedValue, { emitEvent: false });
+        }
 
-      this.personalGroup.get('phone')?.updateValueAndValidity();
-    });
+        this.personalGroup.get('phone')?.updateValueAndValidity();
+      });
 
     // Watch unespRole changes to update enrollment number validation and signal
-    this.academicGroup.get('unespRole')?.valueChanges.subscribe((role: string | null) => {
-      const roleValue = role || '';
-      this.applyEnrollmentRules(roleValue);
-    });
+    this.academicGroup
+      .get('unespRole')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((role: string | null) => {
+        const roleValue = role || '';
+        this.applyEnrollmentRules(roleValue);
+      });
 
     this.applyEnrollmentRules(this.academicGroup.get('unespRole')?.value?.toString() || '');
     this.updatePassportCountryRules();

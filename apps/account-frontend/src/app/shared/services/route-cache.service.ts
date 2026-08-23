@@ -1,5 +1,5 @@
 import { Service, inject } from '@angular/core';
-import { Observable, of, BehaviorSubject } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { tap, shareReplay, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from './auth/auth.service';
@@ -48,18 +48,18 @@ export class RouteCacheService {
    * Get user data with aggressive caching for route guards.
    * Returns cached data immediately if available, optionally triggers background refresh.
    */
-  getUserForRouteGuard(): Observable<User> {
+  getUserForRouteGuard(requireFresh = false): Observable<User> {
     const now = Date.now();
     const isExpired = now - this.cache.userTimestamp > this.CACHE_DURATION;
 
     // If we have cached user data and it's not expired
-    if (this.cache.user && !isExpired) {
+    if (!requireFresh && this.cache.user && !isExpired) {
       return of(this.cache.user);
     }
 
     // Check if auth service has user data we can use
     const authUser = this.authService.currentUser();
-    if (authUser && !isExpired) {
+    if (!requireFresh && authUser && !isExpired) {
       this.cache.user = authUser;
       this.cache.userTimestamp = now;
       return of(authUser);
@@ -75,10 +75,8 @@ export class RouteCacheService {
       shareReplay(1),
       catchError((error) => {
         this.logger.error('Error fetching user for route guard', error);
-        // If we have any cached user, return it as fallback
-        if (this.cache.user) {
-          return of(this.cache.user);
-        }
+        // A failed fresh check leaves authentication unknown. Never turn an
+        // expired cached identity into an authenticated route decision.
         throw error;
       }),
     );

@@ -12,7 +12,6 @@ export interface KeycloakUser {
 }
 
 export interface SessionUser {
-  id: string;
   email: string;
   keycloakId: string;
   isOnboarded: boolean;

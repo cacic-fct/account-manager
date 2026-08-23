@@ -2,7 +2,10 @@ import { HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CsrfService } from '../services/csrf.service';
-import { switchMap, catchError } from 'rxjs/operators';
+import { LoggerService } from '../services/logger.service';
+import { catchError, switchMap } from 'rxjs/operators';
+import { isConfiguredApiRequest, isConfiguredApiRoute } from '../utils/request-url.util';
+import { throwError } from 'rxjs';
 
 /**
  * HTTP Interceptor that automatically adds CSRF tokens to state-changing requests
@@ -17,6 +20,7 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   const csrfService = inject(CsrfService);
+  const logger = inject(LoggerService);
 
   // Only add CSRF token for state-changing methods
   const methodsRequiringCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -42,7 +46,13 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   // If no token in cookie, fetch it and retry the request
+  // Catch only token acquisition failures. Once a protected request has been
+  // sent, its errors must propagate without replaying the mutation unprotected.
   return csrfService.getToken().pipe(
+    catchError((error: unknown) => {
+      logger.error('Failed to acquire CSRF token', error);
+      return throwError(() => error);
+    }),
     switchMap((token) => {
       const clonedReq = req.clone({
         setHeaders: {
@@ -50,12 +60,6 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
         },
       });
       return next(clonedReq);
-    }),
-    catchError((error) => {
-      console.error('Failed to add CSRF token to request:', error);
-      // Continue with request even if CSRF fetch fails
-      // The backend will reject it, but we don't want to block the request
-      return next(req);
     }),
   );
 };
@@ -68,14 +72,16 @@ function shouldSkipCsrf(req: HttpRequest<unknown>): boolean {
     return true;
   }
 
-  // Skip for external URLs (not same-origin)
-  if (req.url.startsWith('http') && !req.url.includes(window.location.hostname)) {
+  // Only the configured API receives CSRF handling. This keeps third-party
+  // requests out of the interceptor while still supporting the development API
+  // origin, which is intentionally different from the frontend origin.
+  if (!isConfiguredApiRequest(req.url)) {
     return true;
   }
 
-  // Skip for specific endpoints if needed
-  // Example: OAuth callbacks, public endpoints, etc.
-  const skipPatterns = ['/auth/callback', '/auth/login', '/auth/logout', '/csrf/token'];
+  // Skip only exact API routes. Query strings and sibling paths must not change
+  // endpoint classification.
+  const skipRoutes = ['/auth/callback', '/auth/login', '/auth/logout', '/csrf/token'];
 
-  return skipPatterns.some((pattern) => req.url.includes(pattern));
+  return skipRoutes.some((route) => isConfiguredApiRoute(req.url, route));
 }

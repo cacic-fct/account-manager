@@ -59,11 +59,17 @@ describe('AccountLinkingService', () => {
         Promise.resolve(userId === primaryUserId ? primaryAttributes : secondaryAttributes),
       ),
       getUserBasicInfo: jest.fn((userId: string) =>
-        Promise.resolve({ email: userId === primaryUserId ? 'primary@example.org' : 'secondary@example.org' }),
+        Promise.resolve({
+          email: userId === primaryUserId ? 'primary@example.org' : 'secondary@example.org',
+          enabled: true,
+        }),
       ),
       updateUserAttributes: jest.fn().mockResolvedValue(undefined),
       addUserToGroupPath: jest.fn().mockResolvedValue(undefined),
       setUserEnabled: jest.fn().mockResolvedValue(undefined),
+      getFederatedIdentities: jest.fn().mockResolvedValue([]),
+      getUserGroups: jest.fn().mockResolvedValue([]),
+      removeUserFromGroupPath: jest.fn().mockResolvedValue(undefined),
     };
     const accountMergeRequest = {
       findUnique: jest.fn().mockResolvedValue({
@@ -80,16 +86,22 @@ describe('AccountLinkingService', () => {
         requesterUserId: primaryUserId,
         candidateUserId: secondaryUserId,
       }),
+      findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     const accountMergeExternalNotification = {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    };
+    const deleteAccountRequest = {
+      findMany: jest.fn().mockResolvedValue([]),
     };
     const prisma = {
       accountMergeRequest,
       accountMergeExternalNotification,
+      deleteAccountRequest,
       $transaction: jest.fn((callback: (tx: { accountMergeRequest: typeof accountMergeRequest }) => unknown) =>
         Promise.resolve(callback({ accountMergeRequest })),
       ),
@@ -380,5 +392,229 @@ describe('AccountLinkingService', () => {
       where: { id: 'merge-request' },
       data: { status: 'expired' },
     });
+  });
+
+  it('blocks processing when either account has an executable deletion request', async () => {
+    const { service, prisma, keycloakService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    prisma.deleteAccountRequest.findMany.mockResolvedValue([
+      { id: 'deletion-1', userId: secondaryUserId, status: 'pending' },
+    ]);
+
+    await expect(service.processScoreAndMerge('merge-request')).rejects.toThrow(
+      'Account merge is blocked while an account deletion request is active',
+    );
+
+    expect(keycloakService.updateUserAttributes).not.toHaveBeenCalled();
+    const failedData = expect.objectContaining({ status: 'failed' }) as unknown as { status: string };
+    expect(prisma.accountMergeRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'merge-request', status: 'processing' },
+        data: failedData,
+      }),
+    );
+  });
+
+  it('rejects an overlapping active merge while holding the canonical pair lock', async () => {
+    const accountMergeRequest = {
+      findFirst: jest.fn().mockResolvedValue({ id: 'existing-merge' }),
+      create: jest.fn(),
+    };
+    const transaction = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      accountMergeRequest,
+    };
+    const prisma = {
+      deleteAccountRequest: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (tx: typeof transaction) => unknown) => callback(transaction)),
+    };
+    const userService = {
+      findByKeycloakId: jest.fn().mockResolvedValue({ email: 'user@example.org' }),
+    };
+    const keycloakService = {
+      getUserAttributes: jest.fn().mockResolvedValue({ email: ['user@example.org'] }),
+      getUserBasicInfo: jest.fn().mockResolvedValue({ email: 'user@example.org', enabled: true }),
+    };
+    const service = new AccountLinkingService(
+      prisma as never,
+      keycloakService as never,
+      userService as never,
+      {} as never,
+      {} as never,
+      { add: jest.fn() } as never,
+    );
+
+    await expect(service.createMergeRequest('user-a', 'user-b')).rejects.toThrow(
+      'One of these accounts already has an active merge request',
+    );
+    expect(transaction.$executeRaw).toHaveBeenCalled();
+    expect(accountMergeRequest.create).not.toHaveBeenCalled();
+  });
+
+  it('records a required external scoring outage as an explicit failed decision', async () => {
+    const { service, prisma } = createService({ email: ['primary@example.org'] }, { email: ['secondary@example.org'] });
+    process.env.ACCOUNT_MERGE_GRPC_BACKENDS = JSON.stringify([
+      { name: 'event-manager', target: 'event-manager:50051' },
+    ]);
+    const serviceHarness = service as unknown as { scoreMergeCandidates: jest.Mock };
+    serviceHarness.scoreMergeCandidates.mockResolvedValue({
+      primaryUserId,
+      secondaryUserId,
+      scores: [],
+      externalScores: [{ backend: 'event-manager', scores: {}, error: 'backend unavailable' }],
+    });
+
+    await service.processScoreAndMerge('merge-request');
+
+    const degradedData = expect.objectContaining({
+      status: 'failed',
+      externalScores: [{ backend: 'event-manager', scores: {}, error: 'backend unavailable' }],
+    }) as unknown as { status: string; externalScores: unknown };
+    expect(prisma.accountMergeRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: degradedData,
+      }),
+    );
+    delete process.env.ACCOUNT_MERGE_GRPC_BACKENDS;
+  });
+
+  it('recovers a pending score job with a deterministic queue id', async () => {
+    const { service, prisma, queue } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    prisma.accountMergeRequest.findMany.mockResolvedValue([{ id: 'merge-request' }]);
+
+    await service.recoverPendingScoreMerges();
+
+    expect(queue.add).toHaveBeenCalledWith(
+      'score-and-merge',
+      { mergeRequestId: 'merge-request' },
+      { jobId: 'score-merge-request', removeOnComplete: true },
+    );
+  });
+
+  it('transfers all user-owned records and resolves conflicting managed overrides', async () => {
+    const { service } = createService({ email: ['primary@example.org'] }, { email: ['secondary@example.org'] });
+    const tx = {
+      discordLink: { updateMany: jest.fn() },
+      studentVerificationDocument: { updateMany: jest.fn() },
+      studentVerificationLog: { updateMany: jest.fn() },
+      lgpdRequest: { updateMany: jest.fn() },
+      studentEntityMembership: { updateMany: jest.fn() },
+      keycloakPermissionGrant: { updateMany: jest.fn() },
+      discordManagedRoleOverride: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'primary-override' })
+          .mockResolvedValueOnce({ id: 'secondary-override' }),
+        delete: jest.fn(),
+        update: jest.fn(),
+      },
+      privacySetting: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
+    const transferLocalData = (
+      AccountLinkingService.prototype as unknown as {
+        transferLocalData: (tx: unknown, primary: string, secondary: string) => Promise<void>;
+      }
+    ).transferLocalData;
+
+    await transferLocalData.call(service, tx, primaryUserId, secondaryUserId);
+
+    expect(tx.studentEntityMembership.updateMany).toHaveBeenCalledWith({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+    expect(tx.keycloakPermissionGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: secondaryUserId },
+      data: { userId: primaryUserId },
+    });
+    expect(tx.discordManagedRoleOverride.delete).toHaveBeenCalledWith({ where: { userId: secondaryUserId } });
+  });
+
+  it('compensates captured external state when a merge step fails', async () => {
+    const { service, prisma, keycloakService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const serviceHarness = service as unknown as { transferFederatedIdentities: jest.Mock };
+    serviceHarness.transferFederatedIdentities.mockRejectedValue(new Error('identity transfer failed'));
+
+    await expect(service.processScoreAndMerge('merge-request')).rejects.toThrow('identity transfer failed');
+
+    expect(keycloakService.updateUserAttributes).toHaveBeenCalledWith(
+      primaryUserId,
+      { email: ['primary@example.org'] },
+      { skipValidation: true },
+    );
+    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(primaryUserId, true);
+    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(secondaryUserId, true);
+    const failedData = expect.objectContaining({ status: 'failed' }) as unknown as { status: string };
+    expect(prisma.accountMergeRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: failedData,
+      }),
+    );
+  });
+
+  it('disables the secondary account only after the local merge transaction commits', async () => {
+    const { service, prisma, keycloakService } = createService(
+      { email: ['primary@example.org'] },
+      { email: ['secondary@example.org'] },
+    );
+    const transaction = prisma.$transaction as jest.Mock;
+    transaction.mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) => {
+      expect(keycloakService.setUserEnabled).not.toHaveBeenCalled();
+      return callback({ accountMergeRequest: prisma.accountMergeRequest });
+    });
+
+    await service.processScoreAndMerge('merge-request');
+
+    expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(secondaryUserId, false);
+  });
+
+  it('moves a permanently failing notification to failed and completes the merge terminally', async () => {
+    const { service, prisma } = createService({ email: ['primary@example.org'] }, { email: ['secondary@example.org'] });
+    const serviceHarness = service as unknown as {
+      eventManagerGrpc: { applyAccountMerge: jest.Mock };
+    };
+    serviceHarness.eventManagerGrpc = {
+      applyAccountMerge: jest.fn().mockRejectedValue(new Error('downstream unavailable')),
+    };
+    prisma.accountMergeExternalNotification.findFirst.mockResolvedValue({
+      id: 'notification-1',
+      status: 'pending',
+      attemptCount: 4,
+      eventId: 'event-1',
+      oldUserId: secondaryUserId,
+      newUserId: primaryUserId,
+      mergeRequestId: 'merge-request',
+      url: 'grpc://event-manager',
+      audience: null,
+      payload: {},
+    });
+    prisma.accountMergeExternalNotification.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    await service.deliverExternalNotification('notification-1', 'claim-1');
+
+    const failedNotificationData = expect.objectContaining({
+      status: 'failed',
+      attemptCount: 5,
+      nextAttemptAt: null,
+    }) as unknown as { status: string; attemptCount: number; nextAttemptAt: null };
+    expect(prisma.accountMergeExternalNotification.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: failedNotificationData,
+      }),
+    );
+    const terminalMergeData = expect.objectContaining({ status: 'failed' }) as unknown as { status: string };
+    expect(prisma.accountMergeRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'merge-request', status: 'pending_merge' },
+        data: terminalMergeData,
+      }),
+    );
   });
 });

@@ -10,6 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Location } from '@angular/common';
 import { ApiService, DiscordLinkStatus } from '../../../../shared/services/api.service';
+import { LoggerService } from '../../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-server-access',
@@ -29,6 +30,7 @@ import { ApiService, DiscordLinkStatus } from '../../../../shared/services/api.s
 export class DiscordServerAccessComponent implements OnInit {
   private apiService = inject(ApiService);
   private location = inject(Location);
+  private logger = inject(LoggerService);
 
   isLoading = signal(true);
   discordStatus = signal<DiscordLinkStatus | null>(null);
@@ -48,7 +50,7 @@ export class DiscordServerAccessComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Error loading Discord status:', error);
+        this.logger.error('Error loading Discord status', error, { operation: 'discord-status' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
       },

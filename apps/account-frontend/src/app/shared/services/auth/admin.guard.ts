@@ -3,12 +3,14 @@ import { CanActivate, Router } from '@angular/router';
 import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../api.service';
 import { AuthService } from './auth.service';
+import { LoggerService } from '../logger.service';
 
 @Service()
 export class AdminGuard implements CanActivate {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private logger = inject(LoggerService);
 
   canActivate(): Observable<boolean> {
     // First check if user is authenticated
@@ -25,16 +27,16 @@ export class AdminGuard implements CanActivate {
         return this.apiService.getAdminStatus().pipe(
           map((adminStatus) => {
             if (adminStatus.isAdmin) {
-              console.log('Admin access granted:', adminStatus);
+              this.logger.debug('Admin access granted', { operation: 'admin-guard' });
               return true;
             } else {
-              console.warn('Admin access denied - user not in admin groups');
+              this.logger.warn('Admin access denied', { operation: 'admin-guard' });
               this.router.navigateByUrl('/applications');
               return false;
             }
           }),
           catchError((error) => {
-            console.error('Error checking admin status:', error);
+            this.logger.error('Error checking admin status', error, { operation: 'admin-guard' });
             this.router.navigateByUrl('/applications');
             return of(false);
           }),

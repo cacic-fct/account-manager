@@ -1,6 +1,6 @@
 import { Service } from '@angular/core';
-import { Observable, of, shareReplay, throwError } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { defer, Observable, of, shareReplay, throwError } from 'rxjs';
+import { catchError, finalize, tap } from 'rxjs/operators';
 
 export interface CacheConfig {
   maxAge: number; // milliseconds
@@ -8,103 +8,125 @@ export interface CacheConfig {
 }
 
 interface CacheEntry<T> {
-  data: T;
+  data?: T;
+  hasData: boolean;
   timestamp: number;
   observable?: Observable<T>;
 }
 
 @Service()
 export class CacheService {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
 
   /**
-   * Get cached data or execute the source observable if cache is expired/missing
-   * Optionally force refresh if data is stale but still valid
+   * Get cached data or execute the source observable if cache is expired/missing.
+   * Optionally refresh stale data in the background while returning the last
+   * completed value immediately.
    */
   getOrSet<T>(
     key: string,
     source: () => Observable<T>,
-    maxAge: number = 5 * 60 * 1000, // 5 minutes default
-    forceRefreshAfter?: number, // Optional: force refresh if older than this (but still serve stale data immediately)
+    maxAge: number = 5 * 60 * 1000,
+    forceRefreshAfter?: number,
   ): Observable<T> {
     const cached = this.cache.get(key);
     const now = Date.now();
 
-    // Check if we have valid cached data
-    if (cached && now - cached.timestamp < maxAge) {
-      // If there's an ongoing request, return that observable
-      if (cached.observable) {
-        return cached.observable as Observable<T>;
+    // A completed value remains immediately available during a background
+    // refresh. A pending request without a value is returned to all callers.
+    if (cached?.hasData && now - cached.timestamp < maxAge) {
+      if (forceRefreshAfter && now - cached.timestamp > forceRefreshAfter && !cached.observable) {
+        this.backgroundRefresh(key, source, cached);
       }
 
-      // If data is stale but still valid, and we have a force refresh threshold
-      if (forceRefreshAfter && now - cached.timestamp > forceRefreshAfter) {
-        // Return cached data immediately, but trigger background refresh
-        this.backgroundRefresh(key, source);
-      }
-
-      // Return cached data
       return of(cached.data as T);
     }
 
-    // Create new request observable with shareReplay to avoid multiple simultaneous requests
-    const request$ = source().pipe(
+    if (cached?.observable) {
+      return cached.observable as Observable<T>;
+    }
+
+    return this.startRequest(key, source, cached);
+  }
+
+  /**
+   * Background refresh - updates cache without blocking current requests.
+   */
+  private backgroundRefresh<T>(key: string, source: () => Observable<T>, cached: CacheEntry<unknown>): void {
+    if (cached.observable) {
+      return;
+    }
+
+    this.startRequest(key, source, cached).subscribe({
+      // Background refresh errors must not replace the last known value or
+      // surface as an unhandled subscription error.
+      error: () => undefined,
+    });
+  }
+
+  private startRequest<T>(key: string, source: () => Observable<T>, stale?: CacheEntry<unknown>): Observable<T> {
+    let hasValue = false;
+    const request$ = defer(source).pipe(
       tap((data) => {
-        // Update cache with new data
+        hasValue = true;
         this.cache.set(key, {
           data,
+          hasData: true,
           timestamp: Date.now(),
         });
       }),
       catchError((error: unknown) => {
-        this.cache.delete(key);
+        const current = this.cache.get(key);
+        if (current?.observable === request$) {
+          this.restoreStaleOrDelete(key, stale);
+        }
         return throwError(() => error);
       }),
-      shareReplay(1),
+      finalize(() => {
+        // Empty observables do not execute the tap above and must not leave a
+        // permanent in-flight marker in the cache.
+        if (!hasValue) {
+          const current = this.cache.get(key);
+          if (current?.observable === request$) {
+            this.restoreStaleOrDelete(key, stale);
+          }
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }),
     );
 
-    // Store the ongoing observable to prevent duplicate requests
     this.cache.set(key, {
-      data: cached?.data,
-      timestamp: cached?.timestamp || 0,
+      data: stale?.data,
+      hasData: stale?.hasData ?? false,
+      timestamp: stale?.timestamp ?? 0,
       observable: request$,
     });
 
     return request$;
   }
 
-  /**
-   * Background refresh - updates cache without blocking current request
-   */
-  private backgroundRefresh<T>(key: string, source: () => Observable<T>): void {
-    const cached = this.cache.get(key);
-
-    // Only refresh if there's no ongoing request
-    if (!cached?.observable) {
-      source()
-        .pipe(
-          tap((data) => {
-            this.cache.set(key, {
-              data,
-              timestamp: Date.now(),
-            });
-          }),
-          // Don't propagate errors to avoid console noise
-          catchError(() => of(null)),
-        )
-        .subscribe();
+  private restoreStaleOrDelete(key: string, stale?: CacheEntry<unknown>): void {
+    if (stale?.hasData) {
+      this.cache.set(key, {
+        data: stale.data,
+        hasData: true,
+        timestamp: stale.timestamp,
+      });
+      return;
     }
+
+    this.cache.delete(key);
   }
 
   /**
-   * Invalidate cache entry
+   * Invalidate cache entry.
    */
   invalidate(key: string): void {
     this.cache.delete(key);
   }
 
   /**
-   * Invalidate multiple cache entries by pattern
+   * Invalidate multiple cache entries by pattern.
    */
   invalidatePattern(pattern: RegExp): void {
     for (const key of this.cache.keys()) {
@@ -115,20 +137,20 @@ export class CacheService {
   }
 
   /**
-   * Clear all cache
+   * Clear all cache.
    */
   clear(): void {
     this.cache.clear();
   }
 
   /**
-   * Get cached data without making a request (returns null if not cached or expired)
+   * Get cached data without making a request (returns null if not cached or expired).
    */
   get<T>(key: string, maxAge: number = 5 * 60 * 1000): T | null {
     const cached = this.cache.get(key);
     const now = Date.now();
 
-    if (cached && now - cached.timestamp < maxAge) {
+    if (cached?.hasData && now - cached.timestamp < maxAge) {
       return cached.data as T;
     }
 
@@ -136,22 +158,23 @@ export class CacheService {
   }
 
   /**
-   * Set cache data manually
+   * Set cache data manually.
    */
   set<T>(key: string, data: T): void {
     this.cache.set(key, {
       data,
+      hasData: true,
       timestamp: Date.now(),
     });
   }
 
   /**
-   * Check if cache has valid data for key
+   * Check if cache has valid data for key.
    */
   has(key: string, maxAge: number = 5 * 60 * 1000): boolean {
     const cached = this.cache.get(key);
     const now = Date.now();
 
-    return cached ? now - cached.timestamp < maxAge : false;
+    return cached?.hasData ? now - cached.timestamp < maxAge : false;
   }
 }

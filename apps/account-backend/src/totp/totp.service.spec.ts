@@ -39,13 +39,22 @@ describe(TotpService.name, () => {
   const userService = {
     findByKeycloakId: jest.fn(),
   };
+  const redis = {
+    incrementWithExpiry: jest.fn().mockResolvedValue(1),
+    setIfAbsent: jest.fn().mockResolvedValue(true),
+  };
 
   let service: TotpService;
 
   beforeEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
-    service = new TotpService(prisma as never, configService as unknown as ConfigService, userService as never);
+    service = new TotpService(
+      prisma as never,
+      configService as unknown as ConfigService,
+      userService as never,
+      redis as never,
+    );
   });
 
   it('generates six digit HMAC-SHA-512 codes using the RFC 6238 counter', () => {
@@ -96,5 +105,61 @@ describe(TotpService.name, () => {
     expect(result.valid).toBe(false);
     expect(result).not.toHaveProperty('userId');
     expect(result).not.toHaveProperty('primaryEmail');
+  });
+
+  it('rejects reuse of an already consumed TOTP time step', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-26T16:00:00.000Z'));
+    const seed = encodeBase32(Buffer.from('offline-user-test-seed-value'));
+    const encrypted = (
+      service as unknown as {
+        encryptSeed(seed: string): {
+          totpSecretEncrypted: string;
+          totpSecretIv: string;
+          totpSecretAuthTag: string;
+        };
+      }
+    ).encryptSeed(seed);
+    prisma.user.findUnique.mockResolvedValue({
+      keycloakId: 'user-1',
+      primaryEmail: 'user@example.com',
+      ...encrypted,
+    });
+    redis.setIfAbsent.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const code = service.generateCode(seed);
+
+    await expect(service.validateCode('user@example.com', code, 'client-a')).resolves.toMatchObject({ valid: true });
+    await expect(service.validateCode('user@example.com', code, 'client-b')).resolves.toEqual(
+      expect.objectContaining({ valid: false }),
+    );
+  });
+
+  it('returns the persisted seed when concurrent enrollment loses the conditional claim', async () => {
+    const seed = encodeBase32(Buffer.from('persisted-user-test-seed-value'));
+    const encrypted = (
+      service as unknown as {
+        encryptSeed(seed: string): {
+          totpSecretEncrypted: string;
+          totpSecretIv: string;
+          totpSecretAuthTag: string;
+        };
+      }
+    ).encryptSeed(seed);
+    prisma.user.upsert.mockResolvedValue({
+      keycloakId: 'user-1',
+      primaryEmail: 'user@example.com',
+      totpSecretEncrypted: null,
+      totpSecretIv: null,
+      totpSecretAuthTag: null,
+    });
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+    prisma.user.findUnique.mockResolvedValue({
+      keycloakId: 'user-1',
+      primaryEmail: 'user@example.com',
+      ...encrypted,
+    });
+
+    await expect(
+      service.getOrCreateSeed({ keycloakId: 'user-1', primaryEmail: 'user@example.com' }),
+    ).resolves.toMatchObject({ seed });
   });
 });

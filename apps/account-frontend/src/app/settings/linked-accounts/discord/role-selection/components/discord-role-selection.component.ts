@@ -11,6 +11,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DiscordRoleOptionComponent } from '../../../../../shared/components/discord-role-option.component';
 import { ApiService } from '../../../../../shared/services/api.service';
+import { LoggerService } from '../../../../../shared/services/logger.service';
 import type { DiscordRole, UserRoles, RoleSelectionResponse } from '@cacic/shared-types';
 
 type RoleSelectionErrorAction = 'login' | 'link' | 'retry';
@@ -35,6 +36,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
   private apiService = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private formBuilder = inject(FormBuilder);
+  private logger = inject(LoggerService);
 
   // Reactive Form
   roleForm: FormGroup = this.formBuilder.group({});
@@ -193,7 +195,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         this.loadUserRoles();
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error loading available Discord roles:', error);
+        this.logger.error('Error loading available Discord roles', error, { operation: 'discord-role-selection' });
         this.availableRoles.set([]);
         this.userRoles.set(null);
         this.initialSelectedIds.set(new Set());
@@ -241,7 +243,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error loading user Discord roles:', error);
+        this.logger.error('Error loading user Discord roles', error, { operation: 'discord-role-selection' });
         let errorMessage = 'Não foi possível carregar seus cargos atuais. Tente novamente.';
         let errorAction: RoleSelectionErrorAction = 'retry';
 
@@ -308,7 +310,7 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         this.formChangeSignal.update((val) => val + 1);
       },
       error: (error: HttpErrorResponse) => {
-        console.error('Error updating Discord roles:', error);
+        this.logger.error('Error updating Discord roles', error, { operation: 'discord-role-selection' });
         let errorMessage = 'Não foi possível atualizar seus cargos do Discord. Tente novamente.';
 
         // Handle cooldown from backend

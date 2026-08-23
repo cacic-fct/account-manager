@@ -55,6 +55,7 @@ describe('AppComponent', () => {
           provide: AuthService,
           useValue: {
             isAuthenticated,
+            logoutError: signal(null),
           },
         },
         {

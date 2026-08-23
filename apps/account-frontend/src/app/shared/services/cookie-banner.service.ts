@@ -3,10 +3,12 @@ import { ApiService } from './api.service';
 import { Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { LoggerService } from './logger.service';
 
 @Service()
 export class CookieBannerService {
   private apiService = inject(ApiService);
+  private logger = inject(LoggerService);
 
   private _shouldShowBanner = signal(false);
   private _isLoading = signal(false);
@@ -34,7 +36,7 @@ export class CookieBannerService {
         this._isLoading.set(false);
       }),
       catchError((error) => {
-        console.error('Error checking cookie banner status:', error);
+        this.logger.error('Error checking cookie banner status', error, { operation: 'cookie-banner' });
         // On error, assume we should show the banner for safety
         this._shouldShowBanner.set(true);
         this._hasChecked.set(true);
@@ -59,7 +61,7 @@ export class CookieBannerService {
       }),
       map(() => true), // Always return true on success
       catchError((error) => {
-        console.error('Error accepting cookie banner:', error);
+        this.logger.error('Error accepting cookie banner', error, { operation: 'cookie-banner' });
         this._isLoading.set(false);
         return of(false);
       }),

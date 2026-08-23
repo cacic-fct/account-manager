@@ -1,10 +1,11 @@
 import { Service, inject, signal, computed, PLATFORM_ID } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { BehaviorSubject, catchError, Observable, of, tap, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, filter, firstValueFrom, Observable, of, take, tap, throwError } from 'rxjs';
 import { ApiService, type PasswordLoginResponse } from '../api.service';
 import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
 import { environment } from '../../../../environments/environment';
+import { LoggerService } from '../logger.service';
 
 @Service()
 export class AuthService {
@@ -12,6 +13,7 @@ export class AuthService {
   private apiService = inject(ApiService);
   private document = inject(DOCUMENT);
   private csrfService = inject(CsrfService);
+  private logger = inject(LoggerService);
   private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   // Signals for reactive state management
@@ -27,6 +29,8 @@ export class AuthService {
   public isOnboarded = computed(() => this.authStatusSignal().isOnboarded ?? false);
   public currentUser = computed(() => this.currentUserSignal());
   public isLoading = computed(() => this.isLoadingSignal());
+  private logoutErrorSignal = signal<string | null>(null);
+  public logoutError = computed(() => this.logoutErrorSignal());
 
   // Observables for compatibility with existing code
   private isAuthenticatedSubject$ = new BehaviorSubject<boolean>(false);
@@ -56,7 +60,7 @@ export class AuthService {
             this.clearSilentLoginAttempt();
             // Fetch CSRF token when user is authenticated
             this.csrfService.fetchToken().subscribe({
-              error: (err) => console.error('Failed to fetch CSRF token:', err),
+              error: (err) => this.logger.error('Failed to fetch CSRF token', err, { operation: 'auth-csrf' }),
             });
             this.loadCurrentUser();
           }
@@ -84,7 +88,7 @@ export class AuthService {
       .getCurrentUser()
       .pipe(
         tap((user) => {
-          console.log('Loaded current user from backend:', user);
+          this.logger.debug('Loaded current user from backend', { operation: 'auth-load-user', userId: user.id });
           this.currentUserSignal.set(user);
           this.authStatusSignal.set({
             isAuthenticated: true,
@@ -93,7 +97,7 @@ export class AuthService {
           this.refreshTrackingCookies();
         }),
         catchError((error) => {
-          console.error('Error loading current user:', error);
+          this.logger.error('Error loading current user', error, { operation: 'auth-load-user' });
           this.currentUserSignal.set(null);
           return of(null);
         }),
@@ -107,16 +111,12 @@ export class AuthService {
       return Promise.resolve();
     }
 
-    return new Promise((resolve) => {
-      this.checkAuthStatus(true);
+    this.isDoneLoadingSubject$.next(false);
+    this.checkAuthStatus(true);
 
-      // Wait for loading to complete
-      this.isDoneLoading$.subscribe((isDone) => {
-        if (isDone) {
-          resolve();
-        }
-      });
-    });
+    // This is a one-shot bootstrap wait. Complete the subscription as soon as
+    // the current auth check finishes, even if the service is reused later.
+    return firstValueFrom(this.isDoneLoading$.pipe(filter(Boolean), take(1))).then(() => undefined);
   }
 
   public login(targetUrl?: string): void {
@@ -150,7 +150,7 @@ export class AuthService {
 
           if (result.isAuthenticated) {
             this.csrfService.fetchToken().subscribe({
-              error: (err) => console.error('Failed to fetch CSRF token:', err),
+              error: (err) => this.logger.error('Failed to fetch CSRF token', err, { operation: 'auth-csrf' }),
             });
             this.loadCurrentUser();
           }
@@ -197,11 +197,16 @@ export class AuthService {
 
   public logout(): void {
     this.isLoadingSignal.set(true);
+    this.logoutErrorSignal.set(null);
     const postLogoutRedirectUri = this.isBrowser ? this.getApplicationRootUrl() : undefined;
     this.apiService
       .logout(postLogoutRedirectUri)
       .pipe(
         tap((result) => {
+          if (!result.success) {
+            throw new Error('The server did not confirm logout.');
+          }
+
           this.clearLocalSession();
           this.clearTrackingCookies();
           this.markSilentLoginAttempt();
@@ -214,13 +219,13 @@ export class AuthService {
             window.location.assign(postLogoutRedirectUri);
           }
         }),
-        catchError(() => {
-          this.clearLocalSession();
-          this.clearTrackingCookies();
-          this.markSilentLoginAttempt();
-          if (this.isBrowser && postLogoutRedirectUri) {
-            window.location.assign(postLogoutRedirectUri);
-          }
+        catchError((error) => {
+          // Do not claim logout or discard the local session until the server
+          // confirms that its cookie-backed session was destroyed. The user can
+          // retry while this warning remains available to the shell.
+          this.logoutErrorSignal.set('Não foi possível confirmar o encerramento da sessão. Tente novamente.');
+          this.logger.error('Server logout could not be confirmed', error, { operation: 'auth-logout' });
+          this.isLoadingSignal.set(false);
           return of(null);
         }),
       )
@@ -275,6 +280,7 @@ export class AuthService {
       isOnboarded: false,
     });
     this.currentUserSignal.set(null);
+    this.logoutErrorSignal.set(null);
     this.isAuthenticatedSubject$.next(false);
     this.isDoneLoadingSubject$.next(true);
     this.isLoadingSignal.set(false);
@@ -290,7 +296,7 @@ export class AuthService {
 
   // Method to update user after profile completion
   public updateCurrentUser(user: User): void {
-    console.log('Updating current user in auth service:', user);
+    this.logger.debug('Updating current user in auth service', { operation: 'auth-update-user', userId: user.id });
     this.currentUserSignal.set(user);
     this.authStatusSignal.set({
       isAuthenticated: true,
@@ -303,7 +309,7 @@ export class AuthService {
 
   // Method to refresh auth status from backend
   public refreshAuthStatus(): Promise<void> {
-    console.log('Refreshing auth status from backend');
+    this.logger.debug('Refreshing auth status from backend', { operation: 'auth-refresh' });
     return new Promise((resolve) => {
       this.isLoadingSignal.set(true);
 
@@ -314,7 +320,10 @@ export class AuthService {
         .checkAuth()
         .pipe(
           tap((status) => {
-            console.log('Refreshed auth status:', status);
+            this.logger.debug('Refreshed auth status', {
+              operation: 'auth-refresh',
+              isAuthenticated: status.isAuthenticated,
+            });
             this.authStatusSignal.set(status);
             this.isAuthenticatedSubject$.next(status.isAuthenticated);
 
@@ -326,7 +335,7 @@ export class AuthService {
             this.isDoneLoadingSubject$.next(true);
           }),
           catchError((error) => {
-            console.error('Error refreshing auth status:', error);
+            this.logger.error('Error refreshing auth status', error, { operation: 'auth-refresh' });
             this.authStatusSignal.set({
               isAuthenticated: false,
               isOnboarded: false,

@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString, Matches, ValidateIf } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString, Matches, MaxLength, ValidateIf } from 'class-validator';
 import type {
   StudentVerificationStatusResponse,
   StudentVerificationUpdateRequest,
@@ -34,6 +34,7 @@ export class UpdateVerificationStatusDto implements StudentVerificationUpdateReq
   @IsString()
   @IsNotEmpty()
   @Matches(/\S/)
+  @MaxLength(1000)
   rejectionReason?: string;
 }
 

@@ -79,12 +79,46 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async setIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.set(key, value, {
+      NX: true,
+      EX: ttlSeconds,
+    });
+    return result === 'OK';
+  }
+
   async del(key: string): Promise<number> {
     return this.client.del(key);
   }
 
   async exists(key: string): Promise<number> {
     return this.client.exists(key);
+  }
+
+  async ttl(key: string): Promise<number> {
+    return this.client.ttl(key);
+  }
+
+  async eval(script: string, keys: string[], args: string[] = []): Promise<unknown> {
+    return this.client.eval(script, {
+      keys,
+      arguments: args,
+    });
+  }
+
+  async releaseIfOwned(key: string, value: string): Promise<boolean> {
+    const result = await this.client.eval(
+      `if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0`,
+      {
+        keys: [key],
+        arguments: [value],
+      },
+    );
+
+    return result === 1;
   }
 
   async publish(channel: string, message: string): Promise<void> {

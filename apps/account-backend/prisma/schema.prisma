@@ -122,6 +122,7 @@ model AccountMergeRequest {
   status               AccountMergeStatus @default(pending)
   scoreBreakdown       Json               @map("score_breakdown")
   externalScores       Json?              @map("external_scores")
+  mergeState           Json?              @map("merge_state")
   errorMessage         String?            @map("error_message")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")

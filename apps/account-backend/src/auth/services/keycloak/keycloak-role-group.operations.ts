@@ -7,7 +7,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
     this.logger.debug('Getting user groups', { userId });
 
-    const response = await fetch(userGroupsUrl, {
+    const response = await this.fetchWithTimeout(userGroupsUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -28,7 +28,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         userGroupsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get user groups: ${response.status} ${response.statusText}`);
@@ -65,7 +64,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
       clientId,
     });
 
-    const response = await fetch(userRolesUrl, {
+    const response = await this.fetchWithTimeout(userRolesUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -90,7 +89,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         userRolesUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get user client roles: ${response.status} ${response.statusText}`);
@@ -117,7 +115,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
       clientId,
     });
 
-    const response = await fetch(userRolesUrl, {
+    const response = await this.fetchWithTimeout(userRolesUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -142,7 +140,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         userRolesUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get direct user client roles: ${response.status} ${response.statusText}`);
@@ -170,7 +167,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const clientUuid = await this.getClientUuid(clientId);
     const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
 
-    const response = await fetch(roleMappingsUrl, {
+    const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -191,7 +188,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         roleMappingsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to assign user client roles: ${response.status} ${response.statusText}`);
@@ -209,7 +205,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const clientUuid = await this.getClientUuid(clientId);
     const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
 
-    const response = await fetch(roleMappingsUrl, {
+    const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -230,7 +226,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         roleMappingsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to remove user client roles: ${response.status} ${response.statusText}`);
@@ -246,7 +241,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const adminToken = await this.getAdminToken();
     const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
-    const response = await fetch(groupUrl, {
+    const response = await this.fetchWithTimeout(groupUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -265,7 +260,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         groupUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to add user to Keycloak group ${groupLabel}: ${response.status} ${response.statusText}`);
@@ -281,7 +275,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const adminToken = await this.getAdminToken();
     const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
 
-    const response = await fetch(groupUrl, {
+    const response = await this.fetchWithTimeout(groupUrl, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -300,7 +294,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         groupUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(
@@ -314,7 +307,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
 
-    const response = await fetch(rolesUrl, {
+    const response = await this.fetchWithTimeout(rolesUrl, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
       },
@@ -339,7 +332,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         rolesUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to get group client roles: ${response.status} ${response.statusText}`);
@@ -360,7 +352,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
 
-    const response = await fetch(roleMappingsUrl, {
+    const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -381,7 +373,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         roleMappingsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to assign group client roles: ${response.status} ${response.statusText}`);
@@ -399,7 +390,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const clientUuid = await this.getClientUuid(clientId, adminToken);
     const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
 
-    const response = await fetch(roleMappingsUrl, {
+    const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -420,7 +411,6 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
         roleMappingsUrl,
         contentType: details.contentType,
         responseHeaders: details.headers,
-        bodyPreview: details.bodyPreview,
       });
 
       throw new Error(`Failed to remove group client roles: ${response.status} ${response.statusText}`);

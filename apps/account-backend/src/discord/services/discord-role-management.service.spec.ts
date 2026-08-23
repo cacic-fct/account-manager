@@ -9,6 +9,7 @@ import { DiscordRoleManagementService } from './discord-role-management.service'
 const AUTOMATED_ROLE_IDS = [...DISCORD_AUTOMATED_ROLE_IDS, ...PERMISSION_GROUP_DISCORD_ROLE_IDS];
 
 type PrismaMock = {
+  $transaction: jest.Mock<Promise<unknown>, [(transaction: PrismaMock) => Promise<unknown>]>;
   discordRoleSetting: {
     findMany: jest.Mock<Promise<DiscordRoleSetting[]>, unknown[]>;
     updateMany: jest.Mock<Promise<{ count: number }>, unknown[]>;
@@ -62,6 +63,7 @@ const createDiscordLink = (overrides: Partial<DiscordLink> = {}): DiscordLink =>
 
 const createContext = () => {
   const prisma: PrismaMock = {
+    $transaction: jest.fn<Promise<unknown>, [(transaction: PrismaMock) => Promise<unknown>]>(),
     discordRoleSetting: {
       findMany: jest.fn<Promise<DiscordRoleSetting[]>, unknown[]>(),
       updateMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
@@ -71,6 +73,7 @@ const createContext = () => {
       findFirst: jest.fn<Promise<DiscordLink | null>, unknown[]>(),
     },
   };
+  prisma.$transaction.mockImplementation((operation) => operation(prisma));
   prisma.discordRoleSetting.updateMany.mockResolvedValue({ count: 1 });
   prisma.discordRoleSetting.upsert.mockResolvedValue(createRoleSetting());
 
@@ -389,7 +392,7 @@ describe('DiscordRoleManagementService', () => {
     });
   });
 
-  it('updates user role selections and tolerates individual Discord add/remove failures', async () => {
+  it('reports individual Discord add/remove failures as partial failure', async () => {
     const { prisma, service } = createContext();
     prisma.discordLink.findFirst.mockResolvedValue(createDiscordLink());
     prisma.discordRoleSetting.findMany
@@ -428,12 +431,15 @@ describe('DiscordRoleManagementService', () => {
 
     await expect(
       service.updateUserRoles('user-1', { selectedRoleIds: ['role-new'] }, createClient(guild), 'guild-1'),
-    ).resolves.toEqual({
-      message: 'Roles updated successfully',
-      updatedRoles: [expect.objectContaining({ id: 'role-new' })],
+    ).rejects.toMatchObject({
+      status: HttpStatus.BAD_GATEWAY,
+      response: {
+        message: 'Discord role update completed only partially.',
+        failedRoleIds: ['role-old', 'role-new'],
+      },
     });
     expect(remove).toHaveBeenCalledWith('role-old', 'CACiC self-service role selection by account user-1');
     expect(add).toHaveBeenCalledWith('role-new', 'CACiC self-service role selection by account user-1');
-    expect(fetch).toHaveBeenCalledWith(true);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

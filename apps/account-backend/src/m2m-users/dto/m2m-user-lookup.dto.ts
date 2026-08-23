@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsBoolean,
   IsArray,
   IsIn,
@@ -35,6 +36,7 @@ export class M2MUserEnrollmentLookupDto implements M2MUserEnrollmentLookupReques
   })
   @IsArray()
   @ArrayMaxSize(M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS)
+  @ArrayUnique()
   @IsString({ each: true })
   @MaxLength(64, { each: true })
   enrollmentNumbers!: string[];
@@ -76,6 +78,7 @@ export class M2MUserIdentifierLookupDto implements M2MUserIdentifierLookupReques
   })
   @IsArray()
   @ArrayMaxSize(M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS)
+  @ArrayUnique((item: M2MUserIdentifierLookupItemDto) => item.requestId)
   @ValidateNested({ each: true })
   @Type(() => M2MUserIdentifierLookupItemDto)
   identifiers!: M2MUserIdentifierLookupItemDto[];

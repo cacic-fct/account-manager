@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Context, On, Once, ContextOf } from 'necord';
 import { Cron } from '@nestjs/schedule';
-import type { GuildMember } from 'discord.js';
+import type { Client, GuildMember } from 'discord.js';
 import { DiscordBotService } from './discord-bot.service';
 import { DiscordClientService } from './services/discord-client.service';
 import { DiscordRoleService } from './services/discord-role.service';
+
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion -- Necord and the app resolve distinct Discord.js declaration instances under coverage instrumentation. */
 
 @Injectable()
 export class DiscordEventsService {
@@ -22,7 +24,7 @@ export class DiscordEventsService {
     this.logger.debug(`Guild count: ${client.guilds.cache.size}`);
 
     // Set the client in our service for dependency injection
-    this.discordClientService.setClient(client);
+    this.discordClientService.setClient(client as unknown as Client);
 
     void this.discordRoleService.syncAllLinkedMemberRoles('discord-bot-ready').catch((error) => {
       this.logger.warn('Failed to sync Discord managed roles on ready', error);
@@ -31,7 +33,7 @@ export class DiscordEventsService {
 
   @On('guildMemberAdd')
   public async onGuildMemberAdd(@Context() [member]: ContextOf<'guildMemberAdd'>) {
-    await this.discordBotService.handleMemberJoin(member);
+    await this.discordBotService.handleMemberJoin(member as unknown as GuildMember);
   }
 
   @On('guildMemberRoleAdd')
@@ -39,7 +41,7 @@ export class DiscordEventsService {
     // Assign nickname when a member is added to a role
     this.logger.debug(`Member role added: ${member.user.username} (${member.id})`);
     try {
-      await this.discordBotService.assignNickname(member, member.nickname);
+      await this.discordBotService.assignNickname(member as unknown as GuildMember, member.nickname);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to assign nickname for ${member.user.username}: ${message}`);
@@ -58,7 +60,7 @@ export class DiscordEventsService {
     // Check if the nickname has changed
     if (oldNickname !== newNickname) {
       try {
-        await this.discordBotService.assignNickname(member, newNickname);
+        await this.discordBotService.assignNickname(member as unknown as GuildMember, newNickname);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to assign nickname for ${member.user.username}: ${message}`);
@@ -71,7 +73,10 @@ export class DiscordEventsService {
     // Handle member updates if needed
     this.logger.debug(`Member updated: ${newMember.user.username} (${newMember.id})`);
 
-    if (this.didRolesChange(oldMember, newMember) && this.hasNoAssignableRoles(newMember)) {
+    if (
+      this.didRolesChange(oldMember as unknown as GuildMember, newMember as unknown as GuildMember) &&
+      this.hasNoAssignableRoles(newMember as unknown as GuildMember)
+    ) {
       if (this.discordRoleService.hasRecentManagedRoleMutation(newMember.id)) {
         this.logger.debug(
           `Skipping Discord role-state sync for ${newMember.id}; update follows a managed role mutation`,
@@ -79,7 +84,10 @@ export class DiscordEventsService {
         return;
       }
 
-      await this.discordRoleService.syncGuildMemberRoleState(newMember, 'discord-member-roles-cleared');
+      await this.discordRoleService.syncGuildMemberRoleState(
+        newMember as unknown as GuildMember,
+        'discord-member-roles-cleared',
+      );
     }
   }
 

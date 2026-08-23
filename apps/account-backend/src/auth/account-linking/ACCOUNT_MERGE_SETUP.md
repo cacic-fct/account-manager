@@ -5,13 +5,17 @@ Account merging is asynchronous. The user proves ownership of both Keycloak acco
 ## User-Facing Statuses
 
 - `pending`: the second account was authenticated and the user must choose the primary email.
-- `pending_score`: Account Manager is calculating local score and best-effort external scores.
+- `pending_score`: Account Manager is calculating local score and configured external scores.
 - `processing`: Account Manager has claimed the request and is applying the local merge.
 - `pending_merge`: local merge is done and external systems are being notified.
-- `completed`: all required work and external acknowledgements completed.
+- `completed`: local merge completed and every external notification is acknowledged (optional scoring failures are recorded).
 - `failed`, `expired`, `cancelled`: terminal non-success states.
 
-External scoring is optional. If a scoring backend returns an error or does not respond within 30 minutes, Account Manager ignores that backend score and continues with local scoring.
+External scoring backends are required by default. Set `"required": false` for an optional scorer. If a required scorer returns an error or does not respond within 30 minutes, the request is marked `failed`, the exact degraded reason and backend response are persisted, and no identity or local-data side effects run.
+
+When a merge changes Keycloak, the worker first persists an external-state snapshot and step ledger in `merge_state`. A database failure after an external step triggers compensation from that snapshot; an interrupted worker is recovered by the scheduled repair job. Keycloak and PostgreSQL are intentionally not treated as one transaction.
+
+When the local merge completes, the secondary session is destroyed and the user must sign in again with the primary account so the session principal and all token fields agree.
 
 ## Frontend/API Flow
 
@@ -61,7 +65,7 @@ The gRPC response contains:
 }
 ```
 
-Each score is a protobuf `UserScore` item with `userId` and `score`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is treated as no external score.
+Each score is a protobuf `UserScore` item with `userId` and `score`. An unavailable gRPC backend, invalid response, or deadline exceeded after 30 minutes is a degraded result; required backends fail the merge, while optional backends contribute an explicit error record and local scoring continues.
 
 ## External Merge Notification Contract
 
@@ -89,7 +93,7 @@ The gRPC response must acknowledge the same event:
 }
 ```
 
-Only this validated gRPC response marks that backend as completed. An unavailable, invalid, or failed response is retried.
+Only this validated gRPC response marks that backend as completed. An unavailable, invalid, or failed response is retried up to five attempts; after that the notification becomes terminal `failed` and the merge request becomes terminal `failed` with an administrator-only manual retry endpoint.
 
 ## Retry Policy
 
@@ -107,6 +111,8 @@ Examples:
 - second retry: 40 minutes
 - third retry: 90 minutes
 - ceiling: 24 hours
+
+The fifth failed attempt is terminal. Administrators can retry a failed notification with `POST /admin/account-merges/:id/notifications/:notificationId/retry`; queue failure leaves the notification pending for the recovery cron.
 
 ## BullMQ/Redis
 
@@ -129,7 +135,8 @@ ACCOUNT_MERGE_GRPC_BACKENDS=[
   {
     "name": "external-app-a",
     "target": "external-app-a:50051",
-    "audience": "external-app-a-audience"
+    "audience": "external-app-a-audience",
+    "required": true
   }
 ]
 ```

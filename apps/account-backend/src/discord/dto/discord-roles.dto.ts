@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsString, Matches } from 'class-validator';
+
+const DISCORD_SNOWFLAKE_PATTERN = /^\d{17,20}$/;
 
 export class DiscordRoleDto {
   @ApiProperty({
@@ -78,7 +80,10 @@ export class UpdateRoleSelectionDto {
     example: ['123456789012345678', '987654321098765432'],
   })
   @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
   @IsString({ each: true })
+  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true })
   enabledRoleIds!: string[];
 }
 
@@ -89,7 +94,10 @@ export class UserRoleSelectionDto {
     example: ['123456789012345678', '987654321098765432'],
   })
   @IsArray()
+  @ArrayMaxSize(25)
+  @ArrayUnique()
   @IsString({ each: true })
+  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true })
   selectedRoleIds!: string[];
 }
 

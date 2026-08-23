@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GLOBAL_FEATURE_FLAGS } from './feature-flags.constants';
+import { RedisService } from '../redis/redis.service';
 
 const DEFAULT_UNLEASH_FRONTEND_URL = 'https://unleash.cacic.com.br/api/frontend';
 const DEFAULT_UNLEASH_CLIENT_KEYS = {
@@ -17,10 +18,14 @@ interface CachedBooleanFlag {
 export class FeatureFlagService {
   private readonly logger = new Logger(FeatureFlagService.name);
   private readonly cache = new Map<string, CachedBooleanFlag>();
+  private readonly inFlight = new Map<string, Promise<boolean>>();
   private readonly cacheTtlMs!: number;
   private readonly timeoutMs!: number;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly redis: RedisService,
+  ) {
     this.cacheTtlMs = this.parsePositiveInteger(this.configService.get<string>('UNLEASH_CACHE_TTL_MS'), 60_000);
     this.timeoutMs = this.parsePositiveInteger(this.configService.get<string>('UNLEASH_TIMEOUT_MS'), 2_500);
   }
@@ -35,20 +40,50 @@ export class FeatureFlagService {
       return cached.value;
     }
 
-    try {
-      const value = await this.fetchFlagValue(flagName, fallback);
-      this.cache.set(flagName, {
-        value,
-        expiresAt: Date.now() + this.cacheTtlMs,
-      });
-      return value;
-    } catch (error) {
-      this.logger.warn('Unable to read Unleash feature flag', {
-        flagName,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return fallback;
+    const distributed = await this.readDistributedFlag(flagName);
+    if (distributed) {
+      this.cache.set(flagName, distributed);
+      return distributed.value;
     }
+
+    const activeRequest = this.inFlight.get(flagName);
+    if (activeRequest) {
+      return activeRequest;
+    }
+
+    const request = this.fetchFlagValue(flagName, fallback)
+      .then(async (value) => {
+        const entry = {
+          value,
+          expiresAt: Date.now() + this.cacheTtlMs,
+        };
+        this.cache.set(flagName, entry);
+        try {
+          await this.redis.set(
+            this.distributedCacheKey(flagName),
+            JSON.stringify(entry),
+            Math.ceil(this.cacheTtlMs / 1000),
+          );
+        } catch (error) {
+          this.logger.warn('Unable to publish shared feature-flag snapshot', {
+            flagName,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return value;
+      })
+      .catch((error: unknown) => {
+        this.logger.warn('Unable to read Unleash feature flag', {
+          flagName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return fallback;
+      })
+      .finally(() => {
+        this.inFlight.delete(flagName);
+      });
+    this.inFlight.set(flagName, request);
+    return request;
   }
 
   private async fetchFlagValue(flagName: string, fallback: boolean): Promise<boolean> {
@@ -117,8 +152,8 @@ export class FeatureFlagService {
     const configured =
       this.configService.get<string>('UNLEASH_FRONTEND_CLIENT_KEY') ||
       this.configService.get<string>('UNLEASH_CLIENT_KEY');
-    if (configured) {
-      return configured;
+    if (configured?.trim()) {
+      return configured.trim();
     }
 
     return this.readEnvironment() === 'production'
@@ -138,8 +173,38 @@ export class FeatureFlagService {
   }
 
   private parsePositiveInteger(value: string | undefined, fallback: number) {
-    const parsed = Number.parseInt(value ?? '', 10);
+    if (!value || !/^\d+$/.test(value)) {
+      return fallback;
+    }
+    const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private async readDistributedFlag(flagName: string): Promise<CachedBooleanFlag | null> {
+    try {
+      const raw = await this.redis.get(this.distributedCacheKey(flagName));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        this.isRecord(parsed) &&
+        typeof parsed['value'] === 'boolean' &&
+        typeof parsed['expiresAt'] === 'number' &&
+        parsed['expiresAt'] > Date.now()
+      ) {
+        return { value: parsed['value'], expiresAt: parsed['expiresAt'] };
+      }
+      return null;
+    } catch (error) {
+      this.logger.warn('Unable to read shared feature-flag snapshot', {
+        flagName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private distributedCacheKey(flagName: string): string {
+    return `feature-flags:snapshot:${flagName}`;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

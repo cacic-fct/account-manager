@@ -27,6 +27,7 @@ describe('AdminAccountMergeController', () => {
     getAdminRequest: jest.fn(),
     confirmAdminMerge: jest.fn(),
     cancelAdminRequest: jest.fn(),
+    retryExternalNotification: jest.fn(),
     openMergeRequestWatch: jest.fn(),
   };
   const controller = new AdminAccountMergeController(accountLinkingService as unknown as AccountLinkingService);
@@ -46,6 +47,7 @@ describe('AdminAccountMergeController', () => {
       'streamMergeRequest',
       'confirmMerge',
       'cancelMerge',
+      'retryNotification',
     ].map(getControllerHandler)) {
       expect(Reflect.getMetadata(ACCOUNT_PERMISSIONS_KEY, handler)).toEqual({
         permissions: [AccountManagerPermission.SuperAdmin],
@@ -94,6 +96,12 @@ describe('AdminAccountMergeController', () => {
       'admin-user',
     );
     expect(accountLinkingService.cancelAdminRequest).toHaveBeenCalledWith(mergeRequest.id, 'admin-user');
+  });
+
+  it('delegates a failed external notification retry to the merge service', async () => {
+    await expect(controller.retryNotification(mergeRequest.id, 'notification-1')).resolves.toEqual({ success: true });
+
+    expect(accountLinkingService.retryExternalNotification).toHaveBeenCalledWith(mergeRequest.id, 'notification-1');
   });
 
   it('streams a complete initial request followed by field-level deltas', async () => {

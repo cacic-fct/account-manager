@@ -10,6 +10,7 @@ import { StarPatternGenerator, StarConfig, StarPatternConfig } from './star-patt
 import { ValuePropositionComponent } from './components/value-proposition.component';
 import { StarComponent } from './star.component';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
+import { LoggerService } from '../shared/services/logger.service';
 
 @Component({
   selector: 'app-home',
@@ -31,6 +32,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly logger = inject(LoggerService);
   private authSubscription?: Subscription;
   private loadingSubscription?: Subscription;
   private routerSubscription?: Subscription;
@@ -41,7 +43,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     // Subscribe to authentication state changes
     this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
       if (isAuthenticated) {
-        console.log('User authenticated, redirecting to applications');
+        this.logger.debug('Home redirecting authenticated user', { operation: 'home-auth' });
         this.isLoggingIn.set(false);
         this.router.navigate(['/applications']);
       }
@@ -49,9 +51,9 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     // Subscribe to loading state to reset login button when auth process completes
     this.loadingSubscription = this.authService.isDoneLoading$.subscribe((isDoneLoading) => {
-      console.log('Auth isDoneLoading changed:', isDoneLoading);
+      this.logger.debug('Home auth loading state changed', { operation: 'home-auth', isDoneLoading });
       if (isDoneLoading) {
-        console.log('Auth loading completed, resetting login button state');
+        this.logger.debug('Home auth loading completed', { operation: 'home-auth' });
         this.isLoggingIn.set(false);
       }
     });
@@ -60,9 +62,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.routerSubscription = this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
-        console.log('Navigation completed to:', event.url);
+        this.logger.debug('Home navigation completed', { operation: 'home-navigation', route: event.url });
         if (event.url === '/' || event.url.includes('code=') || event.url.includes('error=')) {
-          console.log('Detected OAuth return, resetting login state');
+          this.logger.debug('Home detected OAuth return', { operation: 'home-auth' });
           setTimeout(() => {
             this.isLoggingIn.set(false);
           }, 1000);
@@ -77,24 +79,24 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   login() {
-    console.log('Starting login process');
+    this.logger.debug('Starting login process', { operation: 'home-login' });
 
     if (this.isLoggingIn()) {
-      console.log('Login already in progress, ignoring request');
+      this.logger.debug('Login already in progress', { operation: 'home-login' });
       return;
     }
 
     this.isLoggingIn.set(true);
 
     const timeoutId = setTimeout(() => {
-      console.warn('Login timeout - resetting loading state');
+      this.logger.warn('Login timeout', { operation: 'home-login' });
       this.isLoggingIn.set(false);
     }, 15000);
 
     try {
       this.authService.login('/app/applications');
     } catch (error) {
-      console.error('Login failed immediately:', error);
+      this.logger.error('Login failed immediately', error, { operation: 'home-login' });
       clearTimeout(timeoutId);
       this.isLoggingIn.set(false);
     }

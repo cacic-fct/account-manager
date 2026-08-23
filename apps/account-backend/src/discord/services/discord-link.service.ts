@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { DiscordLink } from '@prisma/client';
 import { DiscordLinkDto, LinkDiscordRequestDto, DiscordLinkStatusDto } from '../dto/discord-link.dto';
 import { DiscordOAuthService } from './discord-oauth.service';
@@ -72,31 +78,20 @@ export class DiscordLinkService {
       });
     } catch (error) {
       this.logger.error('Failed to assign Discord role', error);
+      throw new ServiceUnavailableException(
+        'Discord account was linked, but managed roles are still pending. Retry to complete linking.',
+      );
     }
 
     return this.toDto(discordLink);
   }
 
   async getDiscordLinkStatus(userId: string): Promise<DiscordLinkStatusDto> {
-    let discordLinks = await this.prisma.discordLink.findMany({
+    const discordLinks = await this.prisma.discordLink.findMany({
       where: { userId, deleted: false },
     });
 
     const eligibleForRole = await this.discordRoleService.checkRoleEligibility(userId);
-
-    if (discordLinks.some((link) => link.isVerified)) {
-      try {
-        await this.discordRoleService.syncUserDiscordRoles(userId, 'discord-status-refresh');
-        discordLinks = await this.prisma.discordLink.findMany({
-          where: { userId, deleted: false },
-        });
-      } catch (error) {
-        this.logger.warn('Failed to refresh Discord managed role status', {
-          userId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
 
     let inviteLink: string | undefined;
     if (discordLinks.length > 0 && discordLinks.some((link) => link.isVerified) && eligibleForRole === 'student') {
@@ -128,6 +123,9 @@ export class DiscordLinkService {
         linkId: discordLink.id,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      throw new ServiceUnavailableException(
+        'Discord roles could not be removed. The account remains linked so cleanup can be retried safely.',
+      );
     }
 
     await this.prisma.discordLink.update({

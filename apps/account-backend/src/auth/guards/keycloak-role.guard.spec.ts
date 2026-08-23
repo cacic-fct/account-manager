@@ -25,7 +25,6 @@ const createExecutionContext = (userId = 'user-1'): ExecutionContext => {
   const request = {
     session: {
       user: {
-        id: 'account-user-1',
         email: 'alice@example.com',
         keycloakId: userId,
         isOnboarded: true,

@@ -9,6 +9,7 @@ import {
   PrivacySettingTypeValue,
 } from './constants/privacy-setting.constants';
 import { ApiPrivacySettingResponseDto, BulkPrivacySettingsDto } from './dto/privacy-setting.dto';
+import { SkipCsrf } from '../auth/csrf/csrf.guard';
 
 @ApiTags('External API - Privacy Settings')
 @Controller('v1/privacy')
@@ -16,6 +17,7 @@ import { ApiPrivacySettingResponseDto, BulkPrivacySettingsDto } from './dto/priv
 @M2MProtected()
 @RequireRoles(M2M_PRIVACY_ROLES.READ)
 @ApiBearerAuth()
+@SkipCsrf()
 export class PrivacyApiController {
   constructor(private readonly privacyService: PrivacyService) {}
 

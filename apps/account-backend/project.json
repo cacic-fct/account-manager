@@ -49,6 +49,13 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "apps/account-backend",
+        "command": "bun run eslint \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.ts\" --no-error-on-unmatched-pattern"
+      }
+    },
+    "lint:fix": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/account-backend",
         "command": "bun run eslint \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.ts\" --fix --no-error-on-unmatched-pattern"
       }
     },

@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class DeleteAccountRequestDto {
@@ -7,6 +7,7 @@ export class DeleteAccountRequestDto {
     example: 'DELETE',
   })
   @IsString()
+  @MaxLength(32)
   confirmation!: string;
 
   @ApiPropertyOptional({
@@ -15,6 +16,7 @@ export class DeleteAccountRequestDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   reason?: string;
 }
 

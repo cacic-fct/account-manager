@@ -13,6 +13,9 @@ import { configureAccountBackendCommonHttpApp, getAccountBackendGlobalPrefix } f
 export { configureAccountBackendCommonHttpApp, getAccountBackendGlobalPrefix };
 
 type RedisStoreConstructor = new (options: { client: unknown; prefix: string }) => Store;
+type SessionRedisClient = Awaited<ReturnType<typeof createRedisClient>>;
+
+const sessionRedisClients = new WeakMap<INestApplication, SessionRedisClient>();
 
 const RedisStore =
   (RedisStoreModule as unknown as { RedisStore?: RedisStoreConstructor }).RedisStore ??
@@ -41,7 +44,7 @@ export async function configureAccountBackendHttpApp(
     configureSwagger = true,
     configureTrackingCors = true,
     configureCors = true,
-    registerShutdownHandlers = true,
+    registerShutdownHandlers = false,
   } = options;
 
   const bootstrapLogger = new Logger('Bootstrap');
@@ -62,8 +65,8 @@ export async function configureAccountBackendHttpApp(
     bootstrapLogger.log('Trust proxy enabled for secure cookie support');
   }
 
-  if (configureSwagger) {
-    setupSwagger(app);
+  if (configureSwagger && appConfig.swaggerEnabled) {
+    setupSwagger(app, process.env.NODE_ENV === 'production');
   }
 
   if (configureCors) {
@@ -78,6 +81,7 @@ export async function configureAccountBackendHttpApp(
   }
 
   const redisClient = await createRedisClient(appConfig.redis);
+  sessionRedisClients.set(app, redisClient);
   app.use(
     session({
       store: new RedisStore({
@@ -98,7 +102,20 @@ export async function configureAccountBackendHttpApp(
   );
 
   if (registerShutdownHandlers) {
-    registerGracefulShutdownHandlers(app, redisClient, bootstrapLogger);
+    registerGracefulShutdownHandlers(app, bootstrapLogger);
+  }
+}
+
+export async function closeAccountBackendHttpApp(app: INestApplication): Promise<void> {
+  const redisClient = sessionRedisClients.get(app);
+  sessionRedisClients.delete(app);
+
+  try {
+    await app.close();
+  } finally {
+    if (redisClient?.isOpen) {
+      await redisClient.quit();
+    }
   }
 }
 
@@ -113,7 +130,7 @@ function configureAccountBackendLogger(app: INestApplication): void {
   app.useLogger(logLevels);
 }
 
-function setupSwagger(app: INestApplication): void {
+function setupSwagger(app: INestApplication, production: boolean): void {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('CACiC Account Manager API')
     .setDescription(
@@ -129,7 +146,7 @@ function setupSwagger(app: INestApplication): void {
   const swaggerCustomOptions: SwaggerCustomOptions = {
     useGlobalPrefix: true,
     swaggerOptions: {
-      persistAuthorization: true,
+      persistAuthorization: !production,
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
     },
@@ -206,21 +223,15 @@ async function createRedisClient(redis: { host: string; port: number; password?:
   return redisClient;
 }
 
-function registerGracefulShutdownHandlers(
-  app: INestApplication,
-  redisClient: Awaited<ReturnType<typeof createRedisClient>>,
-  bootstrapLogger: Logger,
-): void {
+function registerGracefulShutdownHandlers(app: INestApplication, bootstrapLogger: Logger): void {
   const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
     bootstrapLogger.warn(`Received ${signal}, shutting down gracefully...`);
     void (async () => {
       try {
-        await redisClient.quit();
-        await app.close();
-        process.exit(0);
+        await closeAccountBackendHttpApp(app);
       } catch (error) {
         bootstrapLogger.error('Error during shutdown', error);
-        process.exit(1);
+        process.exitCode = 1;
       }
     })();
   };

@@ -70,4 +70,19 @@ export class AppController {
     }
     return health;
   }
+
+  @ApiOperation({ summary: 'Process liveness check' })
+  @ApiResponse({ status: 200, description: 'The backend process is alive' })
+  @Get('health/live')
+  getLiveness() {
+    return this.appService.getLiveness();
+  }
+
+  @ApiOperation({ summary: 'Required dependency readiness check' })
+  @ApiResponse({ status: 200, description: 'The backend is ready to receive traffic' })
+  @ApiResponse({ status: 503, description: 'A required dependency is unavailable' })
+  @Get('health/ready')
+  getReadiness(@Res({ passthrough: true }) response?: Response) {
+    return this.getHealth(response);
+  }
 }

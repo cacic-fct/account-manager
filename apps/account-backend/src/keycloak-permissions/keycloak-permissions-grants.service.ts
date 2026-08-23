@@ -170,7 +170,8 @@ export class KeycloakPermissionsGrantsService {
       await this.assertActorCanRevokePermission(actorId, existingGrant.permission);
     }
 
-    if (wasActive && nextPermission !== existingGrant.permission) {
+    const removedPreviousPermission = wasActive && nextPermission !== existingGrant.permission;
+    if (removedPreviousPermission) {
       await this.keycloakService.removeUserClientRoles(
         existingGrant.userId,
         [existingGrant.roleName],
@@ -178,19 +179,36 @@ export class KeycloakPermissionsGrantsService {
       );
     }
 
-    const grant = await this.prisma.keycloakPermissionGrant.update({
-      where: { id },
-      data: {
-        permission: nextPermission,
-        clientId: parsedPermission.clientId,
-        roleName: parsedPermission.roleName,
-        validFrom: validity.validFrom,
-        validUntil: validity.validUntil,
-        updatedById: actorId,
-        lastSyncError: null,
-      },
-      select: GRANT_SELECT,
-    });
+    let grant: GrantRecord;
+    try {
+      grant = await this.prisma.keycloakPermissionGrant.update({
+        where: { id },
+        data: {
+          permission: nextPermission,
+          clientId: parsedPermission.clientId,
+          roleName: parsedPermission.roleName,
+          validFrom: validity.validFrom,
+          validUntil: validity.validUntil,
+          updatedById: actorId,
+          lastSyncError: null,
+        },
+        select: GRANT_SELECT,
+      });
+    } catch (error) {
+      if (removedPreviousPermission) {
+        try {
+          await this.keycloakService.addUserClientRoles(
+            existingGrant.userId,
+            [existingGrant.roleName],
+            existingGrant.clientId,
+          );
+        } catch {
+          // The database still contains the previous desired state, so the
+          // scheduled reconciler can restore it after a transient failure.
+        }
+      }
+      throw error;
+    }
 
     await this.sync.syncGrantAfterWrite(grant, {
       removeIfPreviouslyActive: wasActive,

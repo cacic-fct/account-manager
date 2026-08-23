@@ -1,4 +1,16 @@
-import { IsString, IsBoolean, IsOptional, IsNotEmpty, MinLength, IsEnum, IsEmail } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsEnum,
+  IsEmail,
+  IsISO31661Alpha2,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UnespRole } from '@cacic/shared-types';
 
@@ -11,6 +23,7 @@ export class CreateUserProfileDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
+  @MaxLength(200)
   fullname!: string;
 
   @ApiProperty({
@@ -19,6 +32,7 @@ export class CreateUserProfileDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(32)
   phone!: string;
 
   @ApiPropertyOptional({
@@ -27,6 +41,7 @@ export class CreateUserProfileDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   enrollmentNumber?: string;
 
   @ApiProperty({
@@ -35,6 +50,7 @@ export class CreateUserProfileDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(64)
   identityDocument!: string;
 
   @ApiProperty({
@@ -43,6 +59,19 @@ export class CreateUserProfileDto {
   })
   @IsBoolean()
   isForeigner!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'ISO 3166-1 alpha-2 country that issued the passport. Required for foreign users.',
+    example: 'AR',
+    minLength: 2,
+    maxLength: 2,
+  })
+  @ValidateIf((profile: CreateUserProfileDto) => profile.isForeigner || profile.passportCountry !== undefined)
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsString()
+  @IsNotEmpty()
+  @IsISO31661Alpha2()
+  passportCountry?: string;
 
   @ApiPropertyOptional({
     description: 'Unesp role for university users',
@@ -205,6 +234,7 @@ export class PasswordLoginDto {
     example: 'aluno@unesp.br',
   })
   @IsEmail()
+  @MaxLength(320)
   email!: string;
 
   @ApiProperty({
@@ -215,6 +245,7 @@ export class PasswordLoginDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
+  @MaxLength(256)
   password!: string;
 
   @ApiPropertyOptional({
@@ -223,6 +254,7 @@ export class PasswordLoginDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   returnTo?: string;
 }
 

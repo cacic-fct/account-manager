@@ -1,6 +1,7 @@
 import {
   ChannelCredentials,
   Client,
+  ServerCredentials,
   type ClientOptions,
   type Metadata,
   type MethodDefinition,
@@ -10,10 +11,17 @@ import {
 import { loadPackageDefinition, type GrpcObject } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type UnknownMethodDefinition = MethodDefinition<unknown, unknown>;
 const TRANSIENT_CODES = new Set([status.UNAVAILABLE, status.DEADLINE_EXCEEDED, status.RESOURCE_EXHAUSTED]);
+
+interface GrpcTlsFiles {
+  ca: Buffer;
+  certificate: Buffer;
+  privateKey: Buffer;
+}
 
 export function resolveGrpcProtoPath(fileName: string): string {
   const configuredRoot = process.env.CACIC_GRPC_PROTO_ROOT?.trim();
@@ -57,6 +65,55 @@ export function loadGrpcServiceDefinition(
   return service.service;
 }
 
+export function resolveGrpcServerCredentials(bindUrl: string): ServerCredentials {
+  const tls = readGrpcTlsFiles();
+  if (tls) {
+    return ServerCredentials.createSsl(tls.ca, [{ private_key: tls.privateKey, cert_chain: tls.certificate }], true);
+  }
+  assertInsecureGrpcAllowed(bindUrl);
+  return ServerCredentials.createInsecure();
+}
+
+export function resolveGrpcChannelCredentials(target: string): ChannelCredentials {
+  const tls = readGrpcTlsFiles();
+  if (tls) {
+    return ChannelCredentials.createSsl(tls.ca, tls.privateKey, tls.certificate);
+  }
+  assertInsecureGrpcAllowed(target);
+  return ChannelCredentials.createInsecure();
+}
+
+function readGrpcTlsFiles(): GrpcTlsFiles | null {
+  const paths = {
+    ca: process.env.CACIC_GRPC_TLS_CA_CERT_PATH?.trim(),
+    certificate: process.env.CACIC_GRPC_TLS_CERT_PATH?.trim(),
+    privateKey: process.env.CACIC_GRPC_TLS_KEY_PATH?.trim(),
+  };
+  const configuredCount = Object.values(paths).filter(Boolean).length;
+  if (configuredCount === 0) {
+    return null;
+  }
+  if (configuredCount !== 3) {
+    throw new Error('gRPC TLS requires CA, certificate, and private-key paths together.');
+  }
+
+  return {
+    ca: readFileSync(paths.ca!),
+    certificate: readFileSync(paths.certificate!),
+    privateKey: readFileSync(paths.privateKey!),
+  };
+}
+
+function assertInsecureGrpcAllowed(target: string): void {
+  const isLoopback = /^(?:dns:\/\/\/)?(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/i.test(target);
+  const explicitlyAllowed = process.env.CACIC_GRPC_ALLOW_INSECURE?.trim().toLowerCase() === 'true';
+  if (process.env.NODE_ENV === 'production' || (!isLoopback && !explicitlyAllowed)) {
+    throw new Error(
+      'Insecure gRPC transport is allowed only on loopback in development. Configure mutual TLS for this target.',
+    );
+  }
+}
+
 export class GrpcUnaryClient {
   private readonly client: Client;
 
@@ -65,7 +122,7 @@ export class GrpcUnaryClient {
     private readonly service: ServiceDefinition,
     options: ClientOptions = {},
   ) {
-    this.client = new Client(target, ChannelCredentials.createInsecure(), {
+    this.client = new Client(target, resolveGrpcChannelCredentials(target), {
       'grpc.keepalive_time_ms': 60_000,
       'grpc.keepalive_timeout_ms': 10_000,
       'grpc.keepalive_permit_without_calls': 0,

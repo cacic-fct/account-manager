@@ -6,7 +6,10 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     const connectionString = process.env.DATABASE_URL;
-    const adapter = new PrismaPg(connectionString ?? 'postgresql://localhost:5432/postgres');
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+    const adapter = new PrismaPg(connectionString);
     super({ adapter });
   }
 
