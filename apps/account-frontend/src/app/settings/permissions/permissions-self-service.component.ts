@@ -19,6 +19,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
+import { formatLocalizedDate } from '../../shared/utils/date-fns';
 
 @Component({
   selector: 'app-permissions-self-service',
@@ -196,9 +197,6 @@ export class PermissionsSelfServiceComponent implements OnInit {
   }
 
   private formatDate(value: string): string {
-    return new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(value));
+    return formatLocalizedDate(value, 'Pp');
   }
 }

@@ -19,7 +19,7 @@
         </mat-form-field>
 
         @if (inviteSetting()?.updatedAt) {
-          <p class="last-updated">Atualizado em {{ inviteSetting()?.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+          <p class="last-updated">Atualizado em {{ inviteSetting()?.updatedAt | dateFns: 'Pp' }}</p>
         } @else {
           <p class="last-updated">O convite será criado ao salvar.</p>
         }

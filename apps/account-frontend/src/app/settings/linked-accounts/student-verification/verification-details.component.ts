@@ -24,6 +24,7 @@ import { environment } from '../../../../environments/environment';
 import { UniversityValidationDialogComponent } from '../components/university-validation-dialog/university-validation-dialog.component';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { formatLocalizedDate } from '../../../shared/utils/date-fns';
 
 @Component({
   selector: 'app-student-verification-details',
@@ -299,21 +300,12 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     }
   }
 
-  formatDate(date: string | Date | null | undefined): string {
+  formatDate(date: Date | string | null | undefined): string {
     if (!date) {
       return 'Data não disponível';
     }
 
-    const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      return 'Data inválida';
-    }
-
-    return dateObj.toLocaleDateString('pt-BR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatLocalizedDate(date, 'PPP', 'Data inválida');
   }
 
   formatFileSize(bytes: number): string {

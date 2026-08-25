@@ -56,7 +56,7 @@
               <mat-icon>schedule</mat-icon>
               <p>
                 Seu documento foi enviado em
-                {{ status.submissionDate | date: 'dd/MM/yyyy HH:mm' }} e está aguardando verificação.
+                {{ status.submissionDate | dateFns: 'Pp' }} e está aguardando verificação.
               </p>
             </div>
           }
@@ -68,7 +68,7 @@
               @if (status.verificationDate) {
                 <p class="verification-date">
                   Verificado em:
-                  {{ status.verificationDate | date: 'dd/MM/yyyy HH:mm' }}
+                  {{ status.verificationDate | dateFns: 'Pp' }}
                 </p>
               }
             </div>
@@ -84,7 +84,7 @@
               @if (status.verificationDate) {
                 <p class="verification-date">
                   Rejeitado em:
-                  {{ status.verificationDate | date: 'dd/MM/yyyy HH:mm' }}
+                  {{ status.verificationDate | dateFns: 'Pp' }}
                 </p>
               }
             </div>

@@ -37,21 +37,21 @@
             <ng-container matColumnDef="createdAt">
               <th mat-header-cell *matHeaderCellDef>Solicitada em</th>
               <td mat-cell *matCellDef="let request">
-                {{ formatDate(request.createdAt) }}
+                {{ request.createdAt | dateFns: 'Pp' : '-' }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="softDeletedAt">
               <th mat-header-cell *matHeaderCellDef>Desativada em</th>
               <td mat-cell *matCellDef="let request">
-                {{ formatDate(request.softDeletedAt) }}
+                {{ request.softDeletedAt | dateFns: 'Pp' : '-' }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="scheduledHardDeleteAt">
               <th mat-header-cell *matHeaderCellDef>Exclusão definitiva</th>
               <td mat-cell *matCellDef="let request">
-                {{ formatDate(request.scheduledHardDeleteAt) }}
+                {{ request.scheduledHardDeleteAt | dateFns: 'Pp' : '-' }}
               </td>
             </ng-container>
 

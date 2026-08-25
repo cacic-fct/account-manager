@@ -23,6 +23,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
+import { formatLocalizedDate } from '../../shared/utils/date-fns';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
 @Component({
@@ -234,10 +235,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   }
 
   protected formatDate(value: string): string {
-    return new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(value));
+    return formatLocalizedDate(value, 'Pp');
   }
 
   private loadPanel(): void {

@@ -22,6 +22,7 @@ import { environment } from '../../../../environments/environment';
 import { RouterLink } from '@angular/router';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
 
 @Component({
   selector: 'app-student-verification-card',
@@ -36,6 +37,7 @@ import { LoggerService } from '../../../shared/services/logger.service';
     MatChipsModule,
     MatProgressBarModule,
     RouterLink,
+    DateFnsPipe,
   ],
   templateUrl: './student-verification-card.component.html',
   styleUrl: './student-verification-card.component.scss',
@@ -351,15 +353,4 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     }
   }
 
-  formatDate(date: string | Date): string {
-    if (!date) return '';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }
 }

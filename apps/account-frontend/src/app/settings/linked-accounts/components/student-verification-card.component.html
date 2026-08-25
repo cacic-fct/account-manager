@@ -65,7 +65,7 @@
                   <mat-icon>schedule</mat-icon>
                   <p>
                     Documento enviado em
-                    {{ formatDate(verificationStatus()!.submissionDate!) }}. Aguarde a análise.
+                    {{ verificationStatus()!.submissionDate! | dateFns: 'Pp' }}. Aguarde a análise.
                   </p>
                 </div>
               } @else if (verificationStatus()!.status === 'rejected') {

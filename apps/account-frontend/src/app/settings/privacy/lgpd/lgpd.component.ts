@@ -15,6 +15,7 @@ import { ApiService, LgpdRequest, DeleteAccountRequest } from '../../../shared/s
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import { LgpdConfirmDialogComponent } from './lgpd-confirm-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
+import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
 
 type LgpdRequestStatus = LgpdRequest['status'];
 
@@ -51,6 +52,7 @@ const STATUS_ICONS: Record<LgpdRequestStatus, string> = {
     MatTooltipModule,
     MatToolbarModule,
     RouterLink,
+    DateFnsPipe,
   ],
   templateUrl: './lgpd.component.html',
   styleUrl: './lgpd.component.scss',
@@ -202,19 +204,6 @@ export class LgpdComponent implements OnInit {
     const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
 
     return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
-  }
-
-  protected formatDate(date?: Date | string): string {
-    if (!date) return '-';
-    const d = new Date(date);
-
-    return d.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 
   protected canDownload(request: LgpdRequest): boolean {

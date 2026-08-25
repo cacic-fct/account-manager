@@ -76,7 +76,7 @@
             <ng-container matColumnDef="submissionDate">
               <th mat-header-cell *matHeaderCellDef>Data de Envio</th>
               <td mat-cell *matCellDef="let document">
-                {{ document.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                {{ document.createdAt | dateFns: 'Pp' }}
               </td>
             </ng-container>
 

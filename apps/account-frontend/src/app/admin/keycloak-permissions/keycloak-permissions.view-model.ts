@@ -5,6 +5,7 @@ import {
   PermissionGroupMembership,
   PermissionGroupRoleGrant,
 } from '@cacic/shared-types';
+import { formatLocalizedDate } from '../../shared/utils/date-fns';
 
 export type PermissionClientGroup = {
   clientId: string;
@@ -86,8 +87,5 @@ export function formatMembership(membership: PermissionGroupMembership): string 
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  return formatLocalizedDate(value, 'Pp');
 }

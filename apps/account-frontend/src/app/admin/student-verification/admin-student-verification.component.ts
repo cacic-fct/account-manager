@@ -17,6 +17,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { RejectDocumentDialogComponent } from './reject-document-dialog.component';
 import { environment } from '../../../environments/environment';
 import { LoggerService } from '../../shared/services/logger.service';
+import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
 
 @Component({
   selector: 'app-admin-student-verification',
@@ -33,6 +34,7 @@ import { LoggerService } from '../../shared/services/logger.service';
     MatTooltipModule,
     CommonModule,
     RouterLink,
+    DateFnsPipe,
   ],
 })
 export class AdminStudentVerificationComponent implements OnInit {

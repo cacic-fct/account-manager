@@ -10,12 +10,22 @@ import {
   StudentVerificationService,
   VerificationStatus,
 } from '../../shared/services/student-verification/student-verification.service';
+import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
 
 @Component({
   selector: 'app-student-verification-status',
   templateUrl: './student-verification-status.component.html',
   styleUrls: ['./student-verification-status.component.scss'],
-  imports: [MatIconModule, MatButtonModule, MatCardModule, MatToolbarModule, MatChipsModule, RouterLink, CommonModule],
+  imports: [
+    MatIconModule,
+    MatButtonModule,
+    MatCardModule,
+    MatToolbarModule,
+    MatChipsModule,
+    RouterLink,
+    CommonModule,
+    DateFnsPipe,
+  ],
 })
 export class StudentVerificationStatusComponent implements OnInit {
   private studentVerificationService = inject(StudentVerificationService);

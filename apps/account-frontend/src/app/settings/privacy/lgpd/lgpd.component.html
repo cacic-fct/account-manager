@@ -87,7 +87,7 @@
             <ng-container matColumnDef="createdAt">
               <th mat-header-cell *matHeaderCellDef>Data da Solicitação</th>
               <td mat-cell *matCellDef="let request">
-                {{ formatDate(request.createdAt) }}
+                {{ request.createdAt | dateFns: 'Pp' : '-' }}
               </td>
             </ng-container>
 

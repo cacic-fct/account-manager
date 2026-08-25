@@ -12,6 +12,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService, AdminDeleteAccountRequest } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
+import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
 
 @Component({
   selector: 'app-admin-account-deletion',
@@ -25,6 +26,7 @@ import { ConfirmationDialogComponent } from '../../shared/components/confirmatio
     MatTableModule,
     MatToolbarModule,
     MatTooltipModule,
+    DateFnsPipe,
   ],
   templateUrl: './admin-account-deletion.component.html',
   styleUrl: './admin-account-deletion.component.scss',
@@ -90,17 +92,6 @@ export class AdminAccountDeletionComponent implements OnInit {
       if (confirmed) {
         this.deleteNow(request.id);
       }
-    });
-  }
-
-  protected formatDate(date?: Date | string): string {
-    if (!date) return '-';
-    return new Date(date).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   }
 

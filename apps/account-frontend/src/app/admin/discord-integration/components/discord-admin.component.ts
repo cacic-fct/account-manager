@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
@@ -12,11 +11,12 @@ import { MatInputModule } from '@angular/material/input';
 import { ApiService, ServerSetting } from '../../../shared/services/api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
 
 @Component({
   selector: 'app-discord-admin',
   imports: [
-    DatePipe,
+    DateFnsPipe,
     ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,

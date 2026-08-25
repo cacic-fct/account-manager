@@ -15,6 +15,7 @@ import { ConfirmationDialogComponent } from '../../../shared/components/confirma
 import { getDiscordAvatarUrl } from '@cacic/shared-utils';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { formatLocalizedDate } from '../../../shared/utils/date-fns';
 
 @Component({
   selector: 'app-discord-integration',
@@ -302,10 +303,6 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   }
 
   formatDate(date: string | Date): string {
-    return new Date(date).toLocaleDateString('pt-BR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatLocalizedDate(date, 'PP');
   }
 }
