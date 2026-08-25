@@ -10,6 +10,7 @@ import { AccountPermissionService } from '../src/auth/services/account-permissio
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import { TotpService } from '../src/totp/totp.service';
+import { RedisService } from '../src/redis/redis.service';
 import { createAuthTestConfigService, createKeycloakUser, createUserServiceFake } from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
@@ -105,6 +106,12 @@ describe('Authentication (fast e2e)', () => {
           provide: TotpService,
           useValue: {
             getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            incrementWithExpiry: jest.fn().mockResolvedValue(1),
           },
         },
       ],

@@ -13,6 +13,7 @@ import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import type { KeycloakUser } from '../src/auth/interfaces/auth.interface';
 import { TotpService } from '../src/totp/totp.service';
+import { RedisService } from '../src/redis/redis.service';
 import { createAuthTestConfigService, createUserServiceFake, waitForKeycloakRealm } from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
@@ -71,6 +72,12 @@ describe('Keycloak authentication (e2e)', () => {
           provide: TotpService,
           useValue: {
             getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            incrementWithExpiry: jest.fn().mockResolvedValue(1),
           },
         },
       ],
