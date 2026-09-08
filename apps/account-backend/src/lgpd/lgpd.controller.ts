@@ -28,6 +28,7 @@ import { AccountPermissions, Auth } from '../auth/guards/auth.decorator';
 import { AccountManagerPermission } from '@cacic/shared-types';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
+import { createAttachmentContentDisposition } from '../common/utils/content-disposition.util';
 
 interface AuthSession {
   user?: SessionUser;
@@ -45,20 +46,6 @@ export class LgpdController {
 
   private getSessionUser(session: AuthSession): SessionUser {
     return session.user!;
-  }
-
-  private getContentDisposition(fileName: string): string {
-    const sanitizedFileName = Array.from(fileName)
-      .filter((character) => {
-        const charCode = character.charCodeAt(0);
-        return charCode > 31 && charCode !== 127;
-      })
-      .join('')
-      .replace(/"/g, '')
-      .trim();
-    const safeFileName = sanitizedFileName || 'dados-lgpd.zip';
-
-    return `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(safeFileName)}`;
   }
 
   @ApiOperation({
@@ -212,7 +199,9 @@ export class LgpdController {
 
       // Set appropriate headers for file download
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', this.getContentDisposition(fileName));
+      res.setHeader('Content-Disposition', createAttachmentContentDisposition(fileName, 'dados-lgpd.zip'));
+      res.setHeader('Cache-Control', 'no-store, private');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
 
       // pipeline closes the source on response aborts and propagates both source and destination
       // errors. downloadedAt is written only after the response has fully flushed.

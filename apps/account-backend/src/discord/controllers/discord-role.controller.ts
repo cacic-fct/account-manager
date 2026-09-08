@@ -8,6 +8,8 @@ import {
   Body,
   HttpException,
   HttpStatus,
+  Logger,
+  ServiceUnavailableException,
   Session,
   UseGuards,
 } from '@nestjs/common';
@@ -23,6 +25,7 @@ import { AccountPermissions, Auth } from '../../auth/guards/auth.decorator';
 import { AuthSession } from '../../auth/auth.controller';
 import { CsrfGuard } from '../../auth/csrf/csrf.guard';
 import { AccountManagerPermission } from '@cacic/shared-types';
+import { CurrentUserGuard } from '../../auth/guards/current-user.guard';
 import {
   SelectableRolesDto,
   UpdateRoleSelectionDto,
@@ -41,6 +44,8 @@ import {
 @ApiTags('Discord Role Management')
 @Controller('discord/roles')
 export class DiscordRoleController {
+  private readonly logger = new Logger(DiscordRoleController.name);
+
   constructor(
     private readonly roleManagementService: DiscordRoleManagementService,
     private readonly managedRoleOverridesService: DiscordManagedRoleOverridesService,
@@ -151,8 +156,8 @@ export class DiscordRoleController {
       await this.roleManagementService.syncRolesFromDiscord(client, guildId);
       return { message: 'Discord roles synced successfully' };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(`Failed to sync Discord roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
+      this.logger.error('Failed to sync Discord roles', error);
+      throw new ServiceUnavailableException('Não foi possível sincronizar os cargos do Discord.');
     }
   }
 
@@ -314,8 +319,12 @@ export class DiscordRoleController {
 
       return await this.roleManagementService.getUserRoles(userId, client, guildId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(`Failed to get user roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
+      if (error instanceof HttpException && error.getStatus() < 500) {
+        throw error;
+      }
+
+      this.logger.error('Failed to get Discord roles for the current user', error);
+      throw new ServiceUnavailableException('Não foi possível consultar os cargos do Discord.');
     }
   }
 
@@ -362,7 +371,7 @@ export class DiscordRoleController {
     },
   })
   @Auth()
-  @UseGuards(CsrfGuard)
+  @UseGuards(CurrentUserGuard, CsrfGuard)
   @Put('user')
   async updateUserRoles(
     @Body() dto: UserRoleSelectionDto,
@@ -411,23 +420,18 @@ export class DiscordRoleController {
         const cooldownEntry = await this.cooldownService.setCooldown(userId, action);
         const cooldownSeconds = Math.pow(2, cooldownEntry.attempts);
 
-        // If it's a validation error or similar, don't mask the original error
-        // Just add cooldown information
-        if (updateError instanceof HttpException) {
-          if (updateError.getStatus() === 400) {
-            // For validation errors, throw the original error but still apply cooldown
-            throw updateError;
-          }
+        if (updateError instanceof HttpException && updateError.getStatus() < 500) {
+          throw updateError;
         }
 
-        // For other errors, include cooldown information
+        this.logger.error('Failed to update Discord roles for the current user', updateError);
         throw new HttpException(
           {
-            message: updateError instanceof Error ? updateError.message : 'Failed to update Discord roles',
+            message: 'Não foi possível atualizar os cargos do Discord.',
             attempts: cooldownEntry.attempts,
             cooldownSeconds,
           },
-          updateError instanceof HttpException ? updateError.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR,
+          HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
     } catch (error) {
@@ -436,8 +440,8 @@ export class DiscordRoleController {
         throw error;
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      throw new HttpException(`Failed to update user roles: ${errorMessage}`, HttpStatus.INTERNAL_SERVER_ERROR);
+      this.logger.error('Unexpected Discord role update failure', error);
+      throw new ServiceUnavailableException('Não foi possível atualizar os cargos do Discord.');
     }
   }
 }

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class UpdateServerSettingDto {
   @ApiProperty({
@@ -7,6 +7,8 @@ export class UpdateServerSettingDto {
     example: 'https://discord.gg/abc123',
   })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(2048)
   value!: string;
 }
 

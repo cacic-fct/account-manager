@@ -272,61 +272,10 @@ export interface CacicTrackingSessionResponse {
   expiresAt?: CacicDateTime;
 }
 
-export const M2M_PRIVACY_ROUTE_TEMPLATES = {
-  USER_SETTINGS: `${M2M_API_PREFIX}/v1/privacy/user/:userId/settings`,
-  USER_SETTING: `${M2M_API_PREFIX}/v1/privacy/user/:userId/setting/:settingType`,
-  COOKIE_CONSENT: `${M2M_API_PREFIX}/v1/privacy/user/:userId/cookie-consent`,
-  BULK_SETTINGS: `${M2M_API_PREFIX}/v1/privacy/user/:userId/settings/bulk`,
-  DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives?userId=:userId`,
-  UI_DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives/ui?userId=:userId`,
-  DATA_DIRECTIVES: `${M2M_API_PREFIX}/privacy-directives/data?userId=:userId`,
-} as const;
-
 export const CACIC_TRACKING_ROUTES = {
   session: `${M2M_API_PREFIX}/tracking/session`,
   clear: `${M2M_API_PREFIX}/tracking/clear`,
 } as const;
-
-export const M2M_TOTP_ROUTE_TEMPLATES = {
-  VALIDATE: `${M2M_API_PREFIX}/v1/totp/validate`,
-  SEED_RELAY: `${M2M_API_PREFIX}/v1/totp/user/:userId/seed`,
-  ENSURE_SEED: `${M2M_API_PREFIX}/v1/totp/user/:userId/seed`,
-} as const;
-
-export const M2M_USER_ROUTE_TEMPLATES = {
-  ENROLLMENT_LOOKUP: `${M2M_API_PREFIX}/v1/users/enrollment-lookup`,
-  IDENTIFIER_LOOKUP: `${M2M_API_PREFIX}/v1/users/identifier-lookup`,
-} as const;
-
-export const M2M_TOTP_ROUTES = {
-  validate: () => `${M2M_API_PREFIX}/v1/totp/validate`,
-  seedRelay: (userId: string) => `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
-  ensureSeed: (userId: string) => `${M2M_API_PREFIX}/v1/totp/user/${encodePathSegment(userId)}/seed`,
-} as const;
-
-export const M2M_USER_ROUTES = {
-  enrollmentLookup: () => `${M2M_API_PREFIX}/v1/users/enrollment-lookup`,
-  identifierLookup: () => `${M2M_API_PREFIX}/v1/users/identifier-lookup`,
-} as const;
-
-export const M2M_PRIVACY_ROUTES = {
-  userSettings: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/settings`,
-  userSetting: (userId: string, settingType: PrivacySettingTypeValue) =>
-    `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/setting/${settingType}`,
-  cookieConsent: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/cookie-consent`,
-  bulkSettings: (userId: string) => `${M2M_API_PREFIX}/v1/privacy/user/${encodePathSegment(userId)}/settings/bulk`,
-  directives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives?userId=${encodeQueryValue(userId)}`,
-  uiDirectives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives/ui?userId=${encodeQueryValue(userId)}`,
-  dataDirectives: (userId: string) => `${M2M_API_PREFIX}/privacy-directives/data?userId=${encodeQueryValue(userId)}`,
-} as const;
-
-function encodePathSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function encodeQueryValue(value: string): string {
-  return encodeURIComponent(value);
-}
 
 type SubtleCryptoLike = {
   importKey: (

@@ -62,6 +62,7 @@ export class DiscordController {
     description: 'Unauthorized - User not authenticated',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
   @Get('auth-url')
   getDiscordAuthUrl(@Session() session: AuthSession): { authUrl: string } {
     const oauthData: { authUrl: string; state: string } = this.discordOAuthService.getDiscordAuthUrl(
@@ -90,6 +91,7 @@ export class DiscordController {
     description: 'Redirects to frontend after processing',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
   @Get('callback')
   async discordCallback(
     @Query('code') code: string,

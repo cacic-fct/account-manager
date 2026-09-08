@@ -189,7 +189,14 @@
           </mat-card-content>
 
           <mat-card-actions class="invite-actions">
-            <a [href]="inviteLink" target="_blank" mat-raised-button color="primary" class="join-button">
+            <a
+              [href]="inviteLink"
+              target="_blank"
+              rel="noopener noreferrer"
+              mat-raised-button
+              color="primary"
+              class="join-button"
+            >
               <mat-icon>launch</mat-icon>
               Entrar no Servidor
             </a>

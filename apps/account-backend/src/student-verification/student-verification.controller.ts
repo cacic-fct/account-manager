@@ -27,6 +27,7 @@ import { AccountManagerPermission } from '@cacic/shared-types';
 import { FileValidationService } from '../auth/services/file-validation.service';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
 import { StudentVerificationRateLimitService } from './services/student-verification-rate-limit.service';
+import { createAttachmentContentDisposition } from '../common/utils/content-disposition.util';
 
 interface AuthSession {
   user?: SessionUser;
@@ -307,15 +308,16 @@ export class StudentVerificationController {
   ) {
     const document = await this.studentVerificationService.getDocumentFile(documentId);
 
-    // Properly encode filename for UTF-8 support (handles accents)
-    const encodedFilename = encodeURIComponent(document.originalFileName);
-    const asciiFilename = document.originalFileName.replace(/[^\u0020-\u007E]/g, ''); // ASCII fallback
-
-    res.setHeader('Content-Type', document.mimeType);
+    res.setHeader(
+      'Content-Type',
+      document.mimeType === 'application/pdf' ? document.mimeType : 'application/octet-stream',
+    );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
+      createAttachmentContentDisposition(document.originalFileName, 'documento.pdf'),
     );
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
 
     try {
       await pipeline(document.stream, res);

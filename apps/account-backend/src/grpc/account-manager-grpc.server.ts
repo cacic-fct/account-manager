@@ -25,6 +25,7 @@ import {
   type M2MUserIdentifierType,
   type PrivacySettingTypeValue,
 } from '@cacic/m2m-contracts';
+import { isEmail, isUUID } from 'class-validator';
 import { JwtService, type JwtPayload } from '../auth/jwt/jwt.service';
 import { M2MUsersService } from '../m2m-users/m2m-users.service';
 import {
@@ -88,12 +89,12 @@ export function createAccountManagerGrpcHandlers(dependencies: Dependencies): Un
   return {
     recordCookieConsent: unary(async (call) => {
       await authorize(call.metadata, dependencies.jwt, [M2M_PRIVACY_ROLES.WRITE]);
-      await dependencies.privacy.recordCookieConsent(requiredString(call.request, 'userId'));
+      await dependencies.privacy.recordCookieConsent(requiredUuid(call.request, 'userId'));
       return { success: true };
     }),
     getPrivacySettings: unary(async (call) => {
       await authorize(call.metadata, dependencies.jwt, [M2M_PRIVACY_ROLES.READ]);
-      const userId = requiredString(call.request, 'userId');
+      const userId = requiredUuid(call.request, 'userId');
       const record = await dependencies.privacy.findUserSettings(userId);
       const settings = record?.settings ?? createDefaultPrivacySettings();
       const lastUpdated = (record?.updatedAt ?? new Date()).toISOString();
@@ -107,14 +108,14 @@ export function createAccountManagerGrpcHandlers(dependencies: Dependencies): Un
     }),
     ensureTotpSeed: unary(async (call) => {
       await authorize(call.metadata, dependencies.jwt, [M2M_TOTP_ROLES.RELAY]);
-      return toWireObject(await dependencies.totp.relaySeed(requiredString(call.request, 'userId')));
+      return toWireObject(await dependencies.totp.relaySeed(requiredUuid(call.request, 'userId')));
     }),
     validateTotp: unary(async (call) => {
       const caller = await authorize(call.metadata, dependencies.jwt, [M2M_TOTP_ROLES.VALIDATE]);
       return toWireObject(
         await dependencies.totp.validateCode(
-          requiredString(call.request, 'primaryEmail'),
-          requiredString(call.request, 'code'),
+          requiredEmail(call.request, 'primaryEmail'),
+          requiredTotpCode(call.request, 'code'),
           dependencies.jwt.getClientId(caller) || 'unknown-grpc-client',
         ),
       );
@@ -136,14 +137,20 @@ export function createAccountManagerGrpcHandlers(dependencies: Dependencies): Un
           `identifiers must contain at most ${M2M_USER_IDENTIFIER_LOOKUP_MAX_ITEMS} items.`,
         );
       }
+      const requestIds = new Set<string>();
       const identifiers = raw.map((item) => {
         if (!isRecord(item)) throw new BadRequestException('Each identifier must be an object.');
         const identifierType = requiredString(item, 'identifierType', 16);
         if (!M2M_USER_IDENTIFIER_TYPES.includes(identifierType as M2MUserIdentifierType)) {
           throw new BadRequestException('identifierType must be cpf, phone, or email.');
         }
+        const requestId = requiredString(item, 'requestId', 120);
+        if (requestIds.has(requestId)) {
+          throw new BadRequestException('requestId values must be unique.');
+        }
+        requestIds.add(requestId);
         return {
-          requestId: requiredString(item, 'requestId', 120),
+          requestId,
           identifierType: identifierType as M2MUserIdentifierType,
           identifierValue: requiredString(item, 'identifierValue', 320),
         };
@@ -165,7 +172,11 @@ function unary(
 }
 
 async function authorize(metadata: Metadata, jwt: JwtService, requiredRoles: string[]): Promise<JwtPayload> {
-  const raw = metadata.get('authorization')[0];
+  const authorizationValues = metadata.get('authorization');
+  if (authorizationValues.length !== 1) {
+    throw new UnauthorizedException('Exactly one gRPC authorization value is required.');
+  }
+  const raw = authorizationValues[0];
   const header = Buffer.isBuffer(raw) ? raw.toString('utf8') : raw;
   if (typeof header !== 'string') throw new UnauthorizedException('Missing gRPC authorization metadata.');
   const payload = await jwt.validateToken(jwt.extractTokenFromHeader(header));
@@ -181,6 +192,30 @@ function requiredString(value: GrpcRequest, key: string, maxLength = 2048): stri
   if (typeof raw !== 'string' || !raw.trim()) throw new BadRequestException(`${key} is required.`);
   const normalized = raw.trim();
   if (normalized.length > maxLength) throw new BadRequestException(`${key} is too long.`);
+  return normalized;
+}
+
+function requiredUuid(value: GrpcRequest, key: string): string {
+  const normalized = requiredString(value, key, 64);
+  if (!isUUID(normalized)) {
+    throw new BadRequestException(`${key} must be a UUID.`);
+  }
+  return normalized;
+}
+
+function requiredEmail(value: GrpcRequest, key: string): string {
+  const normalized = requiredString(value, key, 320).toLowerCase();
+  if (!isEmail(normalized)) {
+    throw new BadRequestException(`${key} must be an email address.`);
+  }
+  return normalized;
+}
+
+function requiredTotpCode(value: GrpcRequest, key: string): string {
+  const normalized = requiredString(value, key, 10);
+  if (!/^[\d\s-]{6,10}$/.test(normalized)) {
+    throw new BadRequestException(`${key} must contain a six digit TOTP code.`);
+  }
   return normalized;
 }
 

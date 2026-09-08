@@ -3,7 +3,7 @@
 # Setup Python virtual environment for PDF verification
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
-REQUIREMENTS_FILE="$SCRIPT_DIR/requirements.txt"
+REQUIREMENTS_FILE="$SCRIPT_DIR/requirements-dev.txt"
 
 echo "Setting up Python virtual environment for PDF verification..."
 

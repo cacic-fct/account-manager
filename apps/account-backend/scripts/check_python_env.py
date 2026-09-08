@@ -8,7 +8,7 @@ import sys
 
 def check_environment():
     missing_packages = []
-    for package in ("pypdf", "reportlab"):
+    for package in ("pypdf",):
         try:
             importlib.import_module(package)
         except ImportError:

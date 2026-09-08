@@ -6,7 +6,7 @@ import { SkipCsrf } from './csrf.guard';
 
 interface CsrfSession {
   csrfToken?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -50,11 +50,15 @@ export class CsrfController {
     // Set token in cookie as well for double-submit pattern
     res.cookie('XSRF-TOKEN', session.csrfToken, {
       httpOnly: false, // Allow JavaScript to read for sending in headers
+      path: '/',
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict', // Strict for CSRF cookie
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Vary', 'Cookie');
     res.json({ csrfToken: session.csrfToken });
   }
 }

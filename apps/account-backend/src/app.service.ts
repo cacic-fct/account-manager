@@ -8,6 +8,10 @@ import { isAccountManagerGrpcReady } from './grpc/account-manager-grpc.server';
 
 @Injectable()
 export class AppService {
+  private readonly healthCacheTtlMs = 5_000;
+  private healthCache?: { expiresAt: number; value: Awaited<ReturnType<AppService['collectHealth']>> };
+  private healthRequest?: Promise<Awaited<ReturnType<AppService['collectHealth']>>>;
+
   constructor(
     private readonly redisService: RedisService,
     private readonly externalVerificationResilience: ExternalVerificationResilienceService,
@@ -28,6 +32,30 @@ export class AppService {
   }
 
   async getHealth() {
+    if (this.healthCache && this.healthCache.expiresAt > Date.now()) {
+      return this.healthCache.value;
+    }
+
+    if (this.healthRequest) {
+      return this.healthRequest;
+    }
+
+    this.healthRequest = this.collectHealth()
+      .then((value) => {
+        this.healthCache = {
+          expiresAt: Date.now() + this.healthCacheTtlMs,
+          value,
+        };
+        return value;
+      })
+      .finally(() => {
+        this.healthRequest = undefined;
+      });
+
+    return this.healthRequest;
+  }
+
+  private async collectHealth() {
     const timestamp = new Date().toISOString();
     const externalUniversityVerification = this.externalVerificationResilience.getStatus();
     const [redis, database, keycloak, storage] = await Promise.allSettled([

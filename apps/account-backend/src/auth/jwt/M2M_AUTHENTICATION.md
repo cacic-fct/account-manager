@@ -1,6 +1,6 @@
-# M2M Authentication For Account Manager APIs
+# M2M Authentication For Account Manager gRPC
 
-The M2M APIs use OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and call Account Manager with `Authorization: Bearer <token>`.
+The M2M gRPC service uses OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and send it as `authorization: Bearer <token>` gRPC metadata. Production connections also require mutual TLS.
 
 ## Token Requirements
 
@@ -29,6 +29,8 @@ For an Event Manager caller:
    - `privacy:read`
    - `privacy:write`
    - `users:read`
+   - `totp:validate`
+   - `totp:relay`
 3. Create or open confidential clients for each caller, for example `cacic-event-manager-m2m` and `cacic-voto-m2m`.
 4. Enable **Client authentication** and **Service accounts roles**.
 5. On each caller **Service account roles**, assign only the required roles from `cacic-account-manager-audience`.
@@ -53,7 +55,7 @@ JWT_CLOCK_SKEW_TOLERANCE=30
 
 ## Contracts Package
 
-Use `@cacic-fct/account-manager-m2m-contracts` in TypeScript callers to share endpoint helpers, role names, setting keys, directive constants, and request/response types with Account Manager.
+Use `@cacic-fct/account-manager-m2m-contracts` in callers for the canonical protobuf contract, role names, setting keys, and shared types.
 
 ```bash
 bun add @cacic-fct/account-manager-m2m-contracts
@@ -63,29 +65,12 @@ bun add @cacic-fct/account-manager-m2m-contracts
 import {
   M2M_PRIVACY_ROLES,
   M2M_USER_ROLES,
-  M2M_PRIVACY_ROUTES,
-  M2M_USER_ROUTES,
   PRIVACY_SETTING_TYPES,
-  type M2MBulkPrivacySettingsRequest,
-  type M2MUserEnrollmentLookupRequest,
 } from '@cacic-fct/account-manager-m2m-contracts';
 
 const requiredRole = M2M_PRIVACY_ROLES.WRITE;
-const route = M2M_PRIVACY_ROUTES.bulkSettings('keycloak-user-id');
-const body: M2MBulkPrivacySettingsRequest = {
-  settings: [
-    {
-      settingType: PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING,
-      enabled: false,
-    },
-  ],
-};
-
 const usersRequiredRole = M2M_USER_ROLES.READ;
-const usersRoute = M2M_USER_ROUTES.enrollmentLookup();
-const usersBody: M2MUserEnrollmentLookupRequest = {
-  enrollmentNumbers: ['24123456'],
-};
+const analyticsSetting = PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING;
 ```
 
 ## Requesting A Token
@@ -113,36 +98,41 @@ Decode the returned access token before wiring the API call. It must contain:
 }
 ```
 
-## API Calls
+## gRPC Calls
 
 ```bash
-curl -X POST "https://account.cacic.com.br/api/v1/privacy/user/USER_ID/cookie-consent" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+grpcurl \
+  -import-path ./node_modules/@cacic-fct/account-manager-m2m-contracts/proto \
+  -proto cacic/m2m/account_manager/v1.proto \
+  -cacert /run/secrets/cacic-grpc-ca.pem \
+  -cert /run/secrets/caller-grpc-cert.pem \
+  -key /run/secrets/caller-grpc-key.pem \
+  -H "authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{"userId":"USER_ID"}' \
+  account-manager:50051 \
+  cacic.m2m.account_manager.v1.AccountManagerM2M/GetPrivacySettings
 ```
 
 ```bash
-curl -X POST "https://account.cacic.com.br/api/v1/privacy/user/USER_ID/settings/bulk" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "settings": [
-      {
-        "settingType": "analytics_tracking",
-        "enabled": false
-      }
-    ]
-  }'
+grpcurl \
+  -import-path ./node_modules/@cacic-fct/account-manager-m2m-contracts/proto \
+  -proto cacic/m2m/account_manager/v1.proto \
+  -cacert /run/secrets/cacic-grpc-ca.pem \
+  -cert /run/secrets/caller-grpc-cert.pem \
+  -key /run/secrets/caller-grpc-key.pem \
+  -H "authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{"enrollmentNumbers":["24123456"]}' \
+  account-manager:50051 \
+  cacic.m2m.account_manager.v1.AccountManagerM2M/LookupUsersByEnrollment
 ```
 
-## Endpoints
+## RPCs
 
-- `GET /api/v1/privacy/user/:userId/settings` requires `privacy:read`.
-- `GET /api/v1/privacy/user/:userId/setting/:settingType` requires `privacy:read`.
-- `GET /api/v1/privacy/user/:userId/cookie-consent` requires `privacy:read`.
-- `POST /api/v1/privacy/user/:userId/cookie-consent` requires `privacy:write`.
-- `POST /api/v1/privacy/user/:userId/settings/bulk` requires `privacy:write`.
-- `POST /api/v1/users/enrollment-lookup` requires `users:read`.
-- `POST /api/v1/users/identifier-lookup` requires `users:read`.
+- `GetPrivacySettings` requires `privacy:read`.
+- `RecordCookieConsent` requires `privacy:write`.
+- `LookupUsersByEnrollment` and `LookupUsersByIdentifier` require `users:read`.
+- `ValidateTotp` requires `totp:validate`.
+- `EnsureTotpSeed` requires `totp:relay`.
 
 ## Common Failures
 

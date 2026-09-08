@@ -2,8 +2,8 @@
 
 Framework-agnostic contracts for CACiC Account Manager machine-to-machine APIs.
 
-The package exports the privacy setting keys, M2M role names, endpoint helpers,
-request/response DTO types, privacy directive constants, PURR-style header
+The package exports the canonical gRPC contract, privacy setting keys, M2M role names,
+request/response types, privacy directive constants, PURR-style header
 and cookie names, and shared CACiC analytics tracking cookie names used by
 Account Manager.
 
@@ -17,34 +17,26 @@ bun add @cacic-fct/account-manager-m2m-contracts
 
 ## Use
 
+New machine-to-machine integrations should load
+`proto/cacic/m2m/account_manager/v1.proto`, use the `AccountManagerM2M` service,
+and send a Keycloak service-account bearer token in gRPC metadata.
+
+Browser-facing privacy and analytics integrations remain REST-based through
+`CACIC_TRACKING_ROUTES` and the authenticated `/api/privacy/*` endpoints; they
+are separate from the privileged M2M transport.
+
 ```ts
 import {
   M2M_PRIVACY_ROLES,
   M2M_USER_ROLES,
-  M2M_PRIVACY_ROUTES,
-  M2M_USER_ROUTES,
   CACIC_TRACKING_ROUTES,
   PRIVACY_SETTING_TYPES,
-  type M2MBulkPrivacySettingsRequest,
-  type M2MUserEnrollmentLookupRequest,
-  type M2MPrivacySettingResponse,
 } from '@cacic-fct/account-manager-m2m-contracts';
 
-const body: M2MBulkPrivacySettingsRequest = {
-  settings: [
-    {
-      settingType: PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING,
-      enabled: false,
-    },
-  ],
-};
-
 const trackingRefreshUrl = CACIC_TRACKING_ROUTES.session;
+const privacyReadRole = M2M_PRIVACY_ROLES.READ;
 const userLookupRole = M2M_USER_ROLES.READ;
-const userLookupUrl = M2M_USER_ROUTES.enrollmentLookup();
-const userLookupBody: M2MUserEnrollmentLookupRequest = {
-  enrollmentNumbers: ['24123456'],
-};
+const analyticsSetting = PRIVACY_SETTING_TYPES.ANALYTICS_TRACKING;
 ```
 
 ## Building

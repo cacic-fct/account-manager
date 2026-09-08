@@ -90,7 +90,7 @@ export class AdminStudentVerificationComponent implements OnInit {
               // Decode URI encoded filenames properly
               try {
                 filename = decodeURIComponent(filename);
-              } catch (e) {
+              } catch {
                 // Keep original filename if decoding fails
               }
             }
@@ -163,7 +163,7 @@ export class AdminStudentVerificationComponent implements OnInit {
   openUniversityVerification(authCode: string): void {
     if (authCode) {
       const url = this.studentVerificationService.getUniversityVerificationUrl(authCode);
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   }
 

@@ -48,4 +48,16 @@ describe(AppService.name, () => {
     expect(JSON.stringify(health)).not.toContain('internal-host');
     expect(health).not.toHaveProperty('error');
   });
+
+  it('coalesces and briefly caches dependency checks for public readiness requests', async () => {
+    const [first, second] = await Promise.all([service.getHealth(), service.getHealth()]);
+    const third = await service.getHealth();
+
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+    expect(redis.get).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(keycloak.isRealmReachable).toHaveBeenCalledTimes(1);
+    expect(s3.fileExists).toHaveBeenCalledTimes(1);
+  });
 });

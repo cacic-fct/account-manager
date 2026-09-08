@@ -1,4 +1,4 @@
-import { Controller, Get, Logger, Query, Res, Session } from '@nestjs/common';
+import { Controller, Get, Logger, Query, Res, Session, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
@@ -6,6 +6,7 @@ import { DiscordOAuthService } from '../services/discord-oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig, AppConfig } from '../../config/app.config';
 import { Auth } from '../../auth/guards/auth.decorator';
+import { CurrentUserGuard } from '../../auth/guards/current-user.guard';
 
 interface AuthSession {
   user?: SessionUser;
@@ -57,6 +58,7 @@ export class DiscordOAuthController {
     description: 'Unauthorized - User not authenticated',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
   @Get('auth-url')
   getDiscordAuthUrl(@Session() session: AuthSession) {
     const { authUrl, state } = this.discordOAuthService.getDiscordAuthUrl(
@@ -85,6 +87,7 @@ export class DiscordOAuthController {
     description: 'Redirects to frontend after processing',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
   @Get('callback')
   discordCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
     try {
