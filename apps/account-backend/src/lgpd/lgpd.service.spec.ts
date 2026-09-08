@@ -8,7 +8,8 @@ import { EventManagerGrpcClient } from '../grpc/event-manager-grpc.client';
 import { DiscordLinkService } from '../discord/services/discord-link.service';
 import { LgpdService } from './lgpd.service';
 
-const createdAt = new Date('2026-08-20T12:00:00.000Z');
+// Keep the fixture inside the seven-day active-request window used by processRequest.
+const createdAt = new Date(Date.now() - 60 * 60 * 1000);
 
 const createLgpdRequest = (overrides: Partial<LgpdRequest> = {}): LgpdRequest => ({
   id: 'lgpd-request-1',
