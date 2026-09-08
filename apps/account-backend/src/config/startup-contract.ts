@@ -53,6 +53,10 @@ export function validateStartupConfig(config: StartupConfig): StartupConfig {
 
   if (environment === 'production') {
     validateUrl('KEYCLOAK_URL', readString(config, 'KEYCLOAK_URL')!);
+    validateHttpsUrl('BACKEND_URL', readString(config, 'BACKEND_URL')!);
+    validateHttpsUrl('FRONTEND_URL', readString(config, 'FRONTEND_URL')!);
+    validateHttpsUrl('KEYCLOAK_URL', readString(config, 'KEYCLOAK_URL')!);
+    validateProductionSessionSecret(readString(config, 'SESSION_SECRET')!);
     if (readString(config, 'KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD') === 'none') {
       // A public client is an explicit production choice; otherwise a client secret is mandatory.
     } else if (!readString(config, 'KEYCLOAK_CLIENT_SECRET')) {
@@ -98,6 +102,19 @@ function validateUrl(name: string, value: string): void {
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`${name} must use http or https`);
+  }
+}
+
+function validateHttpsUrl(name: string, value: string): void {
+  const url = new URL(value);
+  if (url.protocol !== 'https:') {
+    throw new Error(`${name} must use https in production`);
+  }
+}
+
+function validateProductionSessionSecret(value: string): void {
+  if (Buffer.byteLength(value, 'utf8') < 32) {
+    throw new Error('SESSION_SECRET must contain at least 32 bytes in production');
   }
 }
 

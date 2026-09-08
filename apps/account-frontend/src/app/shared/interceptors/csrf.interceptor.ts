@@ -81,7 +81,7 @@ function shouldSkipCsrf(req: HttpRequest<unknown>): boolean {
 
   // Skip only exact API routes. Query strings and sibling paths must not change
   // endpoint classification.
-  const skipRoutes = ['/auth/callback', '/auth/login', '/auth/logout', '/csrf/token'];
+  const skipRoutes = ['/auth/callback', '/auth/login', '/csrf/token'];
 
   return skipRoutes.some((route) => isConfiguredApiRoute(req.url, route));
 }

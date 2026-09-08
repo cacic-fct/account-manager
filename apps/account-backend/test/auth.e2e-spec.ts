@@ -4,8 +4,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AuthController } from '../src/auth/auth.controller';
+import { CsrfController } from '../src/auth/csrf/csrf.controller';
+import { CsrfGuard } from '../src/auth/csrf/csrf.guard';
 import { CsrfService } from '../src/auth/csrf/csrf.service';
 import { AuthGuard } from '../src/auth/guards/auth.guard';
+import { CurrentUserGuard } from '../src/auth/guards/current-user.guard';
 import { AccountPermissionService } from '../src/auth/services/account-permission.service';
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
@@ -23,6 +26,14 @@ describe('Authentication (fast e2e)', () => {
       Parameters<KeycloakService['exchangePasswordForTokens']>
     >;
     getUserInfo: jest.Mock<ReturnType<KeycloakService['getUserInfo']>, Parameters<KeycloakService['getUserInfo']>>;
+    getUserBasicInfo: jest.Mock<
+      ReturnType<KeycloakService['getUserBasicInfo']>,
+      Parameters<KeycloakService['getUserBasicInfo']>
+    >;
+    getEndSessionUrl: jest.Mock<
+      ReturnType<KeycloakService['getEndSessionUrl']>,
+      Parameters<KeycloakService['getEndSessionUrl']>
+    >;
   };
 
   beforeAll(async () => {
@@ -76,12 +87,20 @@ describe('Authentication (fast e2e)', () => {
           );
         },
       ),
+      getUserBasicInfo: jest
+        .fn<ReturnType<KeycloakService['getUserBasicInfo']>, Parameters<KeycloakService['getUserBasicInfo']>>()
+        .mockResolvedValue({ id: '22222222-2222-2222-2222-222222222222', enabled: true }),
+      getEndSessionUrl: jest
+        .fn<ReturnType<KeycloakService['getEndSessionUrl']>, Parameters<KeycloakService['getEndSessionUrl']>>()
+        .mockReturnValue('http://keycloak.test/logout'),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
+      controllers: [AuthController, CsrfController],
       providers: [
         AuthGuard,
+        CurrentUserGuard,
+        CsrfGuard,
         CsrfService,
         {
           provide: ConfigService,
@@ -193,5 +212,36 @@ describe('Authentication (fast e2e)', () => {
         password: 'wrong-password',
       })
       .expect(401);
+  });
+
+  it('requires the session CSRF token before logout', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/auth/password-login')
+      .send({
+        email: 'aluno@unesp.br',
+        password: '1',
+      })
+      .expect(200);
+
+    const tokenResponse = await agent.get('/api/csrf/token').expect(200);
+    const tokenBody: unknown = JSON.parse(tokenResponse.text);
+    if (
+      typeof tokenBody !== 'object' ||
+      tokenBody === null ||
+      !('csrfToken' in tokenBody) ||
+      typeof tokenBody.csrfToken !== 'string'
+    ) {
+      throw new Error('CSRF endpoint returned an invalid response');
+    }
+
+    await agent.post('/api/auth/logout').send({}).expect(403);
+    await agent
+      .post('/api/auth/logout')
+      .set('X-CSRF-TOKEN', tokenBody.csrfToken)
+      .send({})
+      .expect(200)
+      .expect({ success: true, logoutUrl: 'http://keycloak.test/logout' });
   });
 });

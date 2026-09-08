@@ -14,6 +14,9 @@ const baseConfig = (environment: 'development' | 'test' | 'production' = 'develo
 
 const productionConfig = (): Record<string, unknown> => ({
   ...baseConfig('production'),
+  BACKEND_URL: 'https://account.example.test',
+  FRONTEND_URL: 'https://account.example.test/app',
+  SESSION_SECRET: 'production-session-secret-with-32-bytes',
   KEYCLOAK_URL: 'https://sso.example.test',
   KEYCLOAK_REALM: 'cacic-sso',
   KEYCLOAK_CLIENT_ID: 'account-manager',
@@ -76,5 +79,18 @@ describe('startup configuration contract', () => {
     delete config.KEYCLOAK_CLIENT_SECRET;
 
     expect(() => validateStartupConfig(config)).toThrow('KEYCLOAK_CLIENT_SECRET');
+  });
+
+  it.each(['BACKEND_URL', 'FRONTEND_URL', 'KEYCLOAK_URL'])('requires HTTPS for production public URL %s', (name) => {
+    const config = productionConfig();
+    config[name] = 'http://public.example.test';
+
+    expect(() => validateStartupConfig(config)).toThrow(`${name} must use https in production`);
+  });
+
+  it('rejects a weak production session secret', () => {
+    expect(() => validateStartupConfig({ ...productionConfig(), SESSION_SECRET: 'too-short' })).toThrow(
+      'SESSION_SECRET must contain at least 32 bytes in production',
+    );
   });
 });

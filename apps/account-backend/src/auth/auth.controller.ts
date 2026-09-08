@@ -76,6 +76,8 @@ export interface AuthSession {
   destroy: (callback: (err?: Error) => void) => void;
 }
 
+export type AuthRequest = Omit<Request, 'session'> & { session: AuthSession };
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -259,11 +261,11 @@ export class AuthController {
   }
 
   private async createSessionFromKeycloakUser(
-    session: AuthSession,
+    request: AuthRequest,
     tokens: Awaited<ReturnType<KeycloakService['exchangeCodeForTokens']>>,
     keycloakUser: KeycloakUser,
     context: string,
-  ): Promise<SessionUser> {
+  ): Promise<{ session: AuthSession; user: SessionUser }> {
     this.logger.debug(`${context} - received Keycloak identity`, { userId: keycloakUser.sub });
 
     let user = await this.userService.findByKeycloakId(keycloakUser.sub);
@@ -302,19 +304,19 @@ export class AuthController {
       }
     }
 
-    await this.regenerateSession(session);
-    session.user = {
+    const authenticatedSession = await this.regenerateSession(request);
+    authenticatedSession.user = {
       email: user.email,
       keycloakId: user.keycloakId,
       isOnboarded,
     };
-    session.accessToken = tokens.access_token;
-    session.refreshToken = tokens.refresh_token;
-    session.idToken = tokens.id_token;
-    session.authenticatedAt = Date.now();
-    this.applyKeycloakSessionLifetime(session, tokens);
+    authenticatedSession.accessToken = tokens.access_token;
+    authenticatedSession.refreshToken = tokens.refresh_token;
+    authenticatedSession.idToken = tokens.id_token;
+    authenticatedSession.authenticatedAt = Date.now();
+    this.applyKeycloakSessionLifetime(authenticatedSession, tokens);
 
-    return session.user;
+    return { session: authenticatedSession, user: authenticatedSession.user };
   }
 
   private async ensureDefaultTotpSeed(user: UserProfile): Promise<void> {
@@ -353,17 +355,31 @@ export class AuthController {
     return this.resolveFrontendPath(isOnboarded ? '/applications' : '/onboarding');
   }
 
-  private regenerateSession(session: AuthSession): Promise<void> {
+  private regenerateSession(request: AuthRequest): Promise<AuthSession> {
+    const session = request.session;
     if (!session.regenerate) {
       throw new ServiceUnavailableException('Unable to establish a secure authenticated session.');
     }
 
     return new Promise((resolve, reject) => {
-      session.regenerate!((error) => (error ? reject(error) : resolve()));
+      session.regenerate!((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        const regeneratedSession = request.session;
+        if (!regeneratedSession || regeneratedSession === session) {
+          reject(new ServiceUnavailableException('Unable to establish a secure authenticated session.'));
+          return;
+        }
+
+        resolve(regeneratedSession);
+      });
     });
   }
 
-  private async consumePasswordLoginAttempt(email: string, request: Request): Promise<void> {
+  private async consumePasswordLoginAttempt(email: string, request: Pick<Request, 'ip' | 'socket'>): Promise<void> {
     const source = request.ip || request.socket.remoteAddress || 'unknown';
     const allowedSources = (
       this.configService.get<string>('KEYCLOAK_PASSWORD_LOGIN_ALLOWED_IPS') || '127.0.0.1,::1,::ffff:127.0.0.1'
@@ -590,11 +606,7 @@ export class AuthController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('password-login')
-  async passwordLogin(
-    @Body() body: PasswordLoginDto,
-    @Session() session: AuthSession,
-    @Req() request: Request,
-  ): Promise<PasswordLoginResponseDto> {
+  async passwordLogin(@Body() body: PasswordLoginDto, @Req() request: AuthRequest): Promise<PasswordLoginResponseDto> {
     if (!this.isPasswordLoginEnabled()) {
       throw new HttpException(
         process.env.NODE_ENV === 'production' ? 'Not found' : 'Password login is disabled',
@@ -608,20 +620,20 @@ export class AuthController {
     try {
       const tokens = await this.keycloakService.exchangePasswordForTokens(email, body.password);
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
-      const sessionUser = await this.createSessionFromKeycloakUser(session, tokens, keycloakUser, 'Password login');
+      const authenticated = await this.createSessionFromKeycloakUser(request, tokens, keycloakUser, 'Password login');
 
-      const redirectUrl = this.resolvePostLoginRedirectUrl(sessionUser.isOnboarded, body.returnTo);
+      const redirectUrl = this.resolvePostLoginRedirectUrl(authenticated.user.isOnboarded, body.returnTo);
 
-      if (sessionUser.isOnboarded) {
-        delete session.redirectTo;
+      if (authenticated.user.isOnboarded) {
+        delete authenticated.session.redirectTo;
       }
 
-      await saveSession(session);
+      await saveSession(authenticated.session);
 
       return {
         success: true,
         isAuthenticated: true,
-        isOnboarded: sessionUser.isOnboarded,
+        isOnboarded: authenticated.user.isOnboarded,
         redirectUrl,
       };
     } catch (error) {
@@ -674,6 +686,7 @@ export class AuthController {
     @Query('state') state: string,
     @Query('error') oauthError: string,
     @Session() session: AuthSession,
+    @Req() request: AuthRequest,
     @Res() res: Response,
   ) {
     try {
@@ -739,10 +752,13 @@ export class AuthController {
       const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
-      const sessionUser = await this.createSessionFromKeycloakUser(session, tokens, keycloakUser, 'OAuth callback');
-      const redirectUrl = this.resolvePostLoginRedirectUrl(sessionUser.isOnboarded, requestedReturnUrl ?? undefined);
+      const authenticated = await this.createSessionFromKeycloakUser(request, tokens, keycloakUser, 'OAuth callback');
+      const redirectUrl = this.resolvePostLoginRedirectUrl(
+        authenticated.user.isOnboarded,
+        requestedReturnUrl ?? undefined,
+      );
 
-      await redirectAfterSessionSave(session, res, redirectUrl);
+      await redirectAfterSessionSave(authenticated.session, res, redirectUrl);
       return;
     } catch (error) {
       delete session.redirectTo;
@@ -917,7 +933,8 @@ export class AuthController {
     description: 'Optional logout redirect target. Must be a relative path or allowed origin.',
   })
   @Auth()
-  @UseGuards(CurrentUserGuard)
+  @UseGuards(CurrentUserGuard, CsrfGuard)
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
   logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
     const logoutUrl = this.keycloakService.getEndSessionUrl(

@@ -71,21 +71,21 @@ describe('frontend request interceptors', () => {
     expect(csrfService.getToken).not.toHaveBeenCalled();
   });
 
-  it('matches exact skip routes, not sibling paths or query strings', () => {
+  it('protects logout while matching only exact public skip routes', () => {
     const next = vi.fn().mockImplementation((request: HttpRequest<unknown>) => of(request));
 
-    const exactLogout = new HttpRequest('POST', `${environment.apiUrl}/auth/logout`, {});
-    const sibling = new HttpRequest('POST', `${environment.apiUrl}/auth/logout-audit`, {});
-    const queryOnly = new HttpRequest('POST', `${environment.apiUrl}/auth/me?next=/auth/logout`, {});
+    const logout = new HttpRequest('POST', `${environment.apiUrl}/auth/logout`, {});
+    const exactLogin = new HttpRequest('POST', `${environment.apiUrl}/auth/login`, {});
+    const sibling = new HttpRequest('POST', `${environment.apiUrl}/auth/login-audit`, {});
 
     TestBed.runInInjectionContext(() => {
-      csrfInterceptor(exactLogout, next).subscribe();
+      csrfInterceptor(logout, next).subscribe();
+      csrfInterceptor(exactLogin, next).subscribe();
       csrfInterceptor(sibling, next).subscribe();
-      csrfInterceptor(queryOnly, next).subscribe();
     });
 
-    expect(next.mock.calls[0][0].headers.has('X-CSRF-TOKEN')).toBe(false);
-    expect(next.mock.calls[1][0].headers.get('X-CSRF-TOKEN')).toBe('csrf-token');
+    expect(next.mock.calls[0][0].headers.get('X-CSRF-TOKEN')).toBe('csrf-token');
+    expect(next.mock.calls[1][0].headers.has('X-CSRF-TOKEN')).toBe(false);
     expect(next.mock.calls[2][0].headers.get('X-CSRF-TOKEN')).toBe('csrf-token');
   });
 

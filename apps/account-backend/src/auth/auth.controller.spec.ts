@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
-import { AuthController, AuthSession } from './auth.controller';
+import { AuthController, AuthRequest, AuthSession } from './auth.controller';
 import { AccountPermissionService } from './services/account-permission.service';
 import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
@@ -94,9 +94,10 @@ describe('AuthController OAuth callback cleanup', () => {
   it('clears state and PKCE verifier together when malformed callbacks fail before state validation', async () => {
     const { controller, keycloakService } = createController();
     const session = createSession();
+    const request = { session } as unknown as AuthRequest;
     const { res, redirect } = createRedirectResponse();
 
-    await controller.callback('', 'attacker-state', '', session, res);
+    await controller.callback('', 'attacker-state', '', session, request, res);
 
     expect(session.oauthState).toBeUndefined();
     expect(session.oauthCodeVerifier).toBeUndefined();
@@ -109,6 +110,12 @@ describe('AuthController OAuth callback cleanup', () => {
   it('rotates the anonymous session before storing an authenticated principal', async () => {
     const { controller, keycloakService, userService } = createController();
     const session = createSession();
+    const regeneratedSession = createSession();
+    const request = { session } as unknown as AuthRequest;
+    session.regenerate = jest.fn((callback: (err?: Error) => void) => {
+      request.session = regeneratedSession;
+      callback();
+    });
     const { res, redirect } = createRedirectResponse();
     const profile = {
       id: 'user-1',
@@ -130,16 +137,18 @@ describe('AuthController OAuth callback cleanup', () => {
     userService.updateFromKeycloakOAuth.mockResolvedValue(profile as never);
     userService.checkOnboardingStatus.mockResolvedValue({ needsOnboarding: false, missingFields: [] });
 
-    await controller.callback('authorization-code', 'pending-state', '', session, res);
+    await controller.callback('authorization-code', 'pending-state', '', session, request, res);
 
     expect(session.regenerate).toHaveBeenCalledTimes(1);
-    expect(session.user).toEqual({
+    expect(session.user).toBeUndefined();
+    expect(regeneratedSession.user).toEqual({
       keycloakId: 'user-1',
       email: 'user@example.test',
       isOnboarded: true,
     });
-    expect(session.authenticatedAt).toEqual(expect.any(Number));
-    expect(session.accessToken).toBe('new-access-token');
+    expect(regeneratedSession.authenticatedAt).toEqual(expect.any(Number));
+    expect(regeneratedSession.accessToken).toBe('new-access-token');
+    expect(regeneratedSession.save).toHaveBeenCalledTimes(1);
     expect(redirect).toHaveBeenCalledWith('http://localhost:4200/applications');
   });
 });
