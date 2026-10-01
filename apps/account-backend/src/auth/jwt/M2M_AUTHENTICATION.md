@@ -1,6 +1,6 @@
 # M2M Authentication For Account Manager gRPC
 
-The M2M gRPC service uses OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and send it as `authorization: Bearer <token>` gRPC metadata. Production connections also require mutual TLS.
+The M2M gRPC service uses OAuth 2.0 client credentials with Keycloak service-account tokens. Callers authenticate with Keycloak, receive a JWT access token, and send it as `authorization: Bearer <token>` gRPC metadata.
 
 ## Token Requirements
 
@@ -104,9 +104,6 @@ Decode the returned access token before wiring the API call. It must contain:
 grpcurl \
   -import-path ./node_modules/@cacic-fct/account-manager-m2m-contracts/proto \
   -proto cacic/m2m/account_manager/v1.proto \
-  -cacert /run/secrets/cacic-grpc-ca.pem \
-  -cert /run/secrets/caller-grpc-cert.pem \
-  -key /run/secrets/caller-grpc-key.pem \
   -H "authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{"userId":"USER_ID"}' \
   account-manager:50051 \
@@ -117,9 +114,6 @@ grpcurl \
 grpcurl \
   -import-path ./node_modules/@cacic-fct/account-manager-m2m-contracts/proto \
   -proto cacic/m2m/account_manager/v1.proto \
-  -cacert /run/secrets/cacic-grpc-ca.pem \
-  -cert /run/secrets/caller-grpc-cert.pem \
-  -key /run/secrets/caller-grpc-key.pem \
   -H "authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{"enrollmentNumbers":["24123456"]}' \
   account-manager:50051 \

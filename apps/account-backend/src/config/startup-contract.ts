@@ -63,7 +63,6 @@ export function validateStartupConfig(config: StartupConfig): StartupConfig {
       throw new Error('Startup configuration is incomplete for production: KEYCLOAK_CLIENT_SECRET');
     }
 
-    validateProductionGrpcTls(config);
     requireBackendListOrExplicitOptOut(config, 'ACCOUNT_MERGE_GRPC_BACKENDS', 'ACCOUNT_MERGE_ALLOW_NO_BACKENDS');
     requireBackendListOrExplicitOptOut(config, 'LGPD_GRPC_BACKENDS', 'LGPD_ALLOW_NO_BACKENDS');
     requireBackendListOrExplicitOptOut(config, 'LGPD_DELETION_GRPC_BACKENDS', 'LGPD_DELETION_ALLOW_NO_BACKENDS');
@@ -142,19 +141,6 @@ function validateDiscordPair(config: StartupConfig): void {
   const hasGuild = Boolean(readString(config, 'DISCORD_GUILD_ID'));
   if (hasToken !== hasGuild) {
     throw new Error('DISCORD_BOT_TOKEN and DISCORD_GUILD_ID must be configured together');
-  }
-}
-
-function validateProductionGrpcTls(config: StartupConfig): void {
-  const tlsValues = [
-    readString(config, 'CACIC_GRPC_TLS_CA_CERT_PATH'),
-    readString(config, 'CACIC_GRPC_TLS_CERT_PATH'),
-    readString(config, 'CACIC_GRPC_TLS_KEY_PATH'),
-  ];
-  if (tlsValues.some((value) => !value)) {
-    throw new Error(
-      'Production gRPC startup requires CACIC_GRPC_TLS_CA_CERT_PATH, CACIC_GRPC_TLS_CERT_PATH, and CACIC_GRPC_TLS_KEY_PATH',
-    );
   }
 }
 

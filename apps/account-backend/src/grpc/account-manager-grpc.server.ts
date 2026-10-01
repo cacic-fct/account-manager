@@ -1,6 +1,7 @@
 import {
   Metadata,
   Server,
+  ServerCredentials,
   status,
   type handleUnaryCall,
   type sendUnaryData,
@@ -35,7 +36,7 @@ import {
 } from '../m2m-users/dto/m2m-user-lookup.dto';
 import { PrivacyService } from '../privacy/privacy.service';
 import { TotpService } from '../totp/totp.service';
-import { loadGrpcServiceDefinition, resolveGrpcProtoPath, resolveGrpcServerCredentials } from './grpc-runtime';
+import { loadGrpcServiceDefinition, resolveGrpcProtoPath } from './grpc-runtime';
 
 type GrpcRequest = Record<string, unknown>;
 type GrpcResponse = Record<string, unknown>;
@@ -78,7 +79,7 @@ export async function startAccountManagerGrpcServer(app: INestApplication): Prom
   );
   const bindUrl = process.env.ACCOUNT_MANAGER_GRPC_BIND_URL?.trim() || '127.0.0.1:50051';
   await new Promise<void>((resolve, reject) => {
-    server.bindAsync(bindUrl, resolveGrpcServerCredentials(bindUrl), (error) => (error ? reject(error) : resolve()));
+    server.bindAsync(bindUrl, ServerCredentials.createInsecure(), (error) => (error ? reject(error) : resolve()));
   });
   setAccountManagerGrpcReady(true);
   logger.log(`Account Manager M2M gRPC server is listening on ${bindUrl}.`);

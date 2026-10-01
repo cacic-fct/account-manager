@@ -3,7 +3,6 @@ import { EventManagerGrpcClient } from './event-manager-grpc.client';
 import { GrpcUnaryClient } from './grpc-runtime';
 
 describe('EventManagerGrpcClient', () => {
-  const originalAllowInsecure = process.env.CACIC_GRPC_ALLOW_INSECURE;
   const jwt = {
     getClientCredentialsToken: jest.fn().mockResolvedValue('access-token'),
   };
@@ -11,18 +10,9 @@ describe('EventManagerGrpcClient', () => {
   let client: EventManagerGrpcClient;
 
   beforeEach(() => {
-    process.env.CACIC_GRPC_ALLOW_INSECURE = 'true';
     jest.clearAllMocks();
     call = jest.spyOn(GrpcUnaryClient.prototype, 'call');
     client = new EventManagerGrpcClient(jwt as unknown as JwtService);
-  });
-
-  afterAll(() => {
-    if (originalAllowInsecure === undefined) {
-      delete process.env.CACIC_GRPC_ALLOW_INSECURE;
-    } else {
-      process.env.CACIC_GRPC_ALLOW_INSECURE = originalAllowInsecure;
-    }
   });
 
   afterEach(() => {
