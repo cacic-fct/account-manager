@@ -42,6 +42,10 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
+    if (context.getType() !== 'http') {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest<CsrfRequest>();
     const method = request.method.toUpperCase();
 

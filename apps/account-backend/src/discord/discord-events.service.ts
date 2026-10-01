@@ -18,8 +18,8 @@ export class DiscordEventsService {
     private readonly discordRoleService: DiscordRoleService,
   ) {}
 
-  @Once('ready')
-  public onReady(@Context() [client]: ContextOf<'ready'>) {
+  @Once('clientReady')
+  public onReady(@Context() [client]: ContextOf<'clientReady'>) {
     this.logger.log(`Bot logged in as ${client.user.username}`);
     this.logger.debug(`Guild count: ${client.guilds.cache.size}`);
 
