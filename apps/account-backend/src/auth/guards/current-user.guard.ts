@@ -10,6 +10,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { AuthSession } from '../auth.controller';
+import { KeycloakConnectionException } from '../exceptions/keycloak-connection.exception';
 import { KeycloakService } from '../services/keycloak.service';
 
 export const CURRENT_USER_TARGET_KEY = 'currentUserTarget';
@@ -91,7 +92,11 @@ export class CurrentUserGuard implements CanActivate {
         throw new ForbiddenException('Session user is disabled');
       }
     } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof ForbiddenException ||
+        error instanceof KeycloakConnectionException
+      ) {
         throw error;
       }
 
