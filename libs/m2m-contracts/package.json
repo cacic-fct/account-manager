@@ -1,14 +1,21 @@
 {
   "name": "@cacic-fct/account-manager-m2m-contracts",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Framework-agnostic CACiC Account Manager gRPC contracts.",
   "license": "AGPL-3.0-only",
-  "type": "commonjs",
-  "main": "./index.js",
+  "type": "module",
+  "main": "./cjs/index.js",
   "types": "./index.d.ts",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
+        "types": "./cjs/index.d.ts",
+        "default": "./cjs/index.js"
+      },
       "default": "./index.js"
     },
     "./proto/cacic/m2m/account_manager/v1.proto": "./proto/cacic/m2m/account_manager/v1.proto"
