@@ -4,7 +4,6 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatIcon } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialog } from '@angular/material/dialog';
 import { AppCardComponent } from './component/app-card/app-card.component';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../shared/services/auth/auth.service';
@@ -15,7 +14,6 @@ import { NgOptimizedImage } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
 import { DiscordIntegrationCardComponent } from '../settings/linked-accounts/components/discord-integration-card.component';
-import { AlphaInfoDialogComponent } from './components/alpha-info-dialog/alpha-info-dialog.component';
 import { LoggerService } from '../shared/services/logger.service';
 
 @Component({
@@ -40,7 +38,6 @@ import { LoggerService } from '../shared/services/logger.service';
 export class ApplicationsComponent implements OnInit {
   authService = inject(AuthService);
   apiService = inject(ApiService);
-  dialog = inject(MatDialog);
   private logger = inject(LoggerService);
 
   // Use signals for reactive user data
@@ -88,13 +85,5 @@ export class ApplicationsComponent implements OnInit {
 
   logout() {
     this.authService.logout();
-  }
-
-  openAlphaInfo() {
-    this.dialog.open(AlphaInfoDialogComponent, {
-      width: '600px',
-      maxWidth: '90vw',
-      panelClass: 'alpha-info-dialog',
-    });
   }
 }
