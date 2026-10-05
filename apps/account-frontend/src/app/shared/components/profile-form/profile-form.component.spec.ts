@@ -8,7 +8,62 @@ import { AuthService } from '../../services/auth/auth.service';
 import { LoggerService } from '../../services/logger.service';
 import { ProfileFormComponent } from './profile-form.component';
 
-describe('ProfileFormComponent subscriptions', () => {
+describe('ProfileFormComponent', () => {
+  it('submits the selected passport country for a foreign user', async () => {
+    const updatedUser: User = {
+      id: 'user-id',
+      keycloakId: 'user-id',
+      username: 'user@example.com',
+      email: 'user@example.com',
+      fullname: 'Ana Example',
+      displayName: 'Ana',
+      phone: '+5518999990000',
+      identityDocument: 'P1234567',
+      isForeigner: true,
+      passportCountry: 'AR',
+      isOnboarded: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const updateProfile = vi.fn(() => of(updatedUser));
+
+    await TestBed.configureTestingModule({
+      imports: [ProfileFormComponent],
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: AuthService, useValue: { currentUser: signal(null), updateCurrentUser: vi.fn() } },
+        {
+          provide: ApiService,
+          useValue: {
+            checkUnespRoleRequired: () => of({ shouldShowUnespRoleSelection: false }),
+            updateProfile,
+          },
+        },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: LoggerService, useValue: { debug: vi.fn(), error: vi.fn(), warn: vi.fn() } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ProfileFormComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.personalGroup.patchValue({
+      fullname: updatedUser.fullname,
+      phone: '18999990000',
+      identityDocument: updatedUser.identityDocument,
+      isForeigner: true,
+      passportCountry: 'AR',
+    });
+
+    await fixture.componentInstance.submitProfile();
+
+    expect(updateProfile).toHaveBeenCalledOnce();
+    expect(updateProfile).toHaveBeenCalledWith(expect.objectContaining({
+      identityDocument: 'P1234567',
+      isForeigner: true,
+      passportCountry: 'AR',
+    }));
+  });
+
   it('tears down form value observers when the component is destroyed', async () => {
     const user: User = {
       id: 'user-id',

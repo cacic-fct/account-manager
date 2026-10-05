@@ -1,4 +1,5 @@
-import { Component, inject, computed, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, computed, signal, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -7,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom, take } from 'rxjs';
 import { ApiService } from '../shared/services/api.service';
 import { AuthService } from '../shared/services/auth/auth.service';
 import { UnespRole, type User } from '@cacic/shared-types';
@@ -35,6 +36,7 @@ import { MatDivider } from '@angular/material/divider';
   ],
   templateUrl: './onboarding.component.html',
   styleUrl: './onboarding.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OnboardingComponent implements OnInit {
   private apiService = inject(ApiService);
@@ -42,6 +44,8 @@ export class OnboardingComponent implements OnInit {
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
   private logger = inject(LoggerService);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly profileDataReady = signal(false);
   currentUser = computed(() => this.authService.currentUser());
   readonly defaultUnespRole = UnespRole.ALUNO_GRADUACAO;
   userDisplayName = computed(() => {
@@ -67,6 +71,7 @@ export class OnboardingComponent implements OnInit {
       enrollmentNumber: currentUser.enrollmentNumber || '',
       isForeigner: currentUser.isForeigner || false,
       identityDocument: currentUser.identityDocument || '',
+      passportCountry: currentUser.passportCountry,
       unespRole: currentUser.unespRole,
     };
   });
@@ -84,15 +89,12 @@ export class OnboardingComponent implements OnInit {
     this.logger.debug('OnboardingComponent initialized');
 
     // Wait for auth service to be fully loaded before proceeding
-    this.authService.isDoneLoading$.subscribe((isDone) => {
-      if (!isDone) {
-        this.logger.debug('Auth service still loading');
-        return;
-      }
-
-      this.logger.debug('Auth service loaded, proceeding with initialization');
-      this.initializeComponent();
-    });
+    this.authService.isDoneLoading$
+      .pipe(filter(Boolean), take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.logger.debug('Auth service loaded, proceeding with initialization');
+        this.initializeComponent();
+      });
   }
 
   private initializeComponent(): void {
@@ -111,7 +113,7 @@ export class OnboardingComponent implements OnInit {
     }
 
     // Load the current user data from cache first, then backend if needed
-    this.apiService.getCurrentUser().subscribe({
+    this.apiService.getCurrentUser().pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (currentUser) => {
         this.logger.debug('Loaded current user data from backend');
 
@@ -124,10 +126,13 @@ export class OnboardingComponent implements OnInit {
           this.router.navigateByUrl('/applications');
           return;
         }
+
+        this.profileDataReady.set(true);
       },
       error: (error) => {
         this.logger.error('Error loading current user', error);
         // Fallback continues with cached user data from initialFormData computed
+        this.profileDataReady.set(true);
       },
     });
   }

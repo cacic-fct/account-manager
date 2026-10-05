@@ -498,6 +498,7 @@ export class ProfileFormComponent implements OnInit {
       phone: formData.phone,
       enrollmentNumber: formData.enrollmentNumber,
       identityDocument: formData.identityDocument,
+      passportCountry: formData.passportCountry,
       isForeigner: formData.isForeigner,
       unespRole: formData.unespRole,
     };
