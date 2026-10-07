@@ -1,11 +1,11 @@
 {
   "installation": {
-    "version": "23.1.1",
+    "version": "23.2.1",
     "plugins": {
-      "@nx/eslint": "23.1.1",
-      "@nx/jest": "23.1.1",
-      "@nx/storybook": "23.1.1",
-      "@nx/docker": "23.1.1"
+      "@nx/eslint": "23.2.1",
+      "@nx/jest": "23.2.1",
+      "@nx/storybook": "23.2.1",
+      "@nx/docker": "23.2.1"
     }
   },
   "$schema": "./node_modules/nx/schemas/nx-schema.json",

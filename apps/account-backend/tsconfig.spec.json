@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": "../..",
     "module": "commonjs",
     "outDir": "../../dist/out-tsc/apps/account-backend",
     "types": ["jest", "node", "multer"]
