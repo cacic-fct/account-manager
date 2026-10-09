@@ -208,7 +208,9 @@ describe('AuthController development password login policy', () => {
 
 describe('AuthController logout', () => {
   it('requires authentication and a same-session CSRF token for logout', () => {
-    const handler = AuthController.prototype.logout;
+    const handler = Object.getOwnPropertyDescriptor(AuthController.prototype, 'logout')?.value as (
+      ...args: Parameters<AuthController['logout']>
+    ) => ReturnType<AuthController['logout']>;
     const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
     expect(guards).toEqual(expect.arrayContaining([AuthGuard, CsrfGuard]));
     const request = { method: 'POST', headers: {} as Record<string, string>, session: { csrfToken: 'session-csrf' } };
@@ -249,12 +251,13 @@ describe('AuthController logout', () => {
     const session = createSession();
     session.refreshToken = 'server-refresh-token';
     keycloakService.logout.mockRejectedValue(new Error('provider unavailable'));
-    const response = { clearCookie: jest.fn(), json: jest.fn() } as unknown as Response;
+    const clearCookie = jest.fn();
+    const response = { clearCookie, json: jest.fn() } as unknown as Response;
 
     await expect(controller.logout(session, undefined, response)).rejects.toMatchObject({ status: 503 });
 
     expect(session.destroy).not.toHaveBeenCalled();
-    expect(response.clearCookie).not.toHaveBeenCalled();
+    expect(clearCookie).not.toHaveBeenCalled();
     expect(response.json).not.toHaveBeenCalled();
   });
 

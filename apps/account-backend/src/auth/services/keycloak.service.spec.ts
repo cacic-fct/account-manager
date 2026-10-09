@@ -49,7 +49,8 @@ describe('KeycloakService client roles', () => {
   });
 
   it('ends the shared Keycloak session with a server-side refresh-token logout', async () => {
-    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
       .mockResolvedValue(new Response(null, { status: 204 }));
     global.fetch = fetchMock;
     const service = new KeycloakService();
@@ -60,12 +61,11 @@ describe('KeycloakService client roles', () => {
       'https://sso.example.test/realms/cacic/protocol/openid-connect/logout',
       expect.objectContaining({ method: 'POST' }),
     );
-    const payload = new URLSearchParams(fetchMock.mock.calls[0]?.[1]?.body as string);
+    const payload = new URLSearchParams(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(payload.get('refresh_token')).toBe('private-refresh-token');
     expect(payload.has('id_token_hint')).toBe(false);
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({
-      Authorization: expect.stringMatching(/^Basic /),
-    }));
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get('Authorization')).toMatch(/^Basic /);
   });
 
   it('reads user roles from the configured Keycloak client role mappings', async () => {

@@ -39,7 +39,9 @@ describe('Authentication (fast e2e)', () => {
 
   beforeAll(async () => {
     keycloakService = {
-      logout: jest.fn().mockResolvedValue(undefined),
+      logout: jest
+        .fn<ReturnType<KeycloakService['logout']>, Parameters<KeycloakService['logout']>>()
+        .mockResolvedValue(undefined),
       getAuthUrl: jest.fn((_redirectUri, state = '', options = {}) => {
         const url = new URL('http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth');
         url.searchParams.set('client_id', 'cacic-account-manager');
