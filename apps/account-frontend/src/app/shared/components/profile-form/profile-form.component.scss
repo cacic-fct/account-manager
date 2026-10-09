@@ -34,3 +34,56 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+.save-error {
+  margin-block: 16px;
+  padding: 16px;
+  border: 1px solid var(--mat-sys-error);
+  border-radius: 12px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  font: var(--mat-sys-body-medium);
+
+  .save-error-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  mat-icon {
+    flex-shrink: 0;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font: var(--mat-sys-title-medium);
+  }
+
+  p {
+    margin: 0 0 8px;
+  }
+
+  details {
+    margin-top: 12px;
+  }
+
+  summary {
+    cursor: pointer;
+    padding-block: 8px;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: var(--mat-sys-body-small);
+    user-select: text;
+  }
+
+  .copy-feedback {
+    margin: 8px 0 0;
+  }
+}
+
+.step-actions {
+  flex-wrap: wrap;
+}

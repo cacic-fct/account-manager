@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/angular';
-import { of } from 'rxjs';
+import { expect, userEvent, within } from 'storybook/test';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import { ProfileFormComponent } from './profile-form.component';
 import { AuthService } from '../../services/auth/auth.service';
@@ -122,3 +124,43 @@ export const ForeignerFlow: Story = {
     }),
   ],
 };
+
+const saveFailureStory = (status: number, isEditMode: boolean): Story => ({
+  args: {
+    isEditMode,
+    layoutMode: 'all-in-one',
+    initialData: {
+      fullname: 'Ana Example',
+      phone: '(18) 99999-0000',
+      countryCode: 'BR',
+      isForeigner: true,
+      identityDocument: 'P1234567',
+      passportCountry: 'AR',
+    },
+  },
+  decorators: [
+    (story) => ({
+      ...story(),
+      moduleMetadata: {
+        providers: [
+          { provide: AuthService, useValue: createAuthStub({ unespRoleVerified: false }) },
+          {
+            provide: ApiService,
+            useValue: {
+              checkUnespRoleRequired: () => of({ shouldShowUnespRoleSelection: false }),
+              updateProfile: () => throwError(() => new HttpErrorResponse({ status })),
+            },
+          },
+        ],
+      },
+    }),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Salvar' }));
+    await expect(await canvas.findByRole('alert')).toBeVisible();
+  },
+});
+
+export const OnboardingSaveFailure = saveFailureStory(503, false);
+export const EditSaveConnectionFailure = saveFailureStory(0, true);

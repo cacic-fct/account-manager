@@ -158,7 +158,7 @@ export class OnboardingComponent implements OnInit {
     // Refresh auth status to ensure onboarding status is up to date
     await this.authService.refreshAuthStatus();
 
-    this.snackBar.open('Perfil salvo!', 'Close', {
+    this.snackBar.open('Perfil salvo!', 'Fechar', {
       duration: 3000,
       panelClass: ['success-snackbar'],
     });
@@ -188,9 +188,5 @@ export class OnboardingComponent implements OnInit {
 
   onProfileSaveError(error: unknown): void {
     this.logger.error('Profile creation error', error);
-    this.snackBar.open('Failed to create profile. Please try again.', 'Close', {
-      duration: 5000,
-      panelClass: ['error-snackbar'],
-    });
   }
 }

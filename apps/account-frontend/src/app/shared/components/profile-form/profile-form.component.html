@@ -40,6 +40,8 @@
             [enrollmentWillReset]="willResetVerification('enrollmentNumber')" />
         </div>
 
+        <ng-container [ngTemplateOutlet]="saveErrorNotice" />
+
         <div class="step-actions">
           <button mat-button type="button" matStepperPrevious>Voltar</button>
           <button
@@ -48,7 +50,7 @@
             type="button"
             (click)="submitProfile()"
             [disabled]="profileForm.invalid || isSubmitting()">
-            {{ isSubmitting() ? 'Salvando...' : 'Salvar' }}
+            {{ saveButtonLabel() }}
           </button>
         </div>
       </mat-step>
@@ -83,6 +85,8 @@
         </section>
       }
 
+      <ng-container [ngTemplateOutlet]="saveErrorNotice" />
+
       <div class="step-actions">
         <button
           mat-flat-button
@@ -90,9 +94,38 @@
           type="button"
           (click)="submitProfile()"
           [disabled]="profileForm.invalid || isSubmitting()">
-          {{ isSubmitting() ? 'Salvando...' : 'Salvar' }}
+          {{ saveButtonLabel() }}
         </button>
       </div>
     </div>
   }
 </div>
+
+<ng-template #saveErrorNotice>
+  @if (submissionError(); as error) {
+    <section class="save-error">
+      <div role="alert" class="save-error-message">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <div>
+          <h3>{{ error.title }}</h3>
+          <p>{{ error.message }}</p>
+          <p>Os dados preenchidos continuam neste formulário.</p>
+        </div>
+      </div>
+      <details>
+        <summary>Detalhes para pedir ajuda</summary>
+        <p>Se o problema continuar, envie estes detalhes ao suporte da Conta CACiC.</p>
+        <pre>{{ error.supportDetails }}</pre>
+        <button
+          mat-button
+          type="button"
+          [cdkCopyToClipboard]="error.supportDetails"
+          (cdkCopyToClipboardCopied)="onSupportDetailsCopied($event)">
+          <mat-icon aria-hidden="true">content_copy</mat-icon>
+          Copiar detalhes
+        </button>
+        <p class="copy-feedback" role="status">{{ copyFeedback() }}</p>
+      </details>
+    </section>
+  }
+</ng-template>
