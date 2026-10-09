@@ -70,7 +70,7 @@ export class AccountLinkingController {
     session.accountLinkingUserId = session.user!.keycloakId;
 
     const resumeUrl = `${this.appConfig.apiBaseUrl}/auth/account-linking/google/resume?state=${encodeURIComponent(state)}`;
-    const url = this.keycloakService.getEndSessionUrl(resumeUrl, session.idToken);
+    const url = this.keycloakService.getEndSessionUrl(resumeUrl);
 
     return { url };
   }

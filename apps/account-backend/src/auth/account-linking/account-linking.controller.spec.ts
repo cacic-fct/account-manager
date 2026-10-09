@@ -147,7 +147,6 @@ describe('AccountLinkingController', () => {
     expect(session.accountLinkingUserId).toBe('secondary-user');
     expect(keycloakService.getEndSessionUrl).toHaveBeenCalledWith(
       expect.stringContaining('/auth/account-linking/google/resume?state='),
-      'id-token',
     );
     expect(result).toEqual({ url: 'https://sso/logout' });
   });

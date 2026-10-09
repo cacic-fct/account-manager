@@ -34,10 +34,12 @@ describe('Authentication (fast e2e)', () => {
       ReturnType<KeycloakService['getEndSessionUrl']>,
       Parameters<KeycloakService['getEndSessionUrl']>
     >;
+    logout: jest.Mock<ReturnType<KeycloakService['logout']>, Parameters<KeycloakService['logout']>>;
   };
 
   beforeAll(async () => {
     keycloakService = {
+      logout: jest.fn().mockResolvedValue(undefined),
       getAuthUrl: jest.fn((_redirectUri, state = '', options = {}) => {
         const url = new URL('http://keycloak.test/realms/cacic-sso/protocol/openid-connect/auth');
         url.searchParams.set('client_id', 'cacic-account-manager');
@@ -236,12 +238,16 @@ describe('Authentication (fast e2e)', () => {
       throw new Error('CSRF endpoint returned an invalid response');
     }
 
+    await request(app.getHttpServer()).post('/api/auth/logout').send({}).expect(401);
     await agent.post('/api/auth/logout').send({}).expect(403);
+    expect(keycloakService.logout).not.toHaveBeenCalled();
     await agent
       .post('/api/auth/logout')
       .set('X-CSRF-TOKEN', tokenBody.csrfToken)
       .send({})
       .expect(200)
       .expect({ success: true, logoutUrl: 'http://keycloak.test/logout' });
+    expect(keycloakService.logout).toHaveBeenCalledWith('refresh-token:aluno@unesp.br');
+    expect(keycloakService.getEndSessionUrl).toHaveBeenCalledWith(expect.any(String));
   });
 });

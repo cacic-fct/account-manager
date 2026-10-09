@@ -30,11 +30,11 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
     return `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/auth?${params.toString()}`;
   }
 
-  getEndSessionUrl(postLogoutRedirectUri: string, idTokenHint?: string): string {
+  // This URL is returned to browser code; identity tokens must remain server-side.
+  getEndSessionUrl(postLogoutRedirectUri: string): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
       post_logout_redirect_uri: postLogoutRedirectUri,
-      ...(idTokenHint && { id_token_hint: idTokenHint }),
     });
 
     return `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/logout?${params.toString()}`;
