@@ -1,7 +1,8 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Service, inject, signal, computed, PLATFORM_ID } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject, catchError, filter, firstValueFrom, Observable, of, take, tap, throwError } from 'rxjs';
-import { ApiService, type PasswordLoginResponse } from '../api.service';
+import { ApiService, type LogoutResponse, type PasswordLoginResponse } from '../api.service';
 import { User, AuthStatus } from '../../interfaces/user.interface';
 import { CsrfService } from '../csrf.service';
 import { environment } from '../../../../environments/environment';
@@ -242,22 +243,14 @@ export class AuthService {
             throw new Error('The server did not confirm logout.');
           }
 
-          this.clearLocalSession();
-          this.clearTrackingCookies();
-          this.markSilentLoginAttempt();
-          if (this.isBrowser && result.logoutUrl) {
-            window.location.assign(result.logoutUrl);
-            return;
-          }
-
-          if (this.isBrowser && postLogoutRedirectUri) {
-            window.location.assign(postLogoutRedirectUri);
-          }
+          this.completeBrowserLogout(result, postLogoutRedirectUri);
         }),
         catchError((error) => {
-          // Do not claim logout or discard the local session until the server
-          // confirms that its cookie-backed session was destroyed. The user can
-          // retry while this warning remains available to the shell.
+          if (error instanceof HttpErrorResponse && this.isCookieExpiredLogout(error.error)) {
+            this.completeBrowserLogout(error.error, postLogoutRedirectUri);
+            this.logoutErrorSignal.set('A sessão do navegador foi encerrada, mas a remoção da sessão no servidor não foi confirmada.');
+            return of(null);
+          }
           this.logoutErrorSignal.set('Não foi possível confirmar o encerramento da sessão. Tente novamente.');
           this.logger.error('Server logout could not be confirmed', error, { operation: 'auth-logout' });
           this.isLoadingSignal.set(false);
@@ -265,6 +258,31 @@ export class AuthService {
         }),
       )
       .subscribe();
+  }
+
+  private isCookieExpiredLogout(value: unknown): value is LogoutResponse & { cookieExpired: true } {
+    return (
+      typeof value === 'object' && value !== null &&
+      'cookieExpired' in value && value.cookieExpired === true &&
+      'globalLogoutComplete' in value && typeof value.globalLogoutComplete === 'boolean' &&
+      'success' in value && value.success === false &&
+      (!('logoutUrl' in value) || typeof value.logoutUrl === 'string')
+    );
+  }
+
+  private completeBrowserLogout(result: LogoutResponse, postLogoutRedirectUri?: string): void {
+    this.clearLocalSession();
+    this.clearTrackingCookies();
+    this.markSilentLoginAttempt();
+    if (!result.globalLogoutComplete) {
+      this.logoutErrorSignal.set('A sessão neste aplicativo foi encerrada. A saída dos demais aplicativos ainda precisa ser concluída.');
+    }
+    if (this.isBrowser) {
+      const target = result.logoutUrl || postLogoutRedirectUri;
+      if (target) {
+        window.location.assign(target);
+      }
+    }
   }
 
   private getApplicationRootUrl(): string {

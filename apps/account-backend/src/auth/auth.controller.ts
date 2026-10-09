@@ -920,57 +920,81 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Logout user',
-    description: 'Logs out the user by destroying the session and invalidating tokens',
+    description: 'Deletes the local session independently of Keycloak availability, then attempts global logout. Returns a token-free browser URL to complete SSO logout if needed.',
   })
   @ApiResponse({
     status: 200,
     description: 'Successfully logged out',
     type: LogoutResponseDto,
   })
+  @ApiResponse({
+    status: 503,
+    description: 'The browser cookie was expired, but server-side session deletion could not be confirmed.',
+    schema: {
+      example: {
+        success: false,
+        localSessionCleared: false,
+        cookieExpired: true,
+        globalLogoutComplete: false,
+        logoutUrl: 'https://sso.cacic.com.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager',
+      },
+    },
+  })
   @ApiBody({
     type: LogoutRequestDto,
     required: false,
     description: 'Optional logout redirect target. Must be a relative path or allowed origin.',
   })
+  @UseGuards(CsrfGuard)
   @Auth()
-  @UseGuards(CurrentUserGuard, CsrfGuard)
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
     const logoutUrl = this.keycloakService.getEndSessionUrl(
       this.resolveSafePostLogoutRedirectUri(body?.postLogoutRedirectUri),
     );
+    const refreshToken = session.refreshToken;
+    let localSessionCleared = false;
 
-    // End the shared SSO session on the server before discarding the tokens.
-    // Keep the local session available for retry if Keycloak is unavailable.
-    if (session.refreshToken) {
+    // Local access must end even while the identity provider is unavailable.
+    try {
+      await new Promise<void>((resolve, reject) => {
+        session.destroy((error: unknown) => error ? reject(error) : resolve());
+      });
+      localSessionCleared = true;
+    } catch (error) {
+      this.logger.error('Session destruction error', error);
+    } finally {
+      res.clearCookie('connect.sid', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+      clearCacicTrackingCookies(res, this.configService);
+    }
+
+    let globalLogoutComplete = false;
+    if (refreshToken) {
       try {
-        await this.keycloakService.logout(session.refreshToken);
-      } catch (error) {
-        this.logger.error('Keycloak logout could not be confirmed', error);
-        throw new ServiceUnavailableException('Global logout could not be confirmed. Please try again.');
+        await this.keycloakService.logout(refreshToken);
+        globalLogoutComplete = true;
+      } catch {
+        this.logger.warn('Keycloak logout could not be confirmed; browser logout is still required.');
       }
     }
 
-    clearCacicTrackingCookies(res, this.configService);
-    res.clearCookie('connect.sid', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    });
-
-    session.destroy((err: unknown) => {
-      if (err) {
-        this.logger.error('Session destruction error', err);
-        res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
-          success: false,
-          logoutUrl,
-          message: 'The browser session was cleared, but server-side revocation could not be confirmed.',
-        });
-        return;
-      }
-      res.json({ success: true, logoutUrl });
-    });
+    const result = { success: localSessionCleared, globalLogoutComplete, logoutUrl };
+    if (!localSessionCleared) {
+      res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        ...result,
+        localSessionCleared: false,
+        cookieExpired: true,
+        message: 'The browser cookie was expired, but server-side session deletion could not be confirmed.',
+      });
+      return;
+    }
+    res.json(result);
   }
 
   @ApiOperation({

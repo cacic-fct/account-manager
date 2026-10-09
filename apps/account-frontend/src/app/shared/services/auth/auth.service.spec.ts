@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
 import { PLATFORM_ID, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -166,6 +167,33 @@ describe('AuthService password login', () => {
     expect(apiService.checkAuth).toHaveBeenCalledOnce();
     expect(service.isAuthenticated()).toBe(false);
     expect(service.isLoading()).toBe(false);
+  });
+
+  it('clears the user after local logout even when global logout is incomplete', () => {
+    const service = TestBed.inject(AuthService);
+    service.updateCurrentUser(currentUser);
+    apiService.logout.mockReturnValue(of({ success: true, globalLogoutComplete: false, logoutUrl: 'https://sso.test/logout' }));
+
+    service.logout();
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.currentUser()).toBeNull();
+    expect(service.logoutError()).toContain('saída dos demais aplicativos');
+    expect(csrfService.clearToken).toHaveBeenCalled();
+  });
+
+  it('clears the browser identity when the server expires its cookie despite a store failure', () => {
+    const service = TestBed.inject(AuthService);
+    service.updateCurrentUser(currentUser);
+    apiService.logout.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503, error: {
+      success: false, cookieExpired: true, globalLogoutComplete: false, logoutUrl: 'https://sso.test/logout',
+    } })));
+
+    service.logout();
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.currentUser()).toBeNull();
+    expect(service.logoutError()).toContain('remoção da sessão no servidor');
   });
 
   it('does not claim logout when server-side session destruction fails', () => {

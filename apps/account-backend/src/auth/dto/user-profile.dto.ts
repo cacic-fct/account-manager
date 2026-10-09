@@ -341,10 +341,16 @@ export class UserApplicationDto {
 
 export class LogoutResponseDto {
   @ApiProperty({
-    description: 'Whether the logout was successful',
+    description: 'Whether the local session was deleted',
     example: true,
   })
   success!: boolean;
+
+  @ApiProperty({
+    description: 'Whether server-side Keycloak logout was confirmed. The browser URL remains available to complete SSO logout.',
+    example: true,
+  })
+  globalLogoutComplete!: boolean;
 
   @ApiPropertyOptional({
     description: 'Keycloak end-session URL that the browser should visit after local session cleanup.',

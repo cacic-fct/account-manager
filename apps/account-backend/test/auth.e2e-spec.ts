@@ -248,8 +248,33 @@ describe('Authentication (fast e2e)', () => {
       .set('X-CSRF-TOKEN', tokenBody.csrfToken)
       .send({})
       .expect(200)
-      .expect({ success: true, logoutUrl: 'http://keycloak.test/logout' });
+      .expect({ success: true, globalLogoutComplete: true, logoutUrl: 'http://keycloak.test/logout' });
     expect(keycloakService.logout).toHaveBeenCalledWith('refresh-token:aluno@unesp.br');
     expect(keycloakService.getEndSessionUrl).toHaveBeenCalledWith(expect.any(String));
   });
+  it.each(['provider unavailable', 'timeout', 'invalid_grant'])(
+    'invalidates the old browser session when Keycloak fails: %s', async (failure) => {
+      const agent = request.agent(app.getHttpServer());
+      const login = await agent.post('/api/auth/password-login')
+        .send({ email: 'aluno@unesp.br', password: '1' }).expect(200);
+      const cookies = login.headers['set-cookie'] as unknown as string[];
+      const sessionCookie = cookies.find((cookie) => cookie.startsWith('connect.sid='))?.split(';')[0];
+      if (!sessionCookie) throw new Error('Missing session cookie');
+      const csrf = await agent.get('/api/csrf/token').expect(200);
+      keycloakService.logout.mockRejectedValueOnce(new Error(failure));
+
+      const response = await agent.post('/api/auth/logout')
+        .set('X-CSRF-TOKEN', (JSON.parse(csrf.text) as { csrfToken: string }).csrfToken)
+        .send({}).expect(200);
+
+      expect(response.body).toEqual({
+        success: true, globalLogoutComplete: false, logoutUrl: 'http://keycloak.test/logout',
+      });
+      expect(response.headers['set-cookie']).toEqual(expect.arrayContaining([
+        expect.stringContaining('connect.sid=;'),
+      ]));
+      await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', sessionCookie).expect(401);
+    },
+  );
+
 });

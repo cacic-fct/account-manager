@@ -18,6 +18,12 @@ export interface PasswordLoginResponse extends AuthStatus {
   redirectUrl: string;
 }
 
+export interface LogoutResponse {
+  success: boolean;
+  globalLogoutComplete: boolean;
+  logoutUrl?: string;
+}
+
 @Service()
 export class AuthApiService {
   private readonly baseUrl = getApiBaseUrl();
@@ -102,9 +108,9 @@ export class AuthApiService {
     );
   }
 
-  logout(postLogoutRedirectUri?: string): Observable<{ success: boolean; logoutUrl?: string }> {
+  logout(postLogoutRedirectUri?: string): Observable<LogoutResponse> {
     return this.http
-      .post<{ success: boolean; logoutUrl?: string }>(
+      .post<LogoutResponse>(
         `${this.baseUrl}/auth/logout`,
         {
           ...(postLogoutRedirectUri ? { postLogoutRedirectUri } : {}),

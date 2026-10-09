@@ -53,7 +53,12 @@ import type {
 } from '@cacic/shared-types';
 import { CacheService } from './cache.service';
 import { AccountLinkingApiService } from './api/account-linking-api.service';
-import { AuthApiService, type PasswordLoginRequest, type PasswordLoginResponse } from './api/auth-api.service';
+import {
+  AuthApiService,
+  type LogoutResponse,
+  type PasswordLoginRequest,
+  type PasswordLoginResponse,
+} from './api/auth-api.service';
 import { API_CACHE_KEYS } from './api/api-cache.constants';
 import { DiscordApiService } from './api/discord-api.service';
 import { KeycloakPermissionsApiService } from './api/keycloak-permissions-api.service';
@@ -109,7 +114,7 @@ export type {
   TotpSeed,
   TotpStatus,
 } from '@cacic/shared-types';
-export type { PasswordLoginRequest, PasswordLoginResponse };
+export type { LogoutResponse, PasswordLoginRequest, PasswordLoginResponse };
 
 @Service()
 export class ApiService {
@@ -151,7 +156,7 @@ export class ApiService {
     return this.authApi.checkUnespRoleRequired();
   }
 
-  logout(postLogoutRedirectUri?: string): Observable<{ success: boolean; logoutUrl?: string }> {
+  logout(postLogoutRedirectUri?: string): Observable<LogoutResponse> {
     return this.authApi.logout(postLogoutRedirectUri);
   }
 
