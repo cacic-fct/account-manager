@@ -936,11 +936,21 @@ export class AuthController {
   @UseGuards(CurrentUserGuard, CsrfGuard)
   @HttpCode(HttpStatus.OK)
   @Post('logout')
-  logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
+  async logout(@Session() session: AuthSession, @Body() body: LogoutRequestDto | undefined, @Res() res: Response) {
     const logoutUrl = this.keycloakService.getEndSessionUrl(
       this.resolveSafePostLogoutRedirectUri(body?.postLogoutRedirectUri),
-      session.idToken,
     );
+
+    // End the shared SSO session on the server before discarding the tokens.
+    // Keep the local session available for retry if Keycloak is unavailable.
+    if (session.refreshToken) {
+      try {
+        await this.keycloakService.logout(session.refreshToken);
+      } catch (error) {
+        this.logger.error('Keycloak logout could not be confirmed', error);
+        throw new ServiceUnavailableException('Global logout could not be confirmed. Please try again.');
+      }
+    }
 
     clearCacicTrackingCookies(res, this.configService);
     res.clearCookie('connect.sid', {

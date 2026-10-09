@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,7 @@ import { LoggerService } from '../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-edit',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatCardModule, MatButtonModule, ProfileFormComponent],
   templateUrl: './edit.component.html',
   styleUrl: './edit.component.scss',
@@ -53,7 +54,7 @@ export class EditProfileComponent {
   onProfileSaveSuccess(updatedUser: User): void {
     this.logger.debug('Profile update successful', { operation: 'profile-update', userId: updatedUser.id });
 
-    this.snackBar.open('Dados atualizados com sucesso!', 'Close', {
+    this.snackBar.open('Dados atualizados com sucesso!', 'Fechar', {
       duration: 3000,
       panelClass: ['success-snackbar'],
     });
@@ -63,10 +64,6 @@ export class EditProfileComponent {
 
   onProfileSaveError(error: unknown): void {
     this.logger.error('Profile update failed', error, { operation: 'profile-update' });
-    this.snackBar.open('Failed to update profile. Please try again.', 'Close', {
-      duration: 5000,
-      panelClass: ['error-snackbar'],
-    });
   }
 
   cancel(): void {

@@ -37,14 +37,18 @@
 
       <mat-card-content>
         <div class="form-container">
-          <app-profile-form
-            [initialData]="initialFormData()"
-            [defaultUnespRole]="defaultUnespRole"
-            [identityFieldLocks]="identityFieldLocks()"
-            [isEditMode]="false"
-            [layoutMode]="'stepper'"
-            (saveSuccess)="onProfileSaveSuccess($event)"
-            (saveError)="onProfileSaveError($event)" />
+          @if (profileDataReady()) {
+            <app-profile-form
+              [initialData]="initialFormData()"
+              [defaultUnespRole]="defaultUnespRole"
+              [identityFieldLocks]="identityFieldLocks()"
+              [isEditMode]="false"
+              [layoutMode]="'stepper'"
+              (saveSuccess)="onProfileSaveSuccess($event)"
+              (saveError)="onProfileSaveError($event)" />
+          } @else {
+            <mat-spinner diameter="32" aria-label="Carregando dados do perfil" />
+          }
         </div>
       </mat-card-content>
     </div>

@@ -10,6 +10,8 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { ClipboardModule } from '@angular/cdk/clipboard';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,6 +37,7 @@ import { LoggerService } from '../../services/logger.service';
 import { isUnespEmail } from '@cacic/shared-utils';
 import { ProfileFormPersonalStepComponent } from './profile-form-personal-step.component';
 import { ProfileFormAcademicStepComponent } from './profile-form-academic-step.component';
+import { describeProfileSaveError, type ProfileSaveError } from './profile-save-error';
 
 export interface ProfileFormData {
   fullname: string;
@@ -82,6 +85,8 @@ interface IdentityFieldLocks {
 @Component({
   selector: 'app-profile-form',
   imports: [
+    NgTemplateOutlet,
+    ClipboardModule,
     MatStepperModule,
     MatButtonModule,
     MatIconModule,
@@ -132,6 +137,12 @@ export class ProfileFormComponent implements OnInit {
   unespRoleValue = signal<string>('');
   countryCodeValue = signal<string>('BR');
   isSubmitting = signal(false);
+  readonly submissionError = signal<ProfileSaveError | null>(null);
+  readonly copyFeedback = signal('');
+  readonly saveButtonLabel = computed(() => {
+    if (this.isSubmitting()) return 'Salvando...';
+    return this.submissionError() ? 'Tentar salvar novamente' : 'Salvar';
+  });
   unespRoleOptions = getUnespRoleOptions();
   countryCodeOptions: CountryCodeOption[] = this.buildCountryCodeOptions();
 
@@ -498,10 +509,13 @@ export class ProfileFormComponent implements OnInit {
       phone: formData.phone,
       enrollmentNumber: formData.enrollmentNumber,
       identityDocument: formData.identityDocument,
+      passportCountry: formData.passportCountry,
       isForeigner: formData.isForeigner,
       unespRole: formData.unespRole,
     };
 
+    this.submissionError.set(null);
+    this.copyFeedback.set('');
     this.isSubmitting.set(true);
     this.savingChange.emit(true);
 
@@ -511,12 +525,19 @@ export class ProfileFormComponent implements OnInit {
       this.authService.updateCurrentUser(updatedUser);
       this.saveSuccess.emit(updatedUser);
     } catch (error) {
+      this.submissionError.set(describeProfileSaveError(error, this.isEditMode()));
       this.logger.error('Error updating profile', error);
       this.saveError.emit(error);
     } finally {
       this.isSubmitting.set(false);
       this.savingChange.emit(false);
     }
+  }
+
+  onSupportDetailsCopied(copied: boolean): void {
+    this.copyFeedback.set(copied
+      ? 'Detalhes copiados. Envie ao suporte ao pedir ajuda.'
+      : 'Não foi possível copiar. Selecione e copie os detalhes abaixo.');
   }
 
   // Public method to mark all fields as touched (for validation display)

@@ -39,6 +39,35 @@ describe('KeycloakService client roles', () => {
     jest.restoreAllMocks();
   });
 
+  it('builds browser logout URLs without exposing identity tokens', () => {
+    const service = new KeycloakService();
+    const url = new URL(service.getEndSessionUrl('https://account.example.test/app/'));
+
+    expect(url.searchParams.get('client_id')).toBe('cacic-account-manager');
+    expect(url.searchParams.get('post_logout_redirect_uri')).toBe('https://account.example.test/app/');
+    expect(url.searchParams.has('id_token_hint')).toBe(false);
+  });
+
+  it('ends the shared Keycloak session with a server-side refresh-token logout', async () => {
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    global.fetch = fetchMock;
+    const service = new KeycloakService();
+
+    await service.logout('private-refresh-token');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://sso.example.test/realms/cacic/protocol/openid-connect/logout',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const payload = new URLSearchParams(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(payload.get('refresh_token')).toBe('private-refresh-token');
+    expect(payload.has('id_token_hint')).toBe(false);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({
+      Authorization: expect.stringMatching(/^Basic /),
+    }));
+  });
+
   it('reads user roles from the configured Keycloak client role mappings', async () => {
     const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock

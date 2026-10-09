@@ -1,3 +1,9 @@
+import { ExecutionContext } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { Reflector } from '@nestjs/core';
+import { AuthGuard } from './guards/auth.guard';
+import { CsrfGuard } from './csrf/csrf.guard';
+import { CsrfService } from './csrf/csrf.service';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { AuthController, AuthRequest, AuthSession } from './auth.controller';
@@ -9,7 +15,7 @@ import { RedisService } from '../redis/redis.service';
 
 type KeycloakServiceMock = Pick<
   jest.Mocked<KeycloakService>,
-  'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl' | 'getUserApplications' | 'getEndSessionUrl'
+  'exchangeCodeForTokens' | 'getUserInfo' | 'getAuthUrl' | 'getUserApplications' | 'getEndSessionUrl' | 'logout'
 >;
 
 type UserServiceMock = Pick<
@@ -24,6 +30,7 @@ const createController = (configOverrides: Record<string, string> = {}) => {
     getAuthUrl: jest.fn(),
     getUserApplications: jest.fn(),
     getEndSessionUrl: jest.fn().mockReturnValue('https://sso.example.test/logout'),
+    logout: jest.fn().mockResolvedValue(undefined),
   };
   const userService: UserServiceMock = {
     findByKeycloakId: jest.fn(),
@@ -200,7 +207,58 @@ describe('AuthController development password login policy', () => {
 });
 
 describe('AuthController logout', () => {
-  it('expires the browser cookie but does not claim success when session-store destruction fails', () => {
+  it('requires authentication and a same-session CSRF token for logout', () => {
+    const handler = AuthController.prototype.logout;
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    expect(guards).toEqual(expect.arrayContaining([AuthGuard, CsrfGuard]));
+    const request = { method: 'POST', headers: {} as Record<string, string>, session: { csrfToken: 'session-csrf' } };
+    const context = {
+      getHandler: () => handler,
+      getClass: () => AuthController,
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+    const guard = new CsrfGuard(new CsrfService(), new Reflector());
+
+    expect(() => new AuthGuard().canActivate(context)).toThrow('Authentication required');
+    expect(() => guard.canActivate(context)).toThrow('Invalid or missing CSRF token');
+    request.headers['x-csrf-token'] = 'other-session-csrf';
+    expect(() => guard.canActivate(context)).toThrow('Invalid or missing CSRF token');
+    request.headers['x-csrf-token'] = 'session-csrf';
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('confirms global logout using the server refresh token and never forwards the ID token', async () => {
+    const { controller, keycloakService } = createController();
+    const session = createSession();
+    session.refreshToken = 'server-refresh-token';
+    session.idToken = 'private-id-token';
+    session.destroy = jest.fn((callback) => callback());
+    const response = { clearCookie: jest.fn(), json: jest.fn() } as unknown as Response;
+
+    await controller.logout(session, undefined, response);
+
+    expect(keycloakService.logout).toHaveBeenCalledWith('server-refresh-token');
+    expect(keycloakService.getEndSessionUrl).toHaveBeenCalledWith('http://localhost:4200/');
+    expect(response.json).toHaveBeenCalledWith({ success: true, logoutUrl: 'https://sso.example.test/logout' });
+    expect(JSON.stringify((response.json as jest.Mock).mock.calls)).not.toContain('private-id-token');
+  });
+
+  it('retains the session for retry when upstream global logout fails', async () => {
+    const { controller, keycloakService } = createController();
+    const session = createSession();
+    session.refreshToken = 'server-refresh-token';
+    keycloakService.logout.mockRejectedValue(new Error('provider unavailable'));
+    const response = { clearCookie: jest.fn(), json: jest.fn() } as unknown as Response;
+
+    await expect(controller.logout(session, undefined, response)).rejects.toMatchObject({ status: 503 });
+
+    expect(session.destroy).not.toHaveBeenCalled();
+    expect(response.clearCookie).not.toHaveBeenCalled();
+    expect(response.json).not.toHaveBeenCalled();
+  });
+
+  it('expires the browser cookie but does not claim success when session-store destruction fails', async () => {
     const { controller } = createController();
     const session: AuthSession = {
       user: {
@@ -215,7 +273,7 @@ describe('AuthController logout', () => {
     const json = jest.fn();
     const response = { clearCookie, status, json } as unknown as Response;
 
-    controller.logout(session, undefined, response);
+    await controller.logout(session, undefined, response);
 
     expect(clearCookie).toHaveBeenCalledWith('connect.sid', expect.any(Object));
     expect(status).toHaveBeenCalledWith(503);
