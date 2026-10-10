@@ -1,5 +1,6 @@
 import { KeycloakUser } from '../../interfaces/auth.interface';
 import { KeycloakBaseOperations } from './keycloak-base.operations';
+import { assertKeycloakAccessTokenActive } from './keycloak-introspection';
 
 export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   getAuthUrl(
@@ -183,6 +184,13 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   }
 
   async getUserInfo(accessToken: string): Promise<KeycloakUser> {
+    await assertKeycloakAccessTokenActive(accessToken, {
+      realmUrl: `${this.keycloakUrl}/realms/${this.realm}`,
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+      authMethod: this.clientAuthMethod,
+      timeoutMs: this.readPositiveInteger('KEYCLOAK_REQUEST_TIMEOUT_MS', 10_000),
+    });
     const userInfoUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/userinfo`;
 
     const response = await this.fetchWithTimeout(userInfoUrl, {

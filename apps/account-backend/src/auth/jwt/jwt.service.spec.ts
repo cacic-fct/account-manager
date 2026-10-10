@@ -1,5 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload, JwtService } from './jwt.service';
+import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { generateKeyPairSync } from 'node:crypto';
+import { sign } from 'jsonwebtoken';
 
 type ConfigValue = number | string | undefined;
 
@@ -17,6 +20,57 @@ const createConfigService = (overrides: Record<string, ConfigValue> = {}) =>
       return value ?? defaultValue;
     }),
   }) as unknown as ConfigService;
+
+describe('JwtService token introspection', () => {
+  const originalFetch = global.fetch;
+  const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  let fetchMock: jest.MockedFunction<typeof fetch>;
+
+  beforeEach(() => {
+    fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ active: true })));
+    global.fetch = fetchMock;
+  });
+  afterEach(() => { global.fetch = originalFetch; jest.restoreAllMocks(); });
+
+  function signedToken(exp = Math.floor(Date.now() / 1000) + 120) {
+    return sign({
+      sub: 'service-account-user',
+      iss: baseConfig.KEYCLOAK_URL + '/realms/cacic-sso',
+      aud: baseConfig.KEYCLOAK_M2M_AUDIENCE,
+      azp: 'cacic-event-manager-m2m',
+      exp,
+    }, keys.privateKey, { algorithm: 'RS256', keyid: 'test-key' });
+  }
+
+  function service() {
+    const instance = new JwtService(createConfigService({
+      KEYCLOAK_CLIENT_ID: 'cacic-account-manager', KEYCLOAK_CLIENT_SECRET: 'secret',
+    }));
+    jest.spyOn(instance as unknown as { getSigningKey(kid: string): Promise<string> }, 'getSigningKey')
+      .mockResolvedValue(keys.publicKey.export({ type: 'spki', format: 'pem' }).toString());
+    return instance;
+  }
+
+  it('requires both a verified JWT and active introspection for M2M requests', async () => {
+    await expect(service().validateToken(signedToken())).resolves.toMatchObject({ sub: 'service-account-user' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://sso.example.test/realms/cacic-sso/protocol/openid-connect/token/introspect', expect.any(Object),
+    );
+  });
+
+  it('rejects revoked tokens and preserves provider outage errors', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ active: false })));
+    await expect(service().validateToken(signedToken())).rejects.toBeInstanceOf(UnauthorizedException);
+    fetchMock.mockRejectedValueOnce(new Error('network'));
+    await expect(service().validateToken(signedToken())).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('rejects expired JWTs before introspection', async () => {
+    await expect(service().validateToken(signedToken(Math.floor(Date.now() / 1000) - 120)))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
 
 const createPayload = (overrides: Partial<JwtPayload> = {}): JwtPayload => ({
   sub: 'service-account-subject',

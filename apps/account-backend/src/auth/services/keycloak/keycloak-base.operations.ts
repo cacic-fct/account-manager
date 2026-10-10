@@ -115,7 +115,7 @@ export abstract class KeycloakBaseOperations {
     }
   }
 
-  private readPositiveInteger(name: string, fallback: number): number {
+  protected readPositiveInteger(name: string, fallback: number): number {
     const value = this.readOptionalEnv(name);
     if (!value) {
       return fallback;

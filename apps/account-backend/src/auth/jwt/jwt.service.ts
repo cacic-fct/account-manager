@@ -1,7 +1,8 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
+import { assertKeycloakAccessTokenActive } from '../services/keycloak/keycloak-introspection';
 
 export interface JwtPayload {
   sub: string;
@@ -92,9 +93,20 @@ export class JwtService {
 
       // Additional validation
       this.validateTokenPayload(payload);
+      await assertKeycloakAccessTokenActive(token, {
+        realmUrl: `${this.keycloakBaseUrl}/realms/${this.realm}`,
+        clientId: this.readConfigWithDevelopmentFallback('KEYCLOAK_CLIENT_ID', 'cacic-account-manager'),
+        clientSecret: this.configService.get<string>('KEYCLOAK_CLIENT_SECRET'),
+        authMethod: this.configService.get<string>('KEYCLOAK_CLIENT_AUTH_METHOD') ??
+          this.configService.get<string>('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD'),
+        timeoutMs: this.configService.get<number>('KEYCLOAK_REQUEST_TIMEOUT_MS'),
+      });
 
       return payload;
     } catch (error) {
+      if (error instanceof ServiceUnavailableException || error instanceof UnauthorizedException) {
+        throw error;
+      }
       this.logger.error('Token validation failed', error);
 
       if (error instanceof jwt.TokenExpiredError) {

@@ -503,6 +503,18 @@
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
+        },
+        {
+          "name": "account-manager-introspection",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cacic-account-manager",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         }
       ]
     },
@@ -524,6 +536,18 @@
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
+        },
+        {
+          "name": "event-manager-introspection",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cacic-event-manager",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         }
       ]
     }
@@ -531,6 +555,20 @@
   "clients": [
     {
       "clientId": "cacic-account-manager",
+      "protocolMappers": [
+        {
+          "name": "account-manager-introspection",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cacic-account-manager",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
       "name": "CACiC Account Manager",
       "enabled": true,
       "protocol": "openid-connect",
@@ -575,6 +613,20 @@
     },
     {
       "clientId": "cacic-event-manager",
+      "protocolMappers": [
+        {
+          "name": "event-manager-introspection",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cacic-event-manager",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
       "name": "CACiC Event Manager",
       "enabled": true,
       "protocol": "openid-connect",

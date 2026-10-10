@@ -48,6 +48,29 @@ describe('KeycloakService client roles', () => {
     expect(url.searchParams.has('id_token_hint')).toBe(false);
   });
 
+  it('checks active state before requesting login identity information', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'secret';
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({ active: true }))
+      .mockResolvedValueOnce(jsonResponse({ sub: 'user-1' }));
+    global.fetch = fetchMock;
+    const service = new KeycloakService();
+    await expect(service.getUserInfo('access')).resolves.toMatchObject({ sub: 'user-1' });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'https://sso.example.test/realms/cacic/protocol/openid-connect/token/introspect',
+      'https://sso.example.test/realms/cacic/protocol/openid-connect/userinfo',
+    ]);
+  });
+
+  it('rejects an inactive login token before requesting user information', async () => {
+    process.env.KEYCLOAK_CLIENT_SECRET = 'secret';
+    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValue(jsonResponse({ active: false }));
+    global.fetch = fetchMock;
+    await expect(new KeycloakService().getUserInfo('access')).rejects.toThrow('Token is not active.');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('ends the shared Keycloak session with a server-side refresh-token logout', async () => {
     const fetchMock: FetchMock = jest
       .fn<Promise<Response>, Parameters<typeof fetch>>()

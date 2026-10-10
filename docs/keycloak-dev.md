@@ -13,6 +13,15 @@ The `cacic-sso` realm is imported from `docker/keycloak/cacic-sso-realm.json`.
 If you change the realm file and Keycloak keeps old data, recreate the
 container before starting it again.
 
+Login and incoming M2M tokens require an explicit active result from Keycloak's
+introspection endpoint. Configure `cacic-account-manager` as a confidential client
+and add an Audience mapper with Included Client Audience `cacic-account-manager`,
+Add to access token enabled, and Add to ID token disabled. The browser client's
+dedicated mapper and the `cacic-account-manager-audience` M2M scope include this
+mapper in the development realm. Keep the existing `cacic-account-manager-audience`
+audience for M2M role checks. A separate mapper includes `cacic-event-manager` in
+the corresponding M2M scope for Event Manager introspection.
+
 ## Development users
 
 All users use the password `1`.
