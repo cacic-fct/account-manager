@@ -5,7 +5,7 @@
   "scripts": {
     "build:packages": "bunx nx run-many --target=build --projects=m2m-contracts,account-privacy,cookie-banner",
     "e2e:backend:keycloak": "node tools/run-account-backend-keycloak-e2e.mjs",
-    "format:staged": "lint-staged",
+    "format:staged": "node node_modules/lint-staged/bin/lint-staged.js",
     "prepare": "node .husky/install.mjs",
     "verify:package:m2m-contracts": "bun tools/verify-package-artifact.mjs dist/libs/m2m-contracts m2m-contracts",
     "verify:package:account-privacy": "bun tools/verify-package-artifact.mjs dist/libs/account-privacy account-privacy",
@@ -155,6 +155,6 @@
   },
   "nx": {},
   "lint-staged": {
-    "*": "prettier --write --ignore-unknown"
+    "*": "node node_modules/prettier/bin/prettier.cjs --write --ignore-unknown"
   }
 }
