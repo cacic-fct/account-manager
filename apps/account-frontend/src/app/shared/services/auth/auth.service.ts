@@ -248,7 +248,9 @@ export class AuthService {
         catchError((error) => {
           if (error instanceof HttpErrorResponse && this.isCookieExpiredLogout(error.error)) {
             this.completeBrowserLogout(error.error, postLogoutRedirectUri);
-            this.logoutErrorSignal.set('A sessão do navegador foi encerrada, mas a remoção da sessão no servidor não foi confirmada.');
+            this.logoutErrorSignal.set(
+              'A sessão do navegador foi encerrada, mas a remoção da sessão no servidor não foi confirmada.',
+            );
             return of(null);
           }
           this.logoutErrorSignal.set('Não foi possível confirmar o encerramento da sessão. Tente novamente.');
@@ -262,10 +264,14 @@ export class AuthService {
 
   private isCookieExpiredLogout(value: unknown): value is LogoutResponse & { cookieExpired: true } {
     return (
-      typeof value === 'object' && value !== null &&
-      'cookieExpired' in value && value.cookieExpired === true &&
-      'globalLogoutComplete' in value && typeof value.globalLogoutComplete === 'boolean' &&
-      'success' in value && value.success === false &&
+      typeof value === 'object' &&
+      value !== null &&
+      'cookieExpired' in value &&
+      value.cookieExpired === true &&
+      'globalLogoutComplete' in value &&
+      typeof value.globalLogoutComplete === 'boolean' &&
+      'success' in value &&
+      value.success === false &&
       (!('logoutUrl' in value) || typeof value.logoutUrl === 'string')
     );
   }
@@ -275,7 +281,9 @@ export class AuthService {
     this.clearTrackingCookies();
     this.markSilentLoginAttempt();
     if (!result.globalLogoutComplete) {
-      this.logoutErrorSignal.set('A sessão neste aplicativo foi encerrada. A saída dos demais aplicativos ainda precisa ser concluída.');
+      this.logoutErrorSignal.set(
+        'A sessão neste aplicativo foi encerrada. A saída dos demais aplicativos ainda precisa ser concluída.',
+      );
     }
     if (this.isBrowser) {
       const target = result.logoutUrl || postLogoutRedirectUri;

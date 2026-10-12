@@ -132,11 +132,9 @@ describe('AdminAccountMergesComponent', () => {
     component.secondSearchForm.controls.query.setValue('second');
     component.searchSecondUser();
 
-    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith(
-      'Erro ao buscar contas no Keycloak.',
-      'Fechar',
-      { duration: 5000 },
-    );
+    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith('Erro ao buscar contas no Keycloak.', 'Fechar', {
+      duration: 5000,
+    });
   });
 
   it('uses SSE deltas after confirmation and stops at a terminal status', () => {
@@ -181,7 +179,9 @@ describe('AdminAccountMergesComponent', () => {
     component.secondUser.set(secondUser);
     apiService.createAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
     component.createMergeRequest();
-    expect(snackBar).toHaveBeenCalledWith('Não foi possível iniciar a unificação das contas.', 'Fechar', { duration: 6000 });
+    expect(snackBar).toHaveBeenCalledWith('Não foi possível iniciar a unificação das contas.', 'Fechar', {
+      duration: 6000,
+    });
 
     component.confirmMerge();
     component.mergeRequest.set(mergeRequest);

@@ -64,7 +64,8 @@ export type DiscordManagedRoleOverridesStoryState = {
 };
 
 export type AdminAccountMergesStoryState = {
-  mergeState: 'selection' | 'pending' | 'pending_score' | 'processing' | 'pending_merge' | 'completed' | 'failed' | 'expired';
+  mergeState:
+    'selection' | 'pending' | 'pending_score' | 'processing' | 'pending_merge' | 'completed' | 'failed' | 'expired';
   searchMode: 'matches' | 'empty' | 'error';
   failureMode: 'none' | 'create' | 'confirm' | 'cancel';
   responseDelayMs: number;

@@ -1,11 +1,6 @@
 <mat-card class="app-card">
   <div class="app-icon">
-    <img
-      [src]="iconUrl()"
-      [alt]="app().name + ' logo'"
-      class="app-logo"
-      decoding="async"
-      (error)="onLogoError()" />
+    <img [src]="iconUrl()" [alt]="app().name + ' logo'" class="app-logo" decoding="async" (error)="onLogoError()" />
   </div>
   <mat-card-content>
     <h3 class="app-name">{{ app().name }}</h3>

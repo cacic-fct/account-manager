@@ -1,5 +1,14 @@
 import { isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, WritableSignal, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  PLATFORM_ID,
+  WritableSignal,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AccountMergeRequest, KeycloakPermissionUser } from '@cacic/shared-types';
@@ -94,17 +103,19 @@ export class AdminAccountMergesComponent implements OnDestroy {
     }
 
     this.creating.set(true);
-    this.apiService.createAdminAccountMerge({ requesterUserId: requester.id, candidateUserId: candidate.id }).subscribe({
-      next: (request) => {
-        this.mergeRequest.set(request);
-        this.selectedPrimaryEmail.set(request.primaryEmailOptions[0] || '');
-        this.creating.set(false);
-      },
-      error: () => {
-        this.creating.set(false);
-        this.snackBar.open('Não foi possível iniciar a unificação das contas.', 'Fechar', { duration: 6000 });
-      },
-    });
+    this.apiService
+      .createAdminAccountMerge({ requesterUserId: requester.id, candidateUserId: candidate.id })
+      .subscribe({
+        next: (request) => {
+          this.mergeRequest.set(request);
+          this.selectedPrimaryEmail.set(request.primaryEmailOptions[0] || '');
+          this.creating.set(false);
+        },
+        error: () => {
+          this.creating.set(false);
+          this.snackBar.open('Não foi possível iniciar a unificação das contas.', 'Fechar', { duration: 6000 });
+        },
+      });
   }
 
   protected confirmMerge(): void {
@@ -120,7 +131,9 @@ export class AdminAccountMergesComponent implements OnDestroy {
         this.mergeRequest.set(response.request);
         this.confirming.set(false);
         this.startMergeUpdates(response.request.id);
-        this.snackBar.open('Unificação iniciada. O progresso será atualizado nesta página.', 'Fechar', { duration: 6000 });
+        this.snackBar.open('Unificação iniciada. O progresso será atualizado nesta página.', 'Fechar', {
+          duration: 6000,
+        });
       },
       error: () => {
         this.confirming.set(false);

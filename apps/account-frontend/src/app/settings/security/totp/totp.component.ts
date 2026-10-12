@@ -137,7 +137,7 @@ export class TotpComponent {
           });
         },
         error: (error) => {
-      this.logger.error('Erro ao trocar segredo TOTP', error, { operation: 'totp-rotate' });
+          this.logger.error('Erro ao trocar segredo TOTP', error, { operation: 'totp-rotate' });
           this.isRotating.set(false);
           this.snackBar.open('Erro ao trocar código secreto', 'Fechar', {
             duration: 5000,
@@ -183,7 +183,7 @@ export class TotpComponent {
           this.loadSeed();
         },
         error: (error) => {
-      this.logger.error('Erro ao carregar status TOTP', error, { operation: 'totp-status' });
+          this.logger.error('Erro ao carregar status TOTP', error, { operation: 'totp-status' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
           this.snackBar.open('Erro ao carregar código off-line', 'Fechar', {
@@ -205,7 +205,7 @@ export class TotpComponent {
           this.hasLoadError.set(false);
         },
         error: (error) => {
-      this.logger.error('Erro ao preparar TOTP', error, { operation: 'totp-prepare' });
+          this.logger.error('Erro ao preparar TOTP', error, { operation: 'totp-prepare' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
           this.snackBar.open('Erro ao preparar código off-line', 'Fechar', {

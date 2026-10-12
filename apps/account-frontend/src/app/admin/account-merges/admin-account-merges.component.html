@@ -92,13 +92,19 @@
         @if (firstUser(); as user) {
           <div class="selected-account">
             <mat-icon>looks_one</mat-icon>
-            <span><strong>{{ user.displayName }}</strong><small>{{ user.email }}</small></span>
+            <span
+              ><strong>{{ user.displayName }}</strong
+              ><small>{{ user.email }}</small></span
+            >
           </div>
         }
         @if (secondUser(); as user) {
           <div class="selected-account">
             <mat-icon>looks_two</mat-icon>
-            <span><strong>{{ user.displayName }}</strong><small>{{ user.email }}</small></span>
+            <span
+              ><strong>{{ user.displayName }}</strong
+              ><small>{{ user.email }}</small></span
+            >
           </div>
         }
       }
@@ -106,18 +112,38 @@
 
     <mat-card-actions align="end">
       @if (!mergeRequest()) {
-        <button mat-flat-button color="primary" type="button" [disabled]="!canCreate() || creating()" (click)="createMergeRequest()">
-          @if (creating()) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>merge_type</mat-icon> }
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="!canCreate() || creating()"
+          (click)="createMergeRequest()">
+          @if (creating()) {
+            <mat-spinner diameter="18"></mat-spinner>
+          } @else {
+            <mat-icon>merge_type</mat-icon>
+          }
           Preparar unificação
         </button>
       } @else if (mergeRequest()?.status === 'pending') {
         <button mat-button type="button" (click)="cancelMerge()">Cancelar</button>
-        <button mat-flat-button color="primary" type="button" [disabled]="confirming() || !selectedPrimaryEmail()" (click)="confirmMerge()">
-          @if (confirming()) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>check</mat-icon> }
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="confirming() || !selectedPrimaryEmail()"
+          (click)="confirmMerge()">
+          @if (confirming()) {
+            <mat-spinner diameter="18"></mat-spinner>
+          } @else {
+            <mat-icon>check</mat-icon>
+          }
           Confirmar unificação
         </button>
       } @else if (!isProcessing()) {
-        <button mat-flat-button color="primary" type="button" (click)="reset()"><mat-icon>add</mat-icon>Nova unificação</button>
+        <button mat-flat-button color="primary" type="button" (click)="reset()">
+          <mat-icon>add</mat-icon>Nova unificação
+        </button>
       }
     </mat-card-actions>
   </mat-card>

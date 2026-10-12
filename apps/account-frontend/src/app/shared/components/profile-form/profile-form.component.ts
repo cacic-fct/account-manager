@@ -535,9 +535,11 @@ export class ProfileFormComponent implements OnInit {
   }
 
   onSupportDetailsCopied(copied: boolean): void {
-    this.copyFeedback.set(copied
-      ? 'Detalhes copiados. Envie ao suporte ao pedir ajuda.'
-      : 'Não foi possível copiar. Selecione e copie os detalhes abaixo.');
+    this.copyFeedback.set(
+      copied
+        ? 'Detalhes copiados. Envie ao suporte ao pedir ajuda.'
+        : 'Não foi possível copiar. Selecione e copie os detalhes abaixo.',
+    );
   }
 
   // Public method to mark all fields as touched (for validation display)

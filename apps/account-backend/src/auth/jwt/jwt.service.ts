@@ -97,7 +97,8 @@ export class JwtService {
         realmUrl: `${this.keycloakBaseUrl}/realms/${this.realm}`,
         clientId: this.readConfigWithDevelopmentFallback('KEYCLOAK_CLIENT_ID', 'cacic-account-manager'),
         clientSecret: this.configService.get<string>('KEYCLOAK_CLIENT_SECRET'),
-        authMethod: this.configService.get<string>('KEYCLOAK_CLIENT_AUTH_METHOD') ??
+        authMethod:
+          this.configService.get<string>('KEYCLOAK_CLIENT_AUTH_METHOD') ??
           this.configService.get<string>('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD'),
         timeoutMs: this.configService.get<number>('KEYCLOAK_REQUEST_TIMEOUT_MS'),
       });

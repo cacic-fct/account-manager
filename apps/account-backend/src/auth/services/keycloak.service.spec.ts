@@ -50,7 +50,8 @@ describe('KeycloakService client roles', () => {
 
   it('checks active state before requesting login identity information', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'secret';
-    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
       .mockResolvedValueOnce(jsonResponse({ active: true }))
       .mockResolvedValueOnce(jsonResponse({ sub: 'user-1' }));
     global.fetch = fetchMock;
@@ -64,7 +65,8 @@ describe('KeycloakService client roles', () => {
 
   it('rejects an inactive login token before requesting user information', async () => {
     process.env.KEYCLOAK_CLIENT_SECRET = 'secret';
-    const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>()
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
       .mockResolvedValue(jsonResponse({ active: false }));
     global.fetch = fetchMock;
     await expect(new KeycloakService().getUserInfo('access')).rejects.toThrow('Token is not active.');

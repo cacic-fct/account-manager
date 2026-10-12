@@ -12,10 +12,7 @@ describe('LoggerService', () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     TestBed.configureTestingModule({
-      providers: [
-        LoggerService,
-        { provide: ErrorTrackingService, useValue: errorTracking },
-      ],
+      providers: [LoggerService, { provide: ErrorTrackingService, useValue: errorTracking }],
     });
 
     const service = TestBed.inject(LoggerService);

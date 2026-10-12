@@ -8,9 +8,15 @@ const packages = {
   'm2m-contracts': {
     name: '@cacic-fct/account-manager-m2m-contracts',
     requiredFiles: [
-      'index.js', 'index.d.ts', 'lib/m2m-contracts.js', 'lib/m2m-contracts.d.ts',
-      'cjs/package.json', 'cjs/index.js', 'cjs/index.d.ts',
-      'cjs/lib/m2m-contracts.js', 'cjs/lib/m2m-contracts.d.ts',
+      'index.js',
+      'index.d.ts',
+      'lib/m2m-contracts.js',
+      'lib/m2m-contracts.d.ts',
+      'cjs/package.json',
+      'cjs/index.js',
+      'cjs/index.d.ts',
+      'cjs/lib/m2m-contracts.js',
+      'cjs/lib/m2m-contracts.d.ts',
     ],
   },
   'account-privacy': {
@@ -91,7 +97,12 @@ if (presentForbiddenFiles.length > 0) {
 }
 
 if (packageKey === 'm2m-contracts') {
-  const result = spawnSync('node', ['--input-type=module', '--eval', `
+  const result = spawnSync(
+    'node',
+    [
+      '--input-type=module',
+      '--eval',
+      `
     import assert from 'node:assert/strict';
     import { createRequire } from 'node:module';
     import { readFileSync } from 'node:fs';
@@ -112,7 +123,10 @@ if (packageKey === 'm2m-contracts') {
     assert.deepEqual(esm.createDefaultPrivacySettings(), cjs.createDefaultPrivacySettings());
     assert.equal(typeof esm.CACIC_TRACKING_ROUTES.session, 'string');
     assert.ok(readFileSync(require.resolve(name + '/proto/cacic/m2m/account_manager/v1.proto'), 'utf8').includes('AccountManagerM2M'));
-  `], { cwd: packageDir, encoding: 'utf8' });
+  `,
+    ],
+    { cwd: packageDir, encoding: 'utf8' },
+  );
   if (result.error || result.status !== 0) {
     throw new Error(`Node ESM/CommonJS verification failed: ${result.error ?? result.stderr}`);
   }

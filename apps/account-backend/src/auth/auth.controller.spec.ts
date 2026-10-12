@@ -242,12 +242,17 @@ describe('AuthController logout', () => {
 
     expect(keycloakService.logout).toHaveBeenCalledWith('server-refresh-token');
     expect(keycloakService.getEndSessionUrl).toHaveBeenCalledWith('http://localhost:4200/');
-    expect(response.json).toHaveBeenCalledWith({ success: true, globalLogoutComplete: true, logoutUrl: 'https://sso.example.test/logout' });
+    expect(response.json).toHaveBeenCalledWith({
+      success: true,
+      globalLogoutComplete: true,
+      logoutUrl: 'https://sso.example.test/logout',
+    });
     expect(JSON.stringify((response.json as jest.Mock).mock.calls)).not.toContain('private-id-token');
   });
 
   it.each(['provider unavailable', 'timeout', 'invalid_grant'])(
-    'destroys the local session despite upstream logout failure: %s', async (failure) => {
+    'destroys the local session despite upstream logout failure: %s',
+    async (failure) => {
       const { controller, keycloakService } = createController();
       const session = createSession();
       session.refreshToken = 'server-refresh-token';
@@ -260,7 +265,9 @@ describe('AuthController logout', () => {
       expect(session.destroy).toHaveBeenCalled();
       expect(response.clearCookie).toHaveBeenCalledWith('connect.sid', expect.any(Object));
       expect(response.json).toHaveBeenCalledWith({
-        success: true, globalLogoutComplete: false, logoutUrl: 'https://sso.example.test/logout',
+        success: true,
+        globalLogoutComplete: false,
+        logoutUrl: 'https://sso.example.test/logout',
       });
       expect((session.destroy as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
         keycloakService.logout.mock.invocationCallOrder[0],

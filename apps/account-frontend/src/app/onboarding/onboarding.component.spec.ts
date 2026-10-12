@@ -82,7 +82,8 @@ describe('OnboardingComponent profile initialization', () => {
     userResponse.next(resolvedUser);
     fixture.detectChanges();
 
-    const form = fixture.debugElement.query(By.directive(ProfileFormComponent)).componentInstance as ProfileFormComponent;
+    const form = fixture.debugElement.query(By.directive(ProfileFormComponent))
+      .componentInstance as ProfileFormComponent;
     expect(form.personalGroup.getRawValue()).toMatchObject({
       fullname: resolvedUser.fullname,
       identityDocument: resolvedUser.identityDocument,
@@ -101,7 +102,8 @@ describe('OnboardingComponent profile initialization', () => {
     userResponse.error(new Error('User request failed'));
     fixture.detectChanges();
 
-    const form = fixture.debugElement.query(By.directive(ProfileFormComponent)).componentInstance as ProfileFormComponent;
+    const form = fixture.debugElement.query(By.directive(ProfileFormComponent))
+      .componentInstance as ProfileFormComponent;
     expect(form.personalGroup.get('fullname')?.value).toBe(cachedUser.displayName);
     expect(form.personalGroup.get('identityDocument')?.enabled).toBe(true);
   });

@@ -347,7 +347,8 @@ export class LogoutResponseDto {
   success!: boolean;
 
   @ApiProperty({
-    description: 'Whether server-side Keycloak logout was confirmed. The browser URL remains available to complete SSO logout.',
+    description:
+      'Whether server-side Keycloak logout was confirmed. The browser URL remains available to complete SSO logout.',
     example: true,
   })
   globalLogoutComplete!: boolean;

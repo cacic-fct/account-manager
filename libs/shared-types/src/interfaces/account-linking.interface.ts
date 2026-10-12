@@ -1,12 +1,5 @@
 export type AccountMergeStatus =
-  | 'pending'
-  | 'pending_score'
-  | 'processing'
-  | 'pending_merge'
-  | 'completed'
-  | 'cancelled'
-  | 'expired'
-  | 'failed';
+  'pending' | 'pending_score' | 'processing' | 'pending_merge' | 'completed' | 'cancelled' | 'expired' | 'failed';
 
 export interface AccountMergeScoreContribution {
   source: string;

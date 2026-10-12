@@ -920,7 +920,8 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Logout user',
-    description: 'Deletes the local session independently of Keycloak availability, then attempts global logout. Returns a token-free browser URL to complete SSO logout if needed.',
+    description:
+      'Deletes the local session independently of Keycloak availability, then attempts global logout. Returns a token-free browser URL to complete SSO logout if needed.',
   })
   @ApiResponse({
     status: 200,
@@ -936,7 +937,8 @@ export class AuthController {
         localSessionCleared: false,
         cookieExpired: true,
         globalLogoutComplete: false,
-        logoutUrl: 'https://sso.cacic.com.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager',
+        logoutUrl:
+          'https://sso.cacic.com.br/realms/cacic-sso/protocol/openid-connect/logout?client_id=cacic-account-manager',
       },
     },
   })
@@ -959,7 +961,7 @@ export class AuthController {
     // Local access must end even while the identity provider is unavailable.
     try {
       await new Promise<void>((resolve, reject) => {
-        session.destroy((error: unknown) => error ? reject(error) : resolve());
+        session.destroy((error: unknown) => (error ? reject(error) : resolve()));
       });
       localSessionCleared = true;
     } catch (error) {

@@ -89,9 +89,13 @@ export class AccountLinkingApiService {
   }
 
   cancelAdminAccountMerge(id: string): Observable<{ success: true }> {
-    return this.http.post<{ success: true }>(`${this.baseUrl}/admin/account-merges/${id}/cancel`, {}, {
-      withCredentials: true,
-    });
+    return this.http.post<{ success: true }>(
+      `${this.baseUrl}/admin/account-merges/${id}/cancel`,
+      {},
+      {
+        withCredentials: true,
+      },
+    );
   }
 
   private createMergeRequestEventStream(url: string): Observable<AccountMergeRequestDelta> {

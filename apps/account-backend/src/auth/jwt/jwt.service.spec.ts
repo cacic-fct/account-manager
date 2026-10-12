@@ -30,23 +30,34 @@ describe('JwtService token introspection', () => {
     fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ active: true })));
     global.fetch = fetchMock;
   });
-  afterEach(() => { global.fetch = originalFetch; jest.restoreAllMocks(); });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
 
   function signedToken(exp = Math.floor(Date.now() / 1000) + 120) {
-    return sign({
-      sub: 'service-account-user',
-      iss: baseConfig.KEYCLOAK_URL + '/realms/cacic-sso',
-      aud: baseConfig.KEYCLOAK_M2M_AUDIENCE,
-      azp: 'cacic-event-manager-m2m',
-      exp,
-    }, keys.privateKey, { algorithm: 'RS256', keyid: 'test-key' });
+    return sign(
+      {
+        sub: 'service-account-user',
+        iss: baseConfig.KEYCLOAK_URL + '/realms/cacic-sso',
+        aud: baseConfig.KEYCLOAK_M2M_AUDIENCE,
+        azp: 'cacic-event-manager-m2m',
+        exp,
+      },
+      keys.privateKey,
+      { algorithm: 'RS256', keyid: 'test-key' },
+    );
   }
 
   function service() {
-    const instance = new JwtService(createConfigService({
-      KEYCLOAK_CLIENT_ID: 'cacic-account-manager', KEYCLOAK_CLIENT_SECRET: 'secret',
-    }));
-    jest.spyOn(instance as unknown as { getSigningKey(kid: string): Promise<string> }, 'getSigningKey')
+    const instance = new JwtService(
+      createConfigService({
+        KEYCLOAK_CLIENT_ID: 'cacic-account-manager',
+        KEYCLOAK_CLIENT_SECRET: 'secret',
+      }),
+    );
+    jest
+      .spyOn(instance as unknown as { getSigningKey(kid: string): Promise<string> }, 'getSigningKey')
       .mockResolvedValue(keys.publicKey.export({ type: 'spki', format: 'pem' }).toString());
     return instance;
   }
@@ -54,7 +65,8 @@ describe('JwtService token introspection', () => {
   it('requires both a verified JWT and active introspection for M2M requests', async () => {
     await expect(service().validateToken(signedToken())).resolves.toMatchObject({ sub: 'service-account-user' });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://sso.example.test/realms/cacic-sso/protocol/openid-connect/token/introspect', expect.any(Object),
+      'https://sso.example.test/realms/cacic-sso/protocol/openid-connect/token/introspect',
+      expect.any(Object),
     );
   });
 
@@ -66,8 +78,9 @@ describe('JwtService token introspection', () => {
   });
 
   it('rejects expired JWTs before introspection', async () => {
-    await expect(service().validateToken(signedToken(Math.floor(Date.now() / 1000) - 120)))
-      .rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service().validateToken(signedToken(Math.floor(Date.now() / 1000) - 120))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

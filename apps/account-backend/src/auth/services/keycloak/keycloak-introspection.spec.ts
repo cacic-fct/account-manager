@@ -15,10 +15,13 @@ describe('Keycloak access-token introspection', () => {
     global.fetch = fetchMock;
   });
 
-  afterEach(() => { global.fetch = originalFetch; });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
 
   it.each(['client_secret_basic', 'client_secret_post'])(
-    'checks active state with %s authentication', async (authMethod) => {
+    'checks active state with %s authentication',
+    async (authMethod) => {
       await expect(assertKeycloakAccessTokenActive('access', { ...options, authMethod })).resolves.toBeUndefined();
       expect(fetchMock).toHaveBeenCalledWith(
         `${options.realmUrl}/protocol/openid-connect/token/introspect`,
@@ -39,25 +42,36 @@ describe('Keycloak access-token introspection', () => {
     },
   );
 
-  it.each([{ active: false }, {}, { active: 'true' }, null])('rejects inactive or malformed responses: %p', async (data) => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify(data)));
-    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(UnauthorizedException);
-  });
+  it.each([{ active: false }, {}, { active: 'true' }, null])(
+    'rejects inactive or malformed responses: %p',
+    async (data) => {
+      fetchMock.mockResolvedValue(new Response(JSON.stringify(data)));
+      await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(UnauthorizedException);
+    },
+  );
 
   it('fails closed for network errors, HTTP failures, and invalid JSON', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network'));
-    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
-    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
     fetchMock.mockResolvedValueOnce(new Response('invalid JSON'));
-    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 
   it('requires a confidential introspection client', async () => {
-    await expect(assertKeycloakAccessTokenActive('access', { ...options, clientSecret: undefined }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-    await expect(assertKeycloakAccessTokenActive('access', { ...options, authMethod: 'none' }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(
+      assertKeycloakAccessTokenActive('access', { ...options, clientSecret: undefined }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(assertKeycloakAccessTokenActive('access', { ...options, authMethod: 'none' })).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -50,7 +50,9 @@ function validationMessage(error: HttpErrorResponse): string {
     'User is missing required email information':
       'Não foi possível confirmar o e-mail da sua conta. Peça ajuda ao suporte.',
   };
-  const knownMessage = messages.map((item) => Object.hasOwn(knownMessages, item) ? knownMessages[item] : undefined).find(Boolean);
+  const knownMessage = messages
+    .map((item) => (Object.hasOwn(knownMessages, item) ? knownMessages[item] : undefined))
+    .find(Boolean);
   if (knownMessage) return knownMessage;
 
   // Only field names are shown; arbitrary server text may contain personal data.

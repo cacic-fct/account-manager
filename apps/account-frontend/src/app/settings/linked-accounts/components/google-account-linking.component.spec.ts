@@ -22,7 +22,13 @@ const mergeRequest: AccountMergeRequest = {
   notificationSummary: { pending: 1, completed: 0, failed: 0 },
   scores: [
     { userId: 'primary-user', email: 'primary@example.com', displayName: 'Primary', score: 120, contributions: [] },
-    { userId: 'secondary-user', email: 'secondary@example.com', displayName: 'Secondary', score: -5, contributions: [] },
+    {
+      userId: 'secondary-user',
+      email: 'secondary@example.com',
+      displayName: 'Secondary',
+      score: -5,
+      contributions: [],
+    },
   ],
   externalScores: [],
   expiresAt: '2026-07-24T12:00:00.000Z',
@@ -116,18 +122,18 @@ describe('GoogleAccountLinkingComponent', () => {
     const component = fixture.componentInstance as unknown as Harness;
     expect(component.isLoading()).toBe(false);
     expect(snackBar.open).toHaveBeenCalledWith('Não foi possível vincular a conta Google.', 'OK', { duration: 7000 });
-    expect(snackBar.open).toHaveBeenCalledWith('Solicitação de unificação expirada ou inválida.', 'OK', { duration: 7000 });
+    expect(snackBar.open).toHaveBeenCalledWith('Solicitação de unificação expirada ou inválida.', 'OK', {
+      duration: 7000,
+    });
 
     component.mergeRequest.set(mergeRequest);
     component.selectedPrimaryEmail.set(mergeRequest.primaryEmailOptions[0]);
     apiService.watchAccountMergeRequest.mockReturnValue(throwError(() => new Error('stream unavailable')));
     component.confirmMerge();
 
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Não foi possível acompanhar a unificação em tempo real.',
-      'OK',
-      { duration: 7000 },
-    );
+    expect(snackBar.open).toHaveBeenCalledWith('Não foi possível acompanhar a unificação em tempo real.', 'OK', {
+      duration: 7000,
+    });
     expect(snackBar.open).toHaveBeenCalledWith(
       'Não foi possível recuperar o status da unificação.',
       'Tentar novamente',
@@ -147,7 +153,9 @@ describe('GoogleAccountLinkingComponent', () => {
 
     component.confirmMerge();
 
-    expect(apiService.confirmAccountMerge).toHaveBeenCalledWith(mergeRequest.id, { primaryEmail: 'primary@example.com' });
+    expect(apiService.confirmAccountMerge).toHaveBeenCalledWith(mergeRequest.id, {
+      primaryEmail: 'primary@example.com',
+    });
     expect(component.isConfirming()).toBe(false);
     expect(component.primaryScore()?.email).toBe('primary@example.com');
     expect(component.secondaryScore()?.email).toBe('secondary@example.com');

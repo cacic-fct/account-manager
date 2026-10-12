@@ -58,18 +58,21 @@ describe('ProfileFormComponent', () => {
     await fixture.componentInstance.submitProfile();
 
     expect(updateProfile).toHaveBeenCalledOnce();
-    expect(updateProfile).toHaveBeenCalledWith(expect.objectContaining({
-      identityDocument: 'P1234567',
-      isForeigner: true,
-      passportCountry: 'AR',
-    }));
+    expect(updateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identityDocument: 'P1234567',
+        isForeigner: true,
+        passportCountry: 'AR',
+      }),
+    );
   });
 
   it('keeps entered data after a failure and clears the notice after a successful retry', async () => {
     const user = { id: 'user-id' } as User;
     const updateCurrentUser = vi.fn();
     const failure = new HttpErrorResponse({ status: 503, error: { message: 'private server details' } });
-    const updateProfile = vi.fn()
+    const updateProfile = vi
+      .fn()
       .mockReturnValueOnce(throwError(() => failure))
       .mockReturnValueOnce(of(user));
 

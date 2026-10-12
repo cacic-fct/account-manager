@@ -9,8 +9,7 @@ export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {
     const headers: { [key: string]: string } = {};
 
     if (req.body !== null && req.body !== undefined && !(req.body instanceof FormData)) {
-      const isJsonBody =
-        Array.isArray(req.body) || Object.prototype.toString.call(req.body) === '[object Object]';
+      const isJsonBody = Array.isArray(req.body) || Object.prototype.toString.call(req.body) === '[object Object]';
 
       if (isJsonBody) {
         headers['Content-Type'] = 'application/json';

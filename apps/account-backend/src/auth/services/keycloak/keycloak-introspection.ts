@@ -44,7 +44,12 @@ export async function assertKeycloakAccessTokenActive(
     throw new ServiceUnavailableException('Keycloak authentication is temporarily unavailable.');
   }
 
-  if (!introspection || typeof introspection !== 'object' || !('active' in introspection) || introspection.active !== true) {
+  if (
+    !introspection ||
+    typeof introspection !== 'object' ||
+    !('active' in introspection) ||
+    introspection.active !== true
+  ) {
     throw new UnauthorizedException('Token is not active.');
   }
 }

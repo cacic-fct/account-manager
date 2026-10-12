@@ -57,7 +57,8 @@ describe('describeProfileSaveError', () => {
   });
 
   it('directs immutable identity changes to support without repeating backend details', () => {
-    const backendMessage = 'Nome completo não pode ser alterado após verificação por documento. Entre em contato com o suporte se necessário.';
+    const backendMessage =
+      'Nome completo não pode ser alterado após verificação por documento. Entre em contato com o suporte se necessário.';
     const result = describeProfileSaveError(
       new HttpErrorResponse({ status: 400, error: { message: backendMessage } }),
       true,
@@ -106,15 +107,20 @@ describe('unrecognized profile validation responses', () => {
     'uses generic guidance for %s',
     (body) => {
       const result = describeProfileSaveError(new HttpErrorResponse({ status: 422, error: body }), false);
-      expect(result.message).toBe('Alguns dados não foram aceitos. Confira os campos do formulário e tente salvar novamente.');
+      expect(result.message).toBe(
+        'Alguns dados não foram aceitos. Confira os campos do formulário e tente salvar novamente.',
+      );
     },
   );
 
   it('lists all missing fields with Portuguese labels', () => {
-    const result = describeProfileSaveError(new HttpErrorResponse({
-      status: 400,
-      error: { message: 'Missing required fields: fullname, phone, identityDocument' },
-    }), false);
+    const result = describeProfileSaveError(
+      new HttpErrorResponse({
+        status: 400,
+        error: { message: 'Missing required fields: fullname, phone, identityDocument' },
+      }),
+      false,
+    );
     expect(result.message).toContain('nome completo, telefone, CPF ou passaporte');
   });
 });

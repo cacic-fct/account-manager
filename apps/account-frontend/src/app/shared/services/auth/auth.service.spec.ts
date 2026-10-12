@@ -172,7 +172,9 @@ describe('AuthService password login', () => {
   it('clears the user after local logout even when global logout is incomplete', () => {
     const service = TestBed.inject(AuthService);
     service.updateCurrentUser(currentUser);
-    apiService.logout.mockReturnValue(of({ success: true, globalLogoutComplete: false, logoutUrl: 'https://sso.test/logout' }));
+    apiService.logout.mockReturnValue(
+      of({ success: true, globalLogoutComplete: false, logoutUrl: 'https://sso.test/logout' }),
+    );
 
     service.logout();
 
@@ -185,9 +187,20 @@ describe('AuthService password login', () => {
   it('clears the browser identity when the server expires its cookie despite a store failure', () => {
     const service = TestBed.inject(AuthService);
     service.updateCurrentUser(currentUser);
-    apiService.logout.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503, error: {
-      success: false, cookieExpired: true, globalLogoutComplete: false, logoutUrl: 'https://sso.test/logout',
-    } })));
+    apiService.logout.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 503,
+            error: {
+              success: false,
+              cookieExpired: true,
+              globalLogoutComplete: false,
+              logoutUrl: 'https://sso.test/logout',
+            },
+          }),
+      ),
+    );
 
     service.logout();
 

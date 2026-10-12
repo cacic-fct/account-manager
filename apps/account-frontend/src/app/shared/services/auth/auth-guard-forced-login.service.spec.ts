@@ -32,9 +32,7 @@ describe('AuthGuardWithForcedLogin', () => {
     });
 
     const guard = TestBed.inject(AuthGuardWithForcedLogin);
-    const allowed = await firstValueFrom(
-      guard.canActivate({} as never, { url: '/applications' } as never),
-    );
+    const allowed = await firstValueFrom(guard.canActivate({} as never, { url: '/applications' } as never));
 
     expect(allowed).toBe(false);
     expect(routeCache.getUserForRouteGuard).toHaveBeenCalledWith(true);

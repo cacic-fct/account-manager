@@ -62,11 +62,7 @@ bun add @cacic-fct/account-manager-m2m-contracts
 ```
 
 ```ts
-import {
-  M2M_PRIVACY_ROLES,
-  M2M_USER_ROLES,
-  PRIVACY_SETTING_TYPES,
-} from '@cacic-fct/account-manager-m2m-contracts';
+import { M2M_PRIVACY_ROLES, M2M_USER_ROLES, PRIVACY_SETTING_TYPES } from '@cacic-fct/account-manager-m2m-contracts';
 
 const requiredRole = M2M_PRIVACY_ROLES.WRITE;
 const usersRequiredRole = M2M_USER_ROLES.READ;

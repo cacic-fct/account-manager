@@ -62,7 +62,9 @@ describe('AccountLinkingApiService', () => {
     createRequest.flush({ id: 'merge-request' });
 
     service.getAdminAccountMergeRequest('merge-request').subscribe();
-    httpTesting.expectOne((request) => request.url.endsWith('/admin/account-merges/merge-request')).flush({ id: 'merge-request' });
+    httpTesting
+      .expectOne((request) => request.url.endsWith('/admin/account-merges/merge-request'))
+      .flush({ id: 'merge-request' });
 
     service.confirmAdminAccountMerge('merge-request', confirmation).subscribe();
     httpTesting
@@ -70,7 +72,9 @@ describe('AccountLinkingApiService', () => {
       .flush({ request: { id: 'merge-request' } });
 
     service.cancelAdminAccountMerge('merge-request').subscribe();
-    httpTesting.expectOne((request) => request.url.endsWith('/admin/account-merges/merge-request/cancel')).flush({ success: true });
+    httpTesting
+      .expectOne((request) => request.url.endsWith('/admin/account-merges/merge-request/cancel'))
+      .flush({ success: true });
     httpTesting.verify();
   });
 
@@ -91,7 +95,9 @@ describe('AccountLinkingApiService', () => {
   it('stops reconnecting after five consecutive stream failures and resets after an update', () => {
     const service = TestBed.inject(AccountLinkingApiService);
     const errors: Error[] = [];
-    const stream = (service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> })
+    const stream = (
+      service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> }
+    )
       .createMergeRequestEventStream('/events')
       .subscribe({ error: (error: Error) => errors.push(error) });
     const eventSource = getEventSource();
@@ -116,7 +122,9 @@ describe('AccountLinkingApiService', () => {
   it('resets transient stream failures as soon as EventSource reconnects', () => {
     const service = TestBed.inject(AccountLinkingApiService);
     const errors: Error[] = [];
-    const stream = (service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> })
+    const stream = (
+      service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> }
+    )
       .createMergeRequestEventStream('/events')
       .subscribe({ error: (error: Error) => errors.push(error) });
     const eventSource = getEventSource();
@@ -132,7 +140,9 @@ describe('AccountLinkingApiService', () => {
   it('immediately fails when the EventSource has closed permanently', () => {
     const service = TestBed.inject(AccountLinkingApiService);
     const errors: Event[] = [];
-    const stream = (service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> })
+    const stream = (
+      service as unknown as { createMergeRequestEventStream(url: string): import('rxjs').Observable<unknown> }
+    )
       .createMergeRequestEventStream('/events')
       .subscribe({ error: (error: Event) => errors.push(error) });
     const eventSource = getEventSource();

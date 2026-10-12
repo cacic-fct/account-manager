@@ -113,28 +113,31 @@ export class OnboardingComponent implements OnInit {
     }
 
     // Load the current user data from cache first, then backend if needed
-    this.apiService.getCurrentUser().pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (currentUser) => {
-        this.logger.debug('Loaded current user data from backend');
+    this.apiService
+      .getCurrentUser()
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (currentUser) => {
+          this.logger.debug('Loaded current user data from backend');
 
-        // Update auth service with fresh user data
-        this.authService.updateCurrentUser(currentUser);
+          // Update auth service with fresh user data
+          this.authService.updateCurrentUser(currentUser);
 
-        // Double-check onboarding status after getting fresh data
-        if (currentUser.isOnboarded) {
-          this.logger.debug('User is already onboarded according to backend data, redirecting to applications');
-          this.router.navigateByUrl('/applications');
-          return;
-        }
+          // Double-check onboarding status after getting fresh data
+          if (currentUser.isOnboarded) {
+            this.logger.debug('User is already onboarded according to backend data, redirecting to applications');
+            this.router.navigateByUrl('/applications');
+            return;
+          }
 
-        this.profileDataReady.set(true);
-      },
-      error: (error) => {
-        this.logger.error('Error loading current user', error);
-        // Fallback continues with cached user data from initialFormData computed
-        this.profileDataReady.set(true);
-      },
-    });
+          this.profileDataReady.set(true);
+        },
+        error: (error) => {
+          this.logger.error('Error loading current user', error);
+          // Fallback continues with cached user data from initialFormData computed
+          this.profileDataReady.set(true);
+        },
+      });
   }
 
   sectionIndex = signal(0);

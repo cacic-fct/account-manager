@@ -352,5 +352,4 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
         return 'help';
     }
   }
-
 }

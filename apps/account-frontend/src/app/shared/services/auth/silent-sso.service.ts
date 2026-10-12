@@ -27,10 +27,7 @@ export class SilentSsoService {
     }
 
     const completionUrl = new URL('silent-check-sso.html', this.getBaseUrl(window));
-    const authorizationUrl = new URL(
-      this.apiService.getSilentLoginUrl(completionUrl.pathname),
-      window.location.origin,
-    );
+    const authorizationUrl = new URL(this.apiService.getSilentLoginUrl(completionUrl.pathname), window.location.origin);
 
     return new Promise<SilentSsoResult>((resolve, reject) => {
       const iframe = this.document.createElement('iframe');
@@ -72,10 +69,7 @@ export class SilentSsoService {
         cleanup();
         resolve(resultUrl.searchParams.get('sso') === 'none' ? 'unauthenticated' : 'authenticated');
       };
-      const timeoutId = window.setTimeout(
-        () => fail(new Error('Silent SSO check timed out.')),
-        this.timeoutMs,
-      );
+      const timeoutId = window.setTimeout(() => fail(new Error('Silent SSO check timed out.')), this.timeoutMs);
 
       iframe.addEventListener('error', () => fail(new Error('Silent SSO iframe failed to load.')), { once: true });
       window.addEventListener('message', handleMessage);
