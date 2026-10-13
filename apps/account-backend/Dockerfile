@@ -1,11 +1,6 @@
 FROM oven/bun:1-alpine AS bun
 
-FROM node:22-alpine AS base
-
-ENV BUN_INSTALL=/usr/local \
-    PUPPETEER_SKIP_DOWNLOAD=true
-
-COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+FROM node:26-alpine AS base
 
 WORKDIR /workspace
 
@@ -13,7 +8,14 @@ RUN apk add --no-cache \
       ca-certificates \
       openssl
 
-FROM base AS deps
+FROM base AS build-base
+
+ENV BUN_INSTALL=/usr/local \
+    PUPPETEER_SKIP_DOWNLOAD=true
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+
+FROM build-base AS deps
 
 COPY package.json bun.lock ./
 
@@ -41,7 +43,7 @@ COPY libs ./libs
 
 RUN NODE_ENV=production bun x nx run account-backend:build
 
-FROM base AS production-deps
+FROM build-base AS production-deps
 
 WORKDIR /workspace
 
@@ -53,7 +55,6 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile --production
 
 COPY --from=prisma-deps /workspace/node_modules/.prisma ./node_modules/.prisma
-COPY --from=prisma-deps /workspace/node_modules/@prisma ./node_modules/@prisma
 
 COPY apps/account-backend/prisma.config.ts ./apps/account-backend/prisma.config.ts
 COPY apps/account-backend/prisma ./apps/account-backend/prisma
@@ -61,18 +62,24 @@ COPY apps/account-backend/prisma ./apps/account-backend/prisma
 FROM base AS runtime
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
 RUN apk add --no-cache \
       curl \
       dumb-init \
-      openssl \
       python3 \
-      py3-pip \
     && addgroup -S app \
     && adduser -S -G app -h /app app
+
+# Install and remove pip in the same layer so it is not shipped in the image.
+COPY apps/account-backend/scripts/requirements.txt ./scripts/requirements.txt
+
+RUN apk add --no-cache --virtual .python-build-deps py3-pip \
+    && python3 -m pip install --no-cache-dir --no-compile -r scripts/requirements.txt --break-system-packages \
+    && apk del .python-build-deps
 
 COPY --from=production-deps --chown=app:app /workspace/node_modules ./node_modules
 
@@ -81,9 +88,6 @@ COPY --from=production-deps --chown=app:app /workspace/apps/account-backend/pris
 
 COPY --from=builder --chown=app:app /workspace/apps/account-backend/dist ./
 COPY --from=builder --chown=app:app /workspace/apps/account-backend/scripts ./scripts
-
-# Install Python dependencies
-RUN python3 -m pip install --no-cache-dir -r scripts/requirements.txt --break-system-packages
 
 USER app
 
