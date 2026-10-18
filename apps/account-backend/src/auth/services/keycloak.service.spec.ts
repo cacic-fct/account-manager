@@ -87,14 +87,15 @@ describe('KeycloakService client roles', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
-    if (!(requestBody instanceof URLSearchParams)) {
-      throw new Error('Expected logout request body to be URLSearchParams.');
+    if (typeof requestBody !== 'string') {
+      throw new Error('Expected logout request body to be a form-encoded string.');
     }
 
-    const payload = requestBody;
+    const payload = new URLSearchParams(requestBody);
     expect(payload.get('refresh_token')).toBe('private-refresh-token');
     expect(payload.has('id_token_hint')).toBe(false);
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get('Content-Type')).toBe('application/x-www-form-urlencoded');
     expect(headers.get('Authorization')).toMatch(/^Basic /);
   });
 

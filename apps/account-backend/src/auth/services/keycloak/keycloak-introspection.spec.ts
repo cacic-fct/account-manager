@@ -28,11 +28,12 @@ describe('Keycloak access-token introspection', () => {
       expect(request?.method).toBe('POST');
       expect(request?.signal).toBeInstanceOf(AbortSignal);
       const requestBody = request?.body;
-      if (!(requestBody instanceof URLSearchParams)) {
-        throw new Error('Expected introspection request body to be URLSearchParams.');
+      if (typeof requestBody !== 'string') {
+        throw new Error('Expected introspection request body to be a form-encoded string.');
       }
 
-      const body = requestBody;
+      const body = new URLSearchParams(requestBody);
+      expect(new Headers(request?.headers).get('Content-Type')).toBe('application/x-www-form-urlencoded');
       expect(body.get('token')).toBe('access');
       expect(body.get('token_type_hint')).toBe('access_token');
       if (authMethod === 'client_secret_basic') {
