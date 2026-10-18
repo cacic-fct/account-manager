@@ -98,8 +98,8 @@ RUN cd /app/apps/account-backend \
 
 EXPOSE 3000 50051
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl --fail --silent --show-error http://127.0.0.1:3000/api/health >/dev/null || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+  CMD curl --fail-with-body --silent --show-error --max-time 4 http://127.0.0.1:3000/api/health/live || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "main.js"]
