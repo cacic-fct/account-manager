@@ -961,7 +961,11 @@ export class AuthController {
     // Local access must end even while the identity provider is unavailable.
     try {
       await new Promise<void>((resolve, reject) => {
-        session.destroy((error: unknown) => (error ? reject(error) : resolve()));
+        session.destroy((error: unknown) =>
+          error
+            ? reject(error instanceof Error ? error : new Error('Session destruction failed', { cause: error }))
+            : resolve(),
+        );
       });
       localSessionCleared = true;
     } catch (error) {

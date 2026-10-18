@@ -23,12 +23,16 @@ describe('Keycloak access-token introspection', () => {
     'checks active state with %s authentication',
     async (authMethod) => {
       await expect(assertKeycloakAccessTokenActive('access', { ...options, authMethod })).resolves.toBeUndefined();
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${options.realmUrl}/protocol/openid-connect/token/introspect`,
-        expect.objectContaining({ method: 'POST', signal: expect.any(AbortSignal) }),
-      );
-      const request = fetchMock.mock.calls[0][1];
-      const body = new URLSearchParams(String(request?.body));
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(`${options.realmUrl}/protocol/openid-connect/token/introspect`);
+      const request = fetchMock.mock.calls[0]?.[1];
+      expect(request?.method).toBe('POST');
+      expect(request?.signal).toBeInstanceOf(AbortSignal);
+      const requestBody = request?.body;
+      if (!(requestBody instanceof URLSearchParams)) {
+        throw new Error('Expected introspection request body to be URLSearchParams.');
+      }
+
+      const body = requestBody;
       expect(body.get('token')).toBe('access');
       expect(body.get('token_type_hint')).toBe('access_token');
       if (authMethod === 'client_secret_basic') {

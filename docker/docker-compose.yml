@@ -33,19 +33,23 @@ services:
     restart: unless-stopped
 
   cacic-account-manager-backend-migrate:
-    image: cacic-account-manager-backend:${IMAGE_TAG:-local}
+    image: &account-backend-image cacic-account-manager-backend:${IMAGE_TAG:-local}
     build:
       context: ..
       dockerfile: apps/account-backend/Dockerfile
-    env_file:
-      - ../apps/account-backend/.env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@cacic-db:5432/postgres?schema=public}
+    working_dir: /app/apps/account-backend
     command:
-      - sh
-      - -c
-      - cd /app/apps/account-backend && ../../node_modules/.bin/prisma migrate deploy --config prisma.config.ts
+      - node
+      - /app/node_modules/prisma/build/index.js
+      - migrate
+      - deploy
+      - --config
+      - /app/apps/account-backend/prisma.config.ts
+    healthcheck:
+      disable: true
     depends_on:
       cacic-db:
         condition: service_healthy
@@ -54,7 +58,7 @@ services:
       - postgres_network
 
   cacic-account-manager-backend:
-    image: cacic-account-manager-backend:${IMAGE_TAG:-local}
+    image: *account-backend-image
     build:
       context: ..
       dockerfile: apps/account-backend/Dockerfile

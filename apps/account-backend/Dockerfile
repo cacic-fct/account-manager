@@ -91,6 +91,11 @@ COPY --from=builder --chown=app:app /workspace/apps/account-backend/scripts ./sc
 
 USER app
 
+RUN cd /app/apps/account-backend \
+    && DATABASE_URL="postgresql://user:password@localhost:5432/db?schema=public" \
+      node /app/node_modules/prisma/build/index.js validate --config /app/apps/account-backend/prisma.config.ts \
+    && node /app/node_modules/prisma/build/index.js migrate deploy --help >/dev/null
+
 EXPOSE 3000 50051
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

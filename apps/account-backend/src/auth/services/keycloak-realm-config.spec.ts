@@ -37,17 +37,14 @@ describe('Keycloak realm introspection audience', () => {
       entry: realm.clientScopes.find((scope) => scope.name === 'cacic-account-manager-audience'),
     },
   ])('includes the receiving backend in tokens from $name', ({ audience, entry }) => {
-    expect(entry?.protocolMappers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          protocolMapper: 'oidc-audience-mapper',
-          config: expect.objectContaining({
-            'included.client.audience': audience,
-            'access.token.claim': 'true',
-            'id.token.claim': 'false',
-          }),
-        }),
-      ]),
+    const includesAudienceMapper = entry?.protocolMappers?.some(
+      ({ protocolMapper, config }) =>
+        protocolMapper === 'oidc-audience-mapper' &&
+        config['included.client.audience'] === audience &&
+        config['access.token.claim'] === 'true' &&
+        config['id.token.claim'] === 'false',
     );
+
+    expect(includesAudienceMapper).toBe(true);
   });
 });

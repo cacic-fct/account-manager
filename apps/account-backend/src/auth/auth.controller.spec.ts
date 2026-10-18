@@ -258,12 +258,13 @@ describe('AuthController logout', () => {
       session.refreshToken = 'server-refresh-token';
       session.destroy = jest.fn((callback) => callback());
       keycloakService.logout.mockRejectedValue(new Error(failure));
-      const response = { clearCookie: jest.fn(), json: jest.fn() } as unknown as Response;
+      const clearCookie = jest.fn();
+      const response = { clearCookie, json: jest.fn() } as unknown as Response;
 
       await controller.logout(session, undefined, response);
 
       expect(session.destroy).toHaveBeenCalled();
-      expect(response.clearCookie).toHaveBeenCalledWith('connect.sid', expect.any(Object));
+      expect(clearCookie).toHaveBeenCalledWith('connect.sid', expect.any(Object));
       expect(response.json).toHaveBeenCalledWith({
         success: true,
         globalLogoutComplete: false,

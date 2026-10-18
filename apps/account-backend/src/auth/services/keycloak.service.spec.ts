@@ -86,7 +86,12 @@ describe('KeycloakService client roles', () => {
       'https://sso.example.test/realms/cacic/protocol/openid-connect/logout',
       expect.objectContaining({ method: 'POST' }),
     );
-    const payload = new URLSearchParams(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (!(requestBody instanceof URLSearchParams)) {
+      throw new Error('Expected logout request body to be URLSearchParams.');
+    }
+
+    const payload = requestBody;
     expect(payload.get('refresh_token')).toBe('private-refresh-token');
     expect(payload.has('id_token_hint')).toBe(false);
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
