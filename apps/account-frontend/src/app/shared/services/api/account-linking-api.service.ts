@@ -10,6 +10,7 @@ import type {
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
 } from '@cacic/shared-types';
+import { AccountEventsService } from '../account-events.service';
 import { CacheService } from '../cache.service';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_KEYS } from './api-cache.constants';
@@ -22,6 +23,7 @@ export class AccountLinkingApiService {
   private http = inject(HttpClient);
   private cacheService = inject(CacheService);
   private authApi = inject(AuthApiService);
+  private readonly accountEvents = inject(AccountEventsService);
 
   startGoogleAccountLinking(): Observable<AccountLinkingStartUrl> {
     return this.http.post<AccountLinkingStartUrl>(
@@ -52,6 +54,7 @@ export class AccountLinkingApiService {
         tap(() => {
           this.authApi.clearAuthCache();
           this.cacheService.invalidate(API_CACHE_KEYS.DISCORD_STATUS);
+          this.accountEvents.notifyDiscordChanged();
         }),
       );
   }

@@ -39,3 +39,18 @@ export const WithoutLogo: Story = {
     },
   },
 };
+
+export const Unavailable: Story = {
+  args: { app: { ...mockApplication, enabled: false } },
+};
+
+export const LongContent: Story = {
+  args: {
+    app: {
+      ...mockApplication,
+      name: 'Portal de atividades acadêmicas e projetos de extensão',
+      description:
+        'Consulte inscrições e certificados das atividades de extensão universitária disponíveis para sua comunidade.',
+    },
+  },
+};

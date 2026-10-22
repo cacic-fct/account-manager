@@ -1,5 +1,7 @@
+import { http, HttpResponse } from 'msw';
 import type { Meta, StoryObj } from '@storybook/angular';
 
+import { mockDiscordStatusLinked } from '../../../../storybook/mocks/component-mocks';
 import { DiscordIntegrationCardComponent } from './discord-integration-card.component';
 import { authHandlers, discordHandlers } from '../../../../storybook/mocks/msw-handlers';
 
@@ -35,6 +37,29 @@ export const Loading: Story = {
   parameters: {
     msw: {
       handlers: [authHandlers.csrf, discordHandlers.delayed],
+    },
+  },
+};
+
+export const Error: Story = {
+  parameters: { msw: { handlers: [http.get('*/discord/status', () => new HttpResponse(null, { status: 503 }))] } },
+};
+
+export const LongAccountName: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.get('*/discord/status', () =>
+          HttpResponse.json({
+            ...mockDiscordStatusLinked,
+            discordLinks: mockDiscordStatusLinked.discordLinks?.map((link) => ({
+              ...link,
+              discordGlobalName: 'João Pedro de Oliveira e Silva',
+              discordUsername: 'joao.pedro.oliveira.silva',
+            })),
+          }),
+        ),
+      ],
     },
   },
 };

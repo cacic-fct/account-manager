@@ -1,16 +1,18 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
+import { NgOptimizedImage } from '@angular/common';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import type { Application } from '@cacic/shared-types';
 
-export const DEFAULT_APPLICATION_ICON_URL = '/app/assets/default-app-icon.svg';
+export const DEFAULT_APPLICATION_ICON_URL = 'assets/default-app-icon.svg';
 
 @Component({
   selector: 'app-card',
   templateUrl: './app-card.component.html',
   styleUrls: ['./app-card.component.scss'],
-  imports: [MatCard, MatCardContent, MatCardActions, MatButton, MatIcon],
+  imports: [MatCard, MatCardContent, MatCardActions, MatButton, MatIcon, NgOptimizedImage],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppCardComponent {
   app = input.required<Application>();
@@ -30,10 +32,14 @@ export class AppCardComponent {
     }
   }
 
-  openApp(): void {
-    const application = this.app();
-    if (application.url) {
-      window.open(application.url, '_blank', 'noopener,noreferrer');
+  readonly destination = computed(() => {
+    try {
+      const url = new URL(this.app().url ?? '');
+      return ['https:', 'http:'].includes(url.protocol) ? url : null;
+    } catch {
+      return null;
     }
-  }
+  });
+
+  readonly canOpen = computed(() => this.app().enabled && !!this.destination());
 }

@@ -1,76 +1,135 @@
-<mat-toolbar class="toolbar">
-  <app-cacic-logo class="logo" fillColor="light-dark(#000, #fff)" />
-  <h1 class="title">Conta</h1>
-  <span class="spacer"></span>
-
-  <div class="user-info">
-    <button matIconButton [matMenuTriggerFor]="menu" class="avatar-btn" aria-label="Abrir menu do usuário">
-      @if (currentUser()?.picture; as userPicture) {
-        <img [ngSrc]="userPicture" class="avatar" fill="true" alt="Avatar do usuário" priority />
-      } @else {
-        <mat-icon class="avatar">account_circle</mat-icon>
-      }
-    </button>
-  </div>
-
-  <mat-menu #menu="matMenu">
-    <div class="menu-header">
-      <div class="user-details">
-        <span class="user-name">{{ userDisplayName() }}</span>
-        <br />
-        <span class="user-email">{{ currentUser()?.email }}</span>
-      </div>
-    </div>
-    <mat-divider></mat-divider>
-    @if (isAdmin()) {
-      <button mat-menu-item routerLink="/admin">
-        <mat-icon>admin_panel_settings</mat-icon>
-        Administração
-      </button>
-    }
-    <button mat-menu-item routerLink="/settings">
-      <mat-icon>settings</mat-icon>
-      Opções
-    </button>
-    <button mat-menu-item (click)="logout()">
-      <mat-icon>logout</mat-icon>
-      Sair
-    </button>
-  </mat-menu>
-</mat-toolbar>
-
-<div class="container">
-  <section>
-    <h2>Meus aplicativos</h2>
-
-    @if (isLoading()) {
-      <div class="loading-container">
-        <mat-spinner></mat-spinner>
-        <p>Carregando...</p>
-      </div>
-    }
-
-    @if (!isLoading() && applications().length === 0) {
-      <div class="no-apps-container">
-        <mat-icon class="no-apps-icon">apps</mat-icon>
-        <h3>Nenhum aplicativo disponível</h3>
-        <p>Entre em contato com o CACiC se precisar de acesso a aplicativos específicos.</p>
-      </div>
-    }
-
-    @if (!isLoading() && applications().length > 0) {
-      <div class="app-grid">
-        @for (app of applications(); track app.id) {
-          <app-card [app]="app" />
+<a class="skip-link" href="#applications-content" (click)="content.focus(); $event.preventDefault()"
+  >Ir para aplicativos</a
+>
+<header class="header">
+  <div class="header-content">
+    <a routerLink="/applications" class="brand" aria-label="Conta CACiC — aplicativos">
+      <app-cacic-logo class="logo" fillColor="currentColor" />
+      <span>Conta CACiC</span>
+    </a>
+    <button
+      matButton="outlined"
+      [matMenuTriggerFor]="accountMenu"
+      class="account-button"
+      [attr.aria-label]="'Abrir menu da conta de ' + userDisplayName()">
+      <span class="account-identity">
+        @if (currentUser()?.picture; as picture) {
+          @if (!pictureFailed()) {
+            <img [ngSrc]="picture" width="40" height="40" alt="" class="avatar" (error)="pictureFailed.set(true)" />
+          } @else {
+            <span class="avatar avatar-initials" aria-hidden="true">{{ userInitials() }}</span>
+          }
+        } @else {
+          <span class="avatar avatar-initials" aria-hidden="true">{{ userInitials() }}</span>
         }
+        <span class="account-label">{{ userShortName() }}</span>
+      </span>
+      <mat-icon iconPositionEnd>expand_more</mat-icon>
+    </button>
+    <mat-menu #accountMenu="matMenu">
+      <div class="menu-identity">
+        <strong>{{ userDisplayName() }}</strong>
+        <span>{{ currentUser()?.email }}</span>
       </div>
-    }
-  </section>
-  <section>
-    <h2>Minhas integrações</h2>
+      <a mat-menu-item routerLink="/settings/profile"><mat-icon>person</mat-icon>Meu perfil</a>
+      <a mat-menu-item routerLink="/settings"><mat-icon>settings</mat-icon>Configurações da conta</a>
+      @if (isAdmin()) {
+        <a mat-menu-item routerLink="/admin"><mat-icon>admin_panel_settings</mat-icon>Administração</a>
+      }
+      <button mat-menu-item (click)="authService.logout()"><mat-icon>logout</mat-icon>Sair da conta</button>
+    </mat-menu>
+  </div>
+</header>
 
-    <div class="app-grid">
-      <app-discord-integration-card />
-    </div>
-  </section>
-</div>
+<main #content id="applications-content" class="page" tabindex="-1">
+  <div class="page-heading">
+    <h1>Seus aplicativos</h1>
+  </div>
+  @if (authService.logoutError()) {
+    <p role="alert" class="error-message">{{ authService.logoutError() }}</p>
+  }
+  <div class="workspace">
+    <section class="applications" aria-label="Aplicativos">
+      <div class="catalog-controls">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Buscar aplicativo</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            #searchInput
+            matInput
+            type="search"
+            [value]="searchTerm()"
+            (input)="searchTerm.set(searchInput.value)" />
+        </mat-form-field>
+        <button matButton (click)="loadApplications()" [disabled]="isLoading()">
+          <mat-icon>refresh</mat-icon>Atualizar
+        </button>
+      </div>
+      @if (isLoading()) {
+        <div class="loading-state" role="status">
+          <mat-progress-bar mode="indeterminate" aria-label="Carregando aplicativos" />
+          <p>Carregando aplicativos…</p>
+        </div>
+      }
+      @if (hasLoadError()) {
+        <div class="empty-state" role="alert">
+          <mat-icon>cloud_off</mat-icon>
+          <h2>Não foi possível atualizar os aplicativos</h2>
+          <p>Verifique sua conexão e tente novamente.</p>
+          <button matButton="outlined" (click)="loadApplications()">Tentar novamente</button>
+        </div>
+      }
+      @if (applications().length) {
+        <div class="app-grid" [attr.aria-busy]="isLoading()">
+          @for (app of filteredApplications(); track app.id) {
+            <app-card [app]="app" />
+          }
+        </div>
+        @if (!filteredApplications().length) {
+          <div class="empty-state">
+            <mat-icon>search_off</mat-icon>
+            <h2>Nenhum resultado para “{{ searchTerm() }}”</h2>
+            <p>Busque pelo nome ou descrição do aplicativo.</p>
+            <button matButton="outlined" (click)="searchTerm.set('')">Limpar busca</button>
+          </div>
+        }
+      } @else if (!isLoading() && !hasLoadError()) {
+        <div class="empty-state">
+          <mat-icon>apps</mat-icon>
+          <h2>Nenhum aplicativo disponível</h2>
+          <p>
+            Os aplicativos liberados para sua conta aparecerão aqui. Consulte suas permissões ou entre em contato com o
+            CACiC se precisar de acesso.
+          </p>
+          <a matButton="outlined" routerLink="/settings/permissions">Ver minhas permissões</a>
+        </div>
+      }
+    </section>
+
+    <aside aria-label="Conta e integrações" class="sidebar">
+      <section class="account-summary" aria-labelledby="account-heading">
+        <h2 id="account-heading">Sua conta</h2>
+        <strong class="account-name">{{ userDisplayName() }}</strong>
+        <p class="account-email">{{ currentUser()?.email }}</p>
+        <nav aria-label="Configurações da conta" class="account-links">
+          <a routerLink="/settings/profile"
+            ><mat-icon>person_outline</mat-icon>Meus dados<mat-icon>chevron_right</mat-icon></a
+          >
+          <a routerLink="/settings/security"
+            ><mat-icon>security</mat-icon>Segurança<mat-icon>chevron_right</mat-icon></a
+          >
+          <a routerLink="/settings/permissions"
+            ><mat-icon>key</mat-icon>Minhas permissões<mat-icon>chevron_right</mat-icon></a
+          >
+        </nav>
+      </section>
+      <section aria-labelledby="integrations-heading">
+        <div class="section-heading">
+          <h2 id="integrations-heading">Integrações</h2>
+          <a matButton routerLink="/settings/linked-accounts">Gerenciar</a>
+        </div>
+        <app-discord-integration-card />
+      </section>
+    </aside>
+  </div>
+</main>

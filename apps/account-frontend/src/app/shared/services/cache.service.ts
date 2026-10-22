@@ -69,11 +69,15 @@ export class CacheService {
     const request$ = defer(source).pipe(
       tap((data) => {
         hasValue = true;
-        this.cache.set(key, {
-          data,
-          hasData: true,
-          timestamp: Date.now(),
-        });
+        // An invalidation may have started a newer request while this one
+        // was in flight. Do not let its late response restore stale data.
+        if (this.cache.get(key)?.observable === request$) {
+          this.cache.set(key, {
+            data,
+            hasData: true,
+            timestamp: Date.now(),
+          });
+        }
       }),
       catchError((error: unknown) => {
         const current = this.cache.get(key);

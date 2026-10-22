@@ -1,20 +1,30 @@
-<mat-card class="app-card">
-  <div class="app-icon">
-    <img [src]="iconUrl()" [alt]="app().name + ' logo'" class="app-logo" decoding="async" (error)="onLogoError()" />
-  </div>
+<mat-card appearance="outlined" class="app-card">
   <mat-card-content>
-    <h3 class="app-name">{{ app().name }}</h3>
+    <div class="app-identity">
+      <img [ngSrc]="iconUrl()" alt="" width="56" height="56" class="app-logo" (error)="onLogoError()" />
+      <h2 class="app-name">{{ app().name }}</h2>
+    </div>
     @if (app().description) {
       <p class="app-description">{{ app().description }}</p>
     }
-    @if (app().category) {
-      <span class="app-category">{{ app().category }}</span>
+    @if (!app().enabled) {
+      <p class="unavailable"><mat-icon>block</mat-icon>Aplicativo indisponível</p>
+    } @else if (!destination()) {
+      <p class="unavailable"><mat-icon>link_off</mat-icon>Link de acesso não configurado</p>
     }
   </mat-card-content>
   <mat-card-actions>
-    <button mat-raised-button color="primary" (click)="openApp()" [disabled]="!app().enabled">
-      <mat-icon>launch</mat-icon>
-      Abrir
-    </button>
+    @if (canOpen()) {
+      <a
+        matButton="tonal"
+        [href]="destination()?.href"
+        target="_blank"
+        rel="noopener noreferrer"
+        [attr.aria-label]="'Abrir ' + app().name + ' (nova aba)'">
+        Abrir aplicativo<mat-icon iconPositionEnd>open_in_new</mat-icon>
+      </a>
+    } @else {
+      <button matButton="tonal" disabled>Acesso indisponível</button>
+    }
   </mat-card-actions>
 </mat-card>

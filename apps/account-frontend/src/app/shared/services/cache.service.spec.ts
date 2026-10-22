@@ -47,4 +47,14 @@ describe('CacheService', () => {
       vi.useRealTimers();
     }
   });
+  it('does not overwrite newer data with a response started before invalidation', () => {
+    const service = new CacheService();
+    const obsolete = new Subject<string>();
+    service.getOrSet('discord', () => obsolete).subscribe();
+    service.invalidate('discord');
+    service.getOrSet('discord', () => of('connected')).subscribe();
+    obsolete.next('not-connected');
+    obsolete.complete();
+    expect(service.get('discord')).toBe('connected');
+  });
 });

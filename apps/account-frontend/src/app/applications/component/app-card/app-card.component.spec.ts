@@ -61,3 +61,54 @@ describe('AppCardComponent', () => {
     expect(logo?.getAttribute('src')).toBe(DEFAULT_APPLICATION_ICON_URL);
   });
 });
+
+describe('Application navigation', () => {
+  it('keeps cards focused on the name, description and action even when metadata exists', async () => {
+    await TestBed.configureTestingModule({ imports: [AppCardComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AppCardComponent);
+    fixture.componentRef.setInput('app', {
+      id: 'app',
+      name: 'Votações',
+      category: 'Participação',
+      description: 'Participe das eleições.',
+      enabled: true,
+      url: 'https://example.org/vote',
+    });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Participe das eleições.');
+    expect(element.textContent).not.toContain('Participação');
+    expect(element.textContent).not.toContain('example.org');
+    expect(element.querySelector('a')?.href).toBe('https://example.org/vote');
+  });
+
+  it.each([
+    { enabled: false, url: 'https://example.org' },
+    { enabled: true, url: undefined },
+    { enabled: true, url: 'javascript:alert(1)' },
+    { enabled: true, url: 'not a url' },
+  ])('does not offer a link for an unavailable destination: %o', async (app) => {
+    await TestBed.configureTestingModule({ imports: [AppCardComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AppCardComponent);
+    fixture.componentRef.setInput('app', { id: 'app', name: 'Aplicativo', ...app });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('a')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('button')?.disabled).toBe(true);
+  });
+
+  it('uses a native link with a named new-tab destination', async () => {
+    await TestBed.configureTestingModule({ imports: [AppCardComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AppCardComponent);
+    fixture.componentRef.setInput('app', {
+      id: 'app',
+      name: 'Eventos',
+      enabled: true,
+      url: 'https://example.org/events',
+    });
+    fixture.detectChanges();
+    const anchor = (fixture.nativeElement as HTMLElement).querySelector('a');
+    expect(anchor?.href).toBe('https://example.org/events');
+    expect(anchor?.getAttribute('aria-label')).toContain('Eventos (nova aba)');
+    expect(anchor?.rel).toContain('noopener');
+  });
+});

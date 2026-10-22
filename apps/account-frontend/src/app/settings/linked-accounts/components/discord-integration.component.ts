@@ -14,6 +14,7 @@ import { ApiService, DiscordAuthUrl, DiscordLinkStatus } from '../../../shared/s
 import { ConfirmationDialogComponent } from '../../../shared/components/confirmation-dialog.component';
 import { getDiscordAvatarUrl } from '@cacic/shared-utils';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
+import { AccountEventsService } from '../../../shared/services/account-events.service';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { formatLocalizedDate } from '../../../shared/utils/date-fns';
 
@@ -39,6 +40,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private logger = inject(LoggerService);
+  private readonly accountEvents = inject(AccountEventsService);
 
   isLoading = signal(false);
   isLinking = signal(false);
@@ -165,8 +167,7 @@ export class DiscordIntegrationComponent implements OnInit, OnDestroy {
 
   private handleOAuthSuccess(): void {
     this.showSuccessBanner('Sucesso!', 'Conta do Discord vinculada com sucesso!');
-    // Reload status to update the UI with the new linked account
-    this.loadDiscordStatus();
+    this.accountEvents.notifyDiscordChanged();
   }
 
   loadDiscordStatus(): void {

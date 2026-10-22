@@ -39,4 +39,38 @@ describe('AuthGuardWithForcedLogin', () => {
     expect(authService.login).toHaveBeenCalledWith('/applications');
     expect(logger.error).toHaveBeenCalled();
   });
+  it('redirects incomplete onboarding before showing applications', async () => {
+    vi.useFakeTimers();
+    try {
+      const router = { navigateByUrl: vi.fn() };
+      TestBed.configureTestingModule({
+        providers: [
+          AuthGuardWithForcedLogin,
+          {
+            provide: AuthService,
+            useValue: {
+              isDoneLoading$: of(true),
+              isAuthenticated: () => true,
+              updateCurrentUser: vi.fn(),
+              login: vi.fn(),
+            },
+          },
+          {
+            provide: RouteCacheService,
+            useValue: { getUserForRouteGuard: () => of({ id: 'user', isOnboarded: false }) },
+          },
+          { provide: Router, useValue: router },
+          { provide: LoggerService, useValue: { info: vi.fn(), debug: vi.fn(), error: vi.fn() } },
+        ],
+      });
+      const allowed = await firstValueFrom(
+        TestBed.inject(AuthGuardWithForcedLogin).canActivate({} as never, { url: '/applications' } as never),
+      );
+      expect(allowed).toBe(false);
+      vi.runAllTimers();
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/onboarding');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

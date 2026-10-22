@@ -18,6 +18,7 @@ import type {
   UserRoleSelection,
   UserRoles,
 } from '@cacic/shared-types';
+import { AccountEventsService } from '../account-events.service';
 import { CacheService } from '../cache.service';
 import { getApiBaseUrl } from '../../utils/api-url.util';
 import { API_CACHE_DURATIONS, API_CACHE_KEYS } from './api-cache.constants';
@@ -27,6 +28,7 @@ export class DiscordApiService {
   private readonly baseUrl = getApiBaseUrl();
   private http = inject(HttpClient);
   private cacheService = inject(CacheService);
+  private readonly accountEvents = inject(AccountEventsService);
 
   getDiscordAuthUrl(): Observable<DiscordAuthUrl> {
     return this.http.get<DiscordAuthUrl>(`${this.baseUrl}/discord/auth-url`, {
@@ -53,6 +55,7 @@ export class DiscordApiService {
       .pipe(
         tap(() => {
           this.cacheService.invalidate(API_CACHE_KEYS.DISCORD_STATUS);
+          this.accountEvents.notifyDiscordChanged();
         }),
       );
   }
