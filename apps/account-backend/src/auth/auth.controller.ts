@@ -71,6 +71,8 @@ export interface AuthSession {
   accountLinkingUserId?: string;
   accountLinkingCodeVerifier?: string;
   authenticatedAt?: number;
+  pendingTotpRotationUserId?: string;
+  totpRotationAuthenticatedAt?: number;
   save?: (callback: (err?: Error) => void) => void;
   regenerate?: (callback: (err?: Error) => void) => void;
   destroy: (callback: (err?: Error) => void) => void;
@@ -458,13 +460,20 @@ export class AuthController {
   })
   @ApiQuery({
     name: 'prompt',
-    description: 'OIDC prompt value. Use prompt=none for silent SSO checks.',
+    description: 'OIDC prompt value. Use prompt=none for silent SSO checks or prompt=login for a fresh login.',
     required: false,
     example: 'none',
   })
   @ApiResponse({
     status: 302,
     description: 'Redirects to Keycloak login page',
+  })
+  @ApiQuery({
+    name: 'action',
+    description:
+      'Use rotate-totp to authorize one seed rotation for the current account through a fresh Keycloak login.',
+    required: false,
+    enum: ['rotate-totp'],
   })
   @SkipCsrf()
   @Get('login/redirect')
@@ -473,14 +482,21 @@ export class AuthController {
     @Query('prompt') prompt: string,
     @Session() session: AuthSession,
     @Res() res: Response,
+    @Query('action') action?: string,
   ): Promise<void> {
+    const rotatesTotp = action === 'rotate-totp';
+    const requestedPrompt = prompt === 'none' || prompt === 'login' ? prompt : undefined;
+    if (rotatesTotp && !session.user) {
+      throw new HttpException('Authentication required', HttpStatus.UNAUTHORIZED);
+    }
+    session.pendingTotpRotationUserId = rotatesTotp ? session.user!.keycloakId : undefined;
     await this.startLoginFlow({
       shortReturnUrl: returnTo,
       legacyReturnUrl: undefined,
       session,
       response: res,
       routeName: 'login redirect',
-      prompt: prompt === 'none' ? 'none' : undefined,
+      prompt: rotatesTotp ? 'login' : requestedPrompt,
     });
   }
 
@@ -497,7 +513,7 @@ export class AuthController {
     session: AuthSession;
     response: Response;
     routeName: string;
-    prompt?: 'none';
+    prompt?: 'none' | 'login';
   }): Promise<void> {
     const redirectUri = this.authCallbackUrl();
 
@@ -509,6 +525,10 @@ export class AuthController {
     session.oauthState = state;
     session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = prompt === 'none';
+    delete session.totpRotationAuthenticatedAt;
+    if (prompt !== 'login') {
+      delete session.pendingTotpRotationUserId;
+    }
 
     const requestedReturnUrl = shortReturnUrl || legacyReturnUrl;
     const safeReturnUrl = this.resolveSafeReturnUrl(requestedReturnUrl);
@@ -526,6 +546,7 @@ export class AuthController {
 
     const authUrl = this.keycloakService.getAuthUrl(redirectUri, state, {
       ...(prompt ? { prompt } : {}),
+      ...(prompt === 'login' ? { maxAge: 0 } : {}),
       codeChallenge: pkce.challenge,
     });
     await redirectAfterSessionSave(session, response, authUrl);
@@ -563,6 +584,8 @@ export class AuthController {
     session.oauthState = state;
     session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = true;
+    delete session.pendingTotpRotationUserId;
+    delete session.totpRotationAuthenticatedAt;
 
     if (safeReturnUrl) {
       session.redirectTo = safeReturnUrl;
@@ -705,6 +728,7 @@ export class AuthController {
         delete session.oauthCodeVerifier;
         delete session.silentLogin;
         delete session.redirectTo;
+        delete session.pendingTotpRotationUserId;
 
         if (wasSilentLogin) {
           const fallbackUrl = new URL(returnUrl || this.appConfig.frontendUrl);
@@ -745,6 +769,8 @@ export class AuthController {
       // Clear the state from session after successful validation
       const codeVerifier = session.oauthCodeVerifier;
       const requestedReturnUrl = this.resolveSafeReturnUrl(session.redirectTo);
+      const totpRotationUserId = session.pendingTotpRotationUserId;
+      delete session.pendingTotpRotationUserId;
       delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
@@ -752,7 +778,13 @@ export class AuthController {
       const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
+      if (totpRotationUserId && keycloakUser.sub !== totpRotationUserId) {
+        throw new HttpException('TOTP rotation requires the same account', HttpStatus.FORBIDDEN);
+      }
       const authenticated = await this.createSessionFromKeycloakUser(request, tokens, keycloakUser, 'OAuth callback');
+      if (totpRotationUserId) {
+        authenticated.session.totpRotationAuthenticatedAt = Date.now();
+      }
       const redirectUrl = this.resolvePostLoginRedirectUrl(
         authenticated.user.isOnboarded,
         requestedReturnUrl ?? undefined,
@@ -765,6 +797,7 @@ export class AuthController {
       delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
+      delete session.pendingTotpRotationUserId;
       this.logger.error('Auth callback error', error);
       await redirectAfterSessionSave(session, res, this.resolveFrontendPath('/login?error=auth_failed'));
     }

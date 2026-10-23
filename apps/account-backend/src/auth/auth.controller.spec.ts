@@ -97,10 +97,81 @@ const createRedirectResponse = (): {
   };
 };
 
+describe('AuthController TOTP rotation login', () => {
+  it('forces a fresh Keycloak login and binds the request to the current account', async () => {
+    const { controller, keycloakService } = createController({ FRONTEND_URL: 'http://localhost:4200/app/' });
+    const session = createSession();
+    session.user = { keycloakId: 'user-1', email: 'user@example.test', isOnboarded: true };
+    session.totpRotationAuthenticatedAt = Date.now();
+    const { res } = createRedirectResponse();
+
+    await controller.redirectToLogin(
+      '/settings/security/totp?totpRotation=confirm',
+      'none',
+      session,
+      res,
+      'rotate-totp',
+    );
+
+    expect(session.pendingTotpRotationUserId).toBe('user-1');
+    expect(session.totpRotationAuthenticatedAt).toBeUndefined();
+    expect(session.silentLogin).toBe(false);
+    expect(session.redirectTo).toBe('http://localhost:4200/app/settings/security/totp?totpRotation=confirm');
+    const options = keycloakService.getAuthUrl.mock.calls[0]?.[2];
+    expect(options).toMatchObject({ prompt: 'login', maxAge: 0 });
+    expect(typeof options?.codeChallenge).toBe('string');
+  });
+
+  it('rejects rotation login without an existing authenticated account', async () => {
+    const { controller, keycloakService } = createController();
+    const { res } = createRedirectResponse();
+
+    await expect(
+      controller.redirectToLogin('/settings/security/totp', '', createSession(), res, 'rotate-totp'),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(keycloakService.getAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('clears pending rotation when another login flow starts', async () => {
+    const { controller } = createController();
+    const session = createSession();
+    session.pendingTotpRotationUserId = 'user-1';
+    session.totpRotationAuthenticatedAt = Date.now();
+    const { res } = createRedirectResponse();
+
+    await controller.silentLogin('/applications', '', session, res);
+
+    expect(session.pendingTotpRotationUserId).toBeUndefined();
+    expect(session.totpRotationAuthenticatedAt).toBeUndefined();
+  });
+
+  it('does not authorize rotation when Keycloak returns a different account', async () => {
+    const { controller, keycloakService } = createController();
+    const session = createSession();
+    session.pendingTotpRotationUserId = 'user-1';
+    const request = { session } as unknown as AuthRequest;
+    const { res, redirect } = createRedirectResponse();
+    keycloakService.exchangeCodeForTokens.mockResolvedValue({
+      access_token: 'token',
+      refresh_token: 'refresh',
+      id_token: 'id',
+    });
+    keycloakService.getUserInfo.mockResolvedValue({ sub: 'other-user' } as never);
+
+    await controller.callback('code', 'pending-state', '', session, request, res);
+
+    expect(session.pendingTotpRotationUserId).toBeUndefined();
+    expect(session.totpRotationAuthenticatedAt).toBeUndefined();
+    expect(session.regenerate).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
+  });
+});
+
 describe('AuthController OAuth callback cleanup', () => {
   it('clears state and PKCE verifier together when malformed callbacks fail before state validation', async () => {
     const { controller, keycloakService } = createController();
     const session = createSession();
+    session.pendingTotpRotationUserId = 'user-1';
     const request = { session } as unknown as AuthRequest;
     const { res, redirect } = createRedirectResponse();
 
@@ -110,54 +181,63 @@ describe('AuthController OAuth callback cleanup', () => {
     expect(session.oauthCodeVerifier).toBeUndefined();
     expect(session.silentLogin).toBeUndefined();
     expect(session.redirectTo).toBeUndefined();
+    expect(session.pendingTotpRotationUserId).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
   });
 
-  it('rotates the anonymous session before storing an authenticated principal', async () => {
-    const { controller, keycloakService, userService } = createController();
-    const session = createSession();
-    const regeneratedSession = createSession();
-    const request = { session } as unknown as AuthRequest;
-    session.regenerate = jest.fn((callback: (err?: Error) => void) => {
-      request.session = regeneratedSession;
-      callback();
-    });
-    const { res, redirect } = createRedirectResponse();
-    const profile = {
-      id: 'user-1',
-      keycloakId: 'user-1',
-      email: 'user@example.test',
-      isOnboarded: true,
-      displayName: 'User',
-      fullname: 'User Test',
-    };
-    keycloakService.exchangeCodeForTokens.mockResolvedValue({
-      access_token: 'new-access-token',
-      refresh_token: 'new-refresh-token',
-      id_token: 'new-id-token',
-      expires_in: 300,
-      refresh_expires_in: 600,
-    });
-    keycloakService.getUserInfo.mockResolvedValue({ sub: 'user-1' } as never);
-    userService.findByKeycloakId.mockResolvedValue(profile as never);
-    userService.updateFromKeycloakOAuth.mockResolvedValue(profile as never);
-    userService.checkOnboardingStatus.mockResolvedValue({ needsOnboarding: false, missingFields: [] });
+  it.each([false, true])(
+    'regenerates the session and only grants explicitly requested rotation (%s)',
+    async (rotation) => {
+      const { controller, keycloakService, userService } = createController();
+      const session = createSession();
+      if (rotation) {
+        session.pendingTotpRotationUserId = 'user-1';
+      }
+      const regeneratedSession = createSession();
+      const request = { session } as unknown as AuthRequest;
+      session.regenerate = jest.fn((callback: (err?: Error) => void) => {
+        request.session = regeneratedSession;
+        callback();
+      });
+      const { res, redirect } = createRedirectResponse();
+      const profile = {
+        id: 'user-1',
+        keycloakId: 'user-1',
+        email: 'user@example.test',
+        isOnboarded: true,
+        displayName: 'User',
+        fullname: 'User Test',
+      };
+      keycloakService.exchangeCodeForTokens.mockResolvedValue({
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+        id_token: 'new-id-token',
+        expires_in: 300,
+        refresh_expires_in: 600,
+      });
+      keycloakService.getUserInfo.mockResolvedValue({ sub: 'user-1' } as never);
+      userService.findByKeycloakId.mockResolvedValue(profile as never);
+      userService.updateFromKeycloakOAuth.mockResolvedValue(profile as never);
+      userService.checkOnboardingStatus.mockResolvedValue({ needsOnboarding: false, missingFields: [] });
 
-    await controller.callback('authorization-code', 'pending-state', '', session, request, res);
+      await controller.callback('authorization-code', 'pending-state', '', session, request, res);
 
-    expect(session.regenerate).toHaveBeenCalledTimes(1);
-    expect(session.user).toBeUndefined();
-    expect(regeneratedSession.user).toEqual({
-      keycloakId: 'user-1',
-      email: 'user@example.test',
-      isOnboarded: true,
-    });
-    expect(regeneratedSession.authenticatedAt).toEqual(expect.any(Number));
-    expect(regeneratedSession.accessToken).toBe('new-access-token');
-    expect(regeneratedSession.save).toHaveBeenCalledTimes(1);
-    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/applications');
-  });
+      expect(session.regenerate).toHaveBeenCalledTimes(1);
+      expect(session.user).toBeUndefined();
+      expect(regeneratedSession.user).toEqual({
+        keycloakId: 'user-1',
+        email: 'user@example.test',
+        isOnboarded: true,
+      });
+      expect(regeneratedSession.authenticatedAt).toEqual(expect.any(Number));
+      expect(regeneratedSession.totpRotationAuthenticatedAt).toEqual(rotation ? expect.any(Number) : undefined);
+      expect(session.pendingTotpRotationUserId).toBeUndefined();
+      expect(regeneratedSession.accessToken).toBe('new-access-token');
+      expect(regeneratedSession.save).toHaveBeenCalledTimes(1);
+      expect(redirect).toHaveBeenCalledWith('http://localhost:4200/applications');
+    },
+  );
 });
 
 describe('AuthController redirect policy', () => {

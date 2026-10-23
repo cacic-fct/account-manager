@@ -31,7 +31,7 @@
         <strong>{{ userDisplayName() }}</strong>
         <span>{{ currentUser()?.email }}</span>
       </div>
-      <a mat-menu-item routerLink="/settings/profile"><mat-icon>person</mat-icon>Meu perfil</a>
+      <a mat-menu-item routerLink="/settings/profile/edit"><mat-icon>person</mat-icon>Meu perfil</a>
       <a mat-menu-item routerLink="/settings"><mat-icon>settings</mat-icon>Configurações da conta</a>
       @if (isAdmin()) {
         <a mat-menu-item routerLink="/admin"><mat-icon>admin_panel_settings</mat-icon>Administração</a>
@@ -112,11 +112,11 @@
         <strong class="account-name">{{ userDisplayName() }}</strong>
         <p class="account-email">{{ currentUser()?.email }}</p>
         <nav aria-label="Configurações da conta" class="account-links">
-          <a routerLink="/settings/profile"
+          <a routerLink="/settings/profile/edit"
             ><mat-icon>person_outline</mat-icon>Meus dados<mat-icon>chevron_right</mat-icon></a
           >
-          <a routerLink="/settings/security"
-            ><mat-icon>security</mat-icon>Segurança<mat-icon>chevron_right</mat-icon></a
+          <a routerLink="/settings/security/totp"
+            ><mat-icon>security</mat-icon>Código off-line<mat-icon>chevron_right</mat-icon></a
           >
           <a routerLink="/settings/permissions"
             ><mat-icon>key</mat-icon>Minhas permissões<mat-icon>chevron_right</mat-icon></a

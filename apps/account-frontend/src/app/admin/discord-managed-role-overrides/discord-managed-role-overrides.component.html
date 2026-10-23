@@ -33,7 +33,11 @@
             }
           </mat-card-title>
           @if (selectedUser(); as user) {
-            <mat-card-subtitle>{{ user.displayName }} · {{ user.email || user.id }}</mat-card-subtitle>
+            <mat-card-subtitle>
+              {{ user.displayName }}
+              <br />
+              {{ user.email || user.id }}
+            </mat-card-subtitle>
           } @else {
             <mat-card-subtitle>Selecione uma pessoa por ID Keycloak, nome ou e-mail</mat-card-subtitle>
           }
@@ -127,7 +131,9 @@
       <mat-card class="tool-card override-list-card">
         <mat-card-header>
           <mat-card-title>Exceções ativas</mat-card-title>
-          <mat-card-subtitle>{{ overrides().length }} registro(s)</mat-card-subtitle>
+          <mat-card-subtitle>
+            {{ overrides().length }} {{ overrides().length === 1 ? 'registro' : 'registros' }}
+          </mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
           @if (overrides().length === 0) {
@@ -150,8 +156,11 @@
                       <strong>
                         {{ override.userDisplayName || override.userEmail || override.userId }}
                       </strong>
-                      @if (getOverrideSummary(override); as summary) {
-                        <small>{{ summary }}</small>
+                      @if (override.userEmail) {
+                        <small>{{ override.userEmail }}</small>
+                      }
+                      @if (override.reason) {
+                        <small>{{ override.reason }}</small>
                       }
                     </span>
                   </button>

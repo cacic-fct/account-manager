@@ -68,7 +68,7 @@
               @for (role of selectableRoles(); track role.id) {
                 <div class="role-item">
                   <mat-checkbox [formControlName]="role.id">
-                    <app-discord-role-option [role]="role" meta="Sem permissões sensíveis" />
+                    <app-discord-role-option [role]="role" />
                   </mat-checkbox>
                 </div>
               }

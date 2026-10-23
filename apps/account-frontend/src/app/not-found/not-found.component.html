@@ -1,0 +1,25 @@
+<main class="error-panel" aria-labelledby="not-found-title">
+  <app-cacic-logo class="error-logo" fillColor="currentColor" aria-hidden="true" />
+
+  <div class="error-copy">
+    <h1 id="not-found-title">Página não encontrada.</h1>
+    <p>Confira o endereço ou volte para a página inicial.</p>
+    <p class="status-code">Erro 404</p>
+  </div>
+
+  <div class="actions">
+    <a mat-flat-button routerLink="/">Ir para a página inicial</a>
+  </div>
+
+  <mat-expansion-panel class="technical-details">
+    <mat-expansion-panel-header>
+      <mat-panel-title>Detalhes técnicos</mat-panel-title>
+    </mat-expansion-panel-header>
+    <div class="technical-details-body">
+      <button matIconButton type="button" aria-label="Copiar detalhes técnicos" (click)="copyDetails()">
+        <mat-icon aria-hidden="true" fontSet="material-icons">content_copy</mat-icon>
+      </button>
+      <pre><code>{{ diagnostics }}</code></pre>
+    </div>
+  </mat-expansion-panel>
+</main>

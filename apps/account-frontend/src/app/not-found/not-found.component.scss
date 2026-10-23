@@ -1,0 +1,90 @@
+:host {
+  display: grid;
+  box-sizing: border-box;
+  min-height: 100svh;
+  align-items: center;
+  padding: 32px 16px;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+.error-panel {
+  display: grid;
+  box-sizing: border-box;
+  justify-self: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 560px;
+  padding: 24px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-low);
+}
+
+.error-logo {
+  justify-self: center;
+  width: min(180px, 100%);
+}
+
+.error-copy {
+  display: grid;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  font: var(--mat-sys-body-large);
+  text-wrap: pretty;
+}
+
+.status-code {
+  font: var(--mat-sys-body-medium);
+}
+
+.actions a {
+  min-height: 48px;
+}
+
+.technical-details {
+  background: var(--mat-sys-surface);
+  box-shadow: none;
+}
+
+.technical-details-body {
+  display: grid;
+  gap: 8px;
+}
+
+.technical-details-body button {
+  justify-self: end;
+}
+
+pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-high);
+  font:
+    0.875rem / 1.55 ui-monospace,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  :host {
+    padding: 48px 24px;
+  }
+
+  .error-panel {
+    padding: 32px;
+  }
+}

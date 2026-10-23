@@ -230,10 +230,6 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     });
   }
 
-  protected getOverrideSummary(override: DiscordManagedRoleOverride): string {
-    return [override.userEmail, override.reason].filter(Boolean).join(' · ');
-  }
-
   protected formatDate(value: string): string {
     return formatLocalizedDate(value, 'Pp');
   }

@@ -40,6 +40,15 @@ describe('AuthApiService', () => {
     httpMock.verify();
   });
 
+  it('returns a rotation login URL that resumes on the TOTP page', () => {
+    const service = TestBed.inject(AuthApiService);
+    const url = new URL(service.getTotpRotationLoginUrl());
+
+    expect(url.pathname).toBe('/api/auth/login/redirect');
+    expect(url.searchParams.get('action')).toBe('rotate-totp');
+    expect(url.searchParams.get('returnTo')).toBe('/settings/security/totp?totpRotation=confirm');
+  });
+
   it('posts development password login credentials with session cookies and clears auth caches', () => {
     const service = TestBed.inject(AuthApiService);
     const credentials = {

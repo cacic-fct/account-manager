@@ -42,6 +42,7 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: '/applications',
+    title: 'Página não encontrada | Conta CACiC',
+    loadComponent: () => import('./not-found/not-found.component').then((m) => m.NotFoundComponent),
   },
 ];

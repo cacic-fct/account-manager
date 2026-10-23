@@ -13,6 +13,7 @@ import { AccountPermissionService } from '../src/auth/services/account-permissio
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { UserService } from '../src/auth/services/user.service';
 import { TotpService } from '../src/totp/totp.service';
+import { TotpController } from '../src/totp/totp.controller';
 import { RedisService } from '../src/redis/redis.service';
 import { createAuthTestConfigService, createKeycloakUser, createUserServiceFake } from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
@@ -21,6 +22,10 @@ describe('Authentication (fast e2e)', () => {
   let app: INestApplication<App>;
   let keycloakService: {
     getAuthUrl: jest.Mock<ReturnType<KeycloakService['getAuthUrl']>, Parameters<KeycloakService['getAuthUrl']>>;
+    exchangeCodeForTokens: jest.Mock<
+      ReturnType<KeycloakService['exchangeCodeForTokens']>,
+      Parameters<KeycloakService['exchangeCodeForTokens']>
+    >;
     exchangePasswordForTokens: jest.Mock<
       ReturnType<KeycloakService['exchangePasswordForTokens']>,
       Parameters<KeycloakService['exchangePasswordForTokens']>
@@ -39,6 +44,16 @@ describe('Authentication (fast e2e)', () => {
 
   beforeAll(async () => {
     keycloakService = {
+      exchangeCodeForTokens: jest
+        .fn<
+          ReturnType<KeycloakService['exchangeCodeForTokens']>,
+          Parameters<KeycloakService['exchangeCodeForTokens']>
+        >()
+        .mockResolvedValue({
+          access_token: 'access-token:aluno@unesp.br',
+          refresh_token: 'refresh-token:aluno@unesp.br',
+          id_token: 'id-token:aluno@unesp.br',
+        }),
       logout: jest
         .fn<ReturnType<KeycloakService['logout']>, Parameters<KeycloakService['logout']>>()
         .mockResolvedValue(undefined),
@@ -51,6 +66,9 @@ describe('Authentication (fast e2e)', () => {
         }
         if (options.prompt) {
           url.searchParams.set('prompt', options.prompt);
+        }
+        if (options.maxAge !== undefined) {
+          url.searchParams.set('max_age', String(options.maxAge));
         }
         return url.toString();
       }),
@@ -100,7 +118,7 @@ describe('Authentication (fast e2e)', () => {
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController, CsrfController],
+      controllers: [AuthController, CsrfController, TotpController],
       providers: [
         AuthGuard,
         CurrentUserGuard,
@@ -129,6 +147,7 @@ describe('Authentication (fast e2e)', () => {
           provide: TotpService,
           useValue: {
             getOrCreateSeed: jest.fn().mockResolvedValue(undefined),
+            rotateSeed: jest.fn().mockResolvedValue({ seed: 'ROTATED' }),
           },
         },
         {
@@ -206,6 +225,46 @@ describe('Authentication (fast e2e)', () => {
         isOnboarded: false,
         redirectUrl: 'http://localhost:4200/app/onboarding',
       });
+  });
+
+  it('rotates only after a fresh Keycloak callback with a new session CSRF token', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post('/api/auth/password-login').send({ email: 'aluno@unesp.br', password: '1' }).expect(200);
+    const csrf = await agent.get('/api/csrf/token').expect(200);
+    const originalToken = (JSON.parse(csrf.text) as { csrfToken: string }).csrfToken;
+
+    await agent.post('/api/totp/seed/rotate').set('X-CSRF-TOKEN', originalToken).send({}).expect(403);
+    const login = await agent
+      .get('/api/auth/login/redirect')
+      .query({
+        action: 'rotate-totp',
+        returnTo: '/settings/security/totp?totpRotation=confirm',
+      })
+      .expect(302);
+    const keycloakUrl = new URL(login.headers.location);
+    expect(keycloakUrl.searchParams.get('prompt')).toBe('login');
+    expect(keycloakUrl.searchParams.get('max_age')).toBe('0');
+
+    await agent
+      .get('/api/auth/callback')
+      .query({
+        code: 'fresh-login-code',
+        state: keycloakUrl.searchParams.get('state'),
+      })
+      .expect(302)
+      .expect('Location', 'http://localhost:4200/app/settings/security/totp?totpRotation=confirm');
+
+    await agent.post('/api/totp/seed/rotate').set('X-CSRF-TOKEN', originalToken).send({}).expect(403);
+    const newCsrf = await agent.get('/api/csrf/token').expect(200);
+    const token = (JSON.parse(newCsrf.text) as { csrfToken: string }).csrfToken;
+    await agent
+      .post('/api/totp/seed/rotate')
+      .set('X-CSRF-TOKEN', token)
+      .send({})
+      .expect(201)
+      .expect({ seed: 'ROTATED' })
+      .expect('Cache-Control', 'no-store, private');
+    await agent.post('/api/totp/seed/rotate').set('X-CSRF-TOKEN', token).send({}).expect(403);
   });
 
   it('rejects invalid password credentials', async () => {

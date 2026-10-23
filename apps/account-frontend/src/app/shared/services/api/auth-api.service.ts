@@ -160,6 +160,14 @@ export class AuthApiService {
     return `${this.baseUrl}/auth/login/redirect?${query.toString()}`;
   }
 
+  getTotpRotationLoginUrl(): string {
+    const query = new URLSearchParams({
+      action: 'rotate-totp',
+      returnTo: '/settings/security/totp?totpRotation=confirm',
+    });
+    return `${this.baseUrl}/auth/login/redirect?${query.toString()}`;
+  }
+
   consumePostOnboardingRedirect(): Observable<{ redirectUrl: string | null }> {
     return this.http.post<{ redirectUrl: string | null }>(
       `${this.baseUrl}/auth/post-onboarding-redirect`,

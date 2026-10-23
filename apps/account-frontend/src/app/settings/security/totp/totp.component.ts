@@ -10,11 +10,12 @@ import {
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -23,6 +24,7 @@ import { TOTP_PERIOD_SECONDS, formatTotpCode, generateTotpCode } from '@cacic/m2
 import type { TotpSeed, TotpStatus } from '@cacic/shared-types';
 import { ApiService } from '../../../shared/services/api.service';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { CsrfService } from '../../../shared/services/csrf.service';
 
 const TOTP_PERIOD_MS = TOTP_PERIOD_SECONDS * 1000;
 
@@ -50,6 +52,10 @@ export class TotpComponent {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly logger = inject(LoggerService);
+  private readonly csrf = inject(CsrfService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private resumeRotation = this.isBrowser && this.route.snapshot.queryParamMap.get('totpRotation') === 'confirm';
   private codeRequest = 0;
   private animationFrame: number | null = null;
 
@@ -70,7 +76,31 @@ export class TotpComponent {
   readonly primaryEmail = computed(() => this.seed()?.primaryEmail ?? null);
 
   constructor() {
-    this.loadStatus();
+    if (this.resumeRotation) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { totpRotation: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      // Keycloak login regenerates the session, so refresh its CSRF cookie before any seed request.
+      this.csrf
+        .fetchToken()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => this.loadStatus(),
+          error: (error: unknown) => {
+            this.logger.error('Erro ao preparar sessão para troca do código secreto', error, {
+              operation: 'totp-session',
+            });
+            this.resumeRotation = false;
+            this.isLoading.set(false);
+            this.hasLoadError.set(true);
+          },
+        });
+    } else {
+      this.loadStatus();
+    }
 
     if (this.isBrowser) {
       const tick = () => {
@@ -100,18 +130,11 @@ export class TotpComponent {
   }
 
   requestRotateSeed(): void {
-    this.dialog
-      .open(ConfirmRotateTotpDialog, {
-        autoFocus: false,
-        width: 'min(420px, calc(100vw - 32px))',
-      })
-      .afterClosed()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((confirmed) => {
-        if (confirmed === true) {
-          this.rotateSeed();
-        }
-      });
+    this.dialog.open(ConfirmRotateTotpDialog, {
+      autoFocus: false,
+      width: 'min(420px, calc(100vw - 32px))',
+      data: { loginUrl: this.api.getTotpRotationLoginUrl() },
+    });
   }
 
   private rotateSeed(): void {
@@ -139,6 +162,10 @@ export class TotpComponent {
         error: (error) => {
           this.logger.error('Erro ao trocar segredo TOTP', error, { operation: 'totp-rotate' });
           this.isRotating.set(false);
+          if (error instanceof HttpErrorResponse && error.error?.code === 'TOTP_ROTATION_LOGIN_REQUIRED') {
+            this.requestRotateSeed();
+            return;
+          }
           this.snackBar.open('Erro ao trocar código secreto', 'Fechar', {
             duration: 5000,
             panelClass: ['error-snackbar'],
@@ -203,6 +230,10 @@ export class TotpComponent {
           this.applySeed(seed);
           this.isLoading.set(false);
           this.hasLoadError.set(false);
+          if (this.resumeRotation) {
+            this.resumeRotation = false;
+            this.rotateSeed();
+          }
         },
         error: (error) => {
           this.logger.error('Erro ao preparar TOTP', error, { operation: 'totp-prepare' });
@@ -250,20 +281,23 @@ export class TotpComponent {
   selector: 'app-confirm-rotate-totp-dialog',
   imports: [MatButtonModule, MatDialogModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>Cuidado!</h2>
+    <h2 mat-dialog-title>Trocar código secreto?</h2>
     <mat-dialog-content>
       <p>
         Esse botão não atualiza o número que está sendo exibido na tela. Ele troca o código secreto usado para gerar os
         códigos.
       </p>
-      <p>Use esta opção se você esqueceu sua conta logada em um dispositivo compartilhado.</p>
+      <p>
+        Você vai entrar novamente pelo Keycloak. Depois, o código secreto será trocado e os códigos antigos deixarão de
+        funcionar.
+      </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button type="button" mat-dialog-close>Cancelar</button>
-      <button mat-flat-button color="warn" type="button" [mat-dialog-close]="true">
-        <mat-icon>sync_lock</mat-icon>
-        Trocar código secreto
-      </button>
+      <a mat-flat-button [href]="data.loginUrl">
+        <mat-icon>login</mat-icon>
+        Entrar e trocar código secreto
+      </a>
     </mat-dialog-actions>
   `,
   styles: [
@@ -281,4 +315,6 @@ export class TotpComponent {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ConfirmRotateTotpDialog {}
+export class ConfirmRotateTotpDialog {
+  readonly data = inject<{ loginUrl: string }>(MAT_DIALOG_DATA);
+}

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/angular';
 import { delay, http, HttpResponse } from 'msw';
+import { userEvent, within } from 'storybook/test';
 
 import { TotpComponent } from './totp.component';
 import { authHandlers } from '../../../../storybook/mocks/msw-handlers';
@@ -119,6 +120,13 @@ export default meta;
 type Story = StoryObj<StoryArgs>;
 
 export const Configured: Story = {};
+
+export const RotationConfirmation: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: 'Trocar código secreto' }));
+  },
+};
 
 export const NewUser: Story = {
   args: {

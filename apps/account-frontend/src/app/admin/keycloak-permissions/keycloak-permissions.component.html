@@ -97,11 +97,8 @@
                   <div class="inline-chips" aria-label="Permissões ativas no grupo">
                     @for (grant of groupRoleGrants(); track grant.id) {
                       <mat-chip>
-                        {{ getPermissionClientLabel(grant.permission) }} ·
-                        {{ getPermissionLabel(grant.permission) }}
-                        @if (grant.source === 'keycloak') {
-                          · Keycloak
-                        }
+                        {{ getPermissionClientLabel(grant.permission) }}: {{ getPermissionLabel(grant.permission)
+                        }}{{ grant.source === 'keycloak' ? ', origem: Keycloak' : '' }}
                       </mat-chip>
                     }
                   </div>
@@ -276,7 +273,13 @@
             <mat-card-header>
               <mat-card-title>Permissões diretas</mat-card-title>
               @if (selectedUser(); as user) {
-                <mat-card-subtitle>{{ user.displayName }} · {{ user.email }}</mat-card-subtitle>
+                <mat-card-subtitle>
+                  {{ user.displayName }}
+                  @if (user.email) {
+                    <br />
+                    {{ user.email }}
+                  }
+                </mat-card-subtitle>
               } @else {
                 <mat-card-subtitle>Sem grupos, Discord ou endosso institucional</mat-card-subtitle>
               }
@@ -404,10 +407,8 @@
                       <div class="record-row">
                         <span class="record-main">
                           <strong>{{ getPermissionLabel(grant.permission) }}</strong>
-                          <small>
-                            {{ getPermissionClientLabel(grant.permission) }} ·
-                            {{ formatValidity(grant) }}
-                          </small>
+                          <small>{{ getPermissionClientLabel(grant.permission) }}</small>
+                          <small>{{ formatValidity(grant) }}</small>
                         </span>
                         <span class="row-actions">
                           <mat-chip class="status-chip">{{ getStatusLabel(grant.status) }}</mat-chip>

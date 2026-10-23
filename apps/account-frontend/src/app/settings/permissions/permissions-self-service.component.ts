@@ -111,7 +111,7 @@ export class PermissionsSelfServiceComponent implements OnInit {
       'super-admin': 'Super Admin',
     };
     const readableRole = roleLabels[grant.roleName] ?? grant.roleName.replace(/#/g, ' ').replace(/-/g, ' ');
-    return `${this.getClientLabel(grant.clientId)} · ${readableRole}`;
+    return `${this.getClientLabel(grant.clientId)}: ${readableRole}`;
   }
 
   protected getStatusLabel(status: string): string {

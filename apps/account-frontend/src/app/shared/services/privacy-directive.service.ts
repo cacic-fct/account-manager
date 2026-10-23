@@ -1,6 +1,7 @@
-import { Service, inject, signal } from '@angular/core';
+import { Service, inject, signal, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { PrivacyDirectives, PrivacyDirectiveResponse } from '../interfaces/privacy-directive.interface';
@@ -9,6 +10,7 @@ import { LoggerService } from './logger.service';
 
 @Service()
 export class PrivacyDirectiveService {
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private http = inject(HttpClient);
   private baseUrl = getApiBaseUrl();
   private logger = inject(LoggerService);
@@ -41,6 +43,10 @@ export class PrivacyDirectiveService {
    * Fetch privacy directives from backend (PURR-style - only when needed)
    */
   fetchDirectives(forceRefresh = false): Observable<PrivacyDirectives> {
+    if (!this.isBrowser) {
+      return EMPTY;
+    }
+
     const cachedDirectives = this._directives();
 
     // If we already have valid directives and not forcing refresh, return cached
@@ -270,6 +276,10 @@ export class PrivacyDirectiveService {
    * Load directives from localStorage
    */
   private loadFromLocalStorage(): PrivacyDirectives | null {
+    if (!this.isBrowser) {
+      return null;
+    }
+
     try {
       const stored = localStorage.getItem('privacyDirectives');
       if (stored) {

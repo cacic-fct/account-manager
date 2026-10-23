@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { PLATFORM_ID, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -78,6 +78,28 @@ describe('PrivacyDirectiveService', () => {
     expect(service.directives()).toBeNull();
     expect(service.lastUpdated()).toBeNull();
     expect(service.shouldShowCookieBanner()).toBe(true);
+  });
+
+  it('does not access browser storage or fetch account directives during server rendering', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: PLATFORM_ID, useValue: 'server' },
+        provideHttpClient(withXhr()),
+        provideHttpClientTesting(),
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const getItem = vi.spyOn(storage, 'getItem');
+    const service = TestBed.inject(PrivacyDirectiveService);
+    const next = vi.fn();
+
+    service.fetchDirectives().subscribe(next);
+
+    expect(getItem).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+    httpMock?.expectNone(apiUrl);
+    getItem.mockRestore();
   });
 
   it('still requests authoritative directives when PURR cookies are present', () => {

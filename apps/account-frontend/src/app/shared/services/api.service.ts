@@ -172,6 +172,10 @@ export class ApiService {
     return this.authApi.getLoginUrl(returnUrl);
   }
 
+  getTotpRotationLoginUrl(): string {
+    return this.authApi.getTotpRotationLoginUrl();
+  }
+
   getSilentLoginUrl(returnUrl?: string): string {
     return this.authApi.getSilentLoginUrl(returnUrl);
   }

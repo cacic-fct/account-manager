@@ -7,6 +7,7 @@ import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { CsrfGuard, SkipCsrf } from '../auth/csrf/csrf.guard';
 import { TotpService } from './totp.service';
 import { TotpSeedDto, TotpStatusDto } from './dto/totp.dto';
+import { saveSession } from '../auth/session-redirect.utils';
 
 @ApiTags('TOTP')
 @ApiBearerAuth()
@@ -48,7 +49,6 @@ export class TotpController {
     @Session() session: AuthSession,
     @Res({ passthrough: true }) response: Response,
   ): Promise<TotpSeedDto> {
-    this.assertRecentlyAuthenticated(session);
     this.preventSeedCaching(response);
     return this.totpService.getOrCreateSeed({
       keycloakId: session.user!.keycloakId,
@@ -62,15 +62,26 @@ export class TotpController {
   @ApiOperation({
     summary: 'Rotate current user TOTP seed',
     description:
-      'Replaces the current offline TOTP seed. Previously cached seeds stop producing valid codes immediately.',
+      'Replaces the current offline TOTP seed after a fresh Keycloak login initiated with action=rotate-totp. The authorization is single-use and expires after five minutes. Previously cached seeds stop producing valid codes immediately.',
   })
   @ApiResponse({
     status: 200,
     description: 'Rotated current user TOTP seed.',
     type: TotpSeedDto,
   })
-  rotateSeed(@Session() session: AuthSession, @Res({ passthrough: true }) response: Response): Promise<TotpSeedDto> {
-    this.assertRecentlyAuthenticated(session);
+  async rotateSeed(
+    @Session() session: AuthSession,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<TotpSeedDto> {
+    const authenticatedAt = session.totpRotationAuthenticatedAt;
+    if (!authenticatedAt || Date.now() - authenticatedAt > 5 * 60 * 1000) {
+      throw new ForbiddenException({
+        code: 'TOTP_ROTATION_LOGIN_REQUIRED',
+        message: 'Entre novamente para trocar o código secreto.',
+      });
+    }
+    delete session.totpRotationAuthenticatedAt;
+    await saveSession(session);
     this.preventSeedCaching(response);
     return this.totpService.rotateSeed({
       keycloakId: session.user!.keycloakId,
@@ -93,13 +104,6 @@ export class TotpController {
   })
   disableSeed(@Session() session: AuthSession): Promise<TotpStatusDto> {
     return this.totpService.disableSeed(session.user!.keycloakId);
-  }
-
-  private assertRecentlyAuthenticated(session: AuthSession): void {
-    const maximumAgeMs = 5 * 60 * 1000;
-    if (!session.authenticatedAt || Date.now() - session.authenticatedAt > maximumAgeMs) {
-      throw new ForbiddenException('Recent authentication is required to reveal or rotate the TOTP seed.');
-    }
   }
 
   private preventSeedCaching(response: Response): void {
