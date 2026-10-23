@@ -108,7 +108,8 @@ describe('Application navigation', () => {
     fixture.detectChanges();
     const anchor = (fixture.nativeElement as HTMLElement).querySelector('a');
     expect(anchor?.href).toBe('https://example.org/events');
-    expect(anchor?.getAttribute('aria-label')).toContain('Eventos (nova aba)');
+    expect(anchor?.getAttribute('aria-label')).toBe('Abrir Eventos em uma nova aba');
+    expect(anchor?.target).toBe('_blank');
     expect(anchor?.rel).toContain('noopener');
   });
 });

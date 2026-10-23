@@ -171,17 +171,17 @@ describe('S3Service', () => {
     });
 
     await expect(service.uploadFile('multipart', Buffer.alloc(6 * 1024 * 1024))).rejects.toMatchObject({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       diagnostics: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         requestFailures: expect.arrayContaining([
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           expect.objectContaining({
             command: 'UploadPartCommand',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             error: expect.objectContaining({ message: 'part unavailable' }),
           }),
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           expect.objectContaining({
             command: 'AbortMultipartUploadCommand',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             error: expect.objectContaining({ message: 'cleanup denied' }),
           }),
         ]),
