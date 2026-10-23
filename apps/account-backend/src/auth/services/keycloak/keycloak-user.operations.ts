@@ -3,6 +3,24 @@ import { KeycloakErrorResponse, KeycloakFederatedIdentity, KeycloakUserData } fr
 import { KeycloakAdminOperations } from './keycloak-admin.operations';
 
 export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
+  private readonly userUpdateListeners = new Set<(userId: string) => Promise<void>>();
+
+  onUserUpdated(listener: (userId: string) => Promise<void>): () => void {
+    this.userUpdateListeners.add(listener);
+    return () => this.userUpdateListeners.delete(listener);
+  }
+
+  private async notifyUserUpdated(userId: string): Promise<void> {
+    for (const listener of this.userUpdateListeners) {
+      try {
+        await listener(userId);
+      } catch (error) {
+        // The identity mutation has succeeded; scheduled reconciliation retries failed consumers.
+        this.logger.warn(`Failed to synchronize updated Keycloak user ${userId}`, error);
+      }
+    }
+  }
+
   async updateUserAttributes(
     userId: string,
     attributes: Record<string, string | string[]>,
@@ -129,6 +147,8 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
       throw new Error(`Failed to update user attributes: ${updateResponse.status} ${updateResponse.statusText}`);
     }
+
+    await this.notifyUserUpdated(userId);
   }
 
   async getUserAttributes(userId: string): Promise<Record<string, string[]>> {
@@ -433,6 +453,8 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
       throw new Error(`Failed to update user: ${updateResponse.status} ${updateResponse.statusText}`);
     }
+
+    await this.notifyUserUpdated(userId);
   }
 
   async setUserEnabled(userId: string, enabled: boolean): Promise<void> {
@@ -566,6 +588,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       throw new Error(`Failed to delete user from Keycloak: ${response.status} ${response.statusText}`);
     }
 
+    await this.notifyUserUpdated(userId);
     this.logger.log('User successfully deleted from Keycloak', { userId });
   }
 }

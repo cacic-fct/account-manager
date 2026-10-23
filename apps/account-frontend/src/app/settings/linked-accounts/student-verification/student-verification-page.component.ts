@@ -12,14 +12,14 @@ import { StudentVerificationCardComponent } from '../components/student-verifica
   template: `
     <div class="linked-account-page">
       <mat-toolbar color="primary" class="toolbar">
-        <button mat-icon-button [routerLink]="linkedAccountsRoute">
+        <button mat-icon-button [routerLink]="linkedAccountsRoute" aria-label="Voltar para contas vinculadas">
           <mat-icon>arrow_back</mat-icon>
         </button>
         <span>Unesp</span>
         <span class="spacer"></span>
       </mat-toolbar>
 
-      <div class="content">
+      <div class="content integration-content">
         <app-student-verification-card></app-student-verification-card>
       </div>
     </div>

@@ -59,7 +59,7 @@ export function getDiscordManagedRoleCategory(
   if (
     user &&
     isComputerScienceStudent(user) &&
-    (user?.unespRoleVerified || options.skipUndergraduateUnespRoleVerification === true)
+    (user.unespRoleVerified === true || options.skipUndergraduateUnespRoleVerification === true)
   ) {
     return 'student';
   }

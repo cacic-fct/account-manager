@@ -1,40 +1,33 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { Location } from '@angular/common';
+import { NgOptimizedImage } from '@angular/common';
 import { ApiService, DiscordLinkStatus } from '../../../../shared/services/api.service';
 import { LoggerService } from '../../../../shared/services/logger.service';
 
 @Component({
   selector: 'app-discord-server-access',
-  imports: [
-    RouterModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatChipsModule,
-    MatDividerModule,
-    MatToolbarModule,
-  ],
+  imports: [RouterModule, NgOptimizedImage, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatToolbarModule],
   templateUrl: './server-access.component.html',
   styleUrl: './server-access.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiscordServerAccessComponent implements OnInit {
   private apiService = inject(ApiService);
-  private location = inject(Location);
   private logger = inject(LoggerService);
 
   isLoading = signal(true);
   discordStatus = signal<DiscordLinkStatus | null>(null);
   hasLoadError = signal(false);
+
+  protected readonly accessLabel = computed(() => {
+    const role = this.discordStatus()?.eligibleForRole;
+    return role === 'student' ? 'Estudante do BCC' : role === 'unesp' ? 'Unespiano' : 'Visitante';
+  });
 
   ngOnInit(): void {
     this.loadDiscordStatus();
@@ -55,10 +48,6 @@ export class DiscordServerAccessComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
-  }
-
-  goBack(): void {
-    this.location.back();
   }
 
   hasVisitorRole(): boolean {

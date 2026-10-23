@@ -1,251 +1,111 @@
-<div class="server-access-container">
-  <mat-toolbar class="page-header">
-    <button mat-icon-button (click)="goBack()" class="back-button">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <h1 class="page-title">Acesso ao Servidor Discord</h1>
-  </mat-toolbar>
+<mat-toolbar class="page-header">
+  <a mat-icon-button routerLink="/settings/linked-accounts/discord" aria-label="Voltar para Discord">
+    <mat-icon>arrow_back</mat-icon>
+  </a>
+  <span>Discord</span>
+</mat-toolbar>
 
-  <div class="content-wrapper">
-    @if (isLoading()) {
-      <div class="loading-state">
-        <mat-spinner diameter="48"></mat-spinner>
-        <p>Carregando informações de acesso...</p>
+<main class="settings-content">
+  <header class="section-heading">
+    <h1>Seu acesso ao servidor</h1>
+  </header>
+
+  @if (isLoading()) {
+    <div class="state-message" role="status">
+      <mat-spinner diameter="28"></mat-spinner>
+      <p>Consultando seu acesso…</p>
+    </div>
+  } @else if (hasLoadError()) {
+    <section class="surface" role="alert">
+      <h2>Não foi possível consultar seu acesso</h2>
+      <p>Tente novamente para ver suas contas e o convite.</p>
+      <button mat-stroked-button (click)="retryLoading()"><mat-icon>refresh</mat-icon>Tentar novamente</button>
+    </section>
+  } @else if (!discordStatus()?.isLinked) {
+    <section class="surface">
+      <mat-icon class="section-icon">link</mat-icon>
+      <h2>Vamos conectar seu Discord?</h2>
+      <p>Vincule sua conta para consultar seu acesso ao servidor.</p>
+      <a mat-flat-button routerLink="/settings/linked-accounts/discord">Conectar Discord</a>
+    </section>
+  } @else {
+    <section class="surface access-surface" aria-labelledby="access-title">
+      <div class="section-heading row access-summary">
+        <img ngSrc="/assets/discord.svg" width="32" height="32" alt="" class="discord-mark" />
+        <div>
+          <h2 id="access-title">{{ accessLabel() }}</h2>
+          @switch (discordStatus()?.eligibleForRole) {
+            @case ('student') {
+              <p>Sua verificação permite o acesso de estudante ao servidor.</p>
+            }
+            @case ('unesp') {
+              <p>Seu vínculo com a Unesp foi reconhecido.</p>
+            }
+            @default {
+              <p>Você pode participar do servidor por convite.</p>
+            }
+          }
+        </div>
       </div>
-    } @else if (hasLoadError()) {
-      <mat-card class="error-card">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="error-icon">error_outline</mat-icon>
-          <mat-card-title>Erro ao carregar</mat-card-title>
-          <mat-card-subtitle> Não foi possível carregar as informações de acesso </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-actions>
-          <button mat-raised-button color="primary" (click)="retryLoading()">
-            <mat-icon>refresh</mat-icon>
-            Tentar novamente
-          </button>
-        </mat-card-actions>
-      </mat-card>
-    } @else if (!discordStatus()?.isLinked) {
-      <mat-card class="info-card">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="info-icon">info</mat-icon>
-          <mat-card-title>Conta não vinculada</mat-card-title>
-          <mat-card-subtitle> Você precisa vincular sua conta do Discord primeiro </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-actions>
-          <button mat-raised-button color="primary" routerLink="../">
-            <mat-icon>link</mat-icon>
-            Vincular conta
-          </button>
-        </mat-card-actions>
-      </mat-card>
-    } @else {
-      <!-- Access Level Information -->
-      <mat-card class="access-level-card">
-        <mat-card-header class="card-header">
-          <mat-icon mat-card-avatar class="access-icon">security</mat-icon>
-          <mat-card-title>Nível de Acesso</mat-card-title>
-          <mat-card-subtitle>Seu status atual no servidor do CACiC</mat-card-subtitle>
-        </mat-card-header>
-
-        <mat-card-content>
-          <div class="access-status">
-            @if (discordStatus()?.eligibleForRole === 'student') {
-              <mat-chip class="status-chip student">
-                <mat-icon matChipAvatar>school</mat-icon>
-                Estudante do BCC
-              </mat-chip>
-              <div class="access-description">
-                <p class="description-text">
-                  Como estudante verificado do curso de Ciência da Computação, você tem acesso total ao servidor do
-                  CACiC.
-                </p>
-              </div>
-            } @else if (discordStatus()?.eligibleForRole === 'unesp') {
-              <mat-chip class="status-chip unesp">
-                <mat-icon matChipAvatar>school</mat-icon>
-                Unespiano
-              </mat-chip>
-              <div class="access-description">
-                <p class="description-text">
-                  Você deve solicitar o convite do servidor a um aluno da Ciência da Computação.
-                </p>
-              </div>
-            } @else {
-              <mat-chip class="status-chip visitor">
-                <mat-icon matChipAvatar>person</mat-icon>
-                Visitante
-              </mat-chip>
-              <div class="access-description">
-                <p class="description-text">Você tem acesso básico ao servidor por meio de convite.</p>
-              </div>
-            }
+      <dl class="account-list">
+        @for (link of discordStatus()?.discordLinks; track link.id) {
+          <div class="account-row">
+            <dt>
+              <strong>{{ link.discordGlobalName || link.discordUsername }}</strong
+              ><span>@{{ link.discordUsername }}</span>
+            </dt>
+            <dd>
+              {{
+                link.assignedRole === 'student'
+                  ? 'Estudante do BCC'
+                  : link.assignedRole === 'unesp'
+                    ? 'Unespiano'
+                    : link.assignedRole === 'visitor'
+                      ? 'Visitante'
+                      : 'Cargo não informado'
+              }}
+            </dd>
           </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Benefits Card -->
-      <mat-card class="benefits-card">
-        <mat-card-header class="card-header">
-          <mat-icon mat-card-avatar class="benefits-icon">verified_user</mat-icon>
-          <mat-card-title>Benefícios</mat-card-title>
-          <mat-card-subtitle>O que você pode acessar</mat-card-subtitle>
-        </mat-card-header>
-
-        <mat-card-content>
-          <div class="benefits-list">
-            @if (discordStatus()?.eligibleForRole === 'student') {
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">verified_user</mat-icon>
-                <div class="benefit-content">
-                  <h4>Acesso automático ao servidor</h4>
-                  <p>Entre diretamente sem necessidade de solicitar um convite</p>
-                </div>
-              </div>
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">group</mat-icon>
-                <div class="benefit-content">
-                  <h4>Canais exclusivos para estudantes</h4>
-                  <p>Acesso a discussões e conteúdos específicos do curso</p>
-                </div>
-              </div>
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">event</mat-icon>
-                <div class="benefit-content">
-                  <h4>Eventos e atividades</h4>
-                  <p>Participação em eventos do CACiC</p>
-                </div>
-              </div>
-            } @else if (discordStatus()?.eligibleForRole === 'unesp') {
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">person_add</mat-icon>
-                <div class="benefit-content">
-                  <h4>Acesso por convite</h4>
-                  <p>É necessário solicitar um convite para entrar no servidor</p>
-                </div>
-              </div>
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">event</mat-icon>
-                <div class="benefit-content">
-                  <h4>Eventos e atividades</h4>
-                  <p>Participação em eventos do CACiC</p>
-                </div>
-              </div>
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">info</mat-icon>
-                <div class="benefit-content">
-                  <h4>Upgrade disponível</h4>
-                  <p>Realize a verificação de estudante para acesso total e automático</p>
-                </div>
-              </div>
-            } @else {
-              <div class="benefit-item">
-                <mat-icon class="benefit-icon">person_add</mat-icon>
-                <div class="benefit-content">
-                  <h4>Acesso básico</h4>
-                  <p>Participe de discussões gerais e eventos públicos</p>
-                </div>
-              </div>
-            }
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Server Invitation Card -->
-      @if (
-        !hasVisitorRole() &&
-          (discordStatus()?.eligibleForRole === 'student' || discordStatus()?.eligibleForRole === 'unesp') &&
-          discordStatus()?.inviteLink;
-        as inviteLink
-      ) {
-        <mat-card class="invitation-card success">
-          <mat-card-header class="card-header">
-            <mat-icon mat-card-avatar class="invite-icon">groups</mat-icon>
-            <mat-card-title>Junte-se ao Servidor</mat-card-title>
-            <mat-card-subtitle>Você está elegível para entrar</mat-card-subtitle>
-          </mat-card-header>
-
-          <mat-card-content>
-            <div class="invite-content">
-              <div class="invite-description">
-                <p>Clique no botão abaixo para entrar no servidor do CACiC.</p>
-              </div>
-              <div class="invite-features">
-                <div class="feature-item">
-                  <mat-icon>chat</mat-icon>
-                  <span>Discussões</span>
-                </div>
-                <div class="feature-item">
-                  <mat-icon>school</mat-icon>
-                  <span>Suporte acadêmico</span>
-                </div>
-                <div class="feature-item">
-                  <mat-icon>event</mat-icon>
-                  <span>Eventos e atividades</span>
-                </div>
-              </div>
-            </div>
-          </mat-card-content>
-
-          <mat-card-actions class="invite-actions">
-            <a
-              [href]="inviteLink"
-              target="_blank"
-              rel="noopener noreferrer"
-              mat-raised-button
-              color="primary"
-              class="join-button">
-              <mat-icon>launch</mat-icon>
-              Entrar no Servidor
-            </a>
-          </mat-card-actions>
-        </mat-card>
-      } @else if (discordStatus()?.eligibleForRole === 'student') {
-        <mat-card class="invitation-card warning">
-          <mat-card-header class="card-header">
-            <mat-icon mat-card-avatar class="warning-icon">info</mat-icon>
-            <mat-card-title>Convite Indisponível</mat-card-title>
-            <mat-card-subtitle>Link indisponível</mat-card-subtitle>
-          </mat-card-header>
-
-          <mat-card-content>
-            <div class="warning-content">
-              <p>
-                No momento não há um link de convite disponível para o servidor. Entre em contato com o CACiC ou tente
-                novamente mais tarde.
-              </p>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      }
-
-      <!-- Upgrade Suggestion -->
-      @if (discordStatus()?.eligibleForRole !== 'student') {
-        <mat-card class="upgrade-card">
-          <mat-card-header class="card-header">
-            <mat-icon mat-card-avatar class="upgrade-icon">upgrade</mat-icon>
-            <mat-card-title>Quer mais acesso?</mat-card-title>
-            <mat-card-subtitle>Verifique seu status de estudante</mat-card-subtitle>
-          </mat-card-header>
-
-          <mat-card-content>
-            <div class="upgrade-content">
-              <p>
-                Se você é estudante do Bacharelado em Ciência da Computação da Unesp, pode realizar a verificação de
-                estudante para obter acesso completo ao servidor.
-              </p>
-            </div>
-          </mat-card-content>
-
-          <mat-card-actions>
-            <button mat-raised-button color="accent" routerLink="/settings/linked-accounts/unesp/student-verification">
-              <mat-icon>school</mat-icon>
-              Verificar como Estudante
-            </button>
-          </mat-card-actions>
-        </mat-card>
-      }
+        }
+      </dl>
+      <div class="access-actions">
+        @if (
+          !hasVisitorRole() &&
+            (discordStatus()?.eligibleForRole === 'student' || discordStatus()?.eligibleForRole === 'unesp') &&
+            discordStatus()?.inviteLink;
+          as inviteLink
+        ) {
+          <a
+            mat-flat-button
+            [href]="inviteLink"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Abrir servidor do CACiC em uma nova aba">
+            <mat-icon>open_in_new</mat-icon>Abrir servidor
+          </a>
+        } @else if (discordStatus()?.eligibleForRole === 'student') {
+          <p class="inline-note">
+            <mat-icon>info</mat-icon>O convite não está disponível agora. Tente novamente mais tarde ou fale com o
+            CACiC.
+          </p>
+        } @else {
+          <p class="inline-note">
+            <mat-icon>person_add</mat-icon>Peça um convite a um estudante de Ciência da Computação.
+          </p>
+        }
+      </div>
+    </section>
+    @if (discordStatus()?.eligibleForRole !== 'student') {
+      <section class="support-section">
+        <h2>Você estuda no BCC?</h2>
+        <p>Verifique sua matrícula para receber o acesso de estudante.</p>
+        <a mat-stroked-button routerLink="/settings/linked-accounts/unesp"
+          ><mat-icon>school</mat-icon>Verificar matrícula</a
+        >
+      </section>
     }
-  </div>
-</div>
+    <a mat-button routerLink="/settings/linked-accounts/discord"
+      ><mat-icon>manage_accounts</mat-icon>Gerenciar contas vinculadas</a
+    >
+  }
+</main>

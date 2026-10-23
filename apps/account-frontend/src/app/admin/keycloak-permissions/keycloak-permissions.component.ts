@@ -3,6 +3,7 @@ import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angu
 import { RouterLink } from '@angular/router';
 import {
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   KeycloakPermissionGrant,
   KeycloakPermissionUser,
   PermissionGroupDefinition,
@@ -75,17 +76,29 @@ export class PermissionsComponent implements OnInit {
   private dialog = inject(MatDialog);
   private formBuilder = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
+  private userAccessRequestId = 0;
 
   protected catalog = signal<KeycloakPermissionDefinition[]>([]);
   protected groups = signal<PermissionGroupDefinition[]>([]);
   protected selectedGroupKey = signal<PermissionGroupKey | null>(null);
   protected groupRoleGrants = signal<PermissionGroupRoleGrant[]>([]);
   protected groupMemberships = signal<PermissionGroupMembership[]>([]);
+  protected groupUsers = signal<KeycloakPermissionUser[]>([]);
+  protected selectedGroupUsers = signal<KeycloakPermissionUser[]>([]);
+  protected searchingGroupUsers = signal(false);
+  protected deletingMembershipId = signal<string | null>(null);
+  protected groupSearchForm = this.formBuilder.nonNullable.group({
+    query: ['', [Validators.required, Validators.minLength(2)]],
+  });
+  protected selectedGroupPeopleLabel = computed(() => this.getSelectedPeopleLabel(this.selectedGroupUsers().length));
+
   protected users = signal<KeycloakPermissionUser[]>([]);
   protected selectedUser = signal<KeycloakPermissionUser | null>(null);
   protected selectedUsers = signal<KeycloakPermissionUser[]>([]);
   protected directGrants = signal<KeycloakPermissionGrant[]>([]);
   protected userMemberships = signal<PermissionGroupMembership[]>([]);
+  protected liveAccess = signal<KeycloakPermissionLiveAccess | null>(null);
+  protected liveAccessFailed = signal(false);
   protected loadingCatalog = signal(true);
   protected loadingGroup = signal(false);
   protected searching = signal(false);
@@ -111,7 +124,7 @@ export class PermissionsComponent implements OnInit {
   });
 
   protected directGrantForm = this.formBuilder.nonNullable.group({
-    permission: ['', Validators.required],
+    permissions: [[] as string[], Validators.required],
     validFrom: [''],
     validUntil: [{ value: '', disabled: true }],
     indefinite: [true],
@@ -142,18 +155,7 @@ export class PermissionsComponent implements OnInit {
 
   protected batchApplyUserCount = computed(() => this.batchApplyUsers().length);
 
-  protected selectedPeopleLabel = computed(() => {
-    const count = this.batchApplyUserCount();
-    if (count === 0) {
-      return 'Nenhuma pessoa selecionada';
-    }
-
-    if (count === 1) {
-      return '1 pessoa selecionada';
-    }
-
-    return `${count} pessoas selecionadas`;
-  });
+  protected selectedPeopleLabel = computed(() => this.getSelectedPeopleLabel(this.batchApplyUserCount()));
 
   protected availableDirectPermissions = computed(() => {
     if (this.batchApplyUserCount() > 1) {
@@ -185,26 +187,42 @@ export class PermissionsComponent implements OnInit {
     this.loadGroup(groupKey);
   }
 
-  protected searchUsers(): void {
-    const query = this.searchForm.controls.query.value.trim();
-    if (this.searchForm.invalid || query.length < 2) {
-      this.searchForm.markAllAsTouched();
+  protected searchUsers(target: 'groups' | 'people' = 'people'): void {
+    const searchForm = target === 'groups' ? this.groupSearchForm : this.searchForm;
+    const searching = target === 'groups' ? this.searchingGroupUsers : this.searching;
+    const results = target === 'groups' ? this.groupUsers : this.users;
+    const query = searchForm.controls.query.value.trim();
+    if (searchForm.invalid || query.length < 2) {
+      searchForm.markAllAsTouched();
       return;
     }
 
-    this.searching.set(true);
+    searching.set(true);
     this.apiService.searchKeycloakPermissionUsers(query).subscribe({
       next: (users) => {
-        this.users.set(users);
-        this.searching.set(false);
+        results.set(users);
+        searching.set(false);
       },
       error: () => {
         this.snackBar.open('Erro ao buscar pessoas no Keycloak.', 'Fechar', {
           duration: 5000,
         });
-        this.searching.set(false);
+        searching.set(false);
       },
     });
+  }
+
+  protected toggleGroupUser(user: KeycloakPermissionUser): void {
+    const selected = this.selectedGroupUsers().some((person) => person.id === user.id);
+    if (selected) {
+      this.removeGroupUser(user.id);
+    } else {
+      this.selectedGroupUsers.update((users) => [...users, user]);
+    }
+  }
+
+  protected removeGroupUser(userId: string): void {
+    this.selectedGroupUsers.update((users) => users.filter((user) => user.id !== userId));
   }
 
   protected setMembershipIndefinite(checked: boolean): void {
@@ -254,6 +272,8 @@ export class PermissionsComponent implements OnInit {
     this.selectedUser.set(user);
     this.directGrants.set([]);
     this.userMemberships.set([]);
+    this.liveAccess.set(null);
+    this.liveAccessFailed.set(false);
     this.resetDirectGrantForm();
     this.loadUserAccess(user.id);
   }
@@ -297,7 +317,7 @@ export class PermissionsComponent implements OnInit {
 
   protected saveMembership(): void {
     const group = this.selectedGroup();
-    const users = this.batchApplyUsers();
+    const users = this.selectedGroupUsers();
     if (!group || users.length === 0) {
       this.snackBar.open('Selecione um grupo e ao menos uma pessoa.', 'Fechar', {
         duration: 4000,
@@ -376,18 +396,20 @@ export class PermissionsComponent implements OnInit {
 
     this.savingGrant.set(true);
     forkJoin(
-      users.map((user) =>
-        this.apiService
-          .createKeycloakPermissionGrant({
-            userId: user.id,
-            permission: value.permission,
-            validFrom: this.toIsoOrNull(value.validFrom),
-            validUntil,
-          })
-          .pipe(
-            map(() => ({ user, success: true }) satisfies PermissionBatchApplyResult),
-            catchError(() => of({ user, success: false } satisfies PermissionBatchApplyResult)),
-          ),
+      users.flatMap((user) =>
+        value.permissions.map((permission) =>
+          this.apiService
+            .createKeycloakPermissionGrant({
+              userId: user.id,
+              permission,
+              validFrom: this.toIsoOrNull(value.validFrom),
+              validUntil,
+            })
+            .pipe(
+              map(() => ({ user, success: true }) satisfies PermissionBatchApplyResult),
+              catchError(() => of({ user, success: false } satisfies PermissionBatchApplyResult)),
+            ),
+        ),
       ),
     ).subscribe((results) => {
       this.showBatchApplyResult(results, 'Permissão concedida.', 'permissão(ões) concedida(s)');
@@ -456,11 +478,7 @@ export class PermissionsComponent implements OnInit {
   }
 
   protected refreshCurrent(): void {
-    const group = this.selectedGroup();
-    if (group) {
-      this.loadGroup(group.key);
-    }
-
+    this.loadCatalog();
     const user = this.selectedUser();
     if (user) {
       this.loadUserAccess(user.id);
@@ -496,7 +514,7 @@ export class PermissionsComponent implements OnInit {
   }
 
   private loadCatalog(): void {
-    this.loadingCatalog.set(true);
+    this.loadingCatalog.set(this.catalog().length === 0);
     forkJoin({
       catalog: this.apiService.getKeycloakPermissionCatalog(),
       groups: this.apiService.getPermissionGroupCatalog(),
@@ -505,10 +523,10 @@ export class PermissionsComponent implements OnInit {
         this.catalog.set(catalog);
         this.groups.set(groups);
         this.loadingCatalog.set(false);
-        const firstGroup = groups[0];
-        if (firstGroup) {
-          this.selectedGroupKey.set(firstGroup.key);
-          this.loadGroup(firstGroup.key);
+        const group = groups.find((candidate) => candidate.key === this.selectedGroupKey()) ?? groups[0];
+        if (group) {
+          this.selectedGroupKey.set(group.key);
+          this.loadGroup(group.key);
         }
       },
       error: () => {
@@ -550,22 +568,28 @@ export class PermissionsComponent implements OnInit {
   }
 
   private loadUserAccess(userId: string): void {
+    const requestId = ++this.userAccessRequestId;
     this.loadingUserAccess.set(true);
+    this.liveAccess.set(null);
+    this.liveAccessFailed.set(false);
     forkJoin({
+      liveAccess: this.apiService.getKeycloakPermissionLiveAccess(userId).pipe(catchError(() => of(null))),
       grants: this.apiService.getKeycloakPermissionGrants(userId),
       memberships: this.apiService.getUserPermissionGroupMemberships(userId),
     }).subscribe({
-      next: ({ grants, memberships }) => {
-        if (this.selectedUser()?.id !== userId) {
+      next: ({ grants, memberships, liveAccess }) => {
+        if (this.selectedUser()?.id !== userId || requestId !== this.userAccessRequestId) {
           return;
         }
 
+        this.liveAccess.set(liveAccess);
+        this.liveAccessFailed.set(liveAccess === null);
         this.directGrants.set(grants);
         this.userMemberships.set(memberships);
         this.loadingUserAccess.set(false);
       },
       error: () => {
-        if (this.selectedUser()?.id !== userId) {
+        if (this.selectedUser()?.id !== userId || requestId !== this.userAccessRequestId) {
           return;
         }
 
@@ -578,9 +602,12 @@ export class PermissionsComponent implements OnInit {
   }
 
   private clearSelectedUserAccess(): void {
+    this.userAccessRequestId++;
     this.selectedUser.set(null);
     this.directGrants.set([]);
     this.userMemberships.set([]);
+    this.liveAccess.set(null);
+    this.liveAccessFailed.set(false);
     this.resetDirectGrantForm();
     this.loadingUserAccess.set(false);
   }
@@ -639,7 +666,7 @@ export class PermissionsComponent implements OnInit {
   }
 
   private deleteMembership(membershipId: string): void {
-    this.deletingId.set(membershipId);
+    this.deletingMembershipId.set(membershipId);
     this.apiService.deletePermissionGroupMembership(membershipId).subscribe({
       next: () => {
         const group = this.selectedGroup();
@@ -650,20 +677,28 @@ export class PermissionsComponent implements OnInit {
         if (user) {
           this.loadUserAccess(user.id);
         }
-        this.deletingId.set(null);
+        this.deletingMembershipId.set(null);
       },
       error: () => {
         this.snackBar.open('Erro ao remover vínculo.', 'Fechar', {
           duration: 5000,
         });
-        this.deletingId.set(null);
+        this.deletingMembershipId.set(null);
       },
     });
   }
 
+  private getSelectedPeopleLabel(count: number): string {
+    if (count === 0) {
+      return 'Nenhuma pessoa selecionada';
+    }
+
+    return count === 1 ? '1 pessoa selecionada' : `${count} pessoas selecionadas`;
+  }
+
   private resetDirectGrantForm(): void {
     this.directGrantForm.reset({
-      permission: '',
+      permissions: [],
       validFrom: '',
       validUntil: '',
       indefinite: true,
@@ -675,13 +710,8 @@ export class PermissionsComponent implements OnInit {
     groupKey: PermissionGroupKey,
     roleGrants: PermissionGroupRoleGrant[],
   ): string[] {
-    const group = this.groups().find((candidate) => candidate.key === groupKey);
-    const shouldSkipKeycloakTemplateGrants =
-      group?.managedBy === PermissionGroupKey.Cacic && group.key !== PermissionGroupKey.Cacic;
-
     return roleGrants
-      .filter((grant) => grant.status !== 'expired')
-      .filter((grant) => !shouldSkipKeycloakTemplateGrants || grant.source !== 'keycloak')
+      .filter((grant) => grant.groupKey === groupKey && grant.status !== 'expired')
       .map((grant) => grant.permission);
   }
 

@@ -1,16 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
-import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import {
   StudentVerificationService,
@@ -19,7 +14,6 @@ import {
 } from '../../../shared/services/student-verification/student-verification.service';
 import { UniversityValidationDialogComponent } from './university-validation-dialog/university-validation-dialog.component';
 import { environment } from '../../../../environments/environment';
-import { RouterLink } from '@angular/router';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
@@ -27,16 +21,11 @@ import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
 @Component({
   selector: 'app-student-verification-card',
   imports: [
-    FormsModule,
-    MatCardModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatTooltipModule,
     MatCheckboxModule,
-    MatChipsModule,
     MatProgressBarModule,
-    RouterLink,
     DateFnsPipe,
   ],
   templateUrl: './student-verification-card.component.html',
@@ -45,7 +34,6 @@ import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
 })
 export class StudentVerificationCardComponent implements OnInit, OnDestroy {
   private studentVerificationService = inject(StudentVerificationService);
-  private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private logger = inject(LoggerService);
 
@@ -100,7 +88,6 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
       next: (status: VerificationStatus) => {
         this.verificationStatus.set(status);
         this.isLoading.set(false);
-        this.updateBannerBasedOnStatus();
       },
       error: (error) => {
         this.logger.error('Error loading verification status', error, { operation: 'student-verification' });
@@ -114,28 +101,8 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private updateBannerBasedOnStatus(): void {
-    // Only show status banner if there's no current error/success/warning banner
-    const currentType = this.currentBanner()?.type;
-    const hasImportantBanner = currentType && ['error', 'success', 'warning'].includes(currentType);
-
-    if (!hasImportantBanner) {
-      const status = this.verificationStatus();
-      if (status?.status === 'not_required') {
-        this.showInfoBanner(
-          'Verificação dispensada',
-          'A verificação de estudantes da graduação está temporariamente desativada.',
-        );
-      } else if (status?.status === 'not_submitted') {
-        this.showInfoBanner(
-          'Verificação pendente',
-          'Envie um documento válido para verificar seu status de estudante.',
-        );
-      }
-    }
-  }
-
   onFileSelected(event: Event): void {
+    if (this.uploading()) return;
     const target = event.target as HTMLInputElement;
     if (target.files && target.files.length > 0) {
       const file = target.files[0];
@@ -160,6 +127,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     event.stopPropagation();
     this.isDragOver.set(false);
 
+    if (this.uploading()) return;
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       const file = files[0];
@@ -182,10 +150,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     this.selectedFile.set(file);
     this.dismissBanner(); // Clear any existing banners when file is selected
 
-    // Auto-submit file after a short delay to allow user to see the selection
-    setTimeout(() => {
-      this.startValidation();
-    }, 500);
+    this.startValidation();
   }
 
   removeSelectedFile(): void {
@@ -205,6 +170,8 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
   startValidation(): void {
     const file = this.selectedFile();
 
+    if (this.uploading()) return;
+
     if (!file) {
       this.showErrorBanner('Arquivo não selecionado', 'Por favor, selecione um arquivo PDF.');
       return;
@@ -218,6 +185,8 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.uploading.set(true);
+
     // Otherwise, open university validation dialog
     const dialogRef = this.dialog.open(UniversityValidationDialogComponent, {
       width: '500px',
@@ -228,6 +197,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
     });
 
     dialogRef.afterClosed().subscribe((result) => {
+      this.uploading.set(false);
       if (result?.pendingManualReview) {
         this.showSuccessBanner('Documento enviado', 'Seu documento foi encaminhado para análise manual.');
         this.loadVerificationStatus();

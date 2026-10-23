@@ -99,6 +99,50 @@ describe('KeycloakService client roles', () => {
     expect(headers.get('Authorization')).toMatch(/^Basic /);
   });
 
+  it('reads every page of live group memberships and preserves stable ids', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({ id: `group-${index}`, name: 'Same name' }));
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
+      .mockResolvedValueOnce(jsonResponse(firstPage))
+      .mockResolvedValueOnce(jsonResponse([{ id: 'last-group', name: 'Same name' }]));
+    global.fetch = fetchMock;
+    const groups = await new KeycloakService().getUserGroupMemberships('user/1');
+    expect(groups).toHaveLength(101);
+    expect(groups[100].id).toBe('last-group');
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://sso.example.test/admin/realms/cacic/users/user%2F1/groups?first=0&max=100&briefRepresentation=true',
+    );
+    expect(fetchMock.mock.calls[2][0]).toContain('first=100&max=100');
+  });
+
+  it('fails a live membership read when a later page is unavailable', async () => {
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
+      .mockResolvedValueOnce(
+        jsonResponse(Array.from({ length: 100 }, (_, index) => ({ id: `group-${index}`, name: 'Group' }))),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, { status: 503 }));
+    global.fetch = fetchMock;
+    await expect(new KeycloakService().getUserGroupMemberships('user-1')).rejects.toThrow('503');
+  });
+
+  it('requests expanded group roles only when effective mappings are needed', async () => {
+    const fetchMock: FetchMock = jest
+      .fn<Promise<Response>, Parameters<typeof fetch>>()
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'admin-token' }))
+      .mockResolvedValueOnce(jsonResponse([{ id: 'client-uuid', clientId: 'cacic-account-manager' }]))
+      .mockResolvedValueOnce(jsonResponse([{ name: 'permission-grant#read' }]));
+    global.fetch = fetchMock;
+    await expect(
+      new KeycloakService().getGroupClientRoles('group-1', 'cacic-account-manager', { effective: true }),
+    ).resolves.toEqual(['permission-grant#read']);
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      'https://sso.example.test/admin/realms/cacic/groups/group-1/role-mappings/clients/client-uuid/composite',
+    );
+  });
+
   it('reads user roles from the configured Keycloak client role mappings', async () => {
     const fetchMock: FetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
     fetchMock

@@ -125,27 +125,27 @@
                   ariaLabel="Selecionar pessoa para o vínculo"
                   emptyHint="Busque por nome, CPF ou e-mail"
                   [multiple]="true"
-                  [searchForm]="searchForm"
-                  [searching]="searching()"
-                  [selectedUser]="selectedUser()"
-                  [selectedUsers]="selectedUsers()"
-                  [users]="users()"
-                  (search)="searchUsers()"
-                  (userToggled)="toggleBatchUser($event)" />
+                  [searchForm]="groupSearchForm"
+                  [searching]="searchingGroupUsers()"
+                  [selectedUser]="null"
+                  [selectedUsers]="selectedGroupUsers()"
+                  [users]="groupUsers()"
+                  (search)="searchUsers('groups')"
+                  (userToggled)="toggleGroupUser($event)" />
 
                 <form class="membership-form" [formGroup]="membershipForm" (ngSubmit)="saveMembership()">
                   <div class="section-heading">
                     <h3>Prazo do vínculo</h3>
-                    @if (batchApplyUserCount() > 0) {
-                      <span>{{ selectedPeopleLabel() }}</span>
+                    @if (selectedGroupUsers().length > 0) {
+                      <span>{{ selectedGroupPeopleLabel() }}</span>
                     } @else if (group.discordRoleId) {
                       <span>Adiciona o cargo Discord {{ group.discordRoleId }}</span>
                     }
                   </div>
 
-                  @if (batchApplyUsers().length > 0) {
+                  @if (selectedGroupUsers().length > 0) {
                     <div class="selected-people" aria-label="Pessoas selecionadas para vínculo">
-                      @for (user of batchApplyUsers(); track user.id) {
+                      @for (user of selectedGroupUsers(); track user.id) {
                         <div class="selected-person">
                           <mat-icon>person_add</mat-icon>
                           <span>
@@ -157,7 +157,7 @@
                             type="button"
                             matTooltip="Remover da seleção"
                             [attr.aria-label]="'Remover ' + user.displayName + ' da seleção'"
-                            (click)="removeBatchUser(user.id)">
+                            (click)="removeGroupUser(user.id)">
                             <mat-icon>close</mat-icon>
                           </button>
                         </div>
@@ -201,7 +201,7 @@
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingMembership() || batchApplyUserCount() === 0">
+                      [disabled]="savingMembership() || selectedGroupUsers().length === 0">
                       @if (savingMembership()) {
                         <mat-spinner diameter="20"></mat-spinner>
                       } @else {
@@ -209,7 +209,7 @@
                       }
                       @if (savingMembership()) {
                         Vinculando
-                      } @else if (batchApplyUserCount() > 1) {
+                      } @else if (selectedGroupUsers().length > 1) {
                         Vincular pessoas
                       } @else {
                         Vincular pessoa
@@ -240,7 +240,7 @@
                         </span>
                         <span class="row-actions">
                           <mat-chip class="status-chip">{{ getStatusLabel(membership.status) }}</mat-chip>
-                          @if (deletingId() === membership.id) {
+                          @if (deletingMembershipId() === membership.id) {
                             <mat-spinner diameter="24"></mat-spinner>
                           } @else {
                             <button
@@ -301,7 +301,7 @@
               @if (batchApplyUserCount() === 0) {
                 <div class="empty-state compact">
                   <mat-icon>person_search</mat-icon>
-                  <p>Selecione uma ou mais pessoas para conceder uma permissão direta.</p>
+                  <p>Selecione uma ou mais pessoas para conceder permissões diretas.</p>
                 </div>
               } @else {
                 <div class="selected-people" aria-label="Pessoas selecionadas para permissão direta">
@@ -326,8 +326,8 @@
 
                 <form class="direct-grant-form" [formGroup]="directGrantForm" (ngSubmit)="createDirectGrant()">
                   <mat-form-field appearance="outline">
-                    <mat-label>Permissão</mat-label>
-                    <mat-select formControlName="permission">
+                    <mat-label>Permissões</mat-label>
+                    <mat-select formControlName="permissions" multiple>
                       @for (client of catalogByClient(); track client.clientId) {
                         <mat-optgroup [label]="client.clientLabel">
                           @for (permission of client.permissions; track permission.permission) {
@@ -340,8 +340,8 @@
                         </mat-optgroup>
                       }
                     </mat-select>
-                    @if (directGrantForm.controls.permission.hasError('required')) {
-                      <mat-error>Selecione a permissão que será concedida.</mat-error>
+                    @if (directGrantForm.controls.permissions.hasError('required')) {
+                      <mat-error>Selecione ao menos uma permissão.</mat-error>
                     }
                   </mat-form-field>
 
@@ -436,8 +436,8 @@
 
           <mat-card class="tool-card context-card">
             <mat-card-header>
-              <mat-card-title>Vínculos da pessoa</mat-card-title>
-              <mat-card-subtitle>Referência para evitar grants duplicados</mat-card-subtitle>
+              <mat-card-title>Acesso atual no Keycloak</mat-card-title>
+              <mat-card-subtitle>Grupos gerenciados e permissões diretas ou herdadas</mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
               @if (!selectedUser()) {
@@ -445,12 +445,43 @@
                   <mat-icon>badge</mat-icon>
                   <p>Nenhuma pessoa selecionada.</p>
                 </div>
-              } @else if (userMemberships().length === 0) {
-                <div class="empty-state compact">
-                  <mat-icon>group_off</mat-icon>
-                  <p>Sem vínculos de grupo.</p>
+              } @else if (loadingUserAccess()) {
+                <div class="loading-state" role="status" aria-label="Carregando acesso no Keycloak">
+                  <mat-spinner diameter="42"></mat-spinner>
                 </div>
-              } @else {
+              } @else if (liveAccessFailed()) {
+                <p role="alert">Não foi possível consultar o acesso no Keycloak.</p>
+                <button mat-button type="button" (click)="refreshCurrent()">Tentar novamente</button>
+              } @else if (liveAccess(); as access) {
+                <h3>Grupos</h3>
+                @if (access.groupKeys.length === 0) {
+                  <p>Sem vínculos com os grupos gerenciados.</p>
+                } @else {
+                  <div class="inline-chips" aria-label="Grupos atuais no Keycloak">
+                    @for (groupKey of access.groupKeys; track groupKey) {
+                      <mat-chip>{{ getGroupLabel(groupKey) }}</mat-chip>
+                    }
+                  </div>
+                }
+
+                <h3>Permissões</h3>
+                @if (access.permissions.length === 0) {
+                  <p>Nenhuma permissão nos sistemas gerenciados.</p>
+                } @else {
+                  <div class="record-list compact-list">
+                    @for (permission of access.permissions; track permission) {
+                      <div class="record-row">
+                        <span class="record-main">
+                          <strong>{{ getPermissionLabel(permission) }}</strong>
+                          <small>{{ getPermissionClientLabel(permission) }}</small>
+                        </span>
+                      </div>
+                    }
+                  </div>
+                }
+              }
+              @if (selectedUser() && userMemberships().length > 0) {
+                <h3>Vínculos registrados</h3>
                 <div class="record-list compact-list">
                   @for (membership of userMemberships(); track membership.id) {
                     <div class="record-row">

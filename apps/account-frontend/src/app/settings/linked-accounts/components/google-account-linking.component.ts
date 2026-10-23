@@ -9,15 +9,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
@@ -30,14 +26,10 @@ import { AuthService } from '../../../shared/services/auth/auth.service';
 @Component({
   selector: 'app-google-account-linking',
   imports: [
-    FormsModule,
     MatButtonModule,
-    MatCardModule,
-    MatChipsModule,
     MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
-    MatListModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatSelectModule,
@@ -187,13 +179,13 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
   protected statusMessage(request: AccountMergeRequest): string {
     switch (request.status) {
       case 'pending':
-        return 'Antes de calcularmos a pontuação, selecione qual endereço deve ficar como principal.';
+        return 'Escolha o endereço que você quer usar como e-mail principal da conta CACiC.';
       case 'pending_score':
-        return 'Estamos avaliando os dados locais e aguardando, quando disponível, a pontuação de sistemas externos. Isso pode levar até 30 minutos.';
+        return 'Estamos verificando os dados dos dois perfis. Isso pode levar até 30 minutos.';
       case 'processing':
         return 'Estamos unificando os dados das contas. Não feche esta página enquanto o processo estiver em andamento.';
       case 'pending_merge':
-        return 'A conta principal já foi definida. Estamos notificando os outros sistemas e repetiremos automaticamente o que ainda não confirmou recebimento.';
+        return 'Seu perfil principal já foi definido. Estamos concluindo a atualização nos sistemas integrados.';
       case 'completed':
         return 'Todos os sistemas necessários confirmaram a unificação.';
       case 'failed':

@@ -1,3 +1,4 @@
+import { KeycloakGroup } from './keycloak.types';
 import { KeycloakUserOperations } from './keycloak-user.operations';
 
 export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations {
@@ -41,6 +42,30 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     });
 
     return groups.map((group) => group.name);
+  }
+
+  async getUserGroupMemberships(userId: string): Promise<KeycloakGroup[]> {
+    const adminToken = await this.getAdminToken();
+    const groups: KeycloakGroup[] = [];
+    const pageSize = 100;
+
+    for (let first = 0; ; first += pageSize) {
+      const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${encodeURIComponent(userId)}/groups?first=${first}&max=${pageSize}&briefRepresentation=true`;
+      const response = await this.fetchWithTimeout(url, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      if (!response.ok) {
+        throw new Error(`Failed to get user group memberships: ${response.status} ${response.statusText}`);
+      }
+      const page = (await response.json()) as KeycloakGroup[];
+      groups.push(...page);
+      if (page.length < pageSize) {
+        return groups;
+      }
+    }
   }
 
   async getUserRoles(userId: string): Promise<string[]> {
@@ -302,10 +327,14 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     }
   }
 
-  async getGroupClientRoles(groupId: string, clientId = this.clientId): Promise<string[]> {
+  async getGroupClientRoles(
+    groupId: string,
+    clientId = this.clientId,
+    options: { effective?: boolean } = {},
+  ): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}${options.effective ? '/composite' : ''}`;
 
     const response = await this.fetchWithTimeout(rolesUrl, {
       headers: {

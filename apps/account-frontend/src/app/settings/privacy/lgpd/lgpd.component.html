@@ -1,192 +1,117 @@
-<mat-toolbar color="primary" class="toolbar">
-  <button mat-icon-button routerLink="/settings/privacy" aria-label="Voltar">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-  <span>Meus dados</span>
+<mat-toolbar class="toolbar">
+  <a mat-icon-button routerLink="/settings/privacy" aria-label="Voltar para privacidade"
+    ><mat-icon>arrow_back</mat-icon></a
+  >
+  <span>Privacidade</span>
 </mat-toolbar>
-
-<main class="lgpd-container">
-  <mat-card class="info-card">
-    <mat-card-header>
-      <mat-icon mat-card-avatar>article_person</mat-icon>
-      <mat-card-title>Baixar dados</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <ul class="info-points">
-        <li>
-          <mat-icon>schedule</mat-icon>
-          <span>O processamento leva alguns minutos.</span>
-        </li>
-        <li>
-          <mat-icon>timer</mat-icon>
-          <span>É necessário aguardar 24 horas entre solicitações.</span>
-        </li>
-        <li>
-          <mat-icon>event</mat-icon>
-          <span>Arquivos ficam disponíveis por 7 dias.</span>
-        </li>
-      </ul>
-    </mat-card-content>
-    <mat-card-actions>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        (click)="createRequest()"
-        [disabled]="isCreatingRequest() || !canCreateNewRequest()"
-        class="action-button">
-        @if (isCreatingRequest()) {
-          <mat-spinner diameter="18"></mat-spinner>
+<main class="settings-content">
+  <header class="section-heading"><h1>Meus dados</h1></header>
+  <section class="surface" aria-labelledby="export-title">
+    <h2 id="export-title">Baixar uma cópia</h2>
+    <p>
+      Solicite um arquivo com os dados da sua conta. A preparação leva alguns minutos e o download fica disponível por 7
+      dias.
+    </p>
+    <button
+      mat-flat-button
+      type="button"
+      (click)="createRequest()"
+      [disabled]="isLoading() || hasLoadError() || isCreatingRequest() || !canCreateNewRequest()">
+      <mat-icon>{{ isCreatingRequest() || activeRequest() ? 'schedule' : 'download' }}</mat-icon>
+      {{ isCreatingRequest() ? 'Solicitando…' : activeRequest() ? 'Preparando seus dados' : 'Solicitar cópia' }}
+    </button>
+    @if (!isLoading() && !hasLoadError()) {
+      <p class="request-hint">
+        @if (activeRequest()) {
+          Acompanhe a preparação abaixo.
         } @else if (!canCreateNewRequest()) {
-          <mat-icon>schedule</mat-icon>
+          Nova solicitação a partir de {{ nextRequestAt() | dateFns: 'Pp' }}.
         } @else {
-          <mat-icon>download</mat-icon>
+          Você pode solicitar uma cópia a cada 24 horas.
         }
-        @if (isCreatingRequest()) {
-          Preparando solicitação
-        } @else if (!canCreateNewRequest()) {
-          Solicitação recente
-        } @else {
-          Solicitar dados
-        }
-      </button>
-    </mat-card-actions>
-  </mat-card>
-
-  <mat-card class="requests-card">
-    <mat-card-header>
-      <mat-card-title>Histórico de solicitações</mat-card-title>
-    </mat-card-header>
-    <mat-card-content aria-live="polite">
-      @if (isLoading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="36"></mat-spinner>
-          <p>Carregando solicitações...</p>
-        </div>
-      } @else if (requests().length === 0) {
-        <div class="empty-state">
-          <mat-icon>folder_open</mat-icon>
-          <h2>Nenhuma solicitação ainda</h2>
-          <p>Quando você solicitar seus dados, o arquivo aparecerá aqui.</p>
-        </div>
-      } @else {
-        <div class="table-container">
-          <table mat-table [dataSource]="requests()" class="requests-table">
-            <!-- Status Column -->
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let request">
-                <mat-chip [color]="getStatusColor(request.status)">
-                  <mat-icon>{{ getStatusIcon(request.status) }}</mat-icon>
-                  {{ getStatusLabel(request.status) }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <!-- Created At Column -->
-            <ng-container matColumnDef="createdAt">
-              <th mat-header-cell *matHeaderCellDef>Data da Solicitação</th>
-              <td mat-cell *matCellDef="let request">
-                {{ request.createdAt | dateFns: 'Pp' : '-' }}
-              </td>
-            </ng-container>
-
-            <!-- File Size Column -->
-            <ng-container matColumnDef="fileSize">
-              <th mat-header-cell *matHeaderCellDef>Tamanho</th>
-              <td mat-cell *matCellDef="let request">
-                {{ formatFileSize(request.fileSize) }}
-              </td>
-            </ng-container>
-
-            <!-- Actions Column -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef>Ações</th>
-              <td mat-cell *matCellDef="let request">
-                @if (request.status === 'completed') {
-                  @if (canDownload(request)) {
-                    <button
-                      mat-icon-button
-                      color="primary"
-                      type="button"
-                      (click)="downloadFile(request)"
-                      matTooltip="Baixar arquivo"
-                      aria-label="Baixar arquivo LGPD">
-                      <mat-icon>download</mat-icon>
-                    </button>
-                  } @else if (isExpired(request)) {
-                    <mat-chip color="warn">
-                      <mat-icon>event_busy</mat-icon>
-                      Expirado
-                    </mat-chip>
-                  }
-                } @else if (request.status === 'failed') {
-                  <mat-chip color="warn">
-                    <mat-icon>error</mat-icon>
-                    Erro
-                  </mat-chip>
-                } @else if (request.status === 'processing') {
-                  <mat-chip color="primary">
-                    <mat-icon>autorenew</mat-icon>
-                    Processando
-                  </mat-chip>
-                } @else {
-                  <mat-chip color="accent">
-                    <mat-icon>schedule</mat-icon>
-                    Aguardando
-                  </mat-chip>
-                }
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-          </table>
-        </div>
-      }
-    </mat-card-content>
-    <mat-card-actions>
-      <button mat-button type="button" (click)="refreshRequests()" [disabled]="isLoading()">
-        <mat-icon>refresh</mat-icon>
-        Atualizar
-      </button>
-    </mat-card-actions>
-  </mat-card>
-
-  <mat-card class="danger-card">
-    <mat-card-header>
-      <mat-icon mat-card-avatar>warning</mat-icon>
-      <mat-card-title>Excluir conta</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <p>
-        A conta é desativada imediatamente. Para prevenir fraude, invasões e exclusões indevidas, os dados ficam retidos
-        por 1 ano antes da exclusão definitiva.
       </p>
+    }
+  </section>
+  <section class="requests-section" aria-labelledby="requests-title">
+    <div class="row">
+      <h2 id="requests-title">Suas solicitações</h2>
+      <button mat-button (click)="refreshRequests()" [disabled]="isLoading()">
+        <mat-icon>refresh</mat-icon>Atualizar
+      </button>
+    </div>
+    <div aria-live="polite" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <div class="state-message">
+          <mat-spinner diameter="28"></mat-spinner>
+          <p>Buscando solicitações…</p>
+        </div>
+      } @else if (hasLoadError()) {
+        <p class="inline-note">
+          <mat-icon>error_outline</mat-icon>Não foi possível carregar suas solicitações. Use Atualizar para tentar
+          novamente.
+        </p>
+      } @else if (!requests().length) {
+        <p class="empty-state">Suas cópias aparecerão aqui. Solicite a primeira quando precisar.</p>
+      } @else {
+        <ul class="request-list" tabindex="0" aria-label="Histórico de solicitações, área rolável">
+          @for (request of orderedRequests(); track request.id) {
+            <li class="request-row">
+              <mat-icon [class.error-icon]="request.status === 'failed'">{{
+                isExpired(request) ? 'event_busy' : getStatusIcon(request.status)
+              }}</mat-icon>
+              <div class="request-detail">
+                <h3>{{ isExpired(request) ? 'Download expirado' : getStatusLabel(request.status) }}</h3>
+                <p>Solicitado em {{ request.createdAt | dateFns: 'Pp' }}</p>
+                @if (canDownload(request)) {
+                  <p>
+                    @if (request.fileSize) {
+                      {{ formatFileSize(request.fileSize) }}.
+                    }
+                    @if (request.expiresAt) {
+                      Disponível até {{ request.expiresAt | dateFns: 'Pp' }}.
+                    }
+                  </p>
+                } @else if (request.status === 'failed') {
+                  <p>Não conseguimos preparar esta cópia. Solicite outra quando o prazo permitir.</p>
+                } @else if (isExpired(request)) {
+                  <p>Solicite uma nova cópia para baixar seus dados.</p>
+                } @else {
+                  <p>Atualize a lista em alguns minutos para consultar o resultado.</p>
+                }
+              </div>
+              @if (canDownload(request)) {
+                <button
+                  mat-stroked-button
+                  (click)="downloadFile(request)"
+                  [attr.aria-label]="'Baixar cópia de ' + (request.createdAt | dateFns: 'Pp')">
+                  <mat-icon>download</mat-icon>Baixar
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+  <section class="delete-section" aria-labelledby="delete-title">
+    <h2 id="delete-title">Excluir minha conta</h2>
+    <p>
+      A conta é desativada imediatamente. Os dados ficam retidos por 1 ano para prevenir fraudes e exclusões indevidas,
+      antes da exclusão definitiva.
+    </p>
+    <details>
+      <summary>O que acontece nos sistemas integrados?</summary>
       <p>
-        Sistemas integrados serão avisados para agendar a exclusão e poderão cancelar o processo se a conta for
+        Os sistemas integrados serão avisados para agendar a exclusão e poderão cancelar o processo se a conta for
         reativada pela administração.
       </p>
-    </mat-card-content>
-    <mat-card-actions>
-      <button
-        mat-stroked-button
-        color="warn"
-        type="button"
-        (click)="openDeleteAccountDialog()"
-        [disabled]="isDeletingAccount()"
-        class="action-button">
-        @if (isDeletingAccount()) {
-          <mat-spinner diameter="18"></mat-spinner>
-        } @else {
-          <mat-icon>delete_forever</mat-icon>
-        }
-        @if (isDeletingAccount()) {
-          Processando exclusão
-        } @else {
-          Solicitar exclusão
-        }
-      </button>
-    </mat-card-actions>
-  </mat-card>
+    </details>
+    <button
+      mat-stroked-button
+      class="delete-button"
+      (click)="openDeleteAccountDialog()"
+      [disabled]="isDeletingAccount()">
+      <mat-icon>delete_outline</mat-icon>{{ isDeletingAccount() ? 'Solicitando exclusão…' : 'Solicitar exclusão' }}
+    </button>
+  </section>
 </main>

@@ -213,6 +213,25 @@ export class KeycloakPermissionsController {
   }
 
   @ApiOperation({
+    summary: 'Read current effective Keycloak permissions and managed group memberships',
+    description: 'Reads live direct and inherited client roles and group memberships without importing local grants.',
+  })
+  @ApiParam({ name: 'userId', description: 'Keycloak user id.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current Keycloak access returned successfully. An unavailable client fails the read.',
+    example: {
+      permissions: ['cacic-account-manager:permission-grant#read'],
+      groupKeys: ['CACIC'],
+    },
+  })
+  @AccountPermissions(PERMISSION_READ)
+  @Get('users/:userId/live-access')
+  getUserLiveAccess(@Param('userId') userId: string) {
+    return this.keycloakPermissions.getUserLiveAccess(userId);
+  }
+
+  @ApiOperation({
     summary: 'List direct permission grants for a Keycloak user',
     description:
       'Lists direct database-backed role grants for one Keycloak user. Group-derived grants are exposed by the membership endpoints.',

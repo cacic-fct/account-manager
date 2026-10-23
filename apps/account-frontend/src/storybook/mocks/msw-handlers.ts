@@ -525,6 +525,21 @@ export const keycloakPermissionHandlers = [
     const query = new URL(request.url).searchParams.get('query') ?? '';
     return HttpResponse.json(searchPermissionUsers(mockKeycloakPermissionUsers, query));
   }),
+  http.get(`${API_BASE}/admin/permissions/users/:userId/live-access`, async ({ params }) => {
+    await delayForStory();
+    const userId = String(params['userId']);
+    const memberships = getUserMemberships(userId).filter((membership) => membership.status === 'active');
+    const groupKeys = memberships.map((membership) => membership.groupKey);
+    const permissions = [
+      ...getUserGrants(userId)
+        .filter((grant) => grant.status === 'active')
+        .map((grant) => grant.permission),
+      ...mockPermissionGroupRoleGrants
+        .filter((grant) => grant.status === 'active' && groupKeys.includes(grant.groupKey))
+        .map((grant) => grant.permission),
+    ];
+    return HttpResponse.json({ permissions: [...new Set(permissions)], groupKeys });
+  }),
   http.get(`${API_BASE}/admin/permissions/users/:userId/grants`, async ({ params }) => {
     await delayForStory();
     return HttpResponse.json(getUserGrants(String(params['userId'])));

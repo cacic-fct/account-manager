@@ -3,6 +3,7 @@ import { Service, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import type {
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   KeycloakPermissionGrant,
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
@@ -67,6 +68,13 @@ export class KeycloakPermissionsApiService {
       params: { query },
       withCredentials: true,
     });
+  }
+
+  getKeycloakPermissionLiveAccess(userId: string): Observable<KeycloakPermissionLiveAccess> {
+    return this.http.get<KeycloakPermissionLiveAccess>(
+      `${this.baseUrl}/admin/permissions/users/${encodeURIComponent(userId)}/live-access`,
+      { withCredentials: true },
+    );
   }
 
   getKeycloakPermissionGrants(userId: string): Observable<KeycloakPermissionGrant[]> {

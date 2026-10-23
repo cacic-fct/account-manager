@@ -38,10 +38,10 @@ import { KeycloakService } from '../auth/services/keycloak.service';
 import { UserService } from '../auth/services/user.service';
 import { EventManagerGrpcClient } from '../grpc/event-manager-grpc.client';
 import { DiscordLinkService } from '../discord/services/discord-link.service';
-import { S3Service } from '../common/services/s3.service';
+import { S3Service, S3ServiceError } from '../common/services/s3.service';
 import { PrismaService } from '../prisma/prisma.service';
 import archiver from 'archiver';
-import { PassThrough, Readable } from 'stream';
+import { Readable } from 'stream';
 import {
   LGPD_ACTIVE_REQUEST_EXPIRATION_MS,
   LGPD_ACTIVE_REQUEST_EXPIRED_MESSAGE,
@@ -240,7 +240,23 @@ export class LgpdService {
         throw new Error(`LGPD request ${requestId} changed before archive finalization`);
       }
     } catch (error) {
-      this.logger.error(`Error processing LGPD request ${requestId}`, error);
+      this.logger.error(
+        {
+          message: `Error processing LGPD request ${requestId}`,
+          requestId,
+          error: this.getErrorMessage(error),
+          ...(error instanceof S3ServiceError
+            ? {
+                operation: error.operation,
+                statusCode: error.statusCode,
+                providerCode: error.providerCode,
+                retryable: error.retryable,
+                storage: error.diagnostics,
+              }
+            : {}),
+        },
+        error instanceof Error ? error.stack : undefined,
+      );
 
       // Once an upload has been acknowledged, s3Key was persisted before the upload. Leave the
       // row in processing if finalization failed so a lease-recovered worker can finalize/overwrite
@@ -451,71 +467,66 @@ export class LgpdService {
       }
     }
 
+    const uploadResult = await this.s3Service.uploadFile(
+      s3Key,
+      () => this.createZipStream(userId, userData, generationDate),
+      'application/zip',
+      { userId, requestType: 'lgpd_data_export', createdAt: timestamp },
+    );
+    return { s3Key: uploadResult.key, fileName, fileSize: uploadResult.size };
+  }
+
+  private createZipStream(userId: string, userData: Record<string, unknown>, generationDate: Date): Readable {
     const archive = archiver('zip', { zlib: { level: 9 } });
-    const uploadStream = new PassThrough();
-    const uploadResultPromise = this.s3Service
-      .uploadFile(s3Key, uploadStream, 'application/zip', {
-        userId,
-        requestType: 'lgpd_data_export',
-        createdAt: timestamp,
-      })
-      .catch((error) => {
-        throw new Error(`Failed to upload to S3: ${this.getErrorMessage(error)}`);
-      });
-
-    archive.on('error', (error) => {
-      uploadStream.destroy(error);
-    });
-    archive.pipe(uploadStream);
-
-    const cacicSsoCategories = [
-      'perfil_usuario',
-      'atributos_cacic_sso',
-      'grupos_cacic_sso',
-      'informacoes_basicas_cacic_sso',
-    ];
-
-    Object.entries(userData).forEach(([category, data]) => {
-      if (category === 'event_manager' && this.isRecord(data)) {
-        Object.entries(data).forEach(([eventManagerCategory, eventManagerData]) => {
-          archive.append(JSON.stringify(eventManagerData, null, 2), {
-            name: `event_manager/${eventManagerCategory}.json`,
-          });
-        });
-        return;
-      }
-
-      const jsonContent = JSON.stringify(data, null, 2);
-      const fileNameInZip = cacicSsoCategories.includes(category) ? `cacic-sso/${category}.json` : `${category}.json`;
-
-      archive.append(jsonContent, { name: fileNameInZip });
-    });
-
-    const summary = {
-      data_geracao: new Date().toISOString(),
-      usuario_id: userId,
-      categorias_dados: Object.keys(userData),
-      observacoes: {
-        lgpd: 'Dados coletados conforme Lei Geral de Proteção de Dados (LGPD)',
-        validade: 'Este arquivo expira em 7 dias a partir da data de geração',
-        suporte: 'Para dúvidas, entre em contato com o suporte técnico',
-      },
-    };
-
-    archive.append(JSON.stringify(summary, null, 2), { name: 'resumo.json' });
+    // Stopping an upload must also stop ZIP production, including queued archive entries.
+    archive.once('close', () => archive.abort());
 
     try {
-      await archive.finalize();
-      const uploadResult = await uploadResultPromise;
+      const cacicSsoCategories = [
+        'perfil_usuario',
+        'atributos_cacic_sso',
+        'grupos_cacic_sso',
+        'informacoes_basicas_cacic_sso',
+      ];
 
-      return {
-        s3Key: uploadResult.key,
-        fileName,
-        fileSize: uploadResult.size,
+      Object.entries(userData).forEach(([category, data]) => {
+        if (category === 'event_manager' && this.isRecord(data)) {
+          Object.entries(data).forEach(([eventManagerCategory, eventManagerData]) => {
+            archive.append(JSON.stringify(eventManagerData, null, 2), {
+              name: `event_manager/${eventManagerCategory}.json`,
+            });
+          });
+          return;
+        }
+
+        const jsonContent = JSON.stringify(data, null, 2);
+        const fileNameInZip = cacicSsoCategories.includes(category) ? `cacic-sso/${category}.json` : `${category}.json`;
+
+        archive.append(jsonContent, { name: fileNameInZip });
+      });
+
+      const summary = {
+        data_geracao: generationDate.toISOString(),
+        usuario_id: userId,
+        categorias_dados: Object.keys(userData),
+        observacoes: {
+          lgpd: 'Dados coletados conforme Lei Geral de Proteção de Dados (LGPD)',
+          validade: 'Este arquivo expira em 7 dias a partir da data de geração',
+          suporte: 'Para dúvidas, entre em contato com o suporte técnico',
+        },
       };
+
+      archive.append(JSON.stringify(summary, null, 2), { name: 'resumo.json' });
+
+      // Start production without awaiting finalization: the SDK must consume the stream concurrently
+      // or a large archive can block forever on backpressure. Always observe finalization failures.
+      void archive.finalize().catch((error: unknown) => {
+        archive.destroy(error instanceof Error ? error : new Error(String(error)));
+      });
+      return archive;
     } catch (error) {
+      archive.abort();
       archive.destroy();
-      uploadStream.destroy(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

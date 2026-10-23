@@ -1,210 +1,80 @@
-.toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+@use '../../settings-surface';
+.request-hint {
+  font: var(--mat-sys-body-small);
+  margin: 12px 0 0;
 }
-
-.lgpd-container {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.requests-section {
+  margin-bottom: 36px;
 }
-
-.info-card,
-.danger-card,
-.requests-card {
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 12px;
-  box-shadow: none;
-}
-
-.info-card,
-.danger-card {
-  mat-card-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  mat-card-actions {
-    padding: 0 16px 16px;
-  }
-}
-
-.info-card {
-  background: var(--mat-sys-surface-container-low);
-
-  mat-icon[mat-card-avatar] {
-    color: var(--mat-sys-primary);
-  }
-}
-
-.danger-card {
-  border-color: color-mix(in srgb, var(--mat-sys-error) 36%, var(--mat-sys-outline-variant));
-  background: color-mix(in srgb, var(--mat-sys-error) 5%, var(--mat-sys-surface));
-
-  mat-icon[mat-card-avatar] {
-    color: var(--mat-sys-error);
-  }
-
-  p {
-    margin: 0;
-    color: var(--mat-sys-on-surface);
-    line-height: 1.5;
-    text-wrap: pretty;
-  }
-}
-
-.info-points {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  list-style: none;
-
-  li {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    color: var(--mat-sys-on-surface-variant);
-    line-height: 1.45;
-  }
-
-  mat-icon {
-    flex: 0 0 auto;
-    width: 20px;
-    height: 20px;
-    margin-top: 1px;
-    color: var(--mat-sys-primary);
-    font-size: 20px;
-  }
-}
-
-.action-button {
-  min-height: 40px;
-
-  mat-icon,
-  mat-spinner {
-    margin-right: 8px;
-  }
-}
-
-.requests-card {
-  mat-card-content {
-    padding-top: 12px;
-  }
-
-  mat-card-actions {
-    padding: 8px 16px 16px;
-  }
-}
-
-.loading-state,
-.empty-state {
-  min-height: 200px;
-  display: flex;
+.requests-section > .row {
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-  text-align: center;
+}
+// Bound history independently so account controls stay reachable as requests accumulate.
+.request-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0 8px 0 0;
+  max-height: 28rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+.request-list:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 4px;
+}
+.request-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+.request-row > mat-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
   color: var(--mat-sys-on-surface-variant);
 }
-
-.loading-state p,
-.empty-state h2,
-.empty-state p {
-  margin: 0;
+.request-detail {
+  flex: 1;
+  min-width: 0;
 }
-
+.request-detail p {
+  margin: 4px 0 0;
+  font: var(--mat-sys-body-medium);
+}
+.error-icon,
+.delete-button {
+  color: var(--mat-sys-error);
+}
 .empty-state {
-  mat-icon {
-    width: 48px;
-    height: 48px;
-    font-size: 48px;
-  }
-
-  h2 {
-    font: var(--mat-sys-title-medium);
-    color: var(--mat-sys-on-surface);
-  }
-
-  p {
-    max-width: 34rem;
-    line-height: 1.5;
-    text-wrap: pretty;
-  }
+  padding: 24px 0;
 }
-
-.table-container {
-  overflow-x: auto;
+.delete-section {
+  padding-top: 28px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
 }
-
-.requests-table {
-  width: 100%;
-  min-width: 600px;
-
-  th {
-    color: var(--mat-sys-on-surface-variant);
-    font-weight: 600;
-  }
-
-  tr.mat-mdc-row:hover {
-    background: var(--mat-sys-surface-container-low);
-  }
-
-  mat-chip {
-    mat-icon {
-      width: 16px;
-      height: 16px;
-      margin-right: 4px;
-      font-size: 16px;
-    }
-  }
+details {
+  margin-bottom: 20px;
+  color: var(--mat-sys-on-surface-variant);
 }
-
-button {
-  mat-icon {
-    vertical-align: middle;
-  }
+summary {
+  cursor: pointer;
+  line-height: 1.5;
+  padding: 8px 0;
 }
-
-::ng-deep .warning-snackbar {
-  --mdc-snackbar-container-color: #b95000;
-  --mdc-snackbar-supporting-text-color: white;
-  --mat-snack-bar-button-color: white;
+details p {
+  margin: 8px 0 0;
 }
-
-@media (max-width: 680px) {
-  .lgpd-container {
-    padding: 12px;
-    gap: 16px;
+@media (max-width: 600px) {
+  .request-row {
+    flex-wrap: wrap;
+    gap: 12px;
   }
-
-  .info-card,
-  .danger-card,
-  .requests-card {
-    border-radius: 8px;
+  .request-detail {
+    flex-basis: calc(100% - 36px);
   }
-
-  .action-button {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .requests-card {
-    mat-card-actions {
-      align-items: stretch;
-      flex-direction: column;
-
-      button {
-        width: 100%;
-        justify-content: center;
-      }
-    }
+  .request-row button {
+    margin-left: 36px;
   }
 }

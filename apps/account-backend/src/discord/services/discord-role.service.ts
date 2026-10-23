@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import type { DiscordLink } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Client, GuildMember } from 'discord.js';
@@ -45,10 +45,12 @@ interface ManagedRoleAssignmentResult {
 }
 
 @Injectable()
-export class DiscordRoleService {
+export class DiscordRoleService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DiscordRoleService.name);
   private readonly recentManagedRoleMutationUntil = new Map<string, number>();
   private readonly managedRoleMutationTtlMs = 15_000;
+  private readonly pendingAssignments = new Map<string, Promise<ManagedRoleAssignmentResult>>();
+  private unsubscribeUserUpdates?: () => void;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,6 +63,16 @@ export class DiscordRoleService {
     private readonly featureFlags?: FeatureFlagService,
   ) {}
 
+  onModuleInit(): void {
+    this.unsubscribeUserUpdates = this.keycloakService.onUserUpdated((userId) =>
+      this.syncUserDiscordRoles(userId, 'keycloak-user-updated'),
+    );
+  }
+
+  onModuleDestroy(): void {
+    this.unsubscribeUserUpdates?.();
+  }
+
   /**
    * Check which role user is eligible for
    */
@@ -70,7 +82,7 @@ export class DiscordRoleService {
       return override;
     }
 
-    const user = await this.getUserByKeycloakId(userId);
+    const user = await this.userService.findByKeycloakId(userId);
     return getDiscordManagedRoleCategory(user, {
       skipUndergraduateUnespRoleVerification: await this.shouldSkipUndergraduateVerification(),
     });
@@ -110,6 +122,26 @@ export class DiscordRoleService {
   async assignUserRole(
     discordLink: DiscordLink,
     options: AssignManagedRoleOptions = {},
+  ): Promise<ManagedRoleAssignmentResult> {
+    // Serialize reconciliations so a slow, older snapshot cannot overwrite a newer one.
+    const previous = this.pendingAssignments.get(discordLink.userId);
+    const assignment = (previous ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this.reconcileUserRole(discordLink, options));
+    this.pendingAssignments.set(discordLink.userId, assignment);
+
+    try {
+      return await assignment;
+    } finally {
+      if (this.pendingAssignments.get(discordLink.userId) === assignment) {
+        this.pendingAssignments.delete(discordLink.userId);
+      }
+    }
+  }
+
+  private async reconcileUserRole(
+    discordLink: DiscordLink,
+    options: AssignManagedRoleOptions,
   ): Promise<ManagedRoleAssignmentResult> {
     if (options.skipKeycloakHealthCheck !== true && !(await this.keycloakService.isRealmReachable())) {
       this.logger.warn(

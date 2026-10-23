@@ -1,114 +1,126 @@
-<mat-card class="verification-card">
-  <mat-card-header class="card-header">
-    <div class="header-content">
-      <div class="title-section">
-        <div class="icon-wrapper">
-          <mat-icon class="unesp-icon">school</mat-icon>
+<section class="verification-content" aria-labelledby="verification-title">
+  <header class="verification-heading">
+    <mat-icon aria-hidden="true">school</mat-icon>
+    <h1 id="verification-title">Seu vínculo com a Unesp</h1>
+  </header>
+  <div class="verification-body">
+    @if (currentBanner(); as banner) {
+      <div class="feedback" role="status">
+        <mat-icon>{{ banner.icon }}</mat-icon>
+        <div>
+          <strong>{{ banner.title }}</strong>
+          <p>{{ banner.message }}</p>
         </div>
-        <div class="title-text">
-          <mat-card-title>Unesp</mat-card-title>
-          <mat-card-subtitle>Verificação de estudante da graduação</mat-card-subtitle>
-        </div>
-      </div>
-    </div>
-  </mat-card-header>
-
-  <mat-card-content class="card-content">
-    <!-- Dynamic status banner -->
-    @if (currentBanner()) {
-      <div class="status-banner" [class]="currentBanner()!.type">
-        <div class="status-content">
-          <mat-icon class="status-icon">{{ currentBanner()!.icon }}</mat-icon>
-          <div class="status-text">
-            <h3>{{ currentBanner()!.title }}</h3>
-            <p>{{ currentBanner()!.message }}</p>
-          </div>
-        </div>
-        @if (currentBanner()!.dismissible) {
-          <button mat-icon-button class="dismiss-button" (click)="dismissBanner()" matTooltip="Dispensar">
+        @if (banner.dismissible) {
+          <button mat-icon-button (click)="dismissBanner()" aria-label="Dispensar mensagem">
             <mat-icon>close</mat-icon>
           </button>
         }
       </div>
     }
-
     @if (isLoading()) {
-      <div class="loading-state">
-        <mat-spinner diameter="32"></mat-spinner>
-        <p>Carregando status de verificação...</p>
+      <div class="state-message" role="status">
+        <mat-spinner diameter="28"></mat-spinner>
+        <p>Consultando sua verificação…</p>
       </div>
     } @else if (hasLoadError()) {
-      <div class="error-state">
-        <div class="error-icon">
-          <mat-icon>error_outline</mat-icon>
-        </div>
-        <h3>Erro ao carregar</h3>
-        <p>Não foi possível carregar o status de verificação.</p>
-        <button mat-raised-button color="primary" (click)="loadVerificationStatus()">
-          <mat-icon>refresh</mat-icon>
-          Tentar novamente
+      <div class="surface">
+        <h2>Não conseguimos consultar sua matrícula</h2>
+        <p>Tente novamente para continuar a verificação.</p>
+        <button mat-stroked-button (click)="loadVerificationStatus()">
+          <mat-icon>refresh</mat-icon>Tentar novamente
         </button>
       </div>
     } @else {
-      <div class="verification-content">
-        @if (verificationStatus()) {
-          <div class="status-section">
-            <div class="status-chip-container">
-              <mat-chip [color]="getStatusColor(verificationStatus()!.status)" highlighted>
-                <mat-icon matChipIcon>{{ getStatusIcon(verificationStatus()!.status) }}</mat-icon>
-                {{ getStatusText(verificationStatus()!.status) }}
-              </mat-chip>
-            </div>
-            <div class="status-details">
-              @if (verificationStatus()!.status === 'pending') {
-                <div class="info-message">
-                  <mat-icon>schedule</mat-icon>
-                  <p>
-                    Documento enviado em
-                    {{ verificationStatus()!.submissionDate! | dateFns: 'Pp' }}. Aguarde a análise.
-                  </p>
-                </div>
-              } @else if (verificationStatus()!.status === 'rejected') {
-                <div class="error-message">
-                  <mat-icon>cancel</mat-icon>
-                  <div>
-                    <p>Documento rejeitado.</p>
-                    @if (verificationStatus()!.rejectionReason) {
-                      <p class="rejection-reason">
-                        <strong>Motivo:</strong>
-                        {{ verificationStatus()!.rejectionReason }}
-                      </p>
-                    }
-                  </div>
-                </div>
-              } @else if (verificationStatus()!.status === 'approved') {
-                <div class="success-message">
-                  <mat-icon>verified</mat-icon>
-                  <p>Documento aprovado. Você está verificado como estudante.</p>
-                </div>
-              } @else if (verificationStatus()!.status === 'not_required') {
-                <div class="success-message">
-                  <mat-icon>verified_user</mat-icon>
-                  <p>A verificação de estudantes da graduação está temporariamente desativada.</p>
-                </div>
+      @if (verificationStatus(); as status) {
+        @if (status.status === 'pending' || status.status === 'approved' || status.status === 'not_required') {
+          <div class="surface">
+            <mat-icon class="section-icon">{{ getStatusIcon(status.status) }}</mat-icon>
+            <h2>{{ getStatusText(status.status) }}</h2>
+            @switch (status.status) {
+              @case ('pending') {
+                <p>
+                  Recebemos seu documento em {{ status.submissionDate | dateFns: 'Pp' }}. Agora é só aguardar a análise.
+                </p>
               }
-            </div>
+              @case ('approved') {
+                <p>Tudo certo! Sua matrícula foi verificada.</p>
+              }
+              @case ('not_required') {
+                <p>A verificação está dispensada por enquanto. Você não precisa enviar um documento.</p>
+              }
+            }
           </div>
+        } @else {
+          @if (status.status === 'rejected') {
+            <div class="feedback">
+              <mat-icon>error_outline</mat-icon>
+              <div>
+                <h2>Vamos tentar com outro documento?</h2>
+                <p>{{ status.rejectionReason || 'O documento anterior não foi aprovado.' }}</p>
+              </div>
+            </div>
+          }
+          <section class="surface upload-section" aria-labelledby="upload-title">
+            <h2 id="upload-title">Envie seu comprovante</h2>
+            <p>Use um atestado de matrícula ou histórico escolar dentro da validade.</p>
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".pdf,application/pdf"
+              (change)="onFileSelected($event)"
+              [disabled]="uploading()"
+              aria-label="Selecionar comprovante em PDF" />
+            @if (!selectedFile()) {
+              <button
+                type="button"
+                class="file-drop-area"
+                (click)="fileInput.click()"
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onDrop($event)"
+                [class.drag-over]="isDragOver()"
+                [disabled]="uploading()">
+                <mat-icon>upload_file</mat-icon><strong>Selecionar documento</strong><span>ou arraste seu PDF aqui</span
+                ><span>PDF de até 10 MB</span>
+              </button>
+            } @else {
+              <div class="selected-file">
+                <mat-icon>description</mat-icon>
+                <div>
+                  <strong>{{ selectedFile()!.name }}</strong
+                  ><span>{{ formatFileSize(selectedFile()!.size) }}</span>
+                </div>
+                <button
+                  mat-icon-button
+                  (click)="removeSelectedFile()"
+                  [disabled]="uploading()"
+                  aria-label="Remover documento">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <button mat-flat-button (click)="startValidation()" [disabled]="uploading()">
+                <mat-icon>verified</mat-icon>{{ uploading() ? 'Enviando documento…' : 'Verificar documento' }}
+              </button>
+            }
+            @if (uploading()) {
+              <mat-progress-bar mode="indeterminate" aria-label="Enviando documento"></mat-progress-bar>
+            }
+            @if (isDevelopment) {
+              <details class="dev-options">
+                <summary>Opções de desenvolvimento</summary>
+                <mat-checkbox
+                  [checked]="useManualFallback()"
+                  (change)="useManualFallback.set($event.checked)"
+                  [disabled]="uploading()"
+                  >Enviar para análise manual</mat-checkbox
+                >
+              </details>
+            }
+          </section>
         }
-      </div>
+      }
     }
-  </mat-card-content>
-
-  @if (verificationStatus()?.status !== 'not_required') {
-    <mat-card-actions class="card-actions">
-      <button
-        mat-raised-button
-        color="primary"
-        routerLink="/settings/linked-accounts/unesp/student-verification"
-        class="details-button">
-        <mat-icon>info</mat-icon>
-        Ver detalhes / Enviar documento
-      </button>
-    </mat-card-actions>
-  }
-</mat-card>
+  </div>
+</section>

@@ -91,7 +91,7 @@ export class DiscordEventsService {
     }
   }
 
-  @Cron('*/30 * * * *')
+  @Cron('* * * * *', { waitForCompletion: true })
   public async syncManagedRoles(): Promise<void> {
     await this.discordRoleService.syncAllLinkedMemberRoles('scheduled-discord-managed-role-sync');
   }

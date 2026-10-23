@@ -34,12 +34,13 @@ type ConfigServiceMock = {
   get: jest.Mock<string | undefined, [string]>;
 };
 
-type FeatureFlagServiceMock = {
-  isUndergraduateUnespRoleVerificationDisabled: jest.Mock<Promise<boolean>, []>;
-};
-
 type KeycloakServiceMock = {
   isRealmReachable: jest.Mock<Promise<boolean>, []>;
+  onUserUpdated: jest.Mock<() => void, [(userId: string) => Promise<void>]>;
+};
+
+type FeatureFlagServiceMock = {
+  isUndergraduateUnespRoleVerificationDisabled: jest.Mock<Promise<boolean>, []>;
 };
 
 type ManagedRoleOverridesServiceMock = {
@@ -184,6 +185,7 @@ const createContext = (members: readonly GuildMember[]) => {
   };
   const keycloakService: KeycloakServiceMock = {
     isRealmReachable: jest.fn<Promise<boolean>, []>().mockResolvedValue(true),
+    onUserUpdated: jest.fn<() => void, [(userId: string) => Promise<void>]>(),
   };
   const managedRoleOverrides: ManagedRoleOverridesServiceMock = {
     getOverrideCategoryForUser: jest
@@ -211,11 +213,145 @@ const createContext = (members: readonly GuildMember[]) => {
     userService,
     keycloakService,
     managedRoleOverrides,
+    featureFlags,
     service,
   };
 };
 
 describe('DiscordRoleService managed-role enforcement', () => {
+  it('follows feature-flag changes without changing the stored verification state', async () => {
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.unesp.roleId]);
+    const { featureFlags, prisma, service, userService } = createContext([linkedMember.member]);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    const unverifiedUser = createUser({ unespRoleVerified: false });
+    userService.findByKeycloakId.mockResolvedValue(unverifiedUser);
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
+
+    await expect(service.checkRoleEligibility('user-1')).resolves.toBe('student');
+    await service.syncAllLinkedMemberRoles();
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.student.roleId]));
+    expect(unverifiedUser.unespRoleVerified).toBe(false);
+
+    featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(false);
+    await expect(service.checkRoleEligibility('user-1')).resolves.toBe('unesp');
+    await service.syncAllLinkedMemberRoles();
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.unesp.roleId]));
+  });
+
+  it.each([{ unespRole: UnespRole.PROFESSOR }, { enrollmentNumber: '229934' }, { email: 'student@example.test' }])(
+    'keeps the other eligibility requirements when verification is disabled: %o',
+    async (overrides) => {
+      const { featureFlags, service, userService } = createContext([]);
+      featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
+      userService.findByKeycloakId.mockResolvedValue(createUser({ unespRoleVerified: false, ...overrides }));
+
+      await expect(service.checkStudentEligibility('user-1')).resolves.toBe(false);
+    },
+  );
+
+  it.each([false, undefined])('does not grant student access when verification is %s', async (verified) => {
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.student.roleId, 'unrelated-role']);
+    const { prisma, service, userService } = createContext([linkedMember.member]);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink({ assignedRole: 'student' })]);
+    userService.findByKeycloakId.mockResolvedValue(createUser({ unespRoleVerified: verified }));
+
+    await expect(service.checkRoleEligibility('user-1')).resolves.toBe('unesp');
+    await service.syncUserDiscordRoles('user-1');
+
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.unesp.roleId, 'unrelated-role']));
+    expect(prisma.discordLink.update).toHaveBeenCalledWith({
+      where: { id: createDiscordLink().id },
+      data: { assignedRole: 'unesp' },
+    });
+  });
+
+  it.each(['student', 'unesp', 'visitor'] as const)(
+    'preserves a manual %s exception across flag changes',
+    async (category) => {
+      const linkedMember = createMember('discord-1', []);
+      const { featureFlags, managedRoleOverrides, prisma, service, userService } = createContext([linkedMember.member]);
+      managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue(category);
+      prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+      userService.findByKeycloakId.mockResolvedValue(createUser({ unespRoleVerified: false }));
+
+      await expect(service.checkRoleEligibility('user-1')).resolves.toBe(category);
+      await service.syncUserDiscordRoles('user-1');
+
+      expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES[category].roleId]));
+      featureFlags.isUndergraduateUnespRoleVerificationDisabled.mockResolvedValue(true);
+      await expect(service.checkRoleEligibility('user-1')).resolves.toBe(category);
+      await service.syncUserDiscordRoles('user-1');
+      expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES[category].roleId]));
+    },
+  );
+
+  it('returns to automatic eligibility after removing a manual exception', async () => {
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.student.roleId]);
+    const { managedRoleOverrides, prisma, service, userService } = createContext([linkedMember.member]);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    userService.findByKeycloakId.mockResolvedValue(createUser({ unespRoleVerified: false }));
+    managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue('student');
+    await service.syncUserDiscordRoles('user-1');
+    expect(linkedMember.roleIds.has(DISCORD_MANAGED_ROLES.student.roleId)).toBe(true);
+
+    managedRoleOverrides.getOverrideCategoryForUser.mockResolvedValue(null);
+    await service.syncUserDiscordRoles('user-1');
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.unesp.roleId]));
+  });
+
+  it('reconciles account changes immediately and unregisters on shutdown', async () => {
+    const linkedMember = createMember('discord-1', [DISCORD_MANAGED_ROLES.student.roleId]);
+    const { keycloakService, prisma, service, userService } = createContext([linkedMember.member]);
+    const unsubscribe = jest.fn();
+    keycloakService.onUserUpdated.mockReturnValue(unsubscribe);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    userService.findByKeycloakId.mockResolvedValue(createUser({ unespRoleVerified: false }));
+    service.onModuleInit();
+
+    const listener = keycloakService.onUserUpdated.mock.calls[0]?.[0];
+    expect(listener).toBeDefined();
+    await listener?.('user-1');
+
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.unesp.roleId]));
+    service.onModuleDestroy();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes concurrent reconciliations and reads fresh verification for the next one', async () => {
+    const linkedMember = createMember('discord-1', []);
+    const { prisma, service, userService } = createContext([linkedMember.member]);
+    prisma.discordLink.findMany.mockResolvedValue([createDiscordLink()]);
+    let resolveFirstRead!: (user: UserProfile) => void;
+    let signalFirstRead!: () => void;
+    const firstReadStarted = new Promise<void>((resolve) => {
+      signalFirstRead = resolve;
+    });
+    userService.findByKeycloakId
+      .mockImplementationOnce(() => {
+        signalFirstRead();
+        return new Promise<UserProfile>((resolve) => {
+          resolveFirstRead = resolve;
+        });
+      })
+      .mockResolvedValue(createUser({ unespRoleVerified: false }));
+
+    const first = service.assignUserRole(createDiscordLink(), { member: linkedMember.member });
+    await firstReadStarted;
+    const second = service.assignUserRole(createDiscordLink(), { member: linkedMember.member });
+    expect(userService.findByKeycloakId).toHaveBeenCalledTimes(1);
+    resolveFirstRead(createUser());
+    await Promise.all([first, second]);
+
+    expect(linkedMember.roleIds).toEqual(new Set([DISCORD_MANAGED_ROLES.unesp.roleId]));
+  });
+
+  it('does not report a fallback category when reading the current user fails', async () => {
+    const { service, userService } = createContext([]);
+    userService.findByKeycloakId.mockRejectedValue(new Error('Keycloak unavailable'));
+
+    await expect(service.checkRoleEligibility('user-1')).rejects.toThrow('Keycloak unavailable');
+  });
+
   it('removes app-managed roles from unlinked members and ignores unrelated members', async () => {
     const staleMember = createMember('discord-stale', [DISCORD_MANAGED_ROLES.student.roleId]);
     const unrelatedMember = createMember('discord-unrelated', []);

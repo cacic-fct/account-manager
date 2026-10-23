@@ -73,9 +73,10 @@ export class DiscordLinkService {
     }
 
     try {
-      await this.discordRoleService.assignUserRole(discordLink, {
+      const assignment = await this.discordRoleService.assignUserRole(discordLink, {
         reason: 'discord-account-linked',
       });
+      discordLink.assignedRole = assignment.eligibleRole;
     } catch (error) {
       this.logger.error('Failed to assign Discord role', error);
       throw new ServiceUnavailableException(
@@ -87,6 +88,8 @@ export class DiscordLinkService {
   }
 
   async getDiscordLinkStatus(userId: string): Promise<DiscordLinkStatusDto> {
+    await this.discordRoleService.syncUserDiscordRoles(userId, 'discord-status-refresh');
+
     const discordLinks = await this.prisma.discordLink.findMany({
       where: { userId, deleted: false },
     });
@@ -177,9 +180,10 @@ export class DiscordLinkService {
     });
 
     try {
-      await this.discordRoleService.assignUserRole(restoredLink, {
+      const assignment = await this.discordRoleService.assignUserRole(restoredLink, {
         reason: 'discord-link-restored',
       });
+      restoredLink.assignedRole = assignment.eligibleRole;
     } catch (error) {
       this.logger.warn('Failed to assign Discord role after restoring link', {
         linkId: restoredLink.id,

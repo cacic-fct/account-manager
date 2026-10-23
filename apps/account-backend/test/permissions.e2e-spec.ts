@@ -30,6 +30,7 @@ describe('Permissions controllers (e2e)', () => {
   let app: INestApplication<App>;
   let keycloakPermissions: {
     getSelfServiceAccess: jest.Mock;
+    getUserLiveAccess: jest.Mock;
     selfRemoveGrant: jest.Mock;
     selfRemoveMembership: jest.Mock;
     updatePermissionGroupRoleGrants: jest.Mock;
@@ -37,6 +38,10 @@ describe('Permissions controllers (e2e)', () => {
 
   beforeAll(async () => {
     keycloakPermissions = {
+      getUserLiveAccess: jest.fn().mockResolvedValue({
+        permissions: [AccountManagerPermission.PermissionGrantRead],
+        groupKeys: [PermissionGroupKey.Cacic],
+      }),
       getSelfServiceAccess: jest.fn().mockResolvedValue({
         memberships: [
           {
@@ -130,6 +135,17 @@ describe('Permissions controllers (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('returns live access for the requested Keycloak user', async () => {
+    await request(app.getHttpServer())
+      .get('/api/admin/permissions/users/user-2/live-access')
+      .expect(200)
+      .expect({
+        permissions: [AccountManagerPermission.PermissionGrantRead],
+        groupKeys: [PermissionGroupKey.Cacic],
+      });
+    expect(keycloakPermissions.getUserLiveAccess).toHaveBeenCalledWith('user-2');
   });
 
   it('returns current user group memberships and direct grants', async () => {

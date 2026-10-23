@@ -1,12 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, RouterLink } from '@angular/router';
@@ -42,18 +38,7 @@ const STATUS_ICONS: Record<LgpdRequestStatus, string> = {
 
 @Component({
   selector: 'app-lgpd',
-  imports: [
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTableModule,
-    MatChipsModule,
-    MatTooltipModule,
-    MatToolbarModule,
-    RouterLink,
-    DateFnsPipe,
-  ],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatToolbarModule, RouterLink, DateFnsPipe],
   templateUrl: './lgpd.component.html',
   styleUrl: './lgpd.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -66,11 +51,21 @@ export class LgpdComponent implements OnInit {
   private router = inject(Router);
 
   protected isLoading = signal(false);
+  protected hasLoadError = signal(false);
   protected isCreatingRequest = signal(false);
   protected isDeletingAccount = signal(false);
   protected requests = signal<LgpdRequest[]>([]);
 
-  protected readonly displayedColumns = ['status', 'createdAt', 'fileSize', 'actions'];
+  protected readonly orderedRequests = computed(() =>
+    [...this.requests()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+  );
+  protected readonly activeRequest = computed(() =>
+    this.requests().some((request) => request.status === 'pending' || request.status === 'processing'),
+  );
+  protected readonly nextRequestAt = computed(() => {
+    const latest = this.orderedRequests()[0];
+    return latest ? new Date(new Date(latest.createdAt).getTime() + 24 * 60 * 60 * 1000) : null;
+  });
 
   protected readonly canCreateNewRequest = computed(() => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -88,12 +83,14 @@ export class LgpdComponent implements OnInit {
 
   protected loadRequests(): void {
     this.isLoading.set(true);
+    this.hasLoadError.set(false);
     this.apiService.getLgpdRequests().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
       error: () => {
+        this.hasLoadError.set(true);
         this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
@@ -105,12 +102,14 @@ export class LgpdComponent implements OnInit {
 
   protected refreshRequests(): void {
     this.isLoading.set(true);
+    this.hasLoadError.set(false);
     this.apiService.getLgpdRequestsFresh().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
       error: () => {
+        this.hasLoadError.set(true);
         this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],

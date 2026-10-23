@@ -1,0 +1,88 @@
+// Scoped settings surfaces use the application's Material theme in both color schemes.
+:host {
+  display: block;
+  color: var(--mat-sys-on-surface);
+}
+.settings-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+h1 {
+  font: var(--mat-sys-headline-medium);
+  margin: 0 0 8px;
+}
+h2 {
+  font: var(--mat-sys-title-large);
+  margin: 0 0 8px;
+}
+h3 {
+  font: var(--mat-sys-title-medium);
+  margin: 0 0 4px;
+}
+p {
+  color: var(--mat-sys-on-surface-variant);
+  line-height: 1.6;
+  margin: 0 0 20px;
+  max-width: 68ch;
+}
+.section-heading {
+  margin-bottom: 28px;
+}
+.section-heading p {
+  margin-bottom: 0;
+}
+.surface {
+  padding: 28px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  margin-bottom: 28px;
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.section-icon {
+  color: var(--mat-sys-primary);
+  flex-shrink: 0;
+}
+.support-section {
+  padding: 0 0 28px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+.inline-note,
+.state-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.inline-note {
+  margin: 20px 0 0;
+}
+.inline-note mat-icon {
+  flex-shrink: 0;
+}
+.state-message {
+  padding: 24px 0;
+}
+.state-message p {
+  margin: 0;
+}
+button,
+a {
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .settings-content {
+    padding: 24px 16px 40px;
+  }
+  .surface {
+    padding: 20px;
+  }
+  h1 {
+    font: var(--mat-sys-headline-small);
+  }
+}

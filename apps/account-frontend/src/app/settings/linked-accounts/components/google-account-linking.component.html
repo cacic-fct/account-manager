@@ -1,28 +1,39 @@
-<mat-card class="google-linking-card">
-  <mat-card-header>
-    <mat-icon mat-card-avatar>account_circle</mat-icon>
-    <mat-card-title>Google</mat-card-title>
-    <mat-card-subtitle>Contas de login e e-mails vinculados</mat-card-subtitle>
-  </mat-card-header>
+<section class="google-linking-card" aria-labelledby="google-title">
+  <header class="section-heading"><h1 id="google-title">Suas contas Google</h1></header>
 
-  <mat-card-content>
+  <div class="surface">
     @if (currentUser(); as user) {
       <div class="email-summary">
-        <div>
-          <span class="label">Principal</span>
-          <strong>{{ user.email }}</strong>
+        <div class="email-identity">
+          <span class="email-avatar" aria-hidden="true"><mat-icon>person</mat-icon></span>
+          <div>
+            <strong>{{ user.email }}</strong>
+            <span class="label">Principal</span>
+          </div>
         </div>
 
         @if (user.secondaryEmails?.length) {
-          <mat-chip-set aria-label="E-mails secundários">
+          <ul class="email-list">
             @for (email of user.secondaryEmails; track email) {
-              <mat-chip>{{ email }}</mat-chip>
+              <li class="email-identity">
+                <span class="email-avatar secondary" aria-hidden="true"><mat-icon>alternate_email</mat-icon></span>
+                <div>
+                  <strong>{{ email }}</strong
+                  ><span class="label">Vinculado</span>
+                </div>
+              </li>
             }
-          </mat-chip-set>
+          </ul>
         }
       </div>
     }
 
+    @if (!mergeRequest()) {
+      <p class="link-explanation">
+        Conecte outra conta Google para usá-la no seu acesso ao CACiC. Se ela já tiver um cadastro, você poderá revisar
+        a unificação antes de confirmar.
+      </p>
+    }
     @if (isLoading() && !mergeRequest()) {
       <div class="loading-row">
         <mat-spinner diameter="22"></mat-spinner>
@@ -62,8 +73,6 @@
                 <span class="score-label">Permanecerá ativo</span>
                 <strong>{{ score.displayName || score.email }}</strong>
                 <span>{{ score.email }}</span>
-                <div class="score-value">{{ score.score }} pts</div>
-                <mat-progress-bar mode="determinate" [value]="progressValue(score.score)"></mat-progress-bar>
               </div>
             }
 
@@ -72,8 +81,6 @@
                 <span class="score-label">Será incorporado</span>
                 <strong>{{ score.displayName || score.email }}</strong>
                 <span>{{ score.email }}</span>
-                <div class="score-value">{{ score.score }} pts</div>
-                <mat-progress-bar mode="determinate" [value]="progressValue(score.score)"></mat-progress-bar>
               </div>
             }
           </div>
@@ -82,7 +89,7 @@
         @if (request.status === 'pending') {
           <mat-form-field appearance="outline">
             <mat-label>E-mail principal</mat-label>
-            <mat-select [ngModel]="selectedPrimaryEmail()" (ngModelChange)="selectedPrimaryEmail.set($event)">
+            <mat-select [value]="selectedPrimaryEmail()" (selectionChange)="selectedPrimaryEmail.set($event.value)">
               @for (email of request.primaryEmailOptions; track email) {
                 <mat-option [value]="email">{{ email }}</mat-option>
               }
@@ -96,25 +103,27 @@
         }
 
         @if (request.scores.length) {
-          <mat-list class="score-list">
+          <details class="score-details">
+            <summary>Como o perfil principal é escolhido</summary>
+            <p>O sistema considera os dados de cada perfil para definir qual permanece ativo.</p>
             @for (score of request.scores; track score.userId) {
-              <mat-list-item>
-                <mat-icon matListItemIcon>analytics</mat-icon>
-                <div matListItemTitle>{{ score.email }}</div>
-                <div matListItemLine>
+              <div class="score-breakdown">
+                <strong>{{ score.email }}</strong
+                ><span>{{ score.score }} pontos</span>
+                <ul>
                   @for (item of score.contributions; track item.source + item.label) {
-                    <span>{{ item.label }} +{{ item.points }}</span>
+                    <li>{{ item.label }}: {{ item.points }} pontos</li>
                   }
-                </div>
-              </mat-list-item>
+                </ul>
+              </div>
             }
-          </mat-list>
+          </details>
         }
       </section>
     }
-  </mat-card-content>
+  </div>
 
-  <mat-card-actions align="end">
+  <div class="link-actions">
     @if (mergeRequest(); as request) {
       @if (request.status === 'pending') {
         <button mat-button type="button" (click)="cancelMerge()">Cancelar</button>
@@ -129,12 +138,12 @@
           } @else {
             <mat-icon>check</mat-icon>
           }
-          Continuar
+          Confirmar unificação
         </button>
-      } @else if (request.status === 'completed') {
+      } @else if (request.status === 'completed' || request.status === 'expired' || request.status === 'failed') {
         <button mat-flat-button color="primary" type="button" (click)="startLinking()">
           <mat-icon>add_link</mat-icon>
-          Vincular outra conta
+          {{ request.status === 'completed' ? 'Conectar outra conta' : 'Tentar novamente' }}
         </button>
       }
     } @else {
@@ -144,8 +153,8 @@
         } @else {
           <mat-icon>add_link</mat-icon>
         }
-        Vincular outra conta Google
+        Conectar conta Google
       </button>
     }
-  </mat-card-actions>
-</mat-card>
+  </div>
+</section>

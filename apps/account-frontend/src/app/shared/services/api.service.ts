@@ -35,6 +35,7 @@ import type {
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   KeycloakPermissionGrant,
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
@@ -98,6 +99,7 @@ export type {
   ConfirmAccountMergeRequest,
   ConfirmAccountMergeResponse,
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   KeycloakPermissionGrant,
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
@@ -281,6 +283,10 @@ export class ApiService {
 
   searchKeycloakPermissionUsers(query: string): Observable<KeycloakPermissionUser[]> {
     return this.keycloakPermissionsApi.searchKeycloakPermissionUsers(query);
+  }
+
+  getKeycloakPermissionLiveAccess(userId: string): Observable<KeycloakPermissionLiveAccess> {
+    return this.keycloakPermissionsApi.getKeycloakPermissionLiveAccess(userId);
   }
 
   getKeycloakPermissionGrants(userId: string): Observable<KeycloakPermissionGrant[]> {

@@ -2,6 +2,7 @@ import {
   PermissionGroupDefinition,
   PermissionGroupKey,
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   KeycloakPermissionGrant,
   KeycloakPermissionGrantCreateRequest,
   KeycloakPermissionGrantUpdateRequest,
@@ -56,6 +57,10 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
 
   listCatalog(): Promise<KeycloakPermissionDefinition[]> {
     return this.catalog.listCatalog();
+  }
+
+  getUserLiveAccess(userId: string): Promise<KeycloakPermissionLiveAccess> {
+    return this.catalog.getUserLiveAccess(userId);
   }
 
   listPermissionGroups(): readonly PermissionGroupDefinition[] {

@@ -161,10 +161,135 @@ export class AccountPermissionService {
     }
 
     try {
-      return await this.hasAnyKeycloakGroupPermissionGrant(userId, dbManagedPermissions, now);
+      return await this.hasAnyEffectiveKeycloakPermission(userId, dbManagedPermissions, now);
     } catch {
       return false;
     }
+  }
+
+  private async hasAnyEffectiveKeycloakPermission(
+    userId: string,
+    permissions: readonly string[],
+    now: Date,
+  ): Promise<boolean> {
+    const rolesByClient = new Map<string, Set<string>>();
+    for (const permission of permissions) {
+      const parsed = parseKeycloakPermissionId(permission);
+      if (!parsed || !KEYCLOAK_PERMISSION_CLIENTS.some((client) => client.clientId === parsed.clientId)) {
+        continue;
+      }
+      const roles = rolesByClient.get(parsed.clientId) ?? new Set<string>();
+      roles.add(parsed.roleName);
+      rolesByClient.set(parsed.clientId, roles);
+    }
+
+    const results = await Promise.all(
+      [...rolesByClient.keys()].map(async (clientId) => {
+        try {
+          // Effective roles include direct, group, parent-group, and composite assignments.
+          const roles = await this.keycloakService.getUserClientRoles(userId, clientId);
+          return { clientId, roles };
+        } catch {
+          return { clientId, roles: [] };
+        }
+      }),
+    );
+    const liveRolesByClient = new Map(results.map(({ clientId, roles }) => [clientId, new Set(roles)]));
+    const livePermissions = results.flatMap(({ clientId, roles }) =>
+      roles.filter((role) => rolesByClient.get(clientId)?.has(role)).map((role) => `${clientId}:${role}`),
+    );
+    if (livePermissions.length === 0) {
+      return false;
+    }
+    const excludedPermissions = await this.getInactiveManagedPermissions(userId, liveRolesByClient, now);
+    return livePermissions.some((permission) => !excludedPermissions.has(permission));
+  }
+
+  private async getInactiveManagedPermissions(
+    userId: string,
+    rolesByClient: ReadonlyMap<string, ReadonlySet<string>>,
+    now: Date,
+  ): Promise<Set<string>> {
+    // A stale Keycloak mapping must not bypass a local validity window before reconciliation runs.
+    const [inactiveGrants, memberships] = await Promise.all([
+      this.prisma.keycloakPermissionGrant.findMany({
+        where: {
+          userId,
+          clientId: { in: [...rolesByClient.keys()] },
+          OR: [
+            { deletedAt: { not: null } },
+            { validFrom: { gt: now } },
+            { validUntil: { lte: now } },
+            {
+              studentEntityMembership: {
+                is: {
+                  OR: [{ deletedAt: { not: null } }, { mandateStart: { gt: now } }, { mandateEnd: { lte: now } }],
+                },
+              },
+            },
+          ],
+        },
+        select: { permission: true },
+      }),
+      this.prisma.studentEntityMembership.findMany({
+        where: { userId },
+        select: { entity: true, deletedAt: true, mandateStart: true, mandateEnd: true },
+      }),
+    ]);
+    const groupKeys = memberships.map((membership) => membership.entity).filter(isPermissionGroupKey);
+    const inactiveGroupGrants =
+      groupKeys.length > 0
+        ? await this.prisma.keycloakGroupPermissionGrant.findMany({
+            where: {
+              groupKey: { in: groupKeys },
+              clientId: { in: [...rolesByClient.keys()] },
+              OR: [{ deletedAt: { not: null } }, { validFrom: { gt: now } }, { validUntil: { lte: now } }],
+            },
+            select: { permission: true },
+          })
+        : [];
+    const excluded = new Set<string>();
+    for (const grant of [...inactiveGrants, ...inactiveGroupGrants]) {
+      const parsed = parseKeycloakPermissionId(grant.permission);
+      const liveRoles = parsed ? rolesByClient.get(parsed.clientId) : undefined;
+      if (parsed && liveRoles?.has(parsed.roleName)) {
+        // A stale composite may provide any expanded role in this client. Fail closed until it is removed.
+        liveRoles.forEach((role) => excluded.add(`${parsed.clientId}:${role}`));
+      }
+    }
+    const activeGroupKeys = new Set(
+      memberships
+        .filter(
+          (membership) =>
+            !membership.deletedAt &&
+            membership.mandateStart <= now &&
+            (!membership.mandateEnd || membership.mandateEnd > now),
+        )
+        .map((membership) => membership.entity),
+    );
+    const inactiveGroupIds = new Set<string>();
+    for (const membership of memberships) {
+      if (!isPermissionGroupKey(membership.entity) || activeGroupKeys.has(membership.entity)) {
+        continue;
+      }
+      const inactive =
+        membership.deletedAt ||
+        membership.mandateStart > now ||
+        (membership.mandateEnd && membership.mandateEnd <= now);
+      if (inactive) {
+        const group = getPermissionGroupDefinition(membership.entity);
+        group.keycloakGroupIdPath.split('/').forEach((groupId) => inactiveGroupIds.add(groupId));
+      }
+    }
+    await Promise.all(
+      [...inactiveGroupIds].flatMap((groupId) =>
+        [...rolesByClient.keys()].map(async (clientId) => {
+          const roles = await this.keycloakService.getGroupClientRoles(groupId, clientId, { effective: true });
+          roles.forEach((role) => excluded.add(`${clientId}:${role}`));
+        }),
+      ),
+    );
+    return excluded;
   }
 
   private async hasKeycloakSuperAdminBootstrapFallbackAccess(userId: string): Promise<boolean> {
@@ -206,63 +331,6 @@ export class AccountPermissionService {
     });
 
     return !!grant;
-  }
-
-  private async hasAnyKeycloakGroupPermissionGrant(
-    userId: string,
-    permissions: readonly string[],
-    now: Date,
-  ): Promise<boolean> {
-    const memberships = await this.prisma.studentEntityMembership.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-        mandateStart: { lte: now },
-        OR: [{ mandateEnd: null }, { mandateEnd: { gt: now } }],
-      },
-      select: { entity: true },
-    });
-
-    if (memberships.length === 0) {
-      return false;
-    }
-
-    const permissionsByClient = new Map<string, Set<string>>();
-    for (const permission of permissions) {
-      const parsedPermission = parseKeycloakPermissionId(permission);
-      if (!parsedPermission) {
-        continue;
-      }
-
-      const clientRoles = permissionsByClient.get(parsedPermission.clientId) ?? new Set<string>();
-      clientRoles.add(parsedPermission.roleName);
-      permissionsByClient.set(parsedPermission.clientId, clientRoles);
-    }
-
-    if (permissionsByClient.size === 0) {
-      return false;
-    }
-
-    for (const membership of memberships) {
-      if (!isPermissionGroupKey(membership.entity)) {
-        continue;
-      }
-
-      const group = getPermissionGroupDefinition(membership.entity);
-      for (const client of KEYCLOAK_PERMISSION_CLIENTS) {
-        const expectedRoles = permissionsByClient.get(client.clientId);
-        if (!expectedRoles || expectedRoles.size === 0) {
-          continue;
-        }
-
-        const groupRoles = await this.keycloakService.getGroupClientRoles(group.keycloakGroupId, client.clientId);
-        if (groupRoles.some((roleName) => expectedRoles.has(roleName))) {
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 
   private async hasAnyGroupPermissionGrant(

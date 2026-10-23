@@ -1,6 +1,8 @@
 import { Readable } from 'stream';
 import type { DeleteAccountRequest, LgpdRequest } from '@prisma/client';
-import { S3Service } from '../common/services/s3.service';
+import { S3Service, S3ServiceError } from '../common/services/s3.service';
+import { Logger } from '@nestjs/common';
+import JSZip from 'jszip';
 import { PrismaService } from '../prisma/prisma.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
 import { UserService } from '../auth/services/user.service';
@@ -80,7 +82,8 @@ const createContext = () => {
     $transaction: jest.fn(),
   };
 
-  const uploadFile = jest.fn().mockImplementation((key: string, body: Buffer | Readable) => {
+  const uploadFile = jest.fn().mockImplementation((key: string, input: Buffer | Readable | (() => Readable)) => {
+    const body = typeof input === 'function' ? input() : input;
     if (Buffer.isBuffer(body)) {
       return Promise.resolve({ key, size: body.length });
     }
@@ -242,10 +245,72 @@ describe('LgpdService durability', () => {
     expect(preparation.data.s3Key).toContain('lgpd/dados-lgpd-user-1-lgpd-request-1.zip');
     expect(context.s3Service.uploadFile).toHaveBeenCalledWith(
       preparation.data.s3Key,
-      expect.any(Readable),
+      expect.any(Function),
       'application/zip',
       expect.any(Object),
     );
+  });
+
+  it('rebuilds complete ZIP streams for retries without recollecting data', async () => {
+    const context = createContext();
+    const archives: Buffer[] = [];
+    context.s3Service.uploadFile.mockImplementation(async (key: string, factory: () => Readable) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of factory()) chunks.push(chunk as Buffer);
+        archives.push(Buffer.concat(chunks));
+      }
+      return { key, size: archives[1].length };
+    });
+
+    await context.service.processRequest('lgpd-request-1');
+
+    for (const buffer of archives) {
+      const zip = await JSZip.loadAsync(buffer);
+      const summary = zip.file('resumo.json');
+      expect(summary).not.toBeNull();
+      expect(JSON.parse(await summary!.async('string')) as unknown).toEqual(
+        expect.objectContaining({ usuario_id: 'user-1' }),
+      );
+      expect(zip.file('cacic-sso/perfil_usuario.json')).not.toBeNull();
+    }
+    expect(context.userService.findByKeycloakId).toHaveBeenCalledTimes(1);
+    expect(context.s3Service.generateFileKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains provider diagnostics in the LGPD failure log and marks exhausted uploads failed', async () => {
+    const context = createContext();
+    const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const storageError = new S3ServiceError(
+      'upload inactivity timeout after 120000ms',
+      'upload',
+      'lgpd/same-key',
+      undefined,
+      'AbortError',
+      true,
+      { cause: new Error('Upload aborted.') },
+      { attempt: 3, timeoutReason: 'idle', bytesRead: 42, provider: { requestId: 'provider-1' } },
+    );
+    context.s3Service.uploadFile.mockRejectedValue(storageError);
+    try {
+      await context.service.processRequest('lgpd-request-1');
+
+      expect(log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'lgpd-request-1',
+          operation: 'upload',
+          retryable: true,
+          storage: storageError.diagnostics,
+        }),
+        storageError.stack,
+      );
+      expect(context.prisma.lgpdRequest.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 'lgpd-request-1', status: 'processing' },
+        data: { status: 'failed', errorMessage: storageError.message },
+      });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('does not delete application rows when a hard-delete storage obligation fails', async () => {

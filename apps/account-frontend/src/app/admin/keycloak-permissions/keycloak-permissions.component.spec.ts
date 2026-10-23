@@ -1,7 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { By } from '@angular/platform-browser';
+import { MatSelect } from '@angular/material/select';
+import { MatTabGroup } from '@angular/material/tabs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AccountManagerPermission, PermissionGroupKey, buildKeycloakPermissionId } from '@cacic/shared-types';
@@ -15,16 +18,30 @@ import {
   mockStudentEntityMemberships,
 } from '../../../storybook/mocks/component-mocks';
 import { PermissionsComponent } from './keycloak-permissions.component';
+import {
+  KeycloakPermissionsPersonPickerComponent,
+  PermissionPersonSearchForm,
+} from './keycloak-permissions-person-picker.component';
 
 type PermissionsComponentHarness = PermissionsComponent & {
-  directGrantForm: { controls: { permission: { setValue: (value: string) => void } } };
+  directGrantForm: { controls: { permissions: { value: string[]; setValue: (value: string[]) => void } } };
   groupRolesForm: { controls: { permissions: { value: string[] } } };
   searchForm: { controls: { query: { setValue: (value: string) => void } } };
+  groupSearchForm: PermissionPersonSearchForm;
+  groupUsers: () => typeof mockKeycloakPermissionUsers;
+  selectedGroupUsers: () => typeof mockKeycloakPermissionUsers;
+  users: () => typeof mockKeycloakPermissionUsers;
+  selectedUsers: () => typeof mockKeycloakPermissionUsers;
+  searching: () => boolean;
+  searchingGroupUsers: () => boolean;
+  toggleGroupUser: (user: (typeof mockKeycloakPermissionUsers)[number]) => void;
+  removeGroupUser: (userId: string) => void;
   batchApplyUserCount: () => number;
   createDirectGrant: () => void;
   saveGroupRoles: () => void;
+  refreshCurrent: () => void;
   saveMembership: () => void;
-  searchUsers: () => void;
+  searchUsers: (target?: 'groups' | 'people') => void;
   selectGroup: (groupKey: PermissionGroupKey) => void;
   selectUser: (user: (typeof mockKeycloakPermissionUsers)[number]) => void;
   toggleBatchUser: (user: (typeof mockKeycloakPermissionUsers)[number]) => void;
@@ -39,6 +56,7 @@ describe('PermissionsComponent', () => {
     getPermissionGroupMemberships: ReturnType<typeof vi.fn>;
     searchKeycloakPermissionUsers: ReturnType<typeof vi.fn>;
     getKeycloakPermissionGrants: ReturnType<typeof vi.fn>;
+    getKeycloakPermissionLiveAccess: ReturnType<typeof vi.fn>;
     getUserPermissionGroupMemberships: ReturnType<typeof vi.fn>;
     updatePermissionGroupRoleGrants: ReturnType<typeof vi.fn>;
     createPermissionGroupMembership: ReturnType<typeof vi.fn>;
@@ -59,6 +77,12 @@ describe('PermissionsComponent', () => {
         of(mockStudentEntityMemberships.filter((membership) => membership.groupKey === groupKey)),
       ),
       searchKeycloakPermissionUsers: vi.fn().mockReturnValue(of(mockKeycloakPermissionUsers.slice(0, 2))),
+      getKeycloakPermissionLiveAccess: vi.fn().mockReturnValue(
+        of({
+          permissions: [AccountManagerPermission.StudentVerificationReview],
+          groupKeys: [PermissionGroupKey.Cacic],
+        }),
+      ),
       getKeycloakPermissionGrants: vi.fn().mockReturnValue(of([mockDirectKeycloakPermissionGrant])),
       getUserPermissionGroupMemberships: vi.fn((userId: string) =>
         of(mockStudentEntityMemberships.filter((membership) => membership.userId === userId)),
@@ -126,10 +150,11 @@ describe('PermissionsComponent', () => {
     const component = fixture.componentInstance as PermissionsComponentHarness;
     const users = mockKeycloakPermissionUsers.slice(0, 2);
 
-    users.forEach((user) => component.toggleBatchUser(user));
+    users.forEach((user) => component.toggleGroupUser(user));
     component.saveMembership();
 
-    expect(component.batchApplyUserCount()).toBe(2);
+    expect(component.selectedGroupUsers()).toEqual(users);
+    expect(component.batchApplyUserCount()).toBe(0);
     expect(apiService.createPermissionGroupMembership).toHaveBeenCalledTimes(2);
     expect(apiService.createPermissionGroupMembership).toHaveBeenNthCalledWith(
       1,
@@ -155,7 +180,7 @@ describe('PermissionsComponent', () => {
     const permission = mockKeycloakPermissionCatalog[0].permission;
 
     users.forEach((user) => component.toggleBatchUser(user));
-    component.directGrantForm.controls.permission.setValue(permission);
+    component.directGrantForm.controls.permissions.setValue([permission]);
     component.createDirectGrant();
 
     expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledTimes(2);
@@ -173,7 +198,157 @@ describe('PermissionsComponent', () => {
     });
   });
 
-  it('does not autoselect Keycloak template permissions for groups managed by CACiC', () => {
+  it('creates every selected permission for every selected person and clears the selection', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const users = mockKeycloakPermissionUsers.slice(0, 2);
+    const permissions = mockKeycloakPermissionCatalog.slice(0, 2).map((entry) => entry.permission);
+
+    users.forEach((user) => component.toggleBatchUser(user));
+    component.directGrantForm.controls.permissions.setValue(permissions);
+    component.createDirectGrant();
+
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledTimes(4);
+    for (const user of users) {
+      for (const permission of permissions) {
+        expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledWith({
+          userId: user.id,
+          permission,
+          validFrom: null,
+          validUntil: null,
+        });
+      }
+    }
+    expect(component.directGrantForm.controls.permissions.value).toEqual([]);
+  });
+
+  it('renders the direct permission field as a multi-select', async () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const tabs = fixture.debugElement.query(By.directive(MatTabGroup)).componentInstance as MatTabGroup;
+    component.toggleBatchUser(mockKeycloakPermissionUsers[0]);
+    tabs.selectedIndex = 1;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const select = fixture.debugElement.query(By.css('.direct-grant-form mat-select')).componentInstance as MatSelect;
+    expect(select.multiple).toBe(true);
+  });
+
+  it('requires at least one permission before granting access', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    component.toggleBatchUser(mockKeycloakPermissionUsers[0]);
+    component.directGrantForm.controls.permissions.setValue([]);
+    component.createDirectGrant();
+
+    expect(apiService.createKeycloakPermissionGrant).not.toHaveBeenCalled();
+  });
+
+  it('reports partial failures across selected permissions and finishes the batch', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    apiService.createKeycloakPermissionGrant.mockReturnValueOnce(throwError(() => new Error('Failed')));
+    component.toggleBatchUser(mockKeycloakPermissionUsers[0]);
+    component.directGrantForm.controls.permissions.setValue(
+      mockKeycloakPermissionCatalog.slice(0, 2).map((entry) => entry.permission),
+    );
+    component.createDirectGrant();
+
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledTimes(2);
+    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith(
+      '1 aplicada(s), 1 falha(s). Revise vínculos duplicados.',
+      'Fechar',
+      { duration: 6000 },
+    );
+    expect(component.directGrantForm.controls.permissions.value).toEqual([]);
+  });
+
+  it('keeps group selection separate from direct grants and their draft form', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const groupUser = mockKeycloakPermissionUsers[0];
+    const directUser = mockKeycloakPermissionUsers[1];
+    component.toggleGroupUser(groupUser);
+    expect(apiService.getKeycloakPermissionGrants).not.toHaveBeenCalled();
+    expect(component.selectedUsers()).toEqual([]);
+
+    component.toggleBatchUser(directUser);
+    const permission = mockKeycloakPermissionCatalog[0].permission;
+    component.directGrantForm.controls.permissions.setValue([permission]);
+    component.toggleGroupUser(directUser);
+    component.removeGroupUser(groupUser.id);
+    component.createDirectGrant();
+
+    expect(component.selectedGroupUsers()).toEqual([directUser]);
+    expect(component.selectedUsers()).toEqual([directUser]);
+    expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledExactlyOnceWith({
+      userId: directUser.id,
+      permission,
+      validFrom: null,
+      validUntil: null,
+    });
+  });
+
+  it('renders each tab with its own picker state after switching back and forth', async () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const tabs = fixture.debugElement.query(By.directive(MatTabGroup)).componentInstance as MatTabGroup;
+    const groupUser = mockKeycloakPermissionUsers[0];
+    const directUser = mockKeycloakPermissionUsers[1];
+    component.groupSearchForm.controls.query.setValue('group search');
+    component.toggleGroupUser(groupUser);
+
+    tabs.selectedIndex = 1;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const peoplePicker = fixture.debugElement
+      .queryAll(By.directive(KeycloakPermissionsPersonPickerComponent))
+      .map((element) => element.componentInstance as KeycloakPermissionsPersonPickerComponent)
+      .find((picker) => picker.ariaLabel() === 'Selecionar pessoa para permissão direta');
+    expect(peoplePicker?.searchForm().controls.query.value).toBe('');
+    expect(peoplePicker?.selectedUsers()).toEqual([]);
+    component.searchForm.controls.query.setValue('direct search');
+    component.toggleBatchUser(directUser);
+
+    tabs.selectedIndex = 0;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const groupPicker = fixture.debugElement
+      .queryAll(By.directive(KeycloakPermissionsPersonPickerComponent))
+      .map((element) => element.componentInstance as KeycloakPermissionsPersonPickerComponent)
+      .find((picker) => picker.ariaLabel() === 'Selecionar pessoa para o vínculo');
+    expect(groupPicker?.searchForm().controls.query.value).toBe('group search');
+    expect(groupPicker?.selectedUsers()).toEqual([groupUser]);
+    expect(component.searchForm.controls.query.value).toBe('direct search');
+    expect(component.selectedUsers()).toEqual([directUser]);
+  });
+
+  it('keeps pending search results, form state and loading flags within their own tab', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const groupResponse = new Subject<typeof mockKeycloakPermissionUsers>();
+    const peopleResponse = new Subject<typeof mockKeycloakPermissionUsers>();
+    apiService.searchKeycloakPermissionUsers.mockReturnValueOnce(groupResponse).mockReturnValueOnce(peopleResponse);
+
+    component.groupSearchForm.controls.query.setValue('group search');
+    component.searchUsers('groups');
+    expect(component.searchingGroupUsers()).toBe(true);
+    expect(component.searching()).toBe(false);
+    component.searchForm.controls.query.setValue('direct search');
+    component.searchUsers();
+
+    peopleResponse.next([mockKeycloakPermissionUsers[1]]);
+    expect(component.searching()).toBe(false);
+    expect(component.searchingGroupUsers()).toBe(true);
+    expect(component.groupUsers()).toEqual([]);
+    groupResponse.next([mockKeycloakPermissionUsers[0]]);
+    expect(component.groupUsers()).toEqual([mockKeycloakPermissionUsers[0]]);
+    expect(component.users()).toEqual([mockKeycloakPermissionUsers[1]]);
+    expect(component.groupSearchForm.controls.query.value).toBe('group search');
+    expect(component.searchForm.controls.query.value).toBe('direct search');
+    expect(component.searchingGroupUsers()).toBe(false);
+    groupResponse.complete();
+    peopleResponse.complete();
+  });
+
+  it('preserves existing Keycloak roles when saving groups managed by CACiC', () => {
     const component = fixture.componentInstance as PermissionsComponentHarness;
     const templatePermission = buildKeycloakPermissionId('cacic-event-manager', 'events#read');
     const ejcompGrants = [
@@ -212,13 +387,82 @@ describe('PermissionsComponent', () => {
 
     component.selectGroup(PermissionGroupKey.Ejcomp);
 
-    expect(component.groupRolesForm.controls.permissions.value).toEqual([AccountManagerPermission.PermissionGrantRead]);
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([
+      templatePermission,
+      AccountManagerPermission.PermissionGrantRead,
+    ]);
 
     component.saveGroupRoles();
 
     expect(apiService.updatePermissionGroupRoleGrants).toHaveBeenCalledWith(PermissionGroupKey.Ejcomp, {
-      permissions: [AccountManagerPermission.PermissionGrantRead],
+      permissions: [templatePermission, AccountManagerPermission.PermissionGrantRead],
     });
-    expect(component.groupRolesForm.controls.permissions.value).toEqual([AccountManagerPermission.PermissionGrantRead]);
+    expect(component.groupRolesForm.controls.permissions.value).toEqual([
+      templatePermission,
+      AccountManagerPermission.PermissionGrantRead,
+    ]);
+  });
+  it('shows live permissions and managed groups without requiring local grants', async () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    apiService.getKeycloakPermissionGrants.mockReturnValue(of([]));
+    apiService.getUserPermissionGroupMemberships.mockReturnValue(of([]));
+    component.selectUser(mockKeycloakPermissionUsers[0]);
+    const tabs = fixture.debugElement.query(By.directive(MatTabGroup)).componentInstance as MatTabGroup;
+    tabs.selectedIndex = 1;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent as string;
+    expect(apiService.getKeycloakPermissionLiveAccess).toHaveBeenCalledWith(mockKeycloakPermissionUsers[0].id);
+    expect(text).toContain('Acesso atual no Keycloak');
+    expect(text).toContain('CACiC');
+    expect(text).toContain('Revisar validações estudantis');
+  });
+
+  it('shows a retry state when live access cannot be read', async () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    apiService.getKeycloakPermissionLiveAccess.mockReturnValue(throwError(() => new Error('Unavailable')));
+    component.selectUser(mockKeycloakPermissionUsers[0]);
+    const tabs = fixture.debugElement.query(By.directive(MatTabGroup)).componentInstance as MatTabGroup;
+    tabs.selectedIndex = 1;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível consultar o acesso no Keycloak.');
+    expect(fixture.nativeElement.textContent).not.toContain('Nenhuma permissão nos sistemas gerenciados.');
+  });
+
+  it('refreshes catalogs and live access while preserving the selected group', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    component.selectGroup(PermissionGroupKey.Ejcomp);
+    component.selectUser(mockKeycloakPermissionUsers[0]);
+    component.refreshCurrent();
+    expect(apiService.getKeycloakPermissionCatalog).toHaveBeenCalledTimes(2);
+    expect(apiService.getPermissionGroupCatalog).toHaveBeenCalledTimes(2);
+    expect(apiService.getPermissionGroupRoleGrants).toHaveBeenLastCalledWith(PermissionGroupKey.Ejcomp);
+    expect(apiService.getKeycloakPermissionLiveAccess).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores live access responses for previously selected people', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const pending = new Subject<{ permissions: string[]; groupKeys: PermissionGroupKey[] }>();
+    apiService.getKeycloakPermissionLiveAccess.mockReturnValueOnce(pending);
+    component.selectUser(mockKeycloakPermissionUsers[0]);
+    component.selectUser(mockKeycloakPermissionUsers[1]);
+    pending.next({ permissions: ['cacic-event-manager:stale-permission'], groupKeys: [] });
+    pending.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('stale-permission');
+  });
+  it('ignores stale access responses after refreshing the same person', () => {
+    const component = fixture.componentInstance as PermissionsComponentHarness;
+    const pending = new Subject<{ permissions: string[]; groupKeys: PermissionGroupKey[] }>();
+    apiService.getKeycloakPermissionLiveAccess.mockReturnValueOnce(pending);
+    component.selectUser(mockKeycloakPermissionUsers[0]);
+    component.refreshCurrent();
+    pending.next({ permissions: ['cacic-event-manager:stale-permission'], groupKeys: [] });
+    pending.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('stale-permission');
   });
 });

@@ -4,6 +4,7 @@ import {
   PermissionGroupDefinition,
   buildKeycloakPermissionId,
   KeycloakPermissionDefinition,
+  KeycloakPermissionLiveAccess,
   parseKeycloakPermissionId,
 } from '@cacic/shared-types';
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
@@ -29,16 +30,14 @@ export class KeycloakPermissionsCatalogService {
   }
 
   private async loadCatalog(): Promise<KeycloakPermissionCatalogSnapshot> {
-    this.catalogPromise ??= this.fetchCatalog();
+    const catalogPromise = (this.catalogPromise ??= this.fetchCatalog());
     try {
-      const catalog = await this.catalogPromise;
-      if (catalog.unavailableClientIds.length > 0) {
+      return await catalogPromise;
+    } finally {
+      // Coalesce concurrent reads without retaining stale roles between requests.
+      if (this.catalogPromise === catalogPromise) {
         this.catalogPromise = undefined;
       }
-      return catalog;
-    } catch (error) {
-      this.catalogPromise = undefined;
-      throw error;
     }
   }
 
@@ -60,26 +59,13 @@ export class KeycloakPermissionsCatalogService {
               source: 'keycloak' as const,
             }));
 
-          if (client.clientId !== 'cacic-account-manager') {
-            return { definitions, unavailableClientId: undefined };
-          }
-
-          const knownPermissions = new Set(definitions.map((definition) => definition.permission));
-          return {
-            definitions: [
-              ...definitions,
-              ...fallbackAccountManagerDefinitions().filter(
-                (definition) => !knownPermissions.has(definition.permission),
-              ),
-            ],
-            unavailableClientId: undefined,
-          };
+          return { definitions, unavailableClientId: undefined };
         } catch (error) {
           this.logger.warn(`Failed to load Keycloak roles for ${client.clientId}`, error);
 
           return {
             definitions: client.clientId === 'cacic-account-manager' ? fallbackAccountManagerDefinitions() : [],
-            unavailableClientId: client.clientId === 'cacic-account-manager' ? undefined : client.clientId,
+            unavailableClientId: client.clientId,
           };
         }
       }),
@@ -105,6 +91,26 @@ export class KeycloakPermissionsCatalogService {
 
   listPermissionGroups(): readonly PermissionGroupDefinition[] {
     return PERMISSION_GROUP_CATALOG;
+  }
+
+  async getUserLiveAccess(userId: string): Promise<KeycloakPermissionLiveAccess> {
+    const [groups, roleLists] = await Promise.all([
+      this.keycloakService.getUserGroupMemberships(userId),
+      Promise.all(
+        KEYCLOAK_PERMISSION_CLIENTS.map(async (client) => {
+          const roles = await this.keycloakService.getUserClientRoles(userId, client.clientId);
+          return roles.filter(isDbManagedRole).map((role) => buildKeycloakPermissionId(client.clientId, role));
+        }),
+      ),
+    ]);
+    const groupIds = new Set(groups.map((group) => group.id));
+
+    return {
+      permissions: [...new Set(roleLists.flat())].sort(),
+      groupKeys: PERMISSION_GROUP_CATALOG.filter((group) => groupIds.has(group.keycloakGroupId)).map(
+        (group) => group.key,
+      ),
+    };
   }
 
   async listKeycloakGroupPermissions(

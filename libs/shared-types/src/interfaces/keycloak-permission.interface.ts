@@ -339,6 +339,11 @@ export interface KeycloakPermissionSyncResult {
   failed: number;
 }
 
+export interface KeycloakPermissionLiveAccess {
+  permissions: string[];
+  groupKeys: PermissionGroupKey[];
+}
+
 export interface PermissionSelfServiceAccess {
   memberships: PermissionGroupMembership[];
   grants: KeycloakPermissionGrant[];

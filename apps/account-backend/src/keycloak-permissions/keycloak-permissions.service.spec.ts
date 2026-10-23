@@ -1,4 +1,9 @@
-import { AccountManagerPermission, PermissionGroupKey, buildKeycloakPermissionId } from '@cacic/shared-types';
+import {
+  ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG,
+  AccountManagerPermission,
+  PermissionGroupKey,
+  buildKeycloakPermissionId,
+} from '@cacic/shared-types';
 import { BadRequestException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
@@ -93,6 +98,14 @@ type PrismaMock = {
 };
 
 type KeycloakMock = {
+  getUserClientRoles: jest.Mock<
+    ReturnType<KeycloakService['getUserClientRoles']>,
+    Parameters<KeycloakService['getUserClientRoles']>
+  >;
+  getUserGroupMemberships: jest.Mock<
+    ReturnType<KeycloakService['getUserGroupMemberships']>,
+    Parameters<KeycloakService['getUserGroupMemberships']>
+  >;
   listClientRoles: jest.Mock<
     ReturnType<KeycloakService['listClientRoles']>,
     Parameters<KeycloakService['listClientRoles']>
@@ -280,6 +293,15 @@ const createContext = () => {
   prisma.studentEntityMembership.findFirst.mockResolvedValue(null);
 
   const keycloakService: KeycloakMock = {
+    getUserClientRoles: jest
+      .fn<ReturnType<KeycloakService['getUserClientRoles']>, Parameters<KeycloakService['getUserClientRoles']>>()
+      .mockResolvedValue([]),
+    getUserGroupMemberships: jest
+      .fn<
+        ReturnType<KeycloakService['getUserGroupMemberships']>,
+        Parameters<KeycloakService['getUserGroupMemberships']>
+      >()
+      .mockResolvedValue([]),
     listClientRoles: jest.fn<
       ReturnType<KeycloakService['listClientRoles']>,
       Parameters<KeycloakService['listClientRoles']>
@@ -322,8 +344,7 @@ const createContext = () => {
   keycloakService.listClientRoles.mockImplementation((clientId) => {
     if (clientId === 'cacic-account-manager') {
       return Promise.resolve([
-        { id: 'role-access', name: 'access' },
-        { id: 'role-grant-read', name: 'permission-grant#read' },
+        ...ACCOUNT_MANAGER_ASSIGNABLE_ROLE_CATALOG.map((name) => ({ id: name, name })),
         { id: 'role-hidden', name: 'uma_protection' },
       ]);
     }
@@ -506,6 +527,54 @@ describe('KeycloakPermissionsService', () => {
       expect.objectContaining({ id: grant.id }),
     );
     expect(eventManagerAttempts).toBe(2);
+  });
+
+  it('refreshes successful catalogs and rejects roles removed directly in Keycloak', async () => {
+    const { keycloakService, service } = createContext();
+    const permission = 'cacic-event-manager:events#publish';
+    expect((await service.listCatalog()).some((role) => role.permission === permission)).toBe(true);
+    keycloakService.listClientRoles.mockResolvedValue([{ name: 'new-role' }]);
+    const catalog = await service.listCatalog();
+    expect(catalog.some((role) => role.permission === permission)).toBe(false);
+    expect(catalog.some((role) => role.permission === 'cacic-event-manager:new-role')).toBe(true);
+    await expect(service.createGrant({ userId: 'user-1', permission }, 'admin-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('does not allow fallback catalog roles to authorize writes during an outage', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.listClientRoles.mockRejectedValue(new Error('Unavailable'));
+    expect((await service.listCatalog()).some((role) => role.source === 'fallback')).toBe(true);
+    await expect(
+      service.createGrant({ userId: 'user-1', permission: AccountManagerPermission.PermissionGrantRead }, 'admin-1'),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(prisma.keycloakPermissionGrant.create).not.toHaveBeenCalled();
+  });
+
+  it('reads current effective roles and managed group memberships directly from Keycloak', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(clientId === 'cacic-event-manager' ? ['events#publish', 'uma_protection'] : []),
+    );
+    keycloakService.getUserGroupMemberships.mockResolvedValue([
+      { id: cacicGroupId, name: 'Renamed group' },
+      { id: 'unmanaged-group', name: 'CACiC' },
+    ]);
+    await expect(service.getUserLiveAccess('user-1')).resolves.toEqual({
+      permissions: ['cacic-event-manager:events#publish'],
+      groupKeys: [PermissionGroupKey.Cacic],
+    });
+    expect(prisma.studentEntityMembership.findMany).not.toHaveBeenCalled();
+    keycloakService.getUserClientRoles.mockResolvedValue([]);
+    keycloakService.getUserGroupMemberships.mockResolvedValue([]);
+    await expect(service.getUserLiveAccess('user-1')).resolves.toEqual({ permissions: [], groupKeys: [] });
+  });
+
+  it('does not return incomplete live access as an empty access list', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getUserClientRoles.mockRejectedValue(new Error('Unavailable'));
+    await expect(service.getUserLiveAccess('user-1')).rejects.toThrow();
   });
 
   it('shows Keycloak-only group roles as active grants', async () => {
