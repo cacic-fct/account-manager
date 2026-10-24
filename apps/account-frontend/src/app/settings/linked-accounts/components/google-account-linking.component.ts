@@ -22,6 +22,7 @@ import { AccountMergeRequest } from '@cacic/shared-types';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../../shared/services/api.service';
 import { AuthService } from '../../../shared/services/auth/auth.service';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-google-account-linking',
@@ -96,11 +97,15 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
       next: ({ url }) => {
         window.location.href = url;
       },
-      error: () => {
+      error: (error) => {
         this.isLoading.set(false);
-        this.snackBar.open('Não foi possível iniciar o vínculo.', 'OK', {
-          duration: 7000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(error, 'Não foi possível iniciar o vínculo com o Google. Tente novamente.'),
+          'Fechar',
+          {
+            duration: 7000,
+          },
+        );
       },
     });
   }
@@ -123,11 +128,18 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
           duration: 6000,
         });
       },
-      error: () => {
+      error: (error) => {
         this.isConfirming.set(false);
-        this.snackBar.open('Não foi possível concluir a unificação.', 'OK', {
-          duration: 7000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível confirmar a unificação. Atualize a página para ver se o processo começou antes de tentar novamente.',
+          ),
+          'Fechar',
+          {
+            duration: 7000,
+          },
+        );
       },
     });
   }
@@ -143,6 +155,16 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
         this.stopMergeUpdates();
         this.mergeRequest.set(null);
         this.clearQueryParams();
+      },
+      error: (error) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível cancelar a unificação. Atualize a página para ver se ela ainda está em andamento.',
+          ),
+          'Fechar',
+          { duration: 7000 },
+        );
       },
     });
   }
@@ -213,11 +235,18 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
           this.startMergeUpdates(request.id);
         }
       },
-      error: () => {
+      error: (error) => {
         this.isLoading.set(false);
-        this.snackBar.open('Solicitação de unificação expirada ou inválida.', 'OK', {
-          duration: 7000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível abrir esta solicitação de unificação. Ela pode ter expirado; tente vincular a conta novamente.',
+          ),
+          'Fechar',
+          {
+            duration: 7000,
+          },
+        );
         this.clearQueryParams();
       },
     });
@@ -241,8 +270,12 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
           }
         }
       },
-      error: () => {
-        this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'OK', { duration: 7000 });
+      error: (error) => {
+        this.snackBar.open(
+          getApiErrorMessage(error, 'A atualização em tempo real parou. Vamos consultar o andamento da unificação…'),
+          'Fechar',
+          { duration: 7000 },
+        );
         this.apiService.getAccountMergeRequest(requestId).subscribe({
           next: (request) => {
             this.mergeRequest.set(request);
@@ -253,9 +286,13 @@ export class GoogleAccountLinkingComponent implements OnInit, OnDestroy {
               this.clearQueryParams();
             }
           },
-          error: () => {
+          error: (error) => {
             this.snackBar
-              .open('Não foi possível recuperar o status da unificação.', 'Tentar novamente', { duration: 7000 })
+              .open(
+                getApiErrorMessage(error, 'Não foi possível consultar o status da unificação. Tente novamente.'),
+                'Tentar novamente',
+                { duration: 7000 },
+              )
               .onAction()
               .subscribe(() => this.startMergeUpdates(requestId));
           },

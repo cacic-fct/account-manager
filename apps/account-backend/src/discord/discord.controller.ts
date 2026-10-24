@@ -5,7 +5,7 @@ import { LINKED_ACCOUNT_ROUTE_PATHS } from '@cacic/shared-types';
 import { ConfigService } from '@nestjs/config';
 import { createAppConfig, AppConfig } from '../config/app.config';
 import { DiscordOAuthService } from './services/discord-oauth.service';
-import { DiscordLinkService } from './services/discord-link.service';
+import { DiscordAccountAlreadyLinkedException, DiscordLinkService } from './services/discord-link.service';
 import { Auth } from '../auth/guards/auth.decorator';
 import { CurrentUserGuard } from '../auth/guards/current-user.guard';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
@@ -123,7 +123,7 @@ export class DiscordController {
 
       // Check for specific error types
       let errorType = 'callback_failed';
-      if (error instanceof Error && error.message.includes('already linked')) {
+      if (error instanceof DiscordAccountAlreadyLinkedException) {
         errorType = 'already_linked';
       }
 

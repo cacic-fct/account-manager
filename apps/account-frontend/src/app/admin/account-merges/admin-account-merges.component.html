@@ -15,14 +15,41 @@
     <mat-card-content>
       @if (mergeRequest(); as request) {
         <section class="merge-review">
+          @if (requestStateStale()) {
+            <p class="warning" role="alert">
+              {{ requestStateError() ?? 'Ainda não foi possível atualizar o status. Atualize antes de continuar.' }}
+            </p>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="refreshingRequestState()"
+              (click)="refreshMergeRequest(request.id)">
+              @if (refreshingRequestState()) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>refresh</mat-icon>
+              }
+              Atualizar situação
+            </button>
+          }
+
           @if (isProcessing()) {
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             <p>Processando a unificação e notificando os sistemas externos.</p>
           }
 
           @if (mergeUpdatesFailed()) {
-            <p class="warning">Não foi possível receber atualizações em tempo real.</p>
-            <button mat-stroked-button type="button" (click)="retryMergeUpdates()">
+            <p class="warning" role="alert">
+              {{
+                mergeUpdatesError() ??
+                  'Não foi possível acompanhar o andamento da unificação em tempo real. Atualize o status antes de decidir o próximo passo.'
+              }}
+            </p>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="requestStateStale() || refreshingRequestState()"
+              (click)="retryMergeUpdates()">
               <mat-icon>refresh</mat-icon>
               Tentar novamente
             </button>
@@ -55,11 +82,19 @@
           }
 
           @if (request.status === 'completed') {
-            <p class="success">Contas unificadas e notificações externas concluídas.</p>
+            <p class="success">Unificação concluída.</p>
+            @if (request.notificationSummary.failed > 0) {
+              <p class="warning" role="alert">
+                {{ request.notificationSummary.failed }} notificações externas não foram enviadas. Confira os sistemas
+                externos antes de encerrar o atendimento.
+              </p>
+            }
           } @else if (request.status === 'expired') {
-            <p class="warning">Esta solicitação expirou. Inicie uma nova unificação para continuar.</p>
+            <p class="warning">Esta solicitação expirou. Atualize a situação antes de iniciar outra unificação.</p>
           } @else if (request.status === 'failed') {
-            <p class="warning">A unificação falhou por segurança. Revise as contas e tente novamente.</p>
+            <p class="warning" role="alert">
+              A unificação não foi concluída. Confira a situação atual das contas antes de iniciar outra.
+            </p>
           }
         </section>
       } @else {
@@ -126,12 +161,23 @@
           Preparar unificação
         </button>
       } @else if (mergeRequest()?.status === 'pending') {
-        <button mat-button type="button" (click)="cancelMerge()">Cancelar</button>
+        <button
+          mat-button
+          type="button"
+          [disabled]="canceling() || confirming() || requestStateStale() || refreshingRequestState()"
+          (click)="cancelMerge()">
+          @if (canceling()) {
+            <mat-spinner diameter="18"></mat-spinner>
+          }
+          Cancelar
+        </button>
         <button
           mat-flat-button
           color="primary"
           type="button"
-          [disabled]="confirming() || !selectedPrimaryEmail()"
+          [disabled]="
+            confirming() || canceling() || !selectedPrimaryEmail() || requestStateStale() || refreshingRequestState()
+          "
           (click)="confirmMerge()">
           @if (confirming()) {
             <mat-spinner diameter="18"></mat-spinner>
@@ -141,7 +187,12 @@
           Confirmar unificação
         </button>
       } @else if (!isProcessing()) {
-        <button mat-flat-button color="primary" type="button" (click)="reset()">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="requestStateStale() || refreshingRequestState()"
+          (click)="reset()">
           <mat-icon>add</mat-icon>Nova unificação
         </button>
       }

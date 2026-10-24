@@ -1,58 +1,12 @@
-.settings-container {
-  margin: 0 auto;
-  padding: 1rem;
+@use '../shared/components/settings-navigation/navigation-page';
+.account-identity {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
 }
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.profile-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 1rem;
-  margin-top: 2rem;
-
-  .avatar {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    margin-bottom: 0.5rem;
-  }
-
-  h3 {
-    margin: 0;
-  }
-
-  p {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-
-  .edit-btn {
-    margin-top: 0.5rem;
-    font-weight: 500;
-    text-transform: none;
-  }
-}
-
-mat-list-item {
-  .option-text {
-    margin-left: auto;
-    font-size: 0.9rem;
-  }
-
-  mat-slide-toggle {
-    margin-left: auto;
-  }
+.account-name {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
 }

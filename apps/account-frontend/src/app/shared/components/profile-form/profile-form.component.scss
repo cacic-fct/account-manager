@@ -87,3 +87,12 @@
 .step-actions {
   flex-wrap: wrap;
 }
+
+.all-in-one-layout .form-section + .form-section {
+  padding-top: 24px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+.form-footer {
+  padding-top: 20px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}

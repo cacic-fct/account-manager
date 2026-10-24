@@ -19,6 +19,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import { RECURRING_JOB_OPTIONS } from '../background-jobs/background-jobs.queue';
 import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
 import { KeycloakPermissionsGrantsService } from './keycloak-permissions-grants.service';
 import { KeycloakPermissionsGroupRolesService } from './keycloak-permissions-group-roles.service';
@@ -43,14 +44,19 @@ export class KeycloakPermissionsService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.permissionQueue.add(
-      KEYCLOAK_PERMISSION_JOBS.SYNC_GRANTS,
-      { reason: 'scheduled' },
+    const schedulerId = 'keycloak-permission-grants-sync';
+    const repeat = { pattern: '*/15 * * * *' };
+    await this.permissionQueue.setGlobalConcurrency(1);
+    // Remove the legacy repeat definition before installing its Job Scheduler.
+    await this.permissionQueue.removeRepeatable(KEYCLOAK_PERMISSION_JOBS.SYNC_GRANTS, repeat, schedulerId);
+    // Preserve the legacy BullMQ repeat's default UTC calendar.
+    await this.permissionQueue.upsertJobScheduler(
+      schedulerId,
+      { ...repeat, tz: 'UTC' },
       {
-        jobId: 'keycloak-permission-grants-sync',
-        repeat: { pattern: '*/15 * * * *' },
-        removeOnComplete: true,
-        removeOnFail: false,
+        name: KEYCLOAK_PERMISSION_JOBS.SYNC_GRANTS,
+        data: { reason: 'scheduled' },
+        opts: RECURRING_JOB_OPTIONS,
       },
     );
   }

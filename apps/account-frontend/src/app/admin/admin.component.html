@@ -1,39 +1,18 @@
-<mat-toolbar color="primary" class="toolbar">
-  <button mat-icon-button routerLink="/applications">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-  <span>Administração</span>
-</mat-toolbar>
-<div class="settings-container">
-  <mat-list>
-    <mat-list-item routerLink="/admin/keycloak-permissions">
-      <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
-      <h4>Permissões</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/admin/discord-role-overrides">
-      <mat-icon matListItemIcon>verified_user</mat-icon>
-      <h4>Exceções de cargos Discord</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/admin/discord-integration">
-      <mat-icon matListItemIcon>discord</mat-icon>
-      <h4>Integração Discord</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/admin/student-verification">
-      <mat-icon matListItemIcon>person</mat-icon>
-      <h4>Validação estudante</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/admin/account-deletion">
-      <mat-icon matListItemIcon>manage_accounts</mat-icon>
-      <h4>Exclusão de contas</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/admin/account-merges">
-      <mat-icon matListItemIcon>merge_type</mat-icon>
-      <h4>Unificação de contas</h4>
-    </mat-list-item>
-  </mat-list>
-</div>
+<header class="page-header">
+  <div class="header-content">
+    <a class="brand" routerLink="/applications" aria-label="Conta CACiC — aplicativos">
+      <app-cacic-logo class="logo" fillColor="currentColor" />
+      <span>Conta CACiC</span>
+    </a>
+    <a mat-button routerLink="/applications"><mat-icon>apps</mat-icon>Aplicativos</a>
+  </div>
+</header>
+<main class="navigation-page">
+  <header class="page-heading">
+    <h1>Administração</h1>
+  </header>
+  <app-settings-navigation [groups]="groups" label="Ferramentas de administração" />
+  <footer class="page-footer">
+    <a mat-button routerLink="/settings"><mat-icon>person</mat-icon>Configurações da minha conta</a>
+  </footer>
+</main>

@@ -46,10 +46,7 @@
           <p>Buscando solicitações…</p>
         </div>
       } @else if (hasLoadError()) {
-        <p class="inline-note">
-          <mat-icon>error_outline</mat-icon>Não foi possível carregar suas solicitações. Use Atualizar para tentar
-          novamente.
-        </p>
+        <p class="inline-note" role="alert"><mat-icon>error_outline</mat-icon>{{ loadErrorMessage() }}</p>
       } @else if (!requests().length) {
         <p class="empty-state">Suas cópias aparecerão aqui. Solicite a primeira quando precisar.</p>
       } @else {

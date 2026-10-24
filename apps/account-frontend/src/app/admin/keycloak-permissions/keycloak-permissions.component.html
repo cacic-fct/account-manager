@@ -30,6 +30,15 @@
       <mat-spinner diameter="42"></mat-spinner>
       <p>Carregando permissões.</p>
     </div>
+  } @else if (catalogError(); as errorMessage) {
+    <section class="empty-state" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ errorMessage }}</p>
+      <button mat-stroked-button type="button" (click)="refreshCurrent()">
+        <mat-icon>refresh</mat-icon>
+        Atualizar permissões
+      </button>
+    </section>
   } @else {
     <mat-tab-group animationDuration="160ms">
       <mat-tab label="Grupos">
@@ -77,6 +86,12 @@
                 <div class="loading-state">
                   <mat-spinner diameter="42"></mat-spinner>
                 </div>
+              } @else if (groupLoadError(); as errorMessage) {
+                <p role="alert">{{ errorMessage }}</p>
+                <button mat-button type="button" (click)="retryLoadGroup()">
+                  <mat-icon>refresh</mat-icon>
+                  Atualizar grupo
+                </button>
               } @else if (selectedGroup(); as group) {
                 <form class="role-form" [formGroup]="groupRolesForm" (ngSubmit)="saveGroupRoles()">
                   <mat-form-field appearance="outline">
@@ -201,7 +216,9 @@
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingMembership() || selectedGroupUsers().length === 0">
+                      [disabled]="
+                        savingMembership() || loadingGroup() || !!groupLoadError() || selectedGroupUsers().length === 0
+                      ">
                       @if (savingMembership()) {
                         <mat-spinner diameter="20"></mat-spinner>
                       } @else {
@@ -373,7 +390,9 @@
                       mat-flat-button
                       color="primary"
                       type="submit"
-                      [disabled]="savingGrant() || !hasAvailableDirectPermissions()">
+                      [disabled]="
+                        savingGrant() || loadingUserAccess() || !!userAccessError() || !hasAvailableDirectPermissions()
+                      ">
                       @if (savingGrant()) {
                         <mat-spinner diameter="20"></mat-spinner>
                       } @else {
@@ -396,6 +415,12 @@
                   <div class="loading-state">
                     <mat-spinner diameter="42"></mat-spinner>
                   </div>
+                } @else if (userAccessError(); as errorMessage) {
+                  <p role="alert">{{ errorMessage }}</p>
+                  <button mat-button type="button" (click)="refreshCurrent()">
+                    <mat-icon>refresh</mat-icon>
+                    Atualizar permissões
+                  </button>
                 } @else if (directGrants().length === 0) {
                   <div class="empty-state compact">
                     <mat-icon>key_off</mat-icon>
@@ -449,8 +474,13 @@
                 <div class="loading-state" role="status" aria-label="Carregando acesso no Keycloak">
                   <mat-spinner diameter="42"></mat-spinner>
                 </div>
+              } @else if (userAccessError(); as errorMessage) {
+                <p role="alert">{{ errorMessage }}</p>
+                <button mat-button type="button" (click)="refreshCurrent()">Atualizar acesso</button>
               } @else if (liveAccessFailed()) {
-                <p role="alert">Não foi possível consultar o acesso no Keycloak.</p>
+                <p role="alert">
+                  {{ liveAccessError() ?? 'Não foi possível consultar o acesso atual no Keycloak.' }}
+                </p>
                 <button mat-button type="button" (click)="refreshCurrent()">Tentar novamente</button>
               } @else if (liveAccess(); as access) {
                 <h3>Grupos</h3>

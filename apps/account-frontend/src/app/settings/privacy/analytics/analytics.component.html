@@ -8,40 +8,55 @@
 <div class="analytics-container">
   <mat-card class="settings-card">
     <mat-card-content>
-      <div class="toggles-container">
-        @for (toggle of privacyToggles(); track toggle.key) {
-          <div class="toggle-item">
-            <div class="toggle-info">
-              <div class="toggle-header">
-                <mat-icon [class]="'toggle-icon ' + (toggle.enabled ? 'enabled' : 'disabled')">
-                  {{ toggle.icon }}
-                </mat-icon>
-                <h3>{{ toggle.title }}</h3>
+      @if (privacyLoading()) {
+        <div class="state-message" role="status">
+          <mat-spinner diameter="24"></mat-spinner>
+          <p>Carregando suas preferências…</p>
+        </div>
+      } @else if (privacyLoadError(); as message) {
+        <div class="state-message" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          <p>{{ message }}</p>
+          <button mat-stroked-button type="button" (click)="loadPrivacySettings()">
+            <mat-icon>refresh</mat-icon>Tentar novamente
+          </button>
+        </div>
+      } @else {
+        <div class="toggles-container">
+          @for (toggle of privacyToggles(); track toggle.key) {
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <div class="toggle-header">
+                  <mat-icon [class]="'toggle-icon ' + (toggle.enabled ? 'enabled' : 'disabled')">
+                    {{ toggle.icon }}
+                  </mat-icon>
+                  <h3>{{ toggle.title }}</h3>
+                </div>
+                <p class="toggle-description">{{ toggle.description }}</p>
               </div>
-              <p class="toggle-description">{{ toggle.description }}</p>
+              <div class="toggle-control">
+                @if (toggle.loading) {
+                  <mat-spinner diameter="24"></mat-spinner>
+                } @else {
+                  <mat-slide-toggle
+                    [checked]="toggle.enabled"
+                    (change)="onToggleChange(toggle.key, $event.checked)"
+                    [disabled]="isUpdating()"
+                    color="primary"></mat-slide-toggle>
+                }
+              </div>
             </div>
-            <div class="toggle-control">
-              @if (toggle.loading) {
-                <mat-spinner diameter="24"></mat-spinner>
-              } @else {
-                <mat-slide-toggle
-                  [checked]="toggle.enabled"
-                  (change)="onToggleChange(toggle.key, $event.checked)"
-                  [disabled]="isUpdating()"
-                  color="primary"></mat-slide-toggle>
-              }
-            </div>
-          </div>
-        }
-      </div>
-      <p>
-        Ao manter essas opções ativadas, você nos ajuda a construir aplicações melhores, mais rápidas e mais estáveis!
-      </p>
+          }
+        </div>
+        <p>
+          Ao manter essas opções ativadas, você nos ajuda a construir aplicações melhores, mais rápidas e mais estáveis!
+        </p>
 
-      <p>
-        Suas alterações podem demorar alguns minutos para serem aplicadas e podem necessitar que você atualize todas as
-        páginas do CACiC abertas para que tenham efeito.
-      </p>
+        <p>
+          Suas alterações podem demorar alguns minutos para serem aplicadas e podem necessitar que você atualize todas
+          as páginas do CACiC abertas para que tenham efeito.
+        </p>
+      }
     </mat-card-content>
   </mat-card>
 </div>

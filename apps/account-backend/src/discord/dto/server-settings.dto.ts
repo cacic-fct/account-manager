@@ -6,9 +6,9 @@ export class UpdateServerSettingDto {
     description: 'Setting value',
     example: 'https://discord.gg/abc123',
   })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(2048)
+  @IsString({ message: 'Confira o valor da configuração antes de salvar.' })
+  @IsNotEmpty({ message: 'Valor da configuração: preencha este campo.' })
+  @MaxLength(2048, { message: 'Valor da configuração: use no máximo 2048 caracteres.' })
   value!: string;
 }
 

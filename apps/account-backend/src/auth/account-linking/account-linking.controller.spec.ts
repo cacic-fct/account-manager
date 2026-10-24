@@ -126,7 +126,7 @@ describe('AccountLinkingController', () => {
     accountLinkingService.getRequest.mockResolvedValue(createMergeRequest());
 
     await expect(controller.getMergeRequest('merge-request-1', session)).rejects.toThrow(
-      'Account merge completed; sign in again with the primary account',
+      'As contas foram unidas. Entre novamente com a conta que deseja manter.',
     );
 
     expect(accountLinkingService.getRequest).toHaveBeenCalledWith('merge-request-1', 'secondary-user');
@@ -317,7 +317,7 @@ describe('AccountLinkingController', () => {
     userService.findByKeycloakId.mockResolvedValue(null);
 
     await expect(controller.getMergeRequest('merge-request-1', session)).rejects.toThrow(
-      'Account merge completed; sign in again with the primary account',
+      'As contas foram unidas. Entre novamente com a conta que deseja manter.',
     );
 
     expect(session.user).toBeUndefined();

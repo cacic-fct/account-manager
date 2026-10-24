@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
@@ -91,14 +90,14 @@ export class AccountLinkingService {
 
   async createMergeRequest(requesterUserId: string, candidateUserId: string): Promise<AccountMergeRequest> {
     if (requesterUserId === candidateUserId) {
-      throw new BadRequestException('Account is already linked to this user');
+      throw new BadRequestException('Selecione duas contas diferentes para iniciar a unificação.');
     }
 
     const requester = await this.userService.findByKeycloakId(requesterUserId);
     const candidate = await this.userService.findByKeycloakId(candidateUserId);
 
     if (!requester || !candidate) {
-      throw new NotFoundException('One of the accounts was not found');
+      throw new NotFoundException('Uma das contas não foi encontrada.');
     }
 
     await this.assertNoActiveDeletionRequests([requesterUserId, candidateUserId]);
@@ -131,7 +130,9 @@ export class AccountLinkingService {
       });
 
       if (activeRequest) {
-        throw new BadRequestException('One of these accounts already has an active merge request');
+        throw new BadRequestException(
+          'Já existe um pedido de unificação ativo para uma dessas contas. Atualize a página para acompanhar o andamento.',
+        );
       }
 
       return tx.accountMergeRequest.create({
@@ -172,7 +173,7 @@ export class AccountLinkingService {
     });
 
     if (!request || (sessionUserId && !this.canReadRequest(request, sessionUserId))) {
-      throw new NotFoundException('Merge request not found');
+      throw new NotFoundException('Pedido de unificação não encontrado.');
     }
 
     const [primaryEmailOptions, notificationSummary] = await Promise.all([
@@ -223,7 +224,7 @@ export class AccountLinkingService {
     });
 
     if (!request || (sessionUserId && request.requesterUserId !== sessionUserId)) {
-      throw new NotFoundException('Merge request not found');
+      throw new NotFoundException('Pedido de unificação não encontrado.');
     }
 
     if (!['pending', 'pending_score'].includes(request.status)) {
@@ -300,11 +301,11 @@ export class AccountLinkingService {
     });
 
     if (!request || (requesterUserId && request.requesterUserId !== requesterUserId)) {
-      throw new NotFoundException('Merge request not found');
+      throw new NotFoundException('Pedido de unificação não encontrado.');
     }
 
     if (request.status !== 'pending') {
-      throw new BadRequestException('Merge request is already being processed');
+      throw new BadRequestException('Este pedido já está sendo processado. Atualize a página para acompanhar.');
     }
 
     if (request.expiresAt.getTime() < Date.now()) {
@@ -312,14 +313,14 @@ export class AccountLinkingService {
         where: { id: requestId, ...(requesterUserId ? { requesterUserId } : {}) },
         data: { status: 'expired' },
       });
-      throw new BadRequestException('Merge request expired');
+      throw new BadRequestException('O prazo para confirmar este pedido terminou. Inicie uma nova unificação.');
     }
 
     const emailOptions = await this.getEmailOptionsForRequest(request);
     const normalizedPrimaryEmail = primaryEmail.trim().toLowerCase();
 
     if (!emailOptions.includes(normalizedPrimaryEmail)) {
-      throw new BadRequestException('Primary email must belong to one account');
+      throw new BadRequestException('Escolha um e-mail associado a uma das contas deste pedido.');
     }
 
     const update = await this.prisma.accountMergeRequest.updateMany({
@@ -330,7 +331,7 @@ export class AccountLinkingService {
       },
     });
     if (update.count === 0) {
-      throw new BadRequestException('Merge request is already being processed');
+      throw new BadRequestException('Este pedido já está sendo processado. Atualize a página para acompanhar.');
     }
 
     const updated = await this.prisma.accountMergeRequest.findFirstOrThrow({
@@ -695,7 +696,7 @@ export class AccountLinkingService {
     });
 
     if (!notification) {
-      throw new NotFoundException('Failed merge notification not found');
+      throw new NotFoundException('Notificação da unificação não encontrada ou indisponível para nova tentativa.');
     }
 
     const reset = await this.prisma.accountMergeExternalNotification.updateMany({
@@ -712,7 +713,9 @@ export class AccountLinkingService {
     });
 
     if (reset.count === 0) {
-      throw new BadRequestException('Merge notification is already being retried');
+      throw new BadRequestException(
+        'A notificação já está sendo reenviada. Atualize a página antes de tentar de novo.',
+      );
     }
 
     await this.prisma.accountMergeRequest.updateMany({
@@ -744,7 +747,6 @@ export class AccountLinkingService {
     this.publishMergeUpdate(mergeRequestId);
   }
 
-  @Cron('*/5 * * * *')
   async recoverPendingScoreMerges(): Promise<void> {
     const requests = await this.prisma.accountMergeRequest.findMany({
       where: { status: 'pending_score' },
@@ -769,7 +771,6 @@ export class AccountLinkingService {
     );
   }
 
-  @Cron('*/5 * * * *')
   async recoverPendingExternalNotifications(): Promise<void> {
     const notifications = await this.prisma.accountMergeExternalNotification.findMany({
       where: {
@@ -807,7 +808,6 @@ export class AccountLinkingService {
     );
   }
 
-  @Cron('*/5 * * * *')
   async recoverInterruptedMerges(): Promise<void> {
     const cutoff = new Date(Date.now() - this.mergeRecoveryAgeMs);
     const requests = await this.prisma.accountMergeRequest.findMany({
@@ -889,7 +889,9 @@ export class AccountLinkingService {
     });
 
     if (requests.length > 0) {
-      throw new BadRequestException('Account merge is blocked while an account deletion request is active');
+      throw new BadRequestException(
+        'Não é possível unir contas enquanto houver um pedido de exclusão ativo. Resolva o pedido de exclusão primeiro.',
+      );
     }
   }
 
@@ -1080,6 +1082,7 @@ export class AccountLinkingService {
     try {
       await this.keycloakService.updateUserAttributes(snapshot.primaryUserId, snapshot.primaryAttributes, {
         skipValidation: true,
+        mode: 'replace',
       });
     } catch (error: unknown) {
       errors.push(`primary attributes: ${this.errorMessage(error)}`);
@@ -1088,6 +1091,7 @@ export class AccountLinkingService {
     try {
       await this.keycloakService.updateUserAttributes(snapshot.secondaryUserId, snapshot.secondaryAttributes, {
         skipValidation: true,
+        mode: 'replace',
       });
     } catch (error: unknown) {
       errors.push(`secondary attributes: ${this.errorMessage(error)}`);
@@ -1793,6 +1797,12 @@ export class AccountLinkingService {
     const externalScores = Array.isArray(request.externalScores)
       ? (request.externalScores as unknown as ExternalAccountMergeScore[])
       : [];
+    const safeExternalScores = externalScores.map((score) => ({
+      ...score,
+      error: score.error
+        ? 'Não foi possível consultar uma pontuação de serviço integrado. Atualize a página em alguns minutos; se o problema continuar, fale com o suporte.'
+        : undefined,
+    }));
     const emailOptions =
       primaryEmailOptions ||
       this.uniqueStrings([...scores.map((score) => score.email).filter(Boolean), ...request.secondaryEmails]);
@@ -1809,7 +1819,7 @@ export class AccountLinkingService {
       secondaryEmails: request.secondaryEmails,
       notificationSummary,
       scores,
-      externalScores,
+      externalScores: safeExternalScores,
       expiresAt: request.expiresAt.toISOString(),
       completedAt: request.completedAt?.toISOString(),
       createdAt: request.createdAt.toISOString(),

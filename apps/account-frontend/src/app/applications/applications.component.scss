@@ -9,7 +9,7 @@
 }
 
 .header-content {
-  max-width: 1240px;
+  max-width: var(--app-content-max);
   margin: auto;
   min-height: 80px;
   padding: 0 32px;
@@ -90,7 +90,7 @@
 }
 
 .page {
-  max-width: 1240px;
+  max-width: var(--app-content-max);
   margin: auto;
   padding: 40px 32px 64px;
 }

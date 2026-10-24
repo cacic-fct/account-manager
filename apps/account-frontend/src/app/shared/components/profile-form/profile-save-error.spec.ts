@@ -5,7 +5,7 @@ describe('describeProfileSaveError', () => {
   const statusCases: Array<[status: number, message: string]> = [
     [0, 'Não foi possível confirmar o salvamento. Verifique sua conexão e tente novamente.'],
     [401, 'Sua sessão pode ter expirado. Entre novamente na sua conta para continuar.'],
-    [403, 'A solicitação não foi autorizada. Tente salvar novamente. Se continuar, entre novamente na sua conta.'],
+    [403, 'A solicitação não foi autorizada. Atualize a página antes de tentar salvar novamente.'],
     [404, 'Não foi possível localizar sua conta. Peça ajuda ao suporte para verificar seu acesso.'],
     [409, 'Há um conflito com os dados cadastrados. Peça ajuda ao suporte para verificar seu cadastro.'],
     [429, 'Foram feitas muitas tentativas em pouco tempo. Aguarde alguns instantes antes de salvar novamente.'],
@@ -26,6 +26,19 @@ describe('describeProfileSaveError', () => {
     expect(result.message).toBe('Ocorreu um erro inesperado. Tente salvar novamente em alguns instantes.');
     expect(result.supportDetails).toContain('Status: indisponível');
     expect(result.supportDetails).not.toContain('database password');
+  });
+
+  it('explains that a disabled account needs support instead of suggesting repeated saves', () => {
+    const result = describeProfileSaveError(
+      new HttpErrorResponse({
+        status: 403,
+        error: { code: 'ACCOUNT_DISABLED', message: 'private provider details' },
+      }),
+      true,
+    );
+
+    expect(result.message).toBe('Esta conta está desativada. Peça ajuda ao suporte para verificar seu acesso.');
+    expect(result.supportDetails).not.toContain('private provider details');
   });
 
   it('maps a known validation message supplied as a string', () => {
@@ -54,6 +67,22 @@ describe('describeProfileSaveError', () => {
     expect(result.message).toBe('Confira os seguintes dados antes de salvar novamente: telefone.');
     expect(result.message).not.toContain('Ana Example');
     expect(result.message).not.toContain('12345678901');
+  });
+
+  it('identifies fields in localized DTO validation messages without repeating submitted data', () => {
+    const result = describeProfileSaveError(
+      new HttpErrorResponse({
+        status: 400,
+        error: {
+          message: ['País emissor do passaporte: selecione um país válido.', 'Telefone: use no máximo 32 caracteres.'],
+        },
+      }),
+      true,
+    );
+
+    expect(result.message).toBe(
+      'Confira os seguintes dados antes de salvar novamente: telefone, país emissor do passaporte.',
+    );
   });
 
   it('directs immutable identity changes to support without repeating backend details', () => {

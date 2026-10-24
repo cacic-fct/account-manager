@@ -38,6 +38,10 @@
             </p>
           }
 
+          @if (codeErrorMessage()) {
+            <p class="error-message" role="alert">{{ codeErrorMessage() }}</p>
+          }
+
           <mat-divider></mat-divider>
 
           <div class="action-row">
@@ -58,7 +62,7 @@
           <section class="error-state">
             <mat-icon>cloud_off</mat-icon>
             <h2>Código indisponível</h2>
-            <p>Não foi possível preparar seu código agora.</p>
+            <p>{{ loadErrorMessage() }}</p>
             <button mat-flat-button color="primary" type="button" (click)="retry()">
               <mat-icon>refresh</mat-icon>
               Tentar novamente

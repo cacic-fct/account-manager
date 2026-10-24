@@ -118,14 +118,18 @@ export class TotpService {
     if (claimed.count === 1) {
       const persisted = await this.prisma.user.findUnique({ where: { keycloakId: input.keycloakId } });
       if (!persisted) {
-        throw new ConflictException('TOTP seed user disappeared during enrollment');
+        throw new ConflictException(
+          'Não foi possível concluir a configuração do código off-line. Atualize a página e tente novamente.',
+        );
       }
       return this.toSeedResult(persisted, seed);
     }
 
     const persisted = await this.prisma.user.findUnique({ where: { keycloakId: input.keycloakId } });
     if (!persisted || !this.hasEncryptedSeed(persisted)) {
-      throw new ConflictException('TOTP seed enrollment conflicted; retry the request');
+      throw new ConflictException(
+        'Não foi possível concluir a configuração do código off-line. Atualize a página e tente novamente.',
+      );
     }
     return this.toSeedResult(persisted, this.decryptSeed(persisted));
   }
@@ -164,7 +168,7 @@ export class TotpService {
   async relaySeed(userId: string): Promise<TotpSeedResult> {
     const profile = await this.userService.findByKeycloakId(userId);
     if (!profile) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Conta não encontrada. Entre novamente para carregar seu código off-line.');
     }
 
     return this.getOrCreateSeed({
@@ -265,7 +269,9 @@ export class TotpService {
   private async ensureUser(input: EnsureUserInput): Promise<User> {
     const primaryEmail = input.primaryEmail.trim();
     if (!primaryEmail) {
-      throw new ConflictException('User primary email is required');
+      throw new ConflictException(
+        'Não foi possível identificar o e-mail principal da conta. Peça ajuda ao suporte para configurar o código off-line.',
+      );
     }
 
     return this.prisma.user.upsert({

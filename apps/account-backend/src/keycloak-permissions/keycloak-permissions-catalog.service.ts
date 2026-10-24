@@ -94,23 +94,30 @@ export class KeycloakPermissionsCatalogService {
   }
 
   async getUserLiveAccess(userId: string): Promise<KeycloakPermissionLiveAccess> {
-    const [groups, roleLists] = await Promise.all([
-      this.keycloakService.getUserGroupMemberships(userId),
-      Promise.all(
-        KEYCLOAK_PERMISSION_CLIENTS.map(async (client) => {
-          const roles = await this.keycloakService.getUserClientRoles(userId, client.clientId);
-          return roles.filter(isDbManagedRole).map((role) => buildKeycloakPermissionId(client.clientId, role));
-        }),
-      ),
-    ]);
-    const groupIds = new Set(groups.map((group) => group.id));
+    try {
+      const [groups, roleLists] = await Promise.all([
+        this.keycloakService.getUserGroupMemberships(userId),
+        Promise.all(
+          KEYCLOAK_PERMISSION_CLIENTS.map(async (client) => {
+            const roles = await this.keycloakService.getUserClientRoles(userId, client.clientId);
+            return roles.filter(isDbManagedRole).map((role) => buildKeycloakPermissionId(client.clientId, role));
+          }),
+        ),
+      ]);
+      const groupIds = new Set(groups.map((group) => group.id));
 
-    return {
-      permissions: [...new Set(roleLists.flat())].sort(),
-      groupKeys: PERMISSION_GROUP_CATALOG.filter((group) => groupIds.has(group.keycloakGroupId)).map(
-        (group) => group.key,
-      ),
-    };
+      return {
+        permissions: [...new Set(roleLists.flat())].sort(),
+        groupKeys: PERMISSION_GROUP_CATALOG.filter((group) => groupIds.has(group.keycloakGroupId)).map(
+          (group) => group.key,
+        ),
+      };
+    } catch (error) {
+      this.logger.error('Failed to read current permissions for an account', { userId, error });
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar as permissões atuais da conta. Tente novamente em alguns minutos.',
+      );
+    }
   }
 
   async listKeycloakGroupPermissions(
@@ -201,7 +208,7 @@ export class KeycloakPermissionsCatalogService {
     ];
     if (requestedUnavailableClientIds.length > 0) {
       throw new ServiceUnavailableException(
-        `Catálogo de permissões indisponível para: ${requestedUnavailableClientIds.join(', ')}.`,
+        'Não foi possível consultar algumas permissões agora. Atualize a lista e tente novamente em alguns minutos.',
       );
     }
 

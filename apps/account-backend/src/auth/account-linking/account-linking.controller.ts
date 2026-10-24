@@ -87,7 +87,10 @@ export class AccountLinkingController {
   ): Promise<void> {
     try {
       if (!state || !session.accountLinkingState || !this.secureCompare(state, session.accountLinkingState)) {
-        throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
+        throw new HttpException(
+          'Não foi possível validar esta tentativa de unificação. Inicie o processo novamente.',
+          HttpStatus.FORBIDDEN,
+        );
       }
 
       const redirectUri = this.googleCallbackUrl();
@@ -123,7 +126,10 @@ export class AccountLinkingController {
   ) {
     try {
       if (!state || !session.accountLinkingState || !this.secureCompare(state, session.accountLinkingState)) {
-        throw new HttpException('Invalid or missing state parameter', HttpStatus.FORBIDDEN);
+        throw new HttpException(
+          'Não foi possível validar esta tentativa de unificação. Inicie o processo novamente.',
+          HttpStatus.FORBIDDEN,
+        );
       }
 
       const requesterUserId = session.accountLinkingUserId;
@@ -133,7 +139,10 @@ export class AccountLinkingController {
       delete session.accountLinkingCodeVerifier;
 
       if (!requesterUserId || !session.user) {
-        throw new HttpException('Session expired', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          'Sua sessão expirou. Entre novamente e inicie a unificação mais uma vez.',
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       if (oauthError || !code) {
@@ -297,6 +306,6 @@ export class AccountLinkingController {
       }
     });
 
-    throw new UnauthorizedException('Account merge completed; sign in again with the primary account');
+    throw new UnauthorizedException('As contas foram unidas. Entre novamente com a conta que deseja manter.');
   }
 }

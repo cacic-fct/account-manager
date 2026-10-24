@@ -79,11 +79,11 @@ export class UpdateRoleSelectionDto {
     type: [String],
     example: ['123456789012345678', '987654321098765432'],
   })
-  @IsArray()
-  @ArrayMaxSize(100)
-  @ArrayUnique()
-  @IsString({ each: true })
-  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true })
+  @IsArray({ message: 'Selecione os cargos que ficarão disponíveis.' })
+  @ArrayMaxSize(100, { message: 'Cargos disponíveis: selecione no máximo 100 cargos.' })
+  @ArrayUnique({ message: 'Cargos disponíveis: remova as opções repetidas.' })
+  @IsString({ each: true, message: 'Selecione apenas cargos válidos do Discord.' })
+  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true, message: 'Selecione apenas cargos válidos do Discord.' })
   enabledRoleIds!: string[];
 }
 
@@ -93,11 +93,11 @@ export class UserRoleSelectionDto {
     type: [String],
     example: ['123456789012345678', '987654321098765432'],
   })
-  @IsArray()
-  @ArrayMaxSize(25)
-  @ArrayUnique()
-  @IsString({ each: true })
-  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true })
+  @IsArray({ message: 'Selecione os cargos na lista.' })
+  @ArrayMaxSize(25, { message: 'Cargos selecionados: selecione no máximo 25 cargos.' })
+  @ArrayUnique({ message: 'Cargos selecionados: remova as opções repetidas.' })
+  @IsString({ each: true, message: 'Selecione apenas cargos válidos do Discord.' })
+  @Matches(DISCORD_SNOWFLAKE_PATTERN, { each: true, message: 'Selecione apenas cargos válidos do Discord.' })
   selectedRoleIds!: string[];
 }
 

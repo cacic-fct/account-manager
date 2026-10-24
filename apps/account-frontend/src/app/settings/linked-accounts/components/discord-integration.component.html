@@ -3,7 +3,7 @@
     <div class="header-content">
       <div class="title-section">
         <div class="icon-wrapper">
-          <mat-icon class="discord-icon">discord</mat-icon>
+          <img class="discord-icon" ngSrc="assets/discord.svg" width="24" height="24" alt="" />
         </div>
         <div class="title-text">
           <mat-card-title>Discord</mat-card-title>
@@ -42,7 +42,7 @@
           <mat-icon>error_outline</mat-icon>
         </div>
         <h3>Erro ao carregar</h3>
-        <p>Não foi possível carregar o status da integração com o Discord.</p>
+        <p>{{ loadErrorMessage() }}</p>
         <button mat-raised-button color="primary" (click)="loadDiscordStatus()">
           <mat-icon>refresh</mat-icon>
           Tentar novamente

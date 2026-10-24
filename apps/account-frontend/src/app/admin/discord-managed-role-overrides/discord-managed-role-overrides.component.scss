@@ -9,7 +9,7 @@
 }
 
 .page-container {
-  width: min(1440px, 100% - 32px);
+  width: min(var(--app-content-wide), 100% - 32px);
   margin: 0 auto;
   padding: 24px 0;
 }
@@ -169,7 +169,7 @@ mat-card-subtitle {
 
 @media (max-width: 640px) {
   .page-container {
-    width: min(100% - 24px, 1440px);
+    width: min(100% - 24px, var(--app-content-wide));
     padding: 16px 0;
   }
 

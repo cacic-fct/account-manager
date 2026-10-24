@@ -2,6 +2,7 @@ import { Injectable, Logger, ServiceUnavailableException, UnauthorizedException 
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
+import { createHash } from 'node:crypto';
 import { assertKeycloakAccessTokenActive } from '../services/keycloak/keycloak-introspection';
 
 export interface JwtPayload {
@@ -42,7 +43,10 @@ export class JwtService {
   private readonly tokenRequests = new Map<string, Promise<string>>();
 
   constructor(private configService: ConfigService) {
-    this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
+    this.keycloakBaseUrl = this.readConfigWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080').replace(
+      /\/+$/,
+      '',
+    );
     this.realm = this.readConfigWithDevelopmentFallback('KEYCLOAK_REALM', 'cacic-sso');
     this.expectedAudience = this.readConfigWithDevelopmentFallback(
       'KEYCLOAK_M2M_AUDIENCE',
@@ -53,7 +57,7 @@ export class JwtService {
       this.configService.get<string>('KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT') !== 'false';
     this.allowedM2MClients = this.readRequiredListConfig('KEYCLOAK_M2M_ALLOWED_CLIENTS', 'cacic-event-manager-m2m');
 
-    const jwksUri = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/certs`;
+    const jwksUri = `${this.keycloakBaseUrl}/realms/${encodeURIComponent(this.realm)}/protocol/openid-connect/certs`;
 
     this.jwksClient = jwksClient({
       jwksUri,
@@ -87,19 +91,22 @@ export class JwtService {
       // Verify the token
       const payload = jwt.verify(token, key, {
         algorithms: ['RS256'],
-        issuer: `${this.keycloakBaseUrl}/realms/${this.realm}`,
+        issuer: `${this.keycloakBaseUrl}/realms/${encodeURIComponent(this.realm)}`,
         clockTolerance: this.clockSkewToleranceSeconds,
       }) as JwtPayload;
 
       // Additional validation
       this.validateTokenPayload(payload);
       await assertKeycloakAccessTokenActive(token, {
-        realmUrl: `${this.keycloakBaseUrl}/realms/${this.realm}`,
+        realmUrl: `${this.keycloakBaseUrl}/realms/${encodeURIComponent(this.realm)}`,
         clientId: this.readConfigWithDevelopmentFallback('KEYCLOAK_CLIENT_ID', 'cacic-account-manager'),
-        clientSecret: this.configService.get<string>('KEYCLOAK_CLIENT_SECRET'),
+        clientSecret:
+          this.configService.get<string>('KEYCLOAK_CLIENT_SECRET')?.trim() ||
+          (process.env.NODE_ENV === 'production' ? undefined : 'cacic-account-manager-dev-secret'),
         authMethod:
-          this.configService.get<string>('KEYCLOAK_CLIENT_AUTH_METHOD') ??
-          this.configService.get<string>('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD'),
+          this.configService.get<string>('KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD')?.trim() ||
+          this.configService.get<string>('KEYCLOAK_CLIENT_AUTH_METHOD')?.trim() ||
+          undefined,
         timeoutMs: this.configService.get<number>('KEYCLOAK_REQUEST_TIMEOUT_MS'),
       });
 
@@ -133,7 +140,10 @@ export class JwtService {
       return key.getPublicKey();
     } catch (error) {
       this.logger.error(`Failed to get signing key for kid: ${kid}`, error);
-      throw new UnauthorizedException('Unable to verify token signature');
+      if (error instanceof Error && error.name === 'SigningKeyNotFoundError') {
+        throw new UnauthorizedException('Unable to verify token signature');
+      }
+      throw new ServiceUnavailableException('Keycloak signing keys are temporarily unavailable.');
     }
   }
 
@@ -142,6 +152,17 @@ export class JwtService {
    */
   private validateTokenPayload(payload: JwtPayload): void {
     const now = Math.floor(Date.now() / 1000);
+
+    if (
+      typeof payload.sub !== 'string' ||
+      !payload.sub.trim() ||
+      typeof payload.exp !== 'number' ||
+      !Number.isFinite(payload.exp) ||
+      typeof payload.iat !== 'number' ||
+      !Number.isFinite(payload.iat)
+    ) {
+      throw new UnauthorizedException('Token is missing required identity or lifetime claims');
+    }
 
     // Check if token is expired (with clock skew tolerance)
     if (payload.exp && payload.exp < now - this.clockSkewToleranceSeconds) {
@@ -154,7 +175,7 @@ export class JwtService {
     }
 
     // Validate issuer
-    const expectedIssuer = `${this.keycloakBaseUrl}/realms/${this.realm}`;
+    const expectedIssuer = `${this.keycloakBaseUrl}/realms/${encodeURIComponent(this.realm)}`;
     if (payload.iss !== expectedIssuer) {
       throw new UnauthorizedException('Invalid token issuer');
     }
@@ -248,6 +269,7 @@ export class JwtService {
 
     const cacheKey = JSON.stringify({
       clientId,
+      credentialHash: createHash('sha256').update(clientSecret).digest('hex'),
       audience: options.audience || '',
     });
     const cached = this.tokenCache.get(cacheKey);
@@ -261,14 +283,15 @@ export class JwtService {
       return activeRequest;
     }
 
+    const requestedAt = Date.now();
     const request = this.requestClientCredentialsToken(clientId, clientSecret, options.audience)
       .then(({ accessToken, expiresInSeconds }) => {
-        const refreshSkewSeconds = Math.min(45, Math.max(15, Math.round(expiresInSeconds * 0.1)));
-        const ttlMs = Math.max(expiresInSeconds - refreshSkewSeconds, 1) * 1000;
-        this.tokenCache.set(cacheKey, {
-          accessToken,
-          expiresAt: Date.now() + ttlMs,
-        });
+        const refreshSkewSeconds = Math.min(45, expiresInSeconds * 0.1);
+        const expiresAt = requestedAt + (expiresInSeconds - refreshSkewSeconds) * 1000;
+        // Missing lifetimes are usable for this call, but cannot be cached safely.
+        if (expiresAt > Date.now()) {
+          this.tokenCache.set(cacheKey, { accessToken, expiresAt });
+        }
         return accessToken;
       })
       .finally(() => {
@@ -283,43 +306,73 @@ export class JwtService {
     clientSecret: string,
     audience?: string,
   ): Promise<{ accessToken: string; expiresInSeconds: number }> {
-    const tokenUrl = `${this.keycloakBaseUrl}/realms/${this.realm}/protocol/openid-connect/token`;
+    const tokenUrl = `${this.keycloakBaseUrl}/realms/${encodeURIComponent(this.realm)}/protocol/openid-connect/token`;
     const body = new URLSearchParams();
     body.set('grant_type', 'client_credentials');
     body.set('client_id', clientId);
     body.set('client_secret', clientSecret);
 
-    if (audience) {
-      body.set('audience', audience);
+    let response: Response;
+    try {
+      response = await fetch(tokenUrl, {
+        method: 'POST',
+        cache: 'no-store',
+        redirect: 'error',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException('Unable to contact Keycloak for an M2M token');
     }
 
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-      signal: AbortSignal.timeout(10_000),
-    });
-
     if (!response.ok) {
-      const errorText = await response.text();
+      await response.body?.cancel().catch(() => undefined);
       this.logger.error('Failed to obtain M2M token from Keycloak', {
         status: response.status,
         statusText: response.statusText,
         clientId,
-        error: errorText,
       });
-      throw new UnauthorizedException('Unable to obtain M2M token');
+      throw new ServiceUnavailableException('Unable to obtain M2M token');
     }
 
-    const tokenResponse = (await response.json()) as ClientCredentialsTokenResponse;
-    if (typeof tokenResponse.access_token !== 'string' || !tokenResponse.access_token) {
-      throw new UnauthorizedException('M2M token response missing access token');
+    let tokenResponse: ClientCredentialsTokenResponse;
+    try {
+      tokenResponse = (await response.json()) as ClientCredentialsTokenResponse;
+    } catch {
+      throw new ServiceUnavailableException('Keycloak returned an invalid M2M token response');
+    }
+    if (!tokenResponse || typeof tokenResponse.access_token !== 'string' || !tokenResponse.access_token.trim()) {
+      throw new ServiceUnavailableException('M2M token response missing access token');
+    }
+    if (
+      tokenResponse.token_type !== undefined &&
+      (typeof tokenResponse.token_type !== 'string' || tokenResponse.token_type.toLowerCase() !== 'bearer')
+    ) {
+      throw new ServiceUnavailableException('Keycloak returned an unsupported M2M token type');
+    }
+    if (
+      tokenResponse.expires_in !== undefined &&
+      (typeof tokenResponse.expires_in !== 'number' ||
+        !Number.isFinite(tokenResponse.expires_in) ||
+        tokenResponse.expires_in <= 0)
+    ) {
+      throw new ServiceUnavailableException('Keycloak returned an invalid M2M token lifetime');
     }
 
-    const expiresInSeconds =
-      typeof tokenResponse.expires_in === 'number' && tokenResponse.expires_in > 0 ? tokenResponse.expires_in : 300;
+    if (audience) {
+      // Client-credentials grants use configured audience mappers; an audience form field is ignored.
+      // This is a contract check on our provider response, not authorization of an incoming JWT.
+      const payload = jwt.decode(tokenResponse.access_token);
+      const audiences = payload && typeof payload === 'object' ? payload.aud : undefined;
+      if (!(Array.isArray(audiences) ? audiences.includes(audience) : audiences === audience)) {
+        throw new ServiceUnavailableException('Keycloak M2M token is missing the configured target audience');
+      }
+    }
+
+    const expiresInSeconds = typeof tokenResponse.expires_in === 'number' ? tokenResponse.expires_in : 0;
     return { accessToken: tokenResponse.access_token, expiresInSeconds };
   }
 

@@ -124,7 +124,11 @@
             "compodoc": true,
             "compodocArgs": ["-e", "json", "-d", "."],
             "port": 6006,
-            "styles": ["@fontsource/material-icons", "@fontsource-variable/inter", "src/styles.scss"]
+            "styles": [
+              "@fontsource/material-symbols-outlined/latin-400.css",
+              "@fontsource-variable/inter",
+              "src/styles.scss"
+            ]
           }
         },
         "build-storybook": {

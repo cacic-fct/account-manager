@@ -4,7 +4,7 @@ export const linkedAccountsRoutes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () => import('./linked-accounts.component').then((m) => m.LinkedAccountsComponent),
+    redirectTo: '/settings',
   },
   {
     path: 'google',

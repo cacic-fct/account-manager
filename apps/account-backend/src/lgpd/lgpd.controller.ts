@@ -85,7 +85,10 @@ export class LgpdController {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Não foi possível iniciar a geração do arquivo de dados. Tente novamente mais tarde. Se o problema continuar, fale com o suporte.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -213,7 +216,10 @@ export class LgpdController {
         throw error;
       }
       if (!res.headersSent) {
-        throw new HttpException('Erro interno do servidor', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new HttpException(
+          'Não foi possível baixar o arquivo de dados. Tente novamente em alguns minutos.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
       }
     }
   }

@@ -26,6 +26,7 @@ describe('Keycloak access-token introspection', () => {
       expect(fetchMock.mock.calls[0]?.[0]).toBe(`${options.realmUrl}/protocol/openid-connect/token/introspect`);
       const request = fetchMock.mock.calls[0]?.[1];
       expect(request?.method).toBe('POST');
+      expect(request).toMatchObject({ cache: 'no-store', redirect: 'error' });
       expect(request?.signal).toBeInstanceOf(AbortSignal);
       const requestBody = request?.body;
       if (typeof requestBody !== 'string') {
@@ -47,13 +48,17 @@ describe('Keycloak access-token introspection', () => {
     },
   );
 
-  it.each([{ active: false }, {}, { active: 'true' }, null])(
-    'rejects inactive or malformed responses: %p',
-    async (data) => {
-      fetchMock.mockResolvedValue(new Response(JSON.stringify(data)));
-      await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(UnauthorizedException);
-    },
-  );
+  it.each([{}, { active: 'true' }, null])('reports malformed responses as an upstream failure: %p', async (data) => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(data)));
+    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('rejects an explicitly inactive token', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ active: false })));
+    await expect(assertKeycloakAccessTokenActive('access', options)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 
   it('fails closed for network errors, HTTP failures, and invalid JSON', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network'));
@@ -77,6 +82,13 @@ describe('Keycloak access-token introspection', () => {
     await expect(assertKeycloakAccessTokenActive('access', { ...options, authMethod: 'none' })).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported client authentication methods before sending credentials', async () => {
+    await expect(
+      assertKeycloakAccessTokenActive('access', { ...options, authMethod: 'private_key_jwt' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

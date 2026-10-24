@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import type { DeleteAccountRequest, LgpdRequest } from '@prisma/client';
 import { S3Service, S3ServiceError } from '../common/services/s3.service';
-import { Logger } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import JSZip from 'jszip';
 import { PrismaService } from '../prisma/prisma.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
@@ -223,6 +223,120 @@ describe('LgpdService durability', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       expect.objectContaining({ data: expect.objectContaining({ status: 'completed' }) }),
     );
+  });
+
+  it('does not return provider error details in a failed data request DTO', async () => {
+    const context = createContext();
+    const providerError = 'https://private-storage.internal/access?token=secret';
+    context.prisma.lgpdRequest.findFirst.mockResolvedValue(
+      createLgpdRequest({ status: 'failed', errorMessage: providerError }),
+    );
+
+    const request = await context.service.getRequestById('lgpd-request-1', 'user-1');
+
+    expect(request.errorMessage).toBe(
+      'Não foi possível gerar o arquivo com seus dados. Fale com o suporte para solicitar uma nova tentativa.',
+    );
+    expect(request.errorMessage).not.toContain(providerError);
+  });
+
+  it('distinguishes a missing LGPD archive from a temporary storage failure', async () => {
+    const missingContext = createContext();
+    const providerError = new S3ServiceError(
+      'missing object at https://private-storage.internal/bucket/key?token=secret',
+      'download',
+      'private-key',
+      404,
+      'NoSuchKey',
+    );
+    missingContext.prisma.lgpdRequest.findFirst.mockResolvedValue(
+      createLgpdRequest({ status: 'completed', s3Key: 'lgpd/private-key' }),
+    );
+    missingContext.s3Service.downloadFile.mockRejectedValueOnce(providerError);
+
+    await expect(missingContext.service.downloadFile('lgpd-request-1', 'user-1')).rejects.toMatchObject({
+      status: 404,
+      message: 'O arquivo de dados não está disponível. Fale com o suporte para solicitar outra cópia.',
+    });
+  });
+
+  it.each([
+    new Error('Storage unavailable at https://storage.example.test/archive?token=private'),
+    new S3ServiceError(
+      'Storage unavailable at https://storage.example.test/archive?token=private',
+      'download',
+      'private-key',
+      503,
+      'ServiceUnavailable',
+      true,
+    ),
+  ])('logs only safe diagnostics when an archive download fails (%p)', async (error) => {
+    const context = createContext();
+    const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    context.prisma.lgpdRequest.findFirst.mockResolvedValue(
+      createLgpdRequest({ status: 'completed', s3Key: 'lgpd/private-key' }),
+    );
+    context.s3Service.downloadFile.mockRejectedValueOnce(error);
+
+    try {
+      await expect(context.service.downloadFile('lgpd-request-1', 'user-1')).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(logError).toHaveBeenCalledWith('Failed to retrieve LGPD archive for download', {
+        operation: 'download',
+        requestId: 'lgpd-request-1',
+        ...(error instanceof S3ServiceError && { statusCode: 503, retryable: true }),
+      });
+      expect(JSON.stringify(logError.mock.calls)).not.toContain('private');
+      expect(JSON.stringify(logError.mock.calls)).not.toContain(error.message);
+    } finally {
+      logError.mockRestore();
+    }
+  });
+
+  it('shows admins failed deletion steps without exposing provider error details', async () => {
+    const context = createContext();
+    const providerError = 'https://private-identity.internal/admin?token=secret';
+    context.prisma.deleteAccountRequest.findMany.mockResolvedValue([
+      createDeleteRequest({
+        status: 'failed',
+        errorMessage: JSON.stringify({
+          failures: [{ service: 'keycloak', operation: 'deleteUser', message: providerError }],
+          remainingServices: ['keycloak.deleteUser'],
+          partialState: 'partially_disabled',
+        }),
+      }),
+    ]);
+
+    const [request] = await context.service.getPendingAccountDeletionRequests();
+
+    expect(request?.errorMessage).toContain('A exclusão ficou incompleta.');
+    expect(request?.errorMessage).toContain('serviço de autenticação');
+    expect(request?.errorMessage).toContain('excluir a conta');
+    expect(request?.errorMessage).toContain('A conta pode ter sido desativada parcialmente.');
+    expect(request?.errorMessage).not.toContain(providerError);
+  });
+
+  it('returns a safe recovery message when account deletion cancellation cannot restore access', async () => {
+    const context = createContext();
+    const providerError = new Error('https://private-identity.internal/admin?token=secret');
+    const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    context.keycloakService.setUserEnabled.mockRejectedValueOnce(providerError);
+
+    try {
+      await expect(context.service.undoAccountDeletionRequest('delete-request-1')).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      const updateCalls = context.prisma.deleteAccountRequest.updateMany.mock.calls as unknown[][];
+      const reconciliationUpdate = updateCalls.at(-1)?.[0] as { data?: { errorMessage?: string } } | undefined;
+      expect(reconciliationUpdate?.data?.errorMessage).toContain(providerError.message);
+      expect(log).toHaveBeenCalledWith('Failed to reconcile cancelled account deletion', {
+        requestId: 'delete-request-1',
+        error: providerError,
+      });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('persists one deterministic archive key before upload so finalization recovery cannot orphan retries', async () => {

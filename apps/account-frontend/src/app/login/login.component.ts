@@ -8,6 +8,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../shared/services/auth/auth.service';
+import { HttpErrorResponse } from '@angular/common/http';
+import { getApiErrorMessage } from '../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-login',
@@ -158,9 +160,16 @@ export class LoginComponent {
         this.isSubmitting.set(false);
         this.navigateTo(result.redirectUrl);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.isSubmitting.set(false);
-        this.errorMessage.set('E-mail ou senha inválidos.');
+        this.errorMessage.set(
+          error instanceof HttpErrorResponse && error.status === 401
+            ? 'E-mail ou senha inválidos. Confira os dados e tente novamente.'
+            : getApiErrorMessage(
+                error,
+                'Não foi possível entrar. Tente novamente em alguns instantes ou use Entrar com SSO.',
+              ),
+        );
       },
     });
   }

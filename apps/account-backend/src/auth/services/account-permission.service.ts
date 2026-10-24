@@ -34,7 +34,7 @@ export class AccountPermissionService {
       return true;
     }
 
-    return this.hasAnyDirectOrGroupPermission(userId, this.getDbManagedPermissions(normalizedPermissions), now);
+    return this.hasAnyDbManagedPermission(userId, this.getDbManagedPermissions(normalizedPermissions), now);
   }
 
   async hasAllActivePermissions(userId: string, permissions: readonly string[], now = new Date()): Promise<boolean> {
@@ -51,9 +51,7 @@ export class AccountPermissionService {
     const dbManagedPermissions = this.getDbManagedPermissions(normalizedPermissions);
     const [keycloakResults, dbResults] = await Promise.all([
       Promise.all(keycloakBackedPermissions.map((permission) => this.hasKeycloakBackedPermission(userId, permission))),
-      Promise.all(
-        dbManagedPermissions.map((permission) => this.hasAnyDirectOrGroupPermission(userId, [permission], now)),
-      ),
+      Promise.all(dbManagedPermissions.map((permission) => this.hasAnyDbManagedPermission(userId, [permission], now))),
     ]);
 
     return [...keycloakResults, ...dbResults].every(Boolean);
@@ -88,33 +86,25 @@ export class AccountPermissionService {
   }
 
   async canAssignPermission(actorId: string, permission: string, now = new Date()): Promise<boolean> {
-    const parsedPermission = parseKeycloakPermissionId(permission);
-    if (!parsedPermission) {
-      return false;
-    }
-
-    if (!(await this.hasAnyDirectOrGroupPermission(actorId, [AccountManagerPermission.PermissionGrantAssign], now))) {
-      return false;
-    }
-
-    if (await this.hasClientSuperAdminPermission(actorId, parsedPermission.clientId)) {
-      return true;
-    }
-
-    if (isKeycloakBackedRoleName(parsedPermission.roleName)) {
-      return false;
-    }
-
-    return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
+    return this.canManagePermission(actorId, permission, AccountManagerPermission.PermissionGrantAssign, now);
   }
 
   async canRevokePermission(actorId: string, permission: string, now = new Date()): Promise<boolean> {
+    return this.canManagePermission(actorId, permission, AccountManagerPermission.PermissionGrantRevoke, now);
+  }
+
+  private async canManagePermission(
+    actorId: string,
+    permission: string,
+    operationPermission: string,
+    now: Date,
+  ): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
     if (!parsedPermission) {
       return false;
     }
 
-    if (!(await this.hasAnyDirectOrGroupPermission(actorId, [AccountManagerPermission.PermissionGrantRevoke], now))) {
+    if (!(await this.hasAnyActivePermission(actorId, [operationPermission], now))) {
       return false;
     }
 
@@ -126,7 +116,7 @@ export class AccountPermissionService {
       return false;
     }
 
-    return this.hasAnyDirectOrGroupPermission(actorId, [permission], now);
+    return this.hasAnyDbManagedPermission(actorId, [permission], now);
   }
 
   async hasClientSuperAdminPermission(userId: string, clientId: string): Promise<boolean> {
@@ -138,11 +128,7 @@ export class AccountPermissionService {
     }
   }
 
-  private async hasAnyDirectOrGroupPermission(
-    userId: string,
-    permissions: readonly string[],
-    now: Date,
-  ): Promise<boolean> {
+  private async hasAnyDbManagedPermission(userId: string, permissions: readonly string[], now: Date): Promise<boolean> {
     if (permissions.length === 0) {
       return false;
     }

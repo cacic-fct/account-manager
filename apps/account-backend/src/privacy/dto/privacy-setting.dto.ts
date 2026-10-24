@@ -19,7 +19,7 @@ export class UpdatePrivacySettingDto implements PrivacySettingUpdate {
     description: 'Whether the setting is enabled',
     example: true,
   })
-  @IsBoolean()
+  @IsBoolean({ message: 'Escolha se deseja ativar ou desativar esta preferência de privacidade.' })
   enabled!: boolean;
 
   @ApiProperty({
@@ -28,7 +28,7 @@ export class UpdatePrivacySettingDto implements PrivacySettingUpdate {
     example: { source: 'user_action', timestamp: '2024-01-01T00:00:00Z' },
   })
   @IsOptional()
-  @IsObject()
+  @IsObject({ message: 'Informações adicionais: envie um objeto válido.' })
   metadata?: PrivacyMetadata;
 }
 
@@ -39,7 +39,7 @@ export class BulkUpdatePrivacySettingsDto implements BulkUpdatePrivacySettingsBy
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Análise de uso: confira os valores informados.' })
   @Type(() => UpdatePrivacySettingDto)
   analytics_tracking?: UpdatePrivacySettingDto;
 
@@ -49,7 +49,7 @@ export class BulkUpdatePrivacySettingsDto implements BulkUpdatePrivacySettingsBy
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Relatórios de erro: confira os valores informados.' })
   @Type(() => UpdatePrivacySettingDto)
   error_debugging?: UpdatePrivacySettingDto;
 
@@ -59,7 +59,7 @@ export class BulkUpdatePrivacySettingsDto implements BulkUpdatePrivacySettingsBy
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Preferência de cookies: confira a opção selecionada.' })
   @Type(() => UpdatePrivacySettingDto)
   cookie_banner_accepted?: UpdatePrivacySettingDto;
 
@@ -69,7 +69,7 @@ export class BulkUpdatePrivacySettingsDto implements BulkUpdatePrivacySettingsBy
     type: () => UpdatePrivacySettingDto,
   })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ message: 'Monitoramento de desempenho: confira os valores informados.' })
   @Type(() => UpdatePrivacySettingDto)
   performance_monitoring?: UpdatePrivacySettingDto;
 }
@@ -127,14 +127,14 @@ export class UpdatePrivacySettingWithTypeDto implements M2MPrivacySettingUpdate 
     enum: PRIVACY_SETTING_TYPE_VALUES,
     example: 'analytics_tracking',
   })
-  @IsIn(PRIVACY_SETTING_TYPE_VALUES)
+  @IsIn(PRIVACY_SETTING_TYPE_VALUES, { message: 'Tipo de preferência: selecione uma das opções disponíveis.' })
   settingType!: PrivacySettingTypeValue;
 
   @ApiProperty({
     description: 'Whether the setting is enabled',
     example: true,
   })
-  @IsBoolean()
+  @IsBoolean({ message: 'Escolha se deseja ativar ou desativar esta preferência de privacidade.' })
   enabled!: boolean;
 
   @ApiProperty({
@@ -143,7 +143,7 @@ export class UpdatePrivacySettingWithTypeDto implements M2MPrivacySettingUpdate 
     example: { source: 'user_action', timestamp: '2024-01-01T00:00:00Z' },
   })
   @IsOptional()
-  @IsObject()
+  @IsObject({ message: 'Informações adicionais: envie um objeto válido.' })
   metadata?: PrivacyMetadata;
 }
 
@@ -152,9 +152,9 @@ export class BulkPrivacySettingsDto implements M2MBulkPrivacySettingsRequest {
     description: 'List of privacy settings to update',
     type: () => [UpdatePrivacySettingWithTypeDto],
   })
-  @IsArray()
-  @ArrayNotEmpty()
-  @ValidateNested({ each: true })
+  @IsArray({ message: 'Preferências: envie uma lista de opções.' })
+  @ArrayNotEmpty({ message: 'Preferências: selecione ao menos uma opção.' })
+  @ValidateNested({ each: true, message: 'Preferências: confira os valores informados.' })
   @Type(() => UpdatePrivacySettingWithTypeDto)
   settings!: UpdatePrivacySettingWithTypeDto[];
 }

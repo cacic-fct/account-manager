@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { Prisma, StudentVerificationDocument } from '@prisma/client';
 import { UploadResponseDto, PdfVerificationResult } from '../dto/student-verification.dto';
 import { S3Service } from '../../common/services/s3.service';
@@ -78,11 +78,14 @@ export class DocumentUploadService {
       );
     }
 
-    if (originalError instanceof Error) {
+    if (originalError instanceof HttpException) {
       throw originalError;
     }
 
-    throw new BadRequestException('Erro ao salvar documento de verificação.');
+    this.logger.error('Failed to save student verification document', originalError);
+    throw new ServiceUnavailableException(
+      'Não foi possível registrar o envio do documento. Confira o status antes de tentar novamente.',
+    );
   }
 
   async uploadDocument(
@@ -177,7 +180,7 @@ export class DocumentUploadService {
 
     if (pdfVerificationResult?.success && pdfVerificationResult.data && !pdfVerificationResult.data.isValid) {
       initialStatus = 'rejected';
-      rejectionReason = pdfVerificationResult.data.error || 'Documento inválido ou expirado';
+      rejectionReason = 'Documento inválido ou expirado. Envie um documento válido e dentro do prazo.';
     }
 
     const createData: Prisma.StudentVerificationDocumentCreateInput = {

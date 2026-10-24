@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Interval } from '@nestjs/schedule';
 import { CookieJar } from 'tough-cookie';
 import { RedisService } from '../../redis/redis.service';
 import { CaptchaSession } from '../university-validation.types';
@@ -21,11 +20,9 @@ interface StoredCaptchaSession {
 @Injectable()
 export class SessionManagementService {
   private readonly logger = new Logger(SessionManagementService.name);
-  /**
-   * This map is a bounded process-local cache only. Redis is the source of
-   * truth so a request can continue on another replica or after a restart.
-   */
-  public readonly sessions = new Map<string, CaptchaSession>();
+  // Keep only bounded eviction metadata locally. Sensitive session contents live
+  // in Redis with a TTL, so every replica expires them without a local timer.
+  private readonly sessionCreatedAt = new Map<string, number>();
   private readonly sessionTtlMs: number;
   private readonly sessionTtlSeconds: number;
   private readonly maxSessions: number;
@@ -56,15 +53,14 @@ export class SessionManagementService {
     try {
       serialized = await this.redis.get(this.redisKey(sessionId));
     } catch (error) {
-      // Never fall back to the process-local cache when Redis is unavailable:
-      // doing so would reintroduce replica-specific authorization state.
+      // Redis remains authoritative when a replica cannot reach it.
       this.logger.error('Unable to read university validation session from Redis', this.errorMessage(error));
-      this.sessions.delete(sessionId);
+      this.sessionCreatedAt.delete(sessionId);
       return undefined;
     }
 
     if (!serialized) {
-      this.sessions.delete(sessionId);
+      this.sessionCreatedAt.delete(sessionId);
       return undefined;
     }
 
@@ -74,7 +70,9 @@ export class SessionManagementService {
       return undefined;
     }
 
-    this.sessions.set(sessionId, session);
+    // Reading a shared session must not evict another live session from Redis.
+    // Only writes add entries to this replica's bounded eviction metadata.
+    await this.cleanupOldSessions();
     return session;
   }
 
@@ -84,42 +82,40 @@ export class SessionManagementService {
   }
 
   async storeSession(session: CaptchaSession): Promise<void> {
+    const payload = this.serializeSession(session);
+    await this.redis.set(this.redisKey(session.sessionId), JSON.stringify(payload), this.sessionTtlSeconds);
+    await this.trackSession(session);
+  }
+
+  private async trackSession(session: CaptchaSession): Promise<void> {
     await this.cleanupOldSessions();
 
-    if (!this.sessions.has(session.sessionId) && this.sessions.size >= this.maxSessions) {
-      const oldestSessionId = this.sessions.keys().next().value;
+    if (!this.sessionCreatedAt.has(session.sessionId) && this.sessionCreatedAt.size >= this.maxSessions) {
+      const oldestSessionId = this.sessionCreatedAt.keys().next().value;
       if (oldestSessionId) {
         await this.deleteSession(oldestSessionId);
         this.logger.warn('Evicted oldest university validation session after reaching the session limit');
       }
     }
 
-    const payload = this.serializeSession(session);
-    await this.redis.set(this.redisKey(session.sessionId), JSON.stringify(payload), this.sessionTtlSeconds);
-    this.sessions.set(session.sessionId, session);
+    this.sessionCreatedAt.set(session.sessionId, session.createdAt.getTime());
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      this.clearSensitiveSessionFields(session);
-    }
-    this.sessions.delete(sessionId);
+    this.sessionCreatedAt.delete(sessionId);
 
     try {
       await this.redis.del(this.redisKey(sessionId));
     } catch (error) {
-      // Local references are scrubbed even when Redis is unavailable. The
-      // Redis TTL bounds the lifetime of an unreachable stale session.
+      // Redis TTL bounds the lifetime of a session when explicit deletion fails.
       this.logger.error('Unable to delete university validation session from Redis', this.errorMessage(error));
     }
     this.logger.debug('Deleted university validation session');
   }
 
-  @Interval(60_000)
   async cleanupOldSessions(): Promise<void> {
-    const expiredSessionIds = [...this.sessions.entries()]
-      .filter(([, session]) => this.isExpired(session))
+    const expiredSessionIds = [...this.sessionCreatedAt.entries()]
+      .filter(([, createdAt]) => createdAt + this.sessionTtlMs <= Date.now())
       .map(([sessionId]) => sessionId);
 
     await Promise.all(expiredSessionIds.map((sessionId) => this.deleteSession(sessionId)));
@@ -173,17 +169,6 @@ export class SessionManagementService {
       this.logger.warn('Rejected malformed university validation session from Redis', this.errorMessage(error));
       return undefined;
     }
-  }
-
-  private clearSensitiveSessionFields(session: CaptchaSession): void {
-    session.authCode = undefined;
-    session.enrollmentNumber = undefined;
-    session.captchaImageBase64 = undefined;
-    session.hiddenInputs = undefined;
-    session.formActionUrl = undefined;
-    session.pageUrl = undefined;
-    session.axiosInstance = undefined;
-    session.cookieJar = new CookieJar();
   }
 
   private isExpired(session: CaptchaSession): boolean {

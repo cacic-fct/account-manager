@@ -25,6 +25,7 @@ import type { TotpSeed, TotpStatus } from '@cacic/shared-types';
 import { ApiService } from '../../../shared/services/api.service';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { CsrfService } from '../../../shared/services/csrf.service';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 const TOTP_PERIOD_MS = TOTP_PERIOD_SECONDS * 1000;
 
@@ -65,6 +66,8 @@ export class TotpComponent {
   readonly now = signal(Date.now());
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);
+  readonly loadErrorMessage = signal('');
+  readonly codeErrorMessage = signal('');
   readonly isRotating = signal(false);
 
   readonly displayCode = computed(() => (this.code() ? formatTotpCode(this.code()) : '--- ---'));
@@ -96,6 +99,12 @@ export class TotpComponent {
             this.resumeRotation = false;
             this.isLoading.set(false);
             this.hasLoadError.set(true);
+            this.loadErrorMessage.set(
+              getApiErrorMessage(
+                error,
+                'Não foi possível atualizar sua sessão. Entre novamente e volte para trocar o código secreto.',
+              ),
+            );
           },
         });
     } else {
@@ -122,6 +131,7 @@ export class TotpComponent {
 
       if (!seed) {
         this.code.set('');
+        this.codeErrorMessage.set('');
         return;
       }
 
@@ -166,10 +176,17 @@ export class TotpComponent {
             this.requestRotateSeed();
             return;
           }
-          this.snackBar.open('Erro ao trocar código secreto', 'Fechar', {
-            duration: 5000,
-            panelClass: ['error-snackbar'],
-          });
+          this.snackBar.open(
+            getApiErrorMessage(
+              error,
+              'Não foi possível confirmar a troca do código secreto. Atualize a página para ver qual código está ativo antes de usá-lo.',
+            ),
+            'Fechar',
+            {
+              duration: 5000,
+              panelClass: ['error-snackbar'],
+            },
+          );
         },
       });
   }
@@ -186,7 +203,7 @@ export class TotpComponent {
         });
       },
       () => {
-        this.snackBar.open('Não foi possível copiar o código', 'Fechar', {
+        this.snackBar.open('Não foi possível copiar o código. Você pode copiá-lo manualmente na tela.', 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
         });
@@ -196,6 +213,7 @@ export class TotpComponent {
 
   retry(): void {
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
     this.isLoading.set(true);
     this.loadStatus();
   }
@@ -207,16 +225,16 @@ export class TotpComponent {
       .subscribe({
         next: (status) => {
           this.status.set(status);
+          this.loadErrorMessage.set('');
           this.loadSeed();
         },
         error: (error) => {
           this.logger.error('Erro ao carregar status TOTP', error, { operation: 'totp-status' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
-          this.snackBar.open('Erro ao carregar código off-line', 'Fechar', {
-            duration: 5000,
-            panelClass: ['error-snackbar'],
-          });
+          this.loadErrorMessage.set(
+            getApiErrorMessage(error, 'Não foi possível carregar o status do código off-line. Tente novamente.'),
+          );
         },
       });
   }
@@ -230,6 +248,7 @@ export class TotpComponent {
           this.applySeed(seed);
           this.isLoading.set(false);
           this.hasLoadError.set(false);
+          this.loadErrorMessage.set('');
           if (this.resumeRotation) {
             this.resumeRotation = false;
             this.rotateSeed();
@@ -239,10 +258,9 @@ export class TotpComponent {
           this.logger.error('Erro ao preparar TOTP', error, { operation: 'totp-prepare' });
           this.isLoading.set(false);
           this.hasLoadError.set(true);
-          this.snackBar.open('Erro ao preparar código off-line', 'Fechar', {
-            duration: 5000,
-            panelClass: ['error-snackbar'],
-          });
+          this.loadErrorMessage.set(
+            getApiErrorMessage(error, 'Não foi possível preparar seu código off-line. Tente novamente.'),
+          );
         },
       });
   }
@@ -267,11 +285,13 @@ export class TotpComponent {
       const code = await generateTotpCode({ seed, timestamp });
       if (request === this.codeRequest) {
         this.code.set(code);
+        this.codeErrorMessage.set('');
       }
     } catch (error) {
       this.logger.error('Erro ao gerar TOTP', error, { operation: 'totp-generate' });
       if (request === this.codeRequest) {
         this.code.set('');
+        this.codeErrorMessage.set('Não foi possível gerar um código agora. Atualize a página e tente novamente.');
       }
     }
   }

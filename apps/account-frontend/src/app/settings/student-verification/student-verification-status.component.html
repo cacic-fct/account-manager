@@ -17,6 +17,17 @@
     </mat-card>
   }
 
+  @if (!loading() && loadErrorMessage()) {
+    <mat-card class="status-card" role="alert">
+      <mat-card-content>
+        <p>{{ loadErrorMessage() }}</p>
+        <button mat-stroked-button type="button" (click)="loadVerificationStatus()">
+          <mat-icon>refresh</mat-icon>Tentar novamente
+        </button>
+      </mat-card-content>
+    </mat-card>
+  }
+
   @if (verificationStatus(); as status) {
     <mat-card class="status-card">
       <mat-card-header>

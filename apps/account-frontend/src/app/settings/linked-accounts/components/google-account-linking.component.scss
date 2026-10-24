@@ -1,6 +1,6 @@
 @use '../../settings-surface';
 :host {
-  max-width: 760px;
+  max-width: var(--app-content-narrow);
   margin: 0 auto;
 }
 .email-summary {

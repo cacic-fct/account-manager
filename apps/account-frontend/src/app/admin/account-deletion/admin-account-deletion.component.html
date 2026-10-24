@@ -18,6 +18,15 @@
           <mat-spinner diameter="42"></mat-spinner>
           <p>Carregando solicitações...</p>
         </div>
+      } @else if (loadError(); as errorMessage) {
+        <div class="empty-state" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          <p>{{ errorMessage }}</p>
+          <button mat-stroked-button type="button" (click)="loadRequests()">
+            <mat-icon>refresh</mat-icon>
+            Atualizar lista
+          </button>
+        </div>
       } @else if (requests().length === 0) {
         <div class="empty-state">
           <mat-icon>verified_user</mat-icon>

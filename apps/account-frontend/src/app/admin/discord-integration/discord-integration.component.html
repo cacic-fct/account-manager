@@ -21,6 +21,18 @@
         <p>Verificando permissões.</p>
       </div>
     </section>
+  } @else if (adminStatusError(); as errorMessage) {
+    <section class="state-panel" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <div>
+        <h2>Não foi possível verificar o acesso</h2>
+        <p>{{ errorMessage }}</p>
+        <button mat-stroked-button type="button" (click)="retryAdminStatusCheck()">
+          <mat-icon>refresh</mat-icon>
+          Tentar novamente
+        </button>
+      </div>
+    </section>
   } @else if (isDiscordAdmin()) {
     <section class="admin-section" aria-label="Controles do Discord">
       <app-discord-admin></app-discord-admin>

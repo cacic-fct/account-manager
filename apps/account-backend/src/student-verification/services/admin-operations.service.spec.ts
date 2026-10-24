@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import type { StudentVerificationDocument } from '@prisma/client';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -323,7 +323,7 @@ describe('AdminOperationsService', () => {
 
     await expect(
       service.updateVerificationStatus('document-1', { status: 'approved' }, 'admin@example.com'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
     expect(tx.studentVerificationDocument.update).not.toHaveBeenCalled();
     expect(tx.studentVerificationLog.create).not.toHaveBeenCalled();
@@ -338,7 +338,7 @@ describe('AdminOperationsService', () => {
 
     await expect(
       service.updateVerificationStatus('document-1', { status: 'approved' }, 'admin@example.com'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
     expect(tx.studentVerificationDocument.update).not.toHaveBeenCalled();
     expect(tx.studentVerificationLog.create).not.toHaveBeenCalled();

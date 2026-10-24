@@ -8,6 +8,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { NgOptimizedImage } from '@angular/common';
 import { ApiService, DiscordLinkStatus } from '../../../../shared/services/api.service';
 import { LoggerService } from '../../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-discord-server-access',
@@ -23,6 +24,7 @@ export class DiscordServerAccessComponent implements OnInit {
   isLoading = signal(true);
   discordStatus = signal<DiscordLinkStatus | null>(null);
   hasLoadError = signal(false);
+  loadErrorMessage = signal('');
 
   protected readonly accessLabel = computed(() => {
     const role = this.discordStatus()?.eligibleForRole;
@@ -36,16 +38,21 @@ export class DiscordServerAccessComponent implements OnInit {
   private loadDiscordStatus(): void {
     this.isLoading.set(true);
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
 
     this.apiService.getDiscordLinkStatusFresh().subscribe({
       next: (status) => {
         this.discordStatus.set(status);
         this.isLoading.set(false);
+        this.loadErrorMessage.set('');
       },
       error: (error) => {
         this.logger.error('Error loading Discord status', error, { operation: 'discord-status' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
+        this.loadErrorMessage.set(
+          getApiErrorMessage(error, 'Não foi possível consultar seu acesso ao servidor do CACiC. Tente novamente.'),
+        );
       },
     });
   }

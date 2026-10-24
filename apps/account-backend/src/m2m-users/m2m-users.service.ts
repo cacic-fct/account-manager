@@ -6,6 +6,12 @@ import { M2M_USER_ENROLLMENT_LOOKUP_MAX_ITEMS, M2M_USER_IDENTIFIER_LOOKUP_MAX_IT
 const KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER = 50;
 const LOOKUP_CONCURRENCY = 10;
 
+class AmbiguousM2MLookupException extends ServiceUnavailableException {
+  constructor() {
+    super('A consulta encontrou resultados demais. Refine os identificadores e tente novamente.');
+  }
+}
+
 @Injectable()
 export class M2MUsersService {
   private readonly logger = new Logger(M2MUsersService.name);
@@ -72,8 +78,17 @@ export class M2MUsersService {
   private async findUsersForIdentifier(identifier: M2MUserIdentifierLookupItem): Promise<KeycloakUserData[]> {
     switch (identifier.identifierType) {
       case 'email': {
-        const user = await this.keycloakService.findUserByEmail(identifier.identifierValue);
-        return user ? [user] : [];
+        try {
+          const user = await this.keycloakService.findUserByEmail(identifier.identifierValue);
+          return user ? [user] : [];
+        } catch (error) {
+          this.logger.warn('Keycloak email lookup failed.', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+          throw new ServiceUnavailableException(
+            'Não foi possível concluir a consulta de contas agora. Tente novamente em alguns minutos.',
+          );
+        }
       }
       case 'cpf': {
         const normalizedCpf = this.normalizeCpf(identifier.identifierValue);
@@ -118,7 +133,7 @@ export class M2MUsersService {
             max: KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER,
           });
           if (users.length >= KEYCLOAK_SEARCH_MAX_PER_IDENTIFIER) {
-            throw new ServiceUnavailableException('Keycloak lookup is ambiguous and cannot be returned completely.');
+            throw new AmbiguousM2MLookupException();
           }
 
           for (const user of users) {
@@ -131,7 +146,13 @@ export class M2MUsersService {
             attributeName,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
-          throw error;
+          if (error instanceof AmbiguousM2MLookupException) {
+            throw error;
+          }
+
+          throw new ServiceUnavailableException(
+            'Não foi possível concluir a consulta de contas agora. Tente novamente em alguns minutos.',
+          );
         }
       }
     }

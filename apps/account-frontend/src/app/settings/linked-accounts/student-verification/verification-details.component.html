@@ -35,7 +35,7 @@
         <mat-card-header>
           <mat-icon mat-card-avatar class="error-icon">error_outline</mat-icon>
           <mat-card-title>Erro ao carregar</mat-card-title>
-          <mat-card-subtitle> Não foi possível carregar o status de verificação </mat-card-subtitle>
+          <mat-card-subtitle>{{ loadErrorMessage() }}</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <button mat-raised-button color="primary" (click)="loadVerificationStatus()">

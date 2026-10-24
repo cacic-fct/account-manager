@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { KeycloakClientAuthMethod, KeycloakTokenError } from './keycloak.types';
+import { KeycloakClientAuthMethod, KeycloakTokenError, TokenResponse } from './keycloak.types';
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 
 export abstract class KeycloakBaseOperations {
@@ -17,7 +17,7 @@ export abstract class KeycloakBaseOperations {
   private readonly requestTimeoutMs: number;
 
   constructor() {
-    this.keycloakUrl = this.readEnvWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080');
+    this.keycloakUrl = this.readEnvWithDevelopmentFallback('KEYCLOAK_URL', 'http://localhost:8080').replace(/\/+$/, '');
     this.realm = this.readEnvWithDevelopmentFallback('KEYCLOAK_REALM', 'cacic-sso');
     this.clientId = this.readEnvWithDevelopmentFallback('KEYCLOAK_CLIENT_ID', 'cacic-account-manager');
     this.clientAuthMethod = this.resolveClientAuthMethod();
@@ -94,6 +94,8 @@ export abstract class KeycloakBaseOperations {
     try {
       const response = await fetch(input, {
         ...init,
+        cache: 'no-store',
+        redirect: 'error',
         signal: init.signal ?? AbortSignal.timeout(this.requestTimeoutMs),
       });
       if (response.status === 429 || response.status >= 500) {
@@ -115,6 +117,36 @@ export abstract class KeycloakBaseOperations {
     }
   }
 
+  protected async readTokenResponse<RequiredToken extends 'access_token' | 'refresh_token' | 'id_token'>(
+    response: Response,
+    requiredTokens: readonly RequiredToken[],
+  ): Promise<TokenResponse & Record<RequiredToken, string>> {
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      throw new KeycloakConnectionException('Authentication service returned an invalid token response');
+    }
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new KeycloakConnectionException('Authentication service returned an invalid token response');
+    }
+
+    const record = data as Record<string, unknown>;
+    const invalidToken = requiredTokens.some((key) => typeof record[key] !== 'string' || !record[key].trim());
+    const invalidExpiry = ['expires_in', 'refresh_expires_in'].some(
+      (key) => key in record && (typeof record[key] !== 'number' || !Number.isFinite(record[key]) || record[key] < 0),
+    );
+    const invalidType =
+      'token_type' in record &&
+      (typeof record['token_type'] !== 'string' || record['token_type'].toLowerCase() !== 'bearer');
+    if (invalidToken || invalidExpiry || invalidType) {
+      throw new KeycloakConnectionException('Authentication service returned an invalid token response');
+    }
+
+    return record as unknown as TokenResponse & Record<RequiredToken, string>;
+  }
+
   protected readPositiveInteger(name: string, fallback: number): number {
     const value = this.readOptionalEnv(name);
     if (!value) {
@@ -131,15 +163,19 @@ export abstract class KeycloakBaseOperations {
   }
 
   async isRealmReachable(): Promise<boolean> {
-    const configurationUrl = `${this.keycloakUrl}/realms/${this.realm}/.well-known/openid-configuration`;
+    const configurationUrl = `${this.keycloakUrl}/realms/${encodeURIComponent(this.realm)}/.well-known/openid-configuration`;
     const abortController = new AbortController();
     const timeout = setTimeout(() => abortController.abort(), this.realmHealthCheckTimeoutMs);
 
     try {
       const response = await fetch(configurationUrl, {
         signal: abortController.signal,
+        cache: 'no-store',
+        redirect: 'error',
       });
-      return response.ok;
+      if (!response.ok) return false;
+      const metadata = (await response.json()) as { issuer?: unknown } | null;
+      return metadata?.issuer === `${this.keycloakUrl}/realms/${encodeURIComponent(this.realm)}`;
     } catch (error) {
       if (this.isConnectionError(error)) {
         this.logger.warn('Keycloak realm health check failed', {

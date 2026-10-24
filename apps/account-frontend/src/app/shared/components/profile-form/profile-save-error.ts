@@ -21,7 +21,7 @@ const fieldLabels: Record<string, string> = {
   identityDocument: 'CPF ou passaporte',
   passportCountry: 'país emissor do passaporte',
   isForeigner: 'tipo de documento',
-  enrollmentNumber: 'número de matrícula',
+  enrollmentNumber: 'registro acadêmico (RA)',
   unespRole: 'vínculo com a Unesp',
 };
 
@@ -44,9 +44,9 @@ function validationMessage(error: HttpErrorResponse): string {
     'Invalid passport document format.': 'Confira o número do passaporte antes de salvar novamente.',
     'CPF must contain exactly 11 digits.': 'Confira o CPF: ele deve conter 11 dígitos.',
     'Enrollment number is required for student roles':
-      'Informe o número de matrícula para o vínculo de estudante selecionado.',
+      'Informe seu registro acadêmico (RA) para o vínculo de estudante selecionado.',
     'Enrollment number can only be set for student roles':
-      'O número de matrícula só pode ser informado para um vínculo de estudante.',
+      'O registro acadêmico (RA) só pode ser informado para um vínculo de estudante.',
     'User is missing required email information':
       'Não foi possível confirmar o e-mail da sua conta. Peça ajuda ao suporte.',
   };
@@ -61,6 +61,7 @@ function validationMessage(error: HttpErrorResponse): string {
       messages.some(
         (item) =>
           item.startsWith(`${field} `) ||
+          item.toLocaleLowerCase('pt-BR').startsWith(`${fieldLabels[field]}: `) ||
           (item.startsWith('Missing required fields: ') &&
             item.slice('Missing required fields: '.length).split(', ').includes(field)),
       ),
@@ -88,7 +89,12 @@ export function describeProfileSaveError(
   } else if (status === 401) {
     message = 'Sua sessão pode ter expirado. Entre novamente na sua conta para continuar.';
   } else if (status === 403) {
-    message = 'A solicitação não foi autorizada. Tente salvar novamente. Se continuar, entre novamente na sua conta.';
+    const body: unknown = error instanceof HttpErrorResponse ? error.error : undefined;
+    const isDisabledAccount =
+      body !== null && typeof body === 'object' && 'code' in body && body.code === 'ACCOUNT_DISABLED';
+    message = isDisabledAccount
+      ? 'Esta conta está desativada. Peça ajuda ao suporte para verificar seu acesso.'
+      : 'A solicitação não foi autorizada. Atualize a página antes de tentar salvar novamente.';
   } else if (status === 404) {
     message = 'Não foi possível localizar sua conta. Peça ajuda ao suporte para verificar seu acesso.';
   } else if (status === 409) {

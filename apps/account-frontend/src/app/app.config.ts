@@ -13,9 +13,11 @@ import { AuthService } from './shared/services/auth/auth.service';
 import { credentialsInterceptor } from './shared/interceptors/credentials.interceptor';
 import { csrfInterceptor } from './shared/interceptors/csrf.interceptor';
 import { startCacicAccountUmamiTracking } from './analytics/account-umami-tracking';
+import { initializeMaterialSymbols } from './shared/utils/material-symbols';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideAppInitializer(initializeMaterialSymbols),
     provideAppInitializer(() => {
       const initializerFn = authAppInitializerFactory(inject(AuthService));
       return initializerFn();

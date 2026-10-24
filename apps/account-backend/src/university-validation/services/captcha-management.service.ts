@@ -309,7 +309,7 @@ export class CaptchaManagementService {
         });
         return {
           success: false,
-          error: 'Form data not found in session. Please get captcha first.',
+          error: 'A sessão de validação expirou. Gere um novo captcha e tente novamente.',
         };
       }
 
@@ -317,7 +317,7 @@ export class CaptchaManagementService {
         this.logger.error('Auth code not found in session');
         return {
           success: false,
-          error: 'Código de autenticação não encontrado na sessão',
+          error: 'O código de autenticação não está mais disponível. Gere um novo captcha e tente novamente.',
         };
       }
 
@@ -383,7 +383,7 @@ export class CaptchaManagementService {
       if (!contentType || !contentType.includes('application/pdf')) {
         return {
           success: false,
-          error: `Unexpected response type: ${contentType}`,
+          error: 'A universidade retornou um formato inesperado. Gere um novo captcha e tente novamente.',
         };
       }
 
@@ -423,7 +423,7 @@ export class CaptchaManagementService {
         error:
           error instanceof ExternalVerificationUnavailableError
             ? 'O serviço de validação da universidade está temporariamente indisponível.'
-            : 'Erro interno durante a validação do documento.',
+            : 'Não foi possível validar o documento agora. Tente novamente em alguns minutos.',
         fallbackToManual: false,
       };
     } finally {

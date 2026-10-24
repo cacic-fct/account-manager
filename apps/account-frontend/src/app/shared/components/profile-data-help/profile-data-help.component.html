@@ -1,0 +1,114 @@
+@if (section() !== 'access') {
+  @if (section() === 'all') {
+    <h3>Uso dos dados</h3>
+  }
+  <div class="privacy-section">
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>person</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Nome completo</div>
+        <div class="privacy-description">
+          Identificação em nossos sistemas e para a emissão de certificados. Por isso, é importante que ele esteja
+          correto e completo.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>phone</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Telefone</div>
+        <div class="privacy-description">
+          Para contatos urgentes, como problemas em inscrições em eventos, e exclusivamente por WhatsApp.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>badge</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">CPF</div>
+        <div class="privacy-description">
+          Para a sua identificação e para a emissão de certificados. Se você é estrangeiro, usaremos o número do seu
+          passaporte.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>school</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Vínculo com a Unesp</div>
+        <div class="privacy-description">
+          Para personalizar a sua experiência em nossas plataformas, com recursos e conteúdos específicos para a
+          comunidade unespiana.
+        </div>
+      </div>
+    </div>
+  </div>
+}
+@if (section() !== 'usage') {
+  @if (section() === 'all') {
+    <h3>Quem tem acesso aos meus dados?</h3>
+  }
+  <div class="privacy-section">
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>storage</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">DTI e DMC da FCT-Unesp</div>
+        <div class="privacy-description">
+          A Diretoria Técnica de Informática hospeda os sistemas do CACiC e o Departamento de Matemática e Computação é
+          o responsável por intermediar esse serviço. Essas entidades tratam os dados de acordo com a legislação da
+          Unesp.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>terminal</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Administradores de sistemas do CACiC</div>
+        <div class="privacy-description">
+          Pessoas, autorizadas e atestadas por comissão externa, que gerenciam os servidores do CACiC.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>groups_3</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Diretores do CACiC</div>
+        <div class="privacy-description">
+          Alguns diretores do CACiC têm acesso a dados pessoais para a gestão das plataformas.
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-item">
+      <span class="privacy-icon">
+        <mat-icon>apps</mat-icon>
+      </span>
+      <div>
+        <div class="privacy-title">Aplicativos terceiros</div>
+        <div class="privacy-description">
+          Aplicativos que você fizer login usando sua conta do CACiC. O CACiC decide quais dados são compartilhados com
+          esses aplicativos e impõe exigências de tratamento de dados para eles.
+        </div>
+      </div>
+    </div>
+  </div>
+}

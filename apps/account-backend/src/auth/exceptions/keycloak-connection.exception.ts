@@ -10,9 +10,9 @@ export class KeycloakConnectionException extends HttpException {
         message: message || 'Unable to connect to authentication service',
         error: 'Keycloak Connection Error',
         statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-        originalError: originalError?.message,
       },
       HttpStatus.SERVICE_UNAVAILABLE,
+      { cause: originalError },
     );
   }
 }

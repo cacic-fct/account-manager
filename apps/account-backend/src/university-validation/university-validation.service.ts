@@ -60,7 +60,7 @@ export class UniversityValidationService {
   }
 
   /**
-   * Clean up old sessions periodically
+   * Prune expired local session metadata on demand; Redis expires session contents
    */
   cleanupOldSessions(): void {
     void this.sessionManagementService.cleanupOldSessions();

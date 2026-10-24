@@ -62,7 +62,7 @@ describe('AdminAccountMergesComponent', () => {
       createAdminAccountMerge: vi.fn().mockReturnValue(of(mergeRequest)),
       confirmAdminAccountMerge: vi.fn(),
       cancelAdminAccountMerge: vi.fn(),
-      getAdminAccountMergeRequest: vi.fn(),
+      getAdminAccountMergeRequest: vi.fn().mockReturnValue(of(mergeRequest)),
       watchAdminAccountMergeRequest: vi.fn(),
     };
 
@@ -132,9 +132,11 @@ describe('AdminAccountMergesComponent', () => {
     component.secondSearchForm.controls.query.setValue('second');
     component.searchSecondUser();
 
-    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith('Erro ao buscar contas no Keycloak.', 'Fechar', {
-      duration: 5000,
-    });
+    expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith(
+      'Não foi possível buscar contas no Keycloak. Tente novamente em instantes.',
+      'Fechar',
+      { duration: 6000 },
+    );
   });
 
   it('uses SSE deltas after confirmation and stops at a terminal status', () => {
@@ -179,24 +181,91 @@ describe('AdminAccountMergesComponent', () => {
     component.secondUser.set(secondUser);
     apiService.createAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
     component.createMergeRequest();
-    expect(snackBar).toHaveBeenCalledWith('Não foi possível iniciar a unificação das contas.', 'Fechar', {
-      duration: 6000,
-    });
+    expect(snackBar).toHaveBeenCalledWith(
+      'Não foi possível verificar se a solicitação foi criada. Confira a situação das contas antes de tentar novamente.',
+      'Fechar',
+      {
+        duration: 8000,
+      },
+    );
+    expect(component.firstUser()).toEqual(firstUser);
+    expect(component.secondUser()).toEqual(secondUser);
 
     component.confirmMerge();
     component.mergeRequest.set(mergeRequest);
     component.selectedPrimaryEmail.set(firstUser.email);
     apiService.confirmAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
     component.confirmMerge();
-    expect(snackBar).toHaveBeenCalledWith('Não foi possível confirmar a unificação.', 'Fechar', { duration: 6000 });
+    expect(snackBar).toHaveBeenCalledWith(
+      'Não foi possível verificar se a unificação foi iniciada. Aguarde a atualização do status antes de tentar novamente.',
+      'Fechar',
+      { duration: 8000 },
+    );
 
     apiService.cancelAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
     component.cancelMerge();
-    expect(snackBar).toHaveBeenCalledWith('Não foi possível cancelar a unificação.', 'Fechar', { duration: 6000 });
+    expect(snackBar).toHaveBeenCalledWith(
+      'Não foi possível verificar se a solicitação foi cancelada. Aguarde a atualização do status antes de tentar novamente.',
+      'Fechar',
+      { duration: 8000 },
+    );
 
     component.reset();
     expect(component.mergeRequest()).toBeNull();
     expect(component.progressValue(-1)).toBe(0);
     expect(component.progressValue(101)).toBe(100);
+  });
+
+  it('blocks another confirmation when a failed request could not be refreshed', () => {
+    const component = fixture.componentInstance as unknown as AccountMergeHarness & {
+      selectedPrimaryEmail: { set: (value: string) => void };
+      requestStateStale: { (): boolean };
+      requestStateError: { (): string | null };
+      refreshMergeRequest: (requestId: string) => void;
+      confirmMerge: () => void;
+    };
+    component.mergeRequest.set(mergeRequest);
+    component.selectedPrimaryEmail.set(firstUser.email);
+    apiService.confirmAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
+    apiService.getAdminAccountMergeRequest.mockReturnValueOnce(throwError(() => new Error('unavailable')));
+
+    component.confirmMerge();
+    component.confirmMerge();
+
+    expect(apiService.confirmAdminAccountMerge).toHaveBeenCalledTimes(1);
+    expect(apiService.getAdminAccountMergeRequest).toHaveBeenCalledWith(mergeRequest.id);
+    expect(component.requestStateStale()).toBe(true);
+    expect(component.requestStateError()).toBe(
+      'Não foi possível atualizar o status da solicitação. Tente atualizar novamente antes de continuar.',
+    );
+
+    apiService.getAdminAccountMergeRequest.mockReturnValueOnce(of(mergeRequest));
+    component.refreshMergeRequest(mergeRequest.id);
+
+    expect(component.requestStateStale()).toBe(false);
+    expect(component.mergeRequest()).toEqual(mergeRequest);
+    apiService.watchAdminAccountMergeRequest.mockReturnValueOnce(new Subject());
+    apiService.confirmAdminAccountMerge.mockReturnValueOnce(of({ request: mergeRequest }));
+    component.confirmMerge();
+    expect(apiService.confirmAdminAccountMerge).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the refreshed status after a failed cancellation', () => {
+    const component = fixture.componentInstance as unknown as AccountMergeHarness & {
+      cancelMerge: () => void;
+      requestStateStale: { (): boolean };
+    };
+    const cancelledRequest = { ...mergeRequest, status: 'cancelled' as const };
+    component.mergeRequest.set(mergeRequest);
+    apiService.cancelAdminAccountMerge.mockReturnValueOnce(throwError(() => new Error('unavailable')));
+    apiService.getAdminAccountMergeRequest.mockReturnValueOnce(of(cancelledRequest));
+
+    component.cancelMerge();
+    component.cancelMerge();
+
+    expect(apiService.cancelAdminAccountMerge).toHaveBeenCalledTimes(1);
+    expect(apiService.getAdminAccountMergeRequest).toHaveBeenCalledWith(mergeRequest.id);
+    expect(component.requestStateStale()).toBe(false);
+    expect(component.mergeRequest()?.status).toBe('cancelled');
   });
 });

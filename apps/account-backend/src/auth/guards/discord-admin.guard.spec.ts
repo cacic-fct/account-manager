@@ -69,7 +69,8 @@ describe('DiscordAdminGuard', () => {
 
     await expect(guard.canActivate(createExecutionContext('user-1'))).rejects.toMatchObject({
       response: {
-        message: 'Unable to verify Discord admin permission',
+        message:
+          'Não foi possível verificar seu acesso à administração do Discord. Tente novamente em alguns instantes.',
       },
     });
   });

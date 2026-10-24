@@ -11,6 +11,7 @@ export interface CookieBannerOptions {
   sharedCookieDomain?: string;
   isAuthenticated?: () => boolean | Promise<boolean>;
   shouldShow?: () => boolean | Promise<boolean>;
+  /** Best-effort synchronization; a failure or false result still dismisses the banner. */
   onAccept?: (context: CookieBannerAcceptContext) => void | boolean | Promise<void | boolean>;
   text?: string;
   buttonText?: string;
@@ -170,18 +171,14 @@ export class CookieBanner {
 
     try {
       const isAuthenticated = await this.resolveIsAuthenticated();
-      const result = await this.options.onAccept?.({ isAuthenticated });
-
-      if (result === false) {
-        this.setAccepting(false);
-        return;
-      }
-
-      this.saveAcceptedLocally();
-      this.hide();
+      await this.options.onAccept?.({ isAuthenticated });
     } catch (error) {
       console.error('Error accepting cookie banner:', error);
+    } finally {
       this.setAccepting(false);
+      this.hide();
+      // The user's choice remains valid even if server synchronization fails.
+      this.saveAcceptedLocally();
     }
   }
 

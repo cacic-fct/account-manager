@@ -10,6 +10,7 @@ import { AccountManagerPermission } from '@cacic/shared-types';
 import { EventManagerProfileSyncService } from './event-manager-profile-sync.service';
 import { AccountPermissionService } from './account-permission.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CURRENT_USER_SCHEMA_VERSION, getMissingUserProfileFields, getUserOnboardingStatus } from './user-schema';
 
 @Injectable()
 export class UserService {
@@ -120,10 +121,9 @@ export class UserService {
       throw new BadRequestException('Tipo de documento não pode ser alterado após o cadastro.');
     }
 
-    const normalizedCurrentIdentityDocument = this.normalizeIdentityDocument(
-      currentIdentityDocument,
-      currentIsForeigner,
-    );
+    const normalizedCurrentIdentityDocument = currentIdentityDocument
+      ? this.normalizeIdentityDocument(currentIdentityDocument, currentIsForeigner)
+      : '';
     const normalizedIncomingIdentityDocument = this.normalizeIdentityDocument(
       updateData.identityDocument,
       effectiveIsForeigner,
@@ -157,7 +157,7 @@ export class UserService {
         return null;
       }
 
-      const attributes = await this.keycloakService.getUserAttributes(keycloakId);
+      const attributes = await this.keycloakService.reconcileUserOnboarding(keycloakId);
 
       // If no email in attributes but user exists, use the basic info email
       const userEmail = attributes.email?.[0] || userBasicInfo.email;
@@ -182,7 +182,7 @@ export class UserService {
         return null;
       }
 
-      const attributes = await this.keycloakService.getUserAttributes(keycloakUser.id);
+      const attributes = await this.keycloakService.reconcileUserOnboarding(keycloakUser.id);
       const profile = this.attributesToUserProfile(keycloakUser.id, attributes);
       await this.upsertLeanUser(profile);
       return profile;
@@ -218,6 +218,7 @@ export class UserService {
       'identity-document': [''], // Required field, will be filled during onboarding
       isForeigner: ['false'], // Default to Brazilian (CPF)
       isOnboarded: ['false'],
+      userSchemaVersion: ['0'],
       ...(unespRole && { unespRole: [unespRole] }), // Set role if determined
       createdAt: [new Date().toISOString()],
       updatedAt: [new Date().toISOString()],
@@ -318,9 +319,7 @@ export class UserService {
         fullName:
           isFullNameLocked && currentFullName
             ? [currentFullName] // Keep locked fullname
-            : isUnespEmail(userEmail)
-              ? currentAttributes.fullName || [immutableIdentityFields.fullName]
-              : [immutableIdentityFields.fullName],
+            : [immutableIdentityFields.fullName],
         phone: [updateData.phone],
         'identity-document': [immutableIdentityFields.identityDocument],
         isForeigner: [immutableIdentityFields.isForeigner.toString()],
@@ -328,6 +327,7 @@ export class UserService {
           ? { passportCountry: [immutableIdentityFields.passportCountry] }
           : {}),
         isOnboarded: ['true'], // Only set to true if all validations pass
+        userSchemaVersion: [String(CURRENT_USER_SCHEMA_VERSION)],
         updatedAt: [new Date().toISOString()],
       };
 
@@ -399,6 +399,11 @@ export class UserService {
       // Ensure createdAt exists
       if (!updatedAttributes.createdAt) {
         updatedAttributes.createdAt = [new Date().toISOString()];
+      }
+
+      const missingProfileFields = getMissingUserProfileFields(updatedAttributes);
+      if (missingProfileFields.length > 0) {
+        throw new BadRequestException(`Missing required fields: ${missingProfileFields.join(', ')}`);
       }
 
       await this.keycloakService.updateUserAttributes(userId, updatedAttributes);
@@ -490,66 +495,8 @@ export class UserService {
     missingFields: string[];
   }> {
     try {
-      const attributes = await this.keycloakService.getUserAttributes(userId);
-
-      // Define required fields for onboarding completion
-      const requiredFields = ['identity-document', 'phone', 'fullName'];
-      const missingFields: string[] = [];
-
-      if (attributes.isForeigner?.[0] === 'true') {
-        requiredFields.push('passportCountry');
-      }
-
-      // Check which required fields are missing
-      for (const field of requiredFields) {
-        const value = attributes[field]?.[0];
-        if (!value || value.trim() === '') {
-          missingFields.push(field);
-        }
-      }
-
-      // First check if user is explicitly marked as onboarded
-      const isOnboardedFlag = attributes.isOnboarded?.[0];
-
-      this.logger.debug('Checking onboarding status for user', {
-        userId,
-        isOnboardedFlag,
-        missingFields,
-        hasAllRequiredFields: missingFields.length === 0,
-        hasAttributes: Object.keys(attributes).length > 0,
-      });
-
-      // User is considered onboarded ONLY if:
-      // 1. They are explicitly marked as onboarded AND
-      // 2. They have all required fields filled
-      const isFullyOnboarded = isOnboardedFlag === 'true' && missingFields.length === 0;
-
-      // If they're marked as onboarded but missing fields, reset their onboarded status
-      if (isOnboardedFlag === 'true' && missingFields.length > 0) {
-        this.logger.warn('User marked as onboarded but missing required fields, resetting onboarded flag', {
-          userId,
-          missingFields,
-        });
-
-        // Reset the onboarded flag since they don't actually have all required data
-        await this.keycloakService.updateUserAttributes(userId, {
-          ...attributes,
-          isOnboarded: ['false'],
-          updatedAt: [new Date().toISOString()],
-        });
-      }
-
-      this.logger.debug('Final onboarding status for user', {
-        userId,
-        needsOnboarding: !isFullyOnboarded,
-        missingFields,
-        isFullyOnboarded,
-      });
-
-      return {
-        needsOnboarding: !isFullyOnboarded,
-        missingFields,
-      };
+      const attributes = await this.keycloakService.reconcileUserOnboarding(userId);
+      return getUserOnboardingStatus(attributes);
     } catch (error) {
       // If it's a connection error to Keycloak, re-throw it so the controller can handle it appropriately
       if (error instanceof KeycloakConnectionException) {
@@ -573,7 +520,7 @@ export class UserService {
       });
 
       // Get current user attributes
-      const currentAttributes = await this.keycloakService.getUserAttributes(keycloakUser.sub);
+      const currentAttributes = await this.keycloakService.reconcileUserOnboarding(keycloakUser.sub);
 
       this.logger.debug('Current user attributes before update', {
         userId: keycloakUser.sub,
@@ -586,7 +533,8 @@ export class UserService {
         keycloakUser.name || `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
 
       const updatedAttributes: Record<string, string[]> = {
-        ...currentAttributes,
+        // Patch OAuth fields only, so an earlier snapshot cannot replay a stale
+        // onboarding flag or schema version over a concurrent profile completion.
         displayName: [displayName],
         updatedAt: [new Date().toISOString()],
         // Always update picture if available from OAuth
@@ -614,7 +562,8 @@ export class UserService {
         { skipValidation: true }, // Skip validation since we're just updating OAuth data
       );
 
-      const profile = this.attributesToUserProfile(keycloakUser.sub, updatedAttributes);
+      const refreshedAttributes = await this.keycloakService.reconcileUserOnboarding(keycloakUser.sub);
+      const profile = this.attributesToUserProfile(keycloakUser.sub, refreshedAttributes);
       await this.upsertLeanUser(profile);
       return profile;
     } catch (error) {
@@ -650,6 +599,7 @@ export class UserService {
         enrollmentNumber: [''],
         displayName: ['[DELETED]'],
         isOnboarded: ['false'],
+        userSchemaVersion: ['0'],
         unespRole: [''],
         isForeigner: ['false'],
         picture: [''],
@@ -750,7 +700,7 @@ export class UserService {
       identityDocument: getFirst('identity-document'), // Map from Keycloak's identity-document
       isForeigner: getBooleanFirst('isForeigner', false),
       passportCountry: getFirst('passportCountry') || undefined,
-      isOnboarded: getBooleanFirst('isOnboarded', false),
+      isOnboarded: !getUserOnboardingStatus(attributes).needsOnboarding,
       unespRole: (attributes.unespRole?.[0] as UnespRole) || undefined,
       unespRoleVerified: getBooleanFirst('unespRoleVerified', false),
       externalUserVerified: getBooleanFirst('externalUserVerified', false),

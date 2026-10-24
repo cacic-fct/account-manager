@@ -10,7 +10,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
@@ -24,6 +26,7 @@ import {
   isMembershipActive,
   mapKeycloakUser,
   mapMembership,
+  MEMBERSHIP_SYNC_ERROR_MESSAGE,
   normalizeMandateWindow,
   normalizePermissionGroupKey,
 } from './keycloak-permissions.helpers';
@@ -38,6 +41,8 @@ import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.serv
 
 @Injectable()
 export class KeycloakPermissionsMembershipsService {
+  private readonly logger = new Logger(KeycloakPermissionsMembershipsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
@@ -86,9 +91,17 @@ export class KeycloakPermissionsMembershipsService {
     }
 
     const validity = normalizeMandateWindow(input.validFrom, input.validUntil);
-    const user = await this.keycloakService.getUserBasicInfo(userId);
+    let user: Awaited<ReturnType<KeycloakService['getUserBasicInfo']>>;
+    try {
+      user = await this.keycloakService.getUserBasicInfo(userId);
+    } catch (error) {
+      this.logger.error('Failed to look up the account for a permission group membership', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar a conta agora. Tente novamente em alguns minutos.',
+      );
+    }
     if (!user) {
-      throw new NotFoundException(`Usuário ${userId} não foi encontrado no Keycloak.`);
+      throw new NotFoundException('A conta informada não foi encontrada.');
     }
 
     const existingMembership = await this.prisma.studentEntityMembership.findFirst({
@@ -103,7 +116,7 @@ export class KeycloakPermissionsMembershipsService {
       throw new ConflictException('Essa pessoa já possui um vínculo ativo nesse grupo.');
     }
     if (!actorId) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException('Entre novamente para continuar.');
     }
     await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
 
@@ -135,10 +148,15 @@ export class KeycloakPermissionsMembershipsService {
     await this.sync.syncMembershipAfterWrite(membership, {
       throwOnFailure: false,
     });
-    await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
-      userId,
-      'permission-group-membership-created',
-    );
+    try {
+      await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
+        userId,
+        'permission-group-membership-created',
+      );
+    } catch (error) {
+      this.logger.error('Failed to synchronize Discord roles after creating a permission group membership', error);
+      throw new ServiceUnavailableException(MEMBERSHIP_SYNC_ERROR_MESSAGE);
+    }
 
     return this.getMembershipOrThrow(membership.id);
   }
@@ -170,7 +188,7 @@ export class KeycloakPermissionsMembershipsService {
     const groupKey = existingMembership.entity as PermissionGroupKey;
 
     if (!actorId) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException('Entre novamente para continuar.');
     }
     if (grantsOrExtendsAccess) {
       await this.assertActorCanAssignGroupPermissions(actorId, groupKey);
@@ -191,19 +209,24 @@ export class KeycloakPermissionsMembershipsService {
       select: MEMBERSHIP_SELECT,
     });
 
-    await this.sync.syncMembershipAfterWrite(membership, {
-      deactivateLinkedGrants: wasActive && !willBeActive ? false : undefined,
-      removeIfPreviouslyActive: wasActive,
-    });
-    if (wasActive && !willBeActive) {
-      await this.deactivateLinkedPermissionGrants(membership, actorId, now);
-    } else if (isShorteningActiveAccess) {
-      await this.shortenLinkedPermissionGrants(membership, actorId);
+    try {
+      await this.sync.syncMembershipAfterWrite(membership, {
+        deactivateLinkedGrants: wasActive && !willBeActive ? false : undefined,
+        removeIfPreviouslyActive: wasActive,
+      });
+      if (wasActive && !willBeActive) {
+        await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+      } else if (isShorteningActiveAccess) {
+        await this.shortenLinkedPermissionGrants(membership, actorId);
+      }
+      await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
+        membership.userId,
+        'permission-group-membership-updated',
+      );
+    } catch (error) {
+      this.logger.error('Failed to synchronize permission group membership changes', error);
+      throw new ServiceUnavailableException(MEMBERSHIP_SYNC_ERROR_MESSAGE);
     }
-    await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
-      membership.userId,
-      'permission-group-membership-updated',
-    );
 
     return this.getMembershipOrThrow(id);
   }
@@ -219,14 +242,25 @@ export class KeycloakPermissionsMembershipsService {
     const group = getPermissionGroupDefinition(membership.entity as PermissionGroupKey);
     if (options.enforceActorPermission !== false) {
       if (!actorId) {
-        throw new ForbiddenException('Authentication required');
+        throw new ForbiddenException('Entre novamente para continuar.');
       }
       await this.assertActorCanRevokeGroupPermissions(actorId, membership.entity as PermissionGroupKey);
       await this.assertActorCanRevokeLinkedGrants(actorId, membership);
     }
     const now = new Date();
 
-    await this.keycloakService.removeUserFromGroupId(membership.userId, group.keycloakGroupId, group.keycloakGroupPath);
+    try {
+      await this.keycloakService.removeUserFromGroupId(
+        membership.userId,
+        group.keycloakGroupId,
+        group.keycloakGroupPath,
+      );
+    } catch (error) {
+      this.logger.error('Failed to remove an account from a permission group', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível remover o vínculo agora. Ele continua ativo; tente novamente em alguns minutos.',
+      );
+    }
     await this.prisma.studentEntityMembership.update({
       where: { id },
       data: {
@@ -236,11 +270,18 @@ export class KeycloakPermissionsMembershipsService {
         lastSyncError: null,
       },
     });
-    await this.deactivateLinkedPermissionGrants(membership, actorId, now);
-    await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
-      membership.userId,
-      'permission-group-membership-deleted',
-    );
+    try {
+      await this.deactivateLinkedPermissionGrants(membership, actorId, now);
+      await this.discordRoleService.reconcilePermissionGroupAffiliationRoles(
+        membership.userId,
+        'permission-group-membership-deleted',
+      );
+    } catch (error) {
+      this.logger.error('Failed to synchronize permission revocation after removing a membership', error);
+      throw new ServiceUnavailableException(
+        'O vínculo foi removido, mas algumas permissões podem continuar ativas. Atualize o status antes de tentar novamente.',
+      );
+    }
   }
 
   async selfRemoveMembership(userId: string, membershipId: string): Promise<PermissionSelfRemovalResult> {
@@ -254,7 +295,7 @@ export class KeycloakPermissionsMembershipsService {
     });
 
     if (!membership) {
-      throw new NotFoundException(`Vínculo ${membershipId} não foi encontrado.`);
+      throw new NotFoundException('Vínculo não encontrado.');
     }
 
     await this.deletePermissionGroupMembership(membershipId, userId, {
@@ -380,7 +421,7 @@ export class KeycloakPermissionsMembershipsService {
     });
 
     if (!membership) {
-      throw new NotFoundException(`Vínculo ${id} não foi encontrado.`);
+      throw new NotFoundException('Vínculo não encontrado.');
     }
 
     return membership;

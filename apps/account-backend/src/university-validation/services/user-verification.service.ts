@@ -131,10 +131,10 @@ export class UserVerificationService {
     additionalData?: VerificationDetails,
   ): Promise<void> {
     try {
-      await this.keycloakService.setUnespRoleVerified(userId, verified);
-
       if (verified) {
         await this.keycloakService.verifyUserUnespRole(userId, 'university-validation-system', 'document');
+      } else {
+        await this.keycloakService.setUnespRoleVerified(userId, false);
       }
 
       this.logger.debug('Verification status updated:', {

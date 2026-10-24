@@ -302,10 +302,10 @@ describe('AuthController logout', () => {
     } as unknown as ExecutionContext;
     const guard = new CsrfGuard(new CsrfService(), new Reflector());
 
-    expect(() => new AuthGuard().canActivate(context)).toThrow('Authentication required');
-    expect(() => guard.canActivate(context)).toThrow('Invalid or missing CSRF token');
+    expect(() => new AuthGuard().canActivate(context)).toThrow('Entre na sua conta para continuar.');
+    expect(() => guard.canActivate(context)).toThrow('A verificação de segurança falhou.');
     request.headers['x-csrf-token'] = 'other-session-csrf';
-    expect(() => guard.canActivate(context)).toThrow('Invalid or missing CSRF token');
+    expect(() => guard.canActivate(context)).toThrow('A verificação de segurança falhou.');
     request.headers['x-csrf-token'] = 'session-csrf';
     expect(guard.canActivate(context)).toBe(true);
   });

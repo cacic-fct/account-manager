@@ -207,7 +207,7 @@ describe('DocumentManagementService', () => {
     ]);
     s3Service.deleteFile.mockRejectedValue(new Error('storage unavailable'));
 
-    await expect(service.cleanupExpiredDocuments()).resolves.toBeUndefined();
+    await expect(service.cleanupExpiredDocuments()).rejects.toThrow('1 document(s)');
     expect(tx.studentVerificationDocument.updateMany).toHaveBeenCalledTimes(1);
   });
 });

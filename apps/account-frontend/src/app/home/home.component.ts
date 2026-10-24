@@ -11,6 +11,7 @@ import { ValuePropositionComponent } from './components/value-proposition.compon
 import { StarComponent } from './star.component';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
 import { LoggerService } from '../shared/services/logger.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-home',
@@ -33,9 +34,11 @@ export class HomeComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly logger = inject(LoggerService);
+  private readonly snackBar = inject(MatSnackBar);
   private authSubscription?: Subscription;
   private loadingSubscription?: Subscription;
   private routerSubscription?: Subscription;
+  private loginTimeout?: ReturnType<typeof setTimeout>;
 
   ngOnInit() {
     this.generateStars();
@@ -73,6 +76,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    clearTimeout(this.loginTimeout);
     this.authSubscription?.unsubscribe();
     this.loadingSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
@@ -88,17 +92,20 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     this.isLoggingIn.set(true);
 
-    const timeoutId = setTimeout(() => {
+    this.loginTimeout = setTimeout(() => {
+      if (!this.isLoggingIn()) return;
       this.logger.warn('Login timeout', { operation: 'home-login' });
       this.isLoggingIn.set(false);
+      this.snackBar.open('O login está demorando mais que o esperado. Tente novamente.', 'Fechar', { duration: 8000 });
     }, 15000);
 
     try {
       this.authService.login('/app/applications');
     } catch (error) {
       this.logger.error('Login failed immediately', error, { operation: 'home-login' });
-      clearTimeout(timeoutId);
+      clearTimeout(this.loginTimeout);
       this.isLoggingIn.set(false);
+      this.snackBar.open('Não foi possível iniciar o login. Tente novamente.', 'Fechar', { duration: 8000 });
     }
   }
 

@@ -35,12 +35,14 @@ export class UniversityValidationGuard implements CanActivate {
 
     // First check if user is authenticated
     if (!session?.user?.keycloakId) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException('Entre na sua conta para continuar.');
     }
 
     try {
       if (await this.isUndergraduateVerificationDisabled(session.user.keycloakId)) {
-        throw new ForbiddenException('Undergraduate Unesp role verification is currently disabled.');
+        throw new ForbiddenException(
+          'A verificação do vínculo de graduação com a Unesp está desativada no momento. Consulte o status do vínculo na sua conta.',
+        );
       }
 
       const approvedDocument = await this.prisma.studentVerificationDocument.findFirst({
@@ -61,7 +63,7 @@ export class UniversityValidationGuard implements CanActivate {
       if (approvedDocument) {
         this.logger.warn(`Access denied: University role already verified for user ${session.user.keycloakId}`);
         throw new ForbiddenException(
-          'University role verification already completed. Access to validation endpoints is not allowed.',
+          'Seu vínculo universitário já foi verificado. Consulte o resultado na página de verificação estudantil.',
         );
       }
 
@@ -78,7 +80,9 @@ export class UniversityValidationGuard implements CanActivate {
 
       // Log the error but don't expose internal details
       this.logger.error('Error checking university validation status', error);
-      throw new ForbiddenException('Unable to verify university validation status');
+      throw new ForbiddenException(
+        'Não foi possível consultar sua verificação estudantil agora. Tente novamente em alguns instantes.',
+      );
     }
   }
 

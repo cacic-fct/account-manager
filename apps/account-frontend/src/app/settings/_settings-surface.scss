@@ -4,7 +4,7 @@
   color: var(--mat-sys-on-surface);
 }
 .settings-content {
-  max-width: 760px;
+  max-width: var(--app-content-narrow);
   margin: 0 auto;
   padding: 40px 24px 64px;
 }

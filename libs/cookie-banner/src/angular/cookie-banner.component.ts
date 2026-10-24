@@ -101,18 +101,13 @@ export class CookieBannerComponent implements OnInit {
       const context: CookieBannerAcceptContext = {
         isAuthenticated: Boolean(await this.config().isAuthenticated?.()),
       };
-      const result = await this.config().onAccept?.(context);
-
-      if (result === false) {
-        this.accepting.set(false);
-        return;
-      }
-
-      this.saveAcceptedLocally();
-      this.visible.set(false);
+      await this.config().onAccept?.(context);
     } catch (error) {
       console.error('Error accepting cookie banner:', error);
+    } finally {
       this.accepting.set(false);
+      this.visible.set(false);
+      this.saveAcceptedLocally();
     }
   }
 

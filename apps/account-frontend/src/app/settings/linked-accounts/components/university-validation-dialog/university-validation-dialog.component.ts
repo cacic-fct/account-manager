@@ -15,6 +15,7 @@ import {
   AtomicValidationResponse,
 } from '../../../../shared/services/university-validation/university-validation.service';
 import { LoggerService } from '../../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../../shared/utils/api-error-message';
 
 export interface UniversityValidationDialogData {
   pdfFile: File;
@@ -246,79 +247,72 @@ export class UniversityValidationDialogComponent implements OnDestroy {
     } catch (error: unknown) {
       this.logger.error('Erro ao processar PDF', error, { operation: 'university-validation' });
 
-      // Categorize the error for the parent component
       let errorType = 'GENERIC_ERROR';
-      let errorMessage = 'Erro ao processar PDF. Tente fechar e abrir novamente.';
+      let errorMessage = getApiErrorMessage(
+        error,
+        'Não foi possível processar o PDF e iniciar a validação. Confira o documento e tente novamente.',
+      );
 
-      const httpError = error as HttpErrorResponse;
-      if (httpError.error?.fallbackToManual === true) {
+      if (this.hasManualFallbackResponse(error)) {
         this.snackBar.open('Documento enviado para análise manual.', 'Fechar', { duration: 5000 });
         this.dialogRef.close({ success: true, pendingManualReview: true });
         return;
       }
 
-      if (httpError.status === 400) {
-        if (httpError.error?.message?.includes('PDF é obrigatório')) {
-          errorType = 'PDF_REQUIRED';
-          errorMessage = 'Arquivo PDF é obrigatório.';
-        } else if (httpError.error?.message?.includes('Aguarde') && httpError.error?.message?.includes('segundos')) {
-          // Handle cooldown error from backend
-          errorType = 'COOLDOWN_ACTIVE';
-          errorMessage = httpError.error?.message || 'Aguarde antes de solicitar um novo captcha';
+      if (error instanceof HttpErrorResponse) {
+        const normalizedMessage = errorMessage.toLocaleLowerCase();
 
-          // Sync cooldown status from backend
+        if (error.status === 429 || this.isCooldownMessage(errorMessage)) {
+          errorType = 'COOLDOWN_ACTIVE';
           this.syncCooldownWithBackend();
         } else if (
-          httpError.error?.message?.toLowerCase().includes('auth code not found') ||
-          httpError.error?.message?.toLowerCase().includes('código de autenticidade não encontrado') ||
-          httpError.error?.message?.toLowerCase().includes('código de autenticidade não encontrado no pdf') ||
-          httpError.error?.message?.toLowerCase().includes('authentication code not found') ||
-          httpError.error?.message?.toLowerCase().includes('autenticidade') ||
-          httpError.message?.toLowerCase().includes('código de autenticidade não encontrado')
+          normalizedMessage.includes('auth code not found') ||
+          normalizedMessage.includes('authentication code not found') ||
+          normalizedMessage.includes('autenticidade')
         ) {
           errorType = 'AUTH_CODE_NOT_FOUND';
           errorMessage =
             'Código de autenticidade não encontrado no PDF. Verifique se o documento é válido e contém um código de autenticidade.';
-        } else if (httpError.error?.message?.includes('PDF')) {
+        } else if (error.status === 400 && normalizedMessage.includes('pdf é obrigatório')) {
+          errorType = 'PDF_REQUIRED';
+          errorMessage = 'Selecione um arquivo PDF para iniciar a validação.';
+        } else if (error.status === 400 && normalizedMessage.includes('pdf')) {
           errorType = 'PDF_PROCESSING_ERROR';
-          errorMessage = httpError.error?.message || 'Erro ao processar PDF.';
-        } else {
-          errorType = 'PDF_PROCESSING_ERROR';
-          errorMessage = httpError.error?.message || 'Erro ao processar PDF.';
-        }
-      } else if (httpError.status === 0) {
-        errorType = 'NETWORK_ERROR';
-        errorMessage = 'Erro de conectividade. Verifique sua conexão com a internet.';
-      } else if (httpError.status >= 500) {
-        errorType = 'NETWORK_ERROR';
-        errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
-      } else {
-        // For other HTTP errors, try to extract meaningful message
-        if (httpError.error?.message) {
-          if (httpError.error.message.includes('autenticidade')) {
-            errorType = 'AUTH_CODE_NOT_FOUND';
-            errorMessage = 'Código de autenticidade não encontrado no PDF.';
-          } else {
-            errorMessage = httpError.error.message;
-          }
+        } else if (error.status === 0 || error.status >= 500) {
+          errorType = 'NETWORK_ERROR';
         }
       }
 
-      // Handle cooldown errors differently - keep dialog open
       if (errorType === 'COOLDOWN_ACTIVE') {
         this.errorMessage.set(errorMessage);
-        return; // Don't close dialog, just show the error message
+        return;
       }
 
-      // Close dialog and let parent handle the error display via banner
       this.dialogRef.close({
         success: false,
         error: errorMessage,
-        errorType: errorType,
+        errorType,
       });
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private hasManualFallbackResponse(error: unknown): boolean {
+    if (!(error instanceof HttpErrorResponse)) return false;
+
+    const payload: unknown = error.error;
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'fallbackToManual' in payload &&
+      (payload as { fallbackToManual?: unknown }).fallbackToManual === true
+    );
+  }
+
+  private isCooldownMessage(message: string): boolean {
+    const normalizedMessage = message.toLocaleLowerCase();
+    return normalizedMessage.includes('aguarde') && normalizedMessage.includes('segundo');
   }
 
   private generateSessionId(): string {
@@ -347,16 +341,20 @@ export class UniversityValidationDialogComponent implements OnDestroy {
         this.captchaCode = ''; // Clear the input
         this.syncCooldownWithBackend(); // Update cooldown state
       },
-      error: (error) => {
+      error: (error: unknown) => {
         this.loading.set(false);
         this.logger.error('Error refreshing captcha', error, { operation: 'university-captcha' });
 
-        if (error.status === 400 && error.error?.message?.includes('Aguarde')) {
-          // Handle cooldown error
-          this.errorMessage.set(error.error.message);
+        const errorMessage = getApiErrorMessage(
+          error,
+          'Não foi possível atualizar o código de segurança. Tente novamente em alguns instantes.',
+        );
+
+        if (this.isCooldownMessage(errorMessage)) {
+          this.errorMessage.set(errorMessage);
           this.syncCooldownWithBackend();
         } else {
-          this.errorMessage.set('Erro ao atualizar captcha. Tente novamente.');
+          this.errorMessage.set(errorMessage);
         }
       },
     });
@@ -434,7 +432,11 @@ export class UniversityValidationDialogComponent implements OnDestroy {
           } else {
             // Non-captcha errors: close modal and show banner
             let errorType = 'GENERIC_ERROR';
-            if (result.message?.includes('matrícula não encontrada')) {
+            const message = result.message?.toLocaleLowerCase('pt-BR') ?? '';
+            if (
+              message.includes('matrícula não encontrada') ||
+              message.includes('registro acadêmico (ra) não encontrado')
+            ) {
               errorType = 'ENROLLMENT_NOT_FOUND';
             } else if (result.message?.includes('código de autenticidade')) {
               errorType = 'AUTH_CODE_NOT_FOUND';
@@ -450,24 +452,23 @@ export class UniversityValidationDialogComponent implements OnDestroy {
           }
         }
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.logger.error('Validation error', error, { operation: 'university-validation' });
         this.validating.set(false);
 
-        // Close dialog and show banner for network/server errors
-        const errorType = 'NETWORK_ERROR';
-        let errorMessage = 'Erro interno. Tente novamente.';
-
-        if (error.status === 0) {
-          errorMessage = 'Erro de conectividade. Verifique sua conexão com a internet.';
-        } else if (error.status >= 500) {
-          errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
-        }
+        const errorMessage = getApiErrorMessage(
+          error,
+          'Não foi possível validar o documento. Tente novamente em alguns instantes.',
+        );
+        const errorType =
+          error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500)
+            ? 'NETWORK_ERROR'
+            : 'GENERIC_ERROR';
 
         this.dialogRef.close({
           success: false,
           error: errorMessage,
-          errorType: errorType,
+          errorType,
         });
       },
     });

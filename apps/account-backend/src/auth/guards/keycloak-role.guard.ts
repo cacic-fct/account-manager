@@ -55,14 +55,16 @@ export class KeycloakRoleGuard implements CanActivate {
     ]);
 
     if (!config || config.roles.length === 0) {
-      throw new ForbiddenException('Required Keycloak roles are not configured');
+      throw new ForbiddenException(
+        'O acesso a esta ação ainda não foi configurado. Peça ao administrador do sistema para revisar as permissões.',
+      );
     }
 
     const request = context.switchToHttp().getRequest<Request & { session: AuthSession }>();
     const userId = request.session?.user?.keycloakId;
 
     if (!userId) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException('Entre na sua conta para continuar.');
     }
 
     let keycloakError: unknown;
@@ -116,14 +118,20 @@ export class KeycloakRoleGuard implements CanActivate {
       }
 
       this.logger.error('Database-backed permission verification failed', error);
-      throw new ForbiddenException('Unable to verify permissions');
+      throw new ForbiddenException(
+        'Não foi possível verificar suas permissões agora. Tente novamente em alguns instantes.',
+      );
     }
 
     if (keycloakError) {
-      throw new ForbiddenException('Unable to verify Keycloak roles');
+      throw new ForbiddenException(
+        'Não foi possível verificar suas permissões agora. Tente novamente em alguns instantes.',
+      );
     }
 
-    throw new ForbiddenException('Required permission missing');
+    throw new ForbiddenException(
+      'Sua conta não tem a permissão necessária para esta ação. Peça a um administrador para revisar seu acesso.',
+    );
   }
 
   private getDbBackedAccountManagerPermissions(roles: readonly string[]): string[] {

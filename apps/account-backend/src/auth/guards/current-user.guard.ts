@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -89,7 +90,12 @@ export class CurrentUserGuard implements CanActivate {
       }
 
       if (user.enabled === false) {
-        throw new ForbiddenException('Session user is disabled');
+        throw new ForbiddenException({
+          statusCode: 403,
+          error: 'Forbidden',
+          code: 'ACCOUNT_DISABLED',
+          message: 'Esta conta está desativada.',
+        });
       }
     } catch (error) {
       if (
@@ -101,7 +107,9 @@ export class CurrentUserGuard implements CanActivate {
       }
 
       this.logger.error('Failed to validate current user in Keycloak', error);
-      throw new ForbiddenException('Unable to validate current user');
+      throw new ServiceUnavailableException(
+        'Não foi possível validar a conta no serviço de autenticação. Tente novamente.',
+      );
     }
   }
 }

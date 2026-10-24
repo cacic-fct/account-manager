@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import type { Prisma, StudentVerificationDocument } from '@prisma/client';
 import type {} from 'multer';
 import { Readable } from 'stream';
@@ -349,7 +349,8 @@ describe('DocumentUploadService', () => {
   it('records an automated rejection when PDF authenticity verification fails', async () => {
     const { service, s3Service, tx, pdfProcessingService, pdfVerificationService } = createContext();
     const file = createFile();
-    const rejectionReason = 'Documento invalido ou expirado';
+    const rejectionReason = 'Documento inválido ou expirado. Envie um documento válido e dentro do prazo.';
+    const providerError = 'verification-provider.internal/private-endpoint';
     const savedDocument = createDocument({
       id: 'document-rejected',
       status: 'rejected',
@@ -365,7 +366,7 @@ describe('DocumentUploadService', () => {
       data: {
         isValid: false,
         authCode: 'AUTH-CODE',
-        error: rejectionReason,
+        error: providerError,
       },
     });
     tx.studentVerificationDocument.create.mockResolvedValue(savedDocument);
@@ -373,6 +374,8 @@ describe('DocumentUploadService', () => {
     const result = await service.uploadDocument(file, 'user-1');
 
     expect(result.status).toBe('rejected');
+    expect(result.message).toContain(rejectionReason);
+    expect(result.message).not.toContain(providerError);
 
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
     expect(createArgs.data.status).toBe('rejected');
@@ -501,7 +504,9 @@ describe('DocumentUploadService', () => {
 
     expect(result.status).toBe('rejected');
     const createArgs = tx.studentVerificationDocument.create.mock.calls[0][0] as DocumentCreateArgs;
-    expect(createArgs.data.rejectionReason).toBe('Documento inválido ou expirado');
+    expect(createArgs.data.rejectionReason).toBe(
+      'Documento inválido ou expirado. Envie um documento válido e dentro do prazo.',
+    );
   });
 
   it('accepts manual fallback text documents without PDF processing', async () => {
@@ -585,7 +590,9 @@ describe('DocumentUploadService', () => {
     });
     prisma.$transaction.mockRejectedValue(persistenceError);
 
-    await expect(service.uploadDocument(file, 'user-1')).rejects.toThrow(persistenceError);
+    await expect(service.uploadDocument(file, 'user-1')).rejects.toThrow(
+      'Não foi possível registrar o envio do documento. Confira o status antes de tentar novamente.',
+    );
 
     expect(s3Service.deleteFile).toHaveBeenCalledWith(s3Key);
   });
@@ -606,7 +613,9 @@ describe('DocumentUploadService', () => {
     });
     prisma.$transaction.mockRejectedValue(persistenceError);
 
-    await expect(service.uploadDocument(file, 'user-1')).rejects.toThrow(persistenceError);
+    await expect(service.uploadDocument(file, 'user-1')).rejects.toThrow(
+      'Não foi possível registrar o envio do documento. Confira o status antes de tentar novamente.',
+    );
 
     expect(s3Service.deleteFile).toHaveBeenCalledWith(s3Key);
   });
@@ -626,7 +635,7 @@ describe('DocumentUploadService', () => {
     });
     prisma.$transaction.mockRejectedValue('database unavailable');
 
-    await expect(service.uploadDocument(file, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.uploadDocument(file, 'user-1')).rejects.toBeInstanceOf(ServiceUnavailableException);
 
     expect(s3Service.deleteFile).toHaveBeenCalledWith(s3Key);
   });

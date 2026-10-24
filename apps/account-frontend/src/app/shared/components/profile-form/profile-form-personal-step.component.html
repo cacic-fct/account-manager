@@ -1,8 +1,19 @@
 <div class="step-content" [formGroup]="formGroup()">
+  @if (fullNameLocked() || identityDocumentLocked() || isUnespUser()) {
+    <div class="identity-notice">
+      <mat-icon aria-hidden="true">lock_outline</mat-icon>
+      <p>
+        Alguns dados de identificação ficam protegidos após o cadastro. Para corrigir um campo bloqueado, entre em
+        contato com o CACiC.
+      </p>
+    </div>
+  }
   <mat-form-field appearance="outline" class="full-width">
     <mat-label>Nome completo</mat-label>
-    <input matInput formControlName="fullname" required [readonly]="fullNameLocked()" [readonly]="isUnespUser()" />
-    <mat-icon matSuffix>person</mat-icon>
+    <input matInput formControlName="fullname" required [readonly]="fullNameLocked() || isUnespUser()" />
+    <mat-icon matSuffix aria-hidden="true">{{
+      fullNameLocked() || isUnespUser() ? 'lock_outline' : 'person'
+    }}</mat-icon>
 
     @if (hasError('fullname', 'required')) {
       <mat-error>Campo obrigatório</mat-error>
@@ -10,9 +21,7 @@
     @if (hasError('fullname', 'minlength')) {
       <mat-error>Precisa ter no mínimo 2 caracteres</mat-error>
     }
-    @if (fullNameLocked()) {
-      <mat-hint>Contate o CACiC para atualizar esse dado</mat-hint>
-    } @else {
+    @if (!fullNameLocked() && !isUnespUser()) {
       <mat-hint> Não será possível alterar seu nome completo após salvar. </mat-hint>
     }
   </mat-form-field>
@@ -21,8 +30,16 @@
     <mat-form-field appearance="outline" class="country-code-field">
       <mat-label>DDI</mat-label>
       <mat-select formControlName="countryCode">
+        <mat-select-trigger>
+          @if (selectedCountry(); as country) {
+            <span aria-hidden="true">{{ countryFlag(country.iso2) }}</span> {{ country.dialCode }}
+            <span class="sr-only">{{ country.label }}</span>
+          }
+        </mat-select-trigger>
         @for (option of countryCodeOptions(); track option.iso2) {
-          <mat-option [value]="option.iso2"> {{ option.label }} {{ option.dialCode }} </mat-option>
+          <mat-option [value]="option.iso2">
+            <span aria-hidden="true">{{ countryFlag(option.iso2) }}</span> {{ option.label }} {{ option.dialCode }}
+          </mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -64,23 +81,18 @@
   <mat-form-field appearance="outline" class="full-width">
     <mat-label>{{ getIdentityDocumentLabel() }}</mat-label>
     <input matInput formControlName="identityDocument" required [readonly]="identityDocumentLocked()" />
-    <mat-icon matSuffix>badge</mat-icon>
+    <mat-icon matSuffix aria-hidden="true">{{ identityDocumentLocked() ? 'lock_outline' : 'badge' }}</mat-icon>
     @if (hasError('identityDocument', 'required')) {
       <mat-error>Campo obrigatório</mat-error>
     }
     @if (hasError('identityDocument', 'invalidCPF')) {
       <mat-error>Insira um CPF válido</mat-error>
     }
-    @if (identityDocumentLocked()) {
-      <mat-hint>Contate o CACiC para atualizar esse dado</mat-hint>
-    }
   </mat-form-field>
 
   <div class="checkbox-container">
     <mat-checkbox formControlName="isForeigner">Não tenho CPF</mat-checkbox>
-    @if (identityDocumentLocked()) {
-      <div class="locked-field-message">Contate o CACiC para atualizar esse dado</div>
-    } @else {
+    @if (!identityDocumentLocked()) {
       <div class="locked-field-message">Não será possível alterar seu documento após salvar.</div>
     }
   </div>

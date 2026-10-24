@@ -1,11 +1,11 @@
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 import { KeycloakClientRoleNotFoundException } from '../../exceptions/keycloak-client-role-not-found.exception';
-import { KeycloakClient, KeycloakGroup, KeycloakRole, TokenResponse } from './keycloak.types';
+import { KeycloakClient, KeycloakGroup, KeycloakRole } from './keycloak.types';
 import { KeycloakLoginOperations } from './keycloak-login.operations';
 
 export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
   async getAdminToken(): Promise<string> {
-    const tokenUrl = `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/token`;
+    const tokenUrl = `${this.keycloakUrl}/realms/${encodeURIComponent(this.realm)}/protocol/openid-connect/token`;
 
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
@@ -45,7 +45,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
         throw new Error('Failed to get admin token');
       }
 
-      const data = (await response.json()) as TokenResponse;
+      const data = await this.readTokenResponse(response, ['access_token']);
       return data.access_token;
     } catch (error) {
       if (this.isConnectionError(error)) {
@@ -71,7 +71,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
 
     const roles = await Promise.all(
       normalizedRoleNames.map(async (roleName) => {
-        const roleUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles/${encodeURIComponent(
+        const roleUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/clients/${encodeURIComponent(clientUuid)}/roles/${encodeURIComponent(
           roleName,
         )}`;
 
@@ -113,7 +113,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
   async listClientRoles(clientId: string): Promise<KeycloakRole[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients/${clientUuid}/roles?briefRepresentation=false`;
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/clients/${encodeURIComponent(clientUuid)}/roles?briefRepresentation=false`;
 
     const response = await this.fetchWithTimeout(rolesUrl, {
       headers: {
@@ -153,7 +153,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
     }
 
     const token = adminToken ?? (await this.getAdminToken());
-    const clientsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients?clientId=${encodeURIComponent(
+    const clientsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/clients?clientId=${encodeURIComponent(
       normalizedClientId,
     )}`;
 
@@ -204,7 +204,7 @@ export abstract class KeycloakAdminOperations extends KeycloakLoginOperations {
       .map((segment) => encodeURIComponent(segment))
       .join('/');
 
-    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/group-by-path/${encodedPath}`;
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/group-by-path/${encodedPath}`;
 
     const response = await this.fetchWithTimeout(groupUrl, {
       headers: {

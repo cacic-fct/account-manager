@@ -1,5 +1,5 @@
 .role-selection-container {
-  max-width: 800px;
+  max-width: var(--app-content-narrow);
   margin: 0 auto;
   padding: 20px;
 }
@@ -160,6 +160,15 @@ mat-card-subtitle {
 .error-panel {
   background: var(--mat-sys-error-container);
   color: var(--mat-sys-on-error-container);
+}
+
+.inline-error {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-error span {
+  flex: 1 1 auto;
 }
 
 .success-panel {

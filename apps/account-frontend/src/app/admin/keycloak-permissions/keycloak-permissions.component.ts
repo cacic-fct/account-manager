@@ -29,6 +29,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { catchError, forkJoin, map, of } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 import {
   activeGroupPermissions,
   availableDirectPermissions,
@@ -45,6 +46,7 @@ import { KeycloakPermissionsPersonPickerComponent } from './keycloak-permissions
 type PermissionBatchApplyResult = {
   user: KeycloakPermissionUser;
   success: boolean;
+  error?: unknown;
 };
 
 @Component({
@@ -99,6 +101,10 @@ export class PermissionsComponent implements OnInit {
   protected userMemberships = signal<PermissionGroupMembership[]>([]);
   protected liveAccess = signal<KeycloakPermissionLiveAccess | null>(null);
   protected liveAccessFailed = signal(false);
+  protected liveAccessError = signal<string | null>(null);
+  protected userAccessError = signal<string | null>(null);
+  protected catalogError = signal<string | null>(null);
+  protected groupLoadError = signal<string | null>(null);
   protected loadingCatalog = signal(true);
   protected loadingGroup = signal(false);
   protected searching = signal(false);
@@ -183,6 +189,7 @@ export class PermissionsComponent implements OnInit {
     this.selectedGroupKey.set(groupKey);
     this.groupRoleGrants.set([]);
     this.groupMemberships.set([]);
+    this.groupLoadError.set(null);
     this.groupRolesForm.controls.permissions.setValue([]);
     this.loadGroup(groupKey);
   }
@@ -198,15 +205,18 @@ export class PermissionsComponent implements OnInit {
     }
 
     searching.set(true);
+    results.set([]);
     this.apiService.searchKeycloakPermissionUsers(query).subscribe({
       next: (users) => {
         results.set(users);
         searching.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao buscar pessoas no Keycloak.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(error, 'Não foi possível buscar pessoas no Keycloak. Tente novamente em instantes.'),
+          'Fechar',
+          { duration: 6000 },
+        );
         searching.set(false);
       },
     });
@@ -274,13 +284,15 @@ export class PermissionsComponent implements OnInit {
     this.userMemberships.set([]);
     this.liveAccess.set(null);
     this.liveAccessFailed.set(false);
+    this.liveAccessError.set(null);
+    this.userAccessError.set(null);
     this.resetDirectGrantForm();
     this.loadUserAccess(user.id);
   }
 
   protected saveGroupRoles(): void {
     const group = this.selectedGroup();
-    if (!group) {
+    if (!group || this.savingGroupRoles() || this.loadingGroup() || this.groupLoadError()) {
       return;
     }
 
@@ -301,16 +313,22 @@ export class PermissionsComponent implements OnInit {
         });
         this.savingGroupRoles.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         if (this.selectedGroupKey() !== groupKey) {
           this.savingGroupRoles.set(false);
           return;
         }
 
-        this.snackBar.open('Erro ao salvar permissões do grupo.', 'Fechar', {
-          duration: 5000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se as permissões do grupo foram atualizadas. O grupo será recarregado antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.savingGroupRoles.set(false);
+        this.loadGroup(groupKey);
       },
     });
   }
@@ -318,6 +336,10 @@ export class PermissionsComponent implements OnInit {
   protected saveMembership(): void {
     const group = this.selectedGroup();
     const users = this.selectedGroupUsers();
+    if (this.savingMembership() || this.loadingGroup() || this.groupLoadError()) {
+      return;
+    }
+
     if (!group || users.length === 0) {
       this.snackBar.open('Selecione um grupo e ao menos uma pessoa.', 'Fechar', {
         duration: 4000,
@@ -354,11 +376,16 @@ export class PermissionsComponent implements OnInit {
           })
           .pipe(
             map(() => ({ user, success: true }) satisfies PermissionBatchApplyResult),
-            catchError(() => of({ user, success: false } satisfies PermissionBatchApplyResult)),
+            catchError((error: unknown) => of({ user, success: false, error } satisfies PermissionBatchApplyResult)),
           ),
       ),
     ).subscribe((results) => {
-      this.showBatchApplyResult(results, 'Pessoa vinculada ao grupo.', 'pessoa(s) vinculada(s) ao grupo');
+      this.showBatchApplyResult(
+        results,
+        'Pessoa vinculada ao grupo.',
+        'pessoa(s) vinculada(s) ao grupo',
+        'Não foi possível verificar se todos os vínculos foram criados. Confira a lista atualizada antes de tentar novamente.',
+      );
       this.savingMembership.set(false);
       this.loadGroup(group.key);
 
@@ -371,6 +398,10 @@ export class PermissionsComponent implements OnInit {
 
   protected createDirectGrant(): void {
     const users = this.batchApplyUsers();
+    if (this.savingGrant() || this.loadingUserAccess() || this.userAccessError()) {
+      return;
+    }
+
     if (users.length === 0) {
       this.snackBar.open('Selecione ao menos uma pessoa.', 'Fechar', {
         duration: 4000,
@@ -407,14 +438,21 @@ export class PermissionsComponent implements OnInit {
             })
             .pipe(
               map(() => ({ user, success: true }) satisfies PermissionBatchApplyResult),
-              catchError(() => of({ user, success: false } satisfies PermissionBatchApplyResult)),
+              catchError((error: unknown) => of({ user, success: false, error } satisfies PermissionBatchApplyResult)),
             ),
         ),
       ),
     ).subscribe((results) => {
-      this.showBatchApplyResult(results, 'Permissão concedida.', 'permissão(ões) concedida(s)');
+      const allConfirmed = this.showBatchApplyResult(
+        results,
+        'Permissão concedida.',
+        'permissão(ões) concedida(s)',
+        'Não foi possível verificar se todas as permissões foram concedidas. Confira o acesso de cada pessoa antes de tentar novamente.',
+      );
       this.savingGrant.set(false);
-      this.resetDirectGrantForm();
+      if (allConfirmed) {
+        this.resetDirectGrantForm();
+      }
 
       const selectedUser = this.selectedUser();
       if (selectedUser) {
@@ -460,6 +498,10 @@ export class PermissionsComponent implements OnInit {
   }
 
   protected syncGrants(): void {
+    if (this.syncing()) {
+      return;
+    }
+
     this.syncing.set(true);
     this.apiService.syncKeycloakPermissionGrants().subscribe({
       next: () => {
@@ -468,10 +510,15 @@ export class PermissionsComponent implements OnInit {
         });
         this.syncing.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao agendar sincronização.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a sincronização foi agendada. Confira o status antes de agendar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.syncing.set(false);
       },
     });
@@ -479,9 +526,20 @@ export class PermissionsComponent implements OnInit {
 
   protected refreshCurrent(): void {
     this.loadCatalog();
+    const group = this.selectedGroup();
+    if (group) {
+      this.loadGroup(group.key);
+    }
     const user = this.selectedUser();
     if (user) {
       this.loadUserAccess(user.id);
+    }
+  }
+
+  protected retryLoadGroup(): void {
+    const groupKey = this.selectedGroupKey();
+    if (groupKey) {
+      this.loadGroup(groupKey);
     }
   }
 
@@ -515,6 +573,7 @@ export class PermissionsComponent implements OnInit {
 
   private loadCatalog(): void {
     this.loadingCatalog.set(this.catalog().length === 0);
+    this.catalogError.set(null);
     forkJoin({
       catalog: this.apiService.getKeycloakPermissionCatalog(),
       groups: this.apiService.getPermissionGroupCatalog(),
@@ -529,10 +588,13 @@ export class PermissionsComponent implements OnInit {
           this.loadGroup(group.key);
         }
       },
-      error: () => {
-        this.snackBar.open('Erro ao carregar catálogo de permissões.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.catalogError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar o catálogo de permissões. Atualize para tentar novamente.',
+          ),
+        );
         this.loadingCatalog.set(false);
       },
     });
@@ -540,6 +602,7 @@ export class PermissionsComponent implements OnInit {
 
   private loadGroup(groupKey: PermissionGroupKey): void {
     this.loadingGroup.set(true);
+    this.groupLoadError.set(null);
     forkJoin({
       roleGrants: this.apiService.getPermissionGroupRoleGrants(groupKey),
       memberships: this.apiService.getPermissionGroupMemberships(groupKey),
@@ -554,14 +617,14 @@ export class PermissionsComponent implements OnInit {
         this.groupRolesForm.controls.permissions.setValue(this.getSelectedGroupRolePermissions(groupKey, roleGrants));
         this.loadingGroup.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         if (this.selectedGroupKey() !== groupKey) {
           return;
         }
 
-        this.snackBar.open('Erro ao carregar grupo.', 'Fechar', {
-          duration: 5000,
-        });
+        this.groupLoadError.set(
+          getApiErrorMessage(error, 'Não foi possível carregar os dados deste grupo. Atualize antes de continuar.'),
+        );
         this.loadingGroup.set(false);
       },
     });
@@ -572,8 +635,19 @@ export class PermissionsComponent implements OnInit {
     this.loadingUserAccess.set(true);
     this.liveAccess.set(null);
     this.liveAccessFailed.set(false);
+    this.liveAccessError.set(null);
+    this.userAccessError.set(null);
     forkJoin({
-      liveAccess: this.apiService.getKeycloakPermissionLiveAccess(userId).pipe(catchError(() => of(null))),
+      liveAccess: this.apiService.getKeycloakPermissionLiveAccess(userId).pipe(
+        catchError((error: unknown) => {
+          if (this.selectedUser()?.id === userId && requestId === this.userAccessRequestId) {
+            this.liveAccessError.set(
+              getApiErrorMessage(error, 'Não foi possível consultar o acesso atual no Keycloak.'),
+            );
+          }
+          return of(null);
+        }),
+      ),
       grants: this.apiService.getKeycloakPermissionGrants(userId),
       memberships: this.apiService.getUserPermissionGroupMemberships(userId),
     }).subscribe({
@@ -588,14 +662,17 @@ export class PermissionsComponent implements OnInit {
         this.userMemberships.set(memberships);
         this.loadingUserAccess.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         if (this.selectedUser()?.id !== userId || requestId !== this.userAccessRequestId) {
           return;
         }
 
-        this.snackBar.open('Erro ao carregar permissões da pessoa.', 'Fechar', {
-          duration: 5000,
-        });
+        this.userAccessError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar as permissões desta pessoa. Atualize antes de continuar.',
+          ),
+        );
         this.loadingUserAccess.set(false);
       },
     });
@@ -608,6 +685,8 @@ export class PermissionsComponent implements OnInit {
     this.userMemberships.set([]);
     this.liveAccess.set(null);
     this.liveAccessFailed.set(false);
+    this.liveAccessError.set(null);
+    this.userAccessError.set(null);
     this.resetDirectGrantForm();
     this.loadingUserAccess.set(false);
   }
@@ -616,7 +695,8 @@ export class PermissionsComponent implements OnInit {
     results: PermissionBatchApplyResult[],
     singleSuccessMessage: string,
     batchSuccessLabel: string,
-  ): void {
+    failureFallback: string,
+  ): boolean {
     const successCount = results.filter((result) => result.success).length;
     const failedCount = results.length - successCount;
 
@@ -624,26 +704,42 @@ export class PermissionsComponent implements OnInit {
       this.snackBar.open(singleSuccessMessage, 'Fechar', {
         duration: 4000,
       });
-      return;
+      return true;
     }
 
     if (failedCount === 0) {
       this.snackBar.open(`${successCount} ${batchSuccessLabel}.`, 'Fechar', {
         duration: 4000,
       });
-      return;
+      return true;
     }
 
-    if (successCount === 0) {
-      this.snackBar.open('Não foi possível aplicar a permissão para as pessoas selecionadas.', 'Fechar', {
-        duration: 6000,
-      });
-      return;
-    }
+    const confirmedChanges =
+      successCount === 0
+        ? ''
+        : successCount === 1
+          ? '1 alteração foi confirmada. '
+          : `${successCount} alterações foram confirmadas. `;
+    const unconfirmedChanges =
+      failedCount === 1
+        ? '1 alteração ainda está sem confirmação.'
+        : `${failedCount} alterações ainda estão sem confirmação.`;
+    const details = [
+      ...new Set(
+        results
+          .filter((result) => !result.success)
+          .map((result) => {
+            const message = getApiErrorMessage(result.error, failureFallback);
+            return message.startsWith(failureFallback) ? message.slice(failureFallback.length).trim() : message;
+          })
+          .filter((message) => message.length > 0),
+      ),
+    ].slice(0, 2);
+    const message =
+      `${confirmedChanges}${unconfirmedChanges} Confira o estado atualizado de cada pessoa antes de tentar novamente. ${details.join(' ')}`.trim();
 
-    this.snackBar.open(`${successCount} aplicada(s), ${failedCount} falha(s). Revise vínculos duplicados.`, 'Fechar', {
-      duration: 6000,
-    });
+    this.snackBar.open(message, 'Fechar', { duration: 10000 });
+    return false;
   }
 
   private deleteGrant(grantId: string): void {
@@ -656,11 +752,20 @@ export class PermissionsComponent implements OnInit {
         }
         this.deletingId.set(null);
       },
-      error: () => {
-        this.snackBar.open('Erro ao remover permissão.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a permissão foi removida. Os dados serão atualizados; confira antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.deletingId.set(null);
+        const user = this.selectedUser();
+        if (user) {
+          this.loadUserAccess(user.id);
+        }
       },
     });
   }
@@ -679,11 +784,24 @@ export class PermissionsComponent implements OnInit {
         }
         this.deletingMembershipId.set(null);
       },
-      error: () => {
-        this.snackBar.open('Erro ao remover vínculo.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se o vínculo foi removido. Os dados serão atualizados; confira antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.deletingMembershipId.set(null);
+        const group = this.selectedGroup();
+        if (group) {
+          this.loadGroup(group.key);
+        }
+        const user = this.selectedUser();
+        if (user) {
+          this.loadUserAccess(user.id);
+        }
       },
     });
   }

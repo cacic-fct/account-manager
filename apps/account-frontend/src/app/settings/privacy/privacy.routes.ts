@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 export const privacyRoutes: Routes = [
   {
     path: '',
+    pathMatch: 'full',
     loadComponent: () => import('./privacy.component').then((m) => m.PrivacyComponent),
   },
   {

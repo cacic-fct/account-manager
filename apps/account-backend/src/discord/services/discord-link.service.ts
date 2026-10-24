@@ -12,6 +12,12 @@ import { DiscordRoleService } from './discord-role.service';
 import { DiscordSettingsService } from './discord-settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+export class DiscordAccountAlreadyLinkedException extends BadRequestException {
+  constructor() {
+    super('Esta conta do Discord não pode ser vinculada. Use outra conta ou fale com o suporte.');
+  }
+}
+
 @Injectable()
 export class DiscordLinkService {
   private readonly logger = new Logger(DiscordLinkService.name);
@@ -33,7 +39,7 @@ export class DiscordLinkService {
     });
 
     if (existingActiveLink && existingActiveLink.userId !== userId) {
-      throw new BadRequestException('This Discord account is already linked to another user');
+      throw new DiscordAccountAlreadyLinkedException();
     }
 
     const existingSoftDeletedLink = await this.prisma.discordLink.findFirst({
@@ -80,7 +86,7 @@ export class DiscordLinkService {
     } catch (error) {
       this.logger.error('Failed to assign Discord role', error);
       throw new ServiceUnavailableException(
-        'Discord account was linked, but managed roles are still pending. Retry to complete linking.',
+        'A conta do Discord foi vinculada, mas os cargos não foram atualizados. Tente novamente em alguns minutos.',
       );
     }
 
@@ -116,7 +122,7 @@ export class DiscordLinkService {
     });
 
     if (!discordLink) {
-      throw new NotFoundException('No Discord link found for this user');
+      throw new NotFoundException('Conta do Discord não encontrada ou já desvinculada.');
     }
 
     try {
@@ -127,7 +133,7 @@ export class DiscordLinkService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw new ServiceUnavailableException(
-        'Discord roles could not be removed. The account remains linked so cleanup can be retried safely.',
+        'Não foi possível remover os cargos do Discord. A conta continua vinculada; tente novamente em alguns minutos.',
       );
     }
 
@@ -160,7 +166,7 @@ export class DiscordLinkService {
     });
 
     if (!discordLink) {
-      throw new NotFoundException('No deleted Discord link found with this ID');
+      throw new NotFoundException('Vínculo do Discord não encontrado.');
     }
 
     const existingActiveLink = await this.prisma.discordLink.findFirst({
@@ -168,7 +174,7 @@ export class DiscordLinkService {
     });
 
     if (existingActiveLink) {
-      throw new BadRequestException('This Discord account is currently linked to another user');
+      throw new BadRequestException('Esta conta do Discord já está vinculada. Use outra conta.');
     }
 
     const restoredLink = await this.prisma.discordLink.update({

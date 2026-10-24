@@ -1,6 +1,5 @@
-.settings-container {
-  margin: 0 auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
+@use '../../shared/components/settings-navigation/navigation-page';
+.header-content,
+.navigation-page {
+  max-width: var(--app-content-narrow);
 }

@@ -171,7 +171,7 @@ export class AdminAccountMergeController {
   private getSessionUserId(session: AuthSession): string {
     const keycloakId = session.user?.keycloakId;
     if (!keycloakId) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Sua sessão expirou. Entre novamente para continuar.');
     }
 
     return keycloakId;

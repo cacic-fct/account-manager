@@ -45,11 +45,10 @@ export abstract class KeycloakUnespRoleVerificationOperations extends KeycloakAp
       timestamp: new Date().toISOString(),
     });
 
-    await this.setUnespRoleVerified(userId, true);
-
     await this.updateUserAttributes(
       userId,
       {
+        unespRoleVerified: ['true'],
         unespRoleVerificationMethod: [verificationMethod],
         unespRoleVerifiedBy: [verifiedBy],
         unespRoleVerificationDate: [new Date().toISOString()],

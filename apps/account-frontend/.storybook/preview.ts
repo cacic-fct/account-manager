@@ -1,3 +1,5 @@
+import { provideAppInitializer } from '@angular/core';
+import { initializeMaterialSymbols } from '../src/app/shared/utils/material-symbols';
 import type { Preview } from '@storybook/angular';
 import { applicationConfig } from '@storybook/angular';
 import { withThemeByClassName } from '@storybook/addon-themes';
@@ -17,6 +19,7 @@ const preview: Preview = {
   decorators: [
     applicationConfig({
       providers: [
+        provideAppInitializer(initializeMaterialSymbols),
         { provide: APP_BASE_HREF, useValue: '/' },
         provideRouter([]),
         provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, csrfInterceptor])),

@@ -12,6 +12,7 @@ import { AuthService } from '../../../shared/services/auth/auth.service';
 import { LgpdConfirmDialogComponent } from './lgpd-confirm-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
 import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 type LgpdRequestStatus = LgpdRequest['status'];
 
@@ -52,6 +53,7 @@ export class LgpdComponent implements OnInit {
 
   protected isLoading = signal(false);
   protected hasLoadError = signal(false);
+  protected loadErrorMessage = signal('');
   protected isCreatingRequest = signal(false);
   protected isDeletingAccount = signal(false);
   protected requests = signal<LgpdRequest[]>([]);
@@ -84,14 +86,21 @@ export class LgpdComponent implements OnInit {
   protected loadRequests(): void {
     this.isLoading.set(true);
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
     this.apiService.getLgpdRequests().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
-      error: () => {
+      error: (error) => {
         this.hasLoadError.set(true);
-        this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
+        this.loadErrorMessage.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar suas solicitações de dados. Atualize a lista para tentar novamente.',
+          ),
+        );
+        this.snackBar.open(this.loadErrorMessage(), 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
         });
@@ -103,14 +112,21 @@ export class LgpdComponent implements OnInit {
   protected refreshRequests(): void {
     this.isLoading.set(true);
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
     this.apiService.getLgpdRequestsFresh().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.isLoading.set(false);
       },
-      error: () => {
+      error: (error) => {
         this.hasLoadError.set(true);
-        this.snackBar.open('Erro ao carregar solicitações', 'Fechar', {
+        this.loadErrorMessage.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível atualizar suas solicitações de dados. Tente novamente em alguns instantes.',
+          ),
+        );
+        this.snackBar.open(this.loadErrorMessage(), 'Fechar', {
           duration: 5000,
           panelClass: ['error-snackbar'],
         });
@@ -144,7 +160,10 @@ export class LgpdComponent implements OnInit {
         this.isCreatingRequest.set(false);
       },
       error: (error) => {
-        const errorMessage = this.getApiErrorMessage(error, 'Erro ao criar solicitação. Tente novamente mais tarde.');
+        const errorMessage = getApiErrorMessage(
+          error,
+          'Não foi possível solicitar a cópia dos seus dados. Atualize a lista para ver se o pedido foi registrado.',
+        );
 
         this.snackBar.open(errorMessage, 'Fechar', {
           duration: 8000,
@@ -245,22 +264,15 @@ export class LgpdComponent implements OnInit {
       },
       error: (error) => {
         this.snackBar.open(
-          this.getApiErrorMessage(error, 'Erro ao solicitar exclusão da conta. Tente novamente.'),
+          getApiErrorMessage(
+            error,
+            'Não foi possível confirmar o pedido de exclusão. Entre em contato com o suporte para verificar se ele foi registrado.',
+          ),
           'Fechar',
           { duration: 5000 },
         );
         this.isDeletingAccount.set(false);
       },
     });
-  }
-
-  private getApiErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error !== 'object' || error === null || !('error' in error)) {
-      return fallback;
-    }
-
-    const body = (error as { error?: { message?: unknown } }).error;
-
-    return typeof body?.message === 'string' ? body.message : fallback;
   }
 }

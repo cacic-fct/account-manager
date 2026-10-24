@@ -6,6 +6,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of, throwError } from 'rxjs';
 import { LoginComponent } from './login.component';
 import { AuthService } from '../shared/services/auth/auth.service';
+import { HttpErrorResponse } from '@angular/common/http';
 
 type LoginComponentTestApi = {
   form: FormGroup;
@@ -98,7 +99,7 @@ describe('LoginComponent', () => {
 
   it('shows the Portuguese invalid-credentials message when password login fails', async () => {
     await setup();
-    authService.passwordLogin.mockReturnValue(throwError(() => new Error('Invalid email or password')));
+    authService.passwordLogin.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
     const component = fixture.componentInstance as unknown as LoginComponentTestApi;
 
     component.form.setValue({
@@ -108,7 +109,28 @@ describe('LoginComponent', () => {
     component.submit();
 
     expect(component.isSubmitting()).toBe(false);
-    expect(component.errorMessage()).toBe('E-mail ou senha inválidos.');
+    expect(component.errorMessage()).toBe('E-mail ou senha inválidos. Confira os dados e tente novamente.');
+  });
+
+  it('does not blame credentials or display provider details when the login service fails', async () => {
+    await setup();
+    authService.passwordLogin.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 503,
+            error: { message: 'private identity provider diagnostics' },
+          }),
+      ),
+    );
+    const component = fixture.componentInstance as unknown as LoginComponentTestApi;
+    component.form.setValue({ email: 'aluno@unesp.br', password: 'password' });
+    component.submit();
+
+    expect(component.isSubmitting()).toBe(false);
+    expect(component.errorMessage()).toContain('use Entrar com SSO');
+    expect(component.errorMessage()).not.toContain('inválidos');
+    expect(component.errorMessage()).not.toContain('private');
   });
 
   it('passes the return target to SSO login', async () => {

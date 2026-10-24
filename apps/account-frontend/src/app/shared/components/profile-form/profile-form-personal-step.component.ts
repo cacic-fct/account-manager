@@ -13,11 +13,6 @@ interface CountryCodeOptionView {
   dialCode: string;
 }
 
-interface CountryOptionView {
-  iso2: string;
-  label: string;
-}
-
 @Component({
   selector: 'app-profile-form-personal-step',
   imports: [
@@ -48,6 +43,19 @@ export class ProfileFormPersonalStepComponent {
       }))
       .filter((option) => option.iso2 !== 'BR');
   });
+
+  countryFlag(iso2: string): string {
+    return String.fromCodePoint(
+      ...iso2
+        .toUpperCase()
+        .split('')
+        .map((letter) => 127397 + letter.charCodeAt(0)),
+    );
+  }
+
+  selectedCountry() {
+    return this.countryCodeOptions().find((option) => option.iso2 === this.formGroup().get('countryCode')?.value);
+  }
 
   phoneInput = output<void>();
   phoneBlur = output<void>();

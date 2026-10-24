@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -19,6 +18,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { UniversityValidationDialogComponent } from '../../university-validation-dialog/university-validation-dialog.component';
 import { environment } from '../../../environments/environment';
 import { TransientBannerController } from '../../shared/ui/transient-banner.controller';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
+import { LoggerService } from '../../shared/services/logger.service';
 
 @Component({
   selector: 'app-student-verification',
@@ -41,10 +42,13 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
   private studentVerificationService = inject(StudentVerificationService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private logger = inject(LoggerService);
 
   selectedFile = signal<File | null>(null);
   uploading = signal(false);
   verificationStatus = signal<VerificationStatus | null>(null);
+  hasStatusLoadError = signal(false);
+  statusLoadErrorMessage = signal('');
   verificationNotRequired = computed(() => this.verificationStatus()?.status === 'not_required');
 
   // Development mode properties
@@ -76,15 +80,33 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadVerificationStatus();
+  }
+
+  loadVerificationStatus(): void {
+    this.hasStatusLoadError.set(false);
+    this.statusLoadErrorMessage.set('');
     this.studentVerificationService.getVerificationStatus().subscribe({
       next: (status) => {
         this.verificationStatus.set(status);
+        this.hasStatusLoadError.set(false);
+        this.statusLoadErrorMessage.set('');
         if (status.status === 'not_required') {
           this.showInfoBanner(
             'Verificação dispensada',
             'A verificação de estudantes da graduação está temporariamente desativada.',
           );
         }
+      },
+      error: (error: unknown) => {
+        this.logger.error('Error loading student verification status', error, { operation: 'student-verification' });
+        this.hasStatusLoadError.set(true);
+        this.statusLoadErrorMessage.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível consultar sua verificação de estudante. Tente novamente antes de enviar um documento.',
+          ),
+        );
       },
     });
   }
@@ -168,11 +190,13 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
           duration: 5000,
         });
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.uploading.set(false);
-        this.snackBar.open(error.error?.message || 'Erro ao enviar documento. Tente novamente.', 'Fechar', {
-          duration: 5000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(error, 'Não foi possível enviar seu documento. Confira o arquivo e tente novamente.'),
+          'Fechar',
+          { duration: 5000 },
+        );
       },
     });
   }
@@ -192,6 +216,11 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
   }
 
   openUniversityValidation(): void {
+    if (this.hasStatusLoadError()) {
+      this.showErrorBanner('Não foi possível confirmar sua situação', this.statusLoadErrorMessage());
+      return;
+    }
+
     if (this.verificationNotRequired()) {
       this.showInfoBanner(
         'Verificação dispensada',
@@ -249,7 +278,7 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
     } else if (errorType === 'PDF_PROCESSING_ERROR') {
       this.showErrorBanner(
         'Erro no processamento do PDF',
-        'Não foi possível processar o arquivo PDF. Verifique se o arquivo é válido e não está corrompido.',
+        error || 'Não foi possível processar o arquivo PDF. Verifique se o arquivo é válido e não está corrompido.',
       );
     } else if (errorType === 'AUTH_CODE_NOT_FOUND') {
       this.showErrorBanner(
@@ -258,8 +287,8 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
       );
     } else if (errorType === 'NETWORK_ERROR') {
       this.showWarningBanner(
-        'Ocorreu um erro',
-        'Problema com o servidor do CACiC. Tente novamente em alguns minutos ou entre em contato.',
+        'Não foi possível concluir a validação',
+        error || 'Tente validar o documento novamente em alguns instantes.',
       );
     } else if (errorType === 'UNESP_NETWORK_ERROR') {
       this.showWarningBanner(
@@ -268,8 +297,8 @@ export class StudentVerificationComponent implements OnInit, OnDestroy {
       );
     } else if (errorType === 'ENROLLMENT_NOT_FOUND') {
       this.showErrorBanner(
-        'Matrícula não encontrada',
-        'O número de matrícula não foi encontrado no sistema da universidade.',
+        'Registro acadêmico (RA) não encontrado',
+        'Seu RA não foi encontrado no sistema da universidade.',
       );
     } else if (errorType === 'INVALID_DOCUMENT') {
       this.showErrorBanner('Documento inválido', 'O documento não confere com os dados cadastrados.');

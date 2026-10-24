@@ -5,7 +5,7 @@ import { StudentVerificationCardComponent } from './student-verification-card.co
 import { StudentVerificationService } from '../../../shared/services/student-verification/student-verification.service';
 
 describe('StudentVerificationCardComponent inline upload', () => {
-  const result = new Subject<{ success?: boolean }>();
+  const result = new Subject<{ success?: boolean; error?: string; errorType?: string }>();
   const dialog = { open: vi.fn(() => ({ afterClosed: () => result })) };
 
   beforeEach(async () => {
@@ -52,6 +52,24 @@ describe('StudentVerificationCardComponent inline upload', () => {
     input.dispatchEvent(new Event('change'));
     expect(dialog.open).not.toHaveBeenCalled();
     expect(fixture.componentInstance.currentBanner()?.title).toBe('Formato inválido');
+    fixture.destroy();
+  });
+
+  it('preserves validation recovery guidance instead of blaming the connection for a server failure', () => {
+    const fixture = TestBed.createComponent(StudentVerificationCardComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.selectedFile.set(new File(['PDF'], 'matricula.pdf', { type: 'application/pdf' }));
+    fixture.componentInstance.startValidation();
+    result.next({
+      success: false,
+      errorType: 'NETWORK_ERROR',
+      error: 'A validação está indisponível. Tente novamente em alguns instantes.',
+    });
+
+    expect(fixture.componentInstance.currentBanner()?.message).toBe(
+      'A validação está indisponível. Tente novamente em alguns instantes.',
+    );
+    expect(fixture.componentInstance.uploading()).toBe(false);
     fixture.destroy();
   });
 });

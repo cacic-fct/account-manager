@@ -11,6 +11,7 @@ import { catchError, EMPTY, merge, startWith, Subject, switchMap, tap } from 'rx
 import { ApiService, DiscordLinkStatus } from '../../../shared/services/api.service';
 import { AccountEventsService } from '../../../shared/services/account-events.service';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-discord-integration-card',
@@ -59,7 +60,7 @@ import { LoggerService } from '../../../shared/services/logger.service';
           </div>
         }
         @if (hasLoadError()) {
-          <p role="alert">Não foi possível consultar sua conexão com o Discord.</p>
+          <p role="alert">{{ loadErrorMessage() }}</p>
         } @else if (discordStatus(); as status) {
           @if (status.isLinked) {
             <p>Acesse o servidor do CACiC e escolha quais notificações receber.</p>
@@ -210,6 +211,7 @@ export class DiscordIntegrationCardComponent implements OnInit {
   private readonly refreshRequested = new Subject<void>();
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);
+  readonly loadErrorMessage = signal('');
   readonly discordStatus = signal<DiscordLinkStatus | null>(null);
 
   ngOnInit(): void {
@@ -219,6 +221,7 @@ export class DiscordIntegrationCardComponent implements OnInit {
         tap(() => {
           this.isLoading.set(true);
           this.hasLoadError.set(false);
+          this.loadErrorMessage.set('');
         }),
         switchMap(() =>
           this.apiService.getDiscordLinkStatusFresh().pipe(
@@ -226,6 +229,9 @@ export class DiscordIntegrationCardComponent implements OnInit {
               this.logger.error('Error loading Discord status', error, { operation: 'discord-status' });
               this.hasLoadError.set(true);
               this.isLoading.set(false);
+              this.loadErrorMessage.set(
+                getApiErrorMessage(error, 'Não foi possível consultar sua conexão com o Discord. Tente novamente.'),
+              );
               return EMPTY;
             }),
           ),
@@ -235,6 +241,7 @@ export class DiscordIntegrationCardComponent implements OnInit {
       .subscribe((status) => {
         this.discordStatus.set(status);
         this.isLoading.set(false);
+        this.loadErrorMessage.set('');
       });
   }
 

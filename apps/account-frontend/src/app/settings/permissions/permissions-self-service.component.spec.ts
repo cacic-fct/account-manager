@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AccountManagerPermission, type KeycloakPermissionGrant } from '@cacic/shared-types';
@@ -70,6 +71,18 @@ describe('PermissionsSelfServiceComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Grupos');
     expect(fixture.nativeElement.textContent).toContain('CACiC');
     expect(fixture.nativeElement.textContent).toContain('Permissões diretas');
+  });
+
+  it('shows a retryable error instead of reporting that no permissions exist', () => {
+    apiService.getSelfServicePermissions.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+
+    const refreshButton = fixture.nativeElement.querySelector('[aria-label="Atualizar"]') as HTMLButtonElement;
+    refreshButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar suas permissões');
+    expect(fixture.nativeElement.textContent).toContain('Atualizar permissões');
+    expect(fixture.nativeElement.textContent).not.toContain('Nenhuma permissão ativa');
   });
 
   it('confirms and removes a direct grant', () => {

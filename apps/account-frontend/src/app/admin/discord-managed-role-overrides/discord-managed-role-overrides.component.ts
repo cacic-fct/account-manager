@@ -24,6 +24,7 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 import { formatLocalizedDate } from '../../shared/utils/date-fns';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
 @Component({
@@ -59,6 +60,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   protected selectedUser = signal<KeycloakPermissionUser | null>(null);
   protected editingOverride = signal<DiscordManagedRoleOverride | null>(null);
   protected loading = signal(true);
+  protected loadError = signal<string | null>(null);
   protected searching = signal(false);
   protected saving = signal(false);
   protected deletingId = signal<string | null>(null);
@@ -84,7 +86,7 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
   }
 
   protected refresh(): void {
-    this.loadPanel();
+    this.loadPanel(this.loadError() !== null);
   }
 
   protected searchUsers(): void {
@@ -95,15 +97,18 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     }
 
     this.searching.set(true);
+    this.users.set([]);
     this.apiService.searchKeycloakPermissionUsers(query).subscribe({
       next: (users) => {
         this.users.set(users);
         this.searching.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao buscar pessoas no Keycloak.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(error, 'Não foi possível buscar pessoas no Keycloak. Tente novamente em instantes.'),
+          'Fechar',
+          { duration: 6000 },
+        );
         this.searching.set(false);
       },
     });
@@ -188,11 +193,17 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
         });
         this.saving.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao salvar exceção de cargo.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a exceção foi salva. A lista será atualizada antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.saving.set(false);
+        this.loadPanel(true);
       },
     });
   }
@@ -234,8 +245,9 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
     return formatLocalizedDate(value, 'Pp');
   }
 
-  private loadPanel(): void {
+  private loadPanel(reconcileEditing = false): void {
     this.loading.set(true);
+    this.loadError.set(null);
     forkJoin({
       catalog: this.apiService.getDiscordManagedRoleCatalog(),
       overrides: this.apiService.getDiscordManagedRoleOverrides(),
@@ -243,15 +255,41 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
       next: ({ catalog, overrides }) => {
         this.catalog.set(catalog);
         this.overrides.set(overrides);
-        this.overrideForm.controls.roleCategory.setValue(
-          this.editingOverride()?.roleCategory ?? catalog[0]?.category ?? '',
-        );
+        if (reconcileEditing) {
+          const currentEdit = this.editingOverride();
+          const currentUser = this.selectedUser();
+          const refreshedOverride = currentEdit
+            ? (overrides.find((override) => override.id === currentEdit.id) ?? null)
+            : currentUser
+              ? (overrides.find((override) => override.userId === currentUser.id) ?? null)
+              : null;
+
+          if (refreshedOverride) {
+            this.editingOverride.set(refreshedOverride);
+            this.selectedUser.set({
+              id: refreshedOverride.userId,
+              email: refreshedOverride.userEmail ?? '',
+              displayName: refreshedOverride.userDisplayName ?? refreshedOverride.userId,
+            });
+            this.patchForm(refreshedOverride);
+          } else if (currentEdit) {
+            this.editingOverride.set(null);
+            this.patchForm(null);
+          }
+        } else {
+          this.overrideForm.controls.roleCategory.setValue(
+            this.editingOverride()?.roleCategory ?? catalog[0]?.category ?? '',
+          );
+        }
         this.loading.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao carregar exceções do Discord.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.loadError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar o catálogo e as exceções do Discord. Atualize para tentar novamente.',
+          ),
+        );
         this.loading.set(false);
       },
     });
@@ -282,11 +320,17 @@ export class DiscordManagedRoleOverridesComponent implements OnInit {
         });
         this.deletingId.set(null);
       },
-      error: () => {
-        this.snackBar.open('Erro ao remover exceção.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a exceção foi removida. A lista será atualizada antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.deletingId.set(null);
+        this.loadPanel(true);
       },
     });
   }

@@ -1,6 +1,13 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  HttpException,
+  HttpStatus,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { DiscordRoleSetting } from '@prisma/client';
-import { Client, Role, GuildMember } from 'discord.js';
+import { Client, Guild, GuildMember, Role } from 'discord.js';
 import {
   DiscordRoleDto,
   SelectableRolesDto,
@@ -68,7 +75,7 @@ export class DiscordRoleManagementService {
     try {
       const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
       if (!guild) {
-        throw new HttpException('Guild not found', HttpStatus.NOT_FOUND);
+        throw new HttpException('Servidor do Discord não encontrado.', HttpStatus.NOT_FOUND);
       }
 
       const roles = await withDiscordTimeout(guild.roles.fetch());
@@ -159,7 +166,10 @@ export class DiscordRoleManagementService {
     });
 
     if (invalidRoleNames.length > 0) {
-      throw new HttpException(`Some roles are not selectable: ${invalidRoleNames.join(', ')}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `Alguns cargos não estão disponíveis para seleção: ${invalidRoleNames.join(', ')}. Atualize a lista e tente novamente.`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     await this.prisma.$transaction(async (transaction) => {
@@ -192,20 +202,31 @@ export class DiscordRoleManagementService {
       });
 
       if (!discordLink) {
-        throw new HttpException('Discord account not linked', HttpStatus.BAD_REQUEST);
+        throw new BadRequestException('Vincule sua conta do Discord antes de gerenciar seus cargos.');
       }
 
       const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
 
       if (!guild) {
-        throw new HttpException('Discord guild not found', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new ServiceUnavailableException(
+          'Não foi possível acessar o servidor do Discord agora. Tente novamente em alguns minutos.',
+        );
       }
 
       let member: GuildMember;
       try {
         member = await withDiscordTimeout(guild.members.fetch(discordLink.discordId));
-      } catch {
-        throw new HttpException('User not found in Discord server. Please rejoin the server.', HttpStatus.BAD_REQUEST);
+      } catch (error) {
+        if (this.isUnknownDiscordMemberError(error)) {
+          throw new BadRequestException(
+            'Sua conta não está no servidor do Discord. Entre no servidor e tente novamente.',
+          );
+        }
+
+        this.logger.error('Failed to fetch the linked Discord server member', error);
+        throw new ServiceUnavailableException(
+          'Não foi possível consultar sua participação no servidor do Discord. Tente novamente em alguns minutos.',
+        );
       }
 
       const roleIds = Array.from(member.roles.cache.keys());
@@ -227,7 +248,9 @@ export class DiscordRoleManagementService {
       }
 
       this.logger.error(`Error getting user roles for userId ${userId}:`, error);
-      throw new HttpException('Failed to fetch user Discord roles', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar seus cargos do Discord. Tente novamente em alguns minutos.',
+      );
     }
   }
 
@@ -242,7 +265,7 @@ export class DiscordRoleManagementService {
     });
 
     if (!discordLink) {
-      throw new HttpException('Discord account not linked', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('Vincule sua conta do Discord antes de gerenciar seus cargos.');
     }
 
     const selectableRoles = await this.prisma.discordRoleSetting.findMany({
@@ -258,11 +281,34 @@ export class DiscordRoleManagementService {
     });
 
     if (selectableRoles.length !== dto.selectedRoleIds.length) {
-      throw new HttpException('Some roles are not selectable', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('Um ou mais cargos não estão disponíveis. Atualize a lista e tente novamente.');
     }
 
-    const guild = await withDiscordTimeout(client.guilds.fetch(guildId));
-    const member = await withDiscordTimeout(guild.members.fetch(discordLink.discordId));
+    let guild: Guild;
+    try {
+      guild = await withDiscordTimeout(client.guilds.fetch(guildId));
+    } catch (error) {
+      this.logger.error('Failed to access the Discord server for a role update', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível acessar o servidor do Discord agora. Tente novamente em alguns minutos.',
+      );
+    }
+
+    let member: GuildMember;
+    try {
+      member = await withDiscordTimeout(guild.members.fetch(discordLink.discordId));
+    } catch (error) {
+      if (this.isUnknownDiscordMemberError(error)) {
+        throw new BadRequestException(
+          'Sua conta não está no servidor do Discord. Entre no servidor e tente novamente.',
+        );
+      }
+
+      this.logger.error('Failed to fetch the linked Discord server member for a role update', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar sua participação no servidor do Discord. Tente novamente em alguns minutos.',
+      );
+    }
 
     const allSelectableRoles = await this.prisma.discordRoleSetting.findMany({
       where: {
@@ -304,7 +350,7 @@ export class DiscordRoleManagementService {
     if (failedRoleIds.length > 0) {
       throw new HttpException(
         {
-          message: 'Discord role update completed only partially.',
+          message: 'Alguns cargos foram atualizados e outros não. Atualize a lista para conferir o estado atual.',
           failedRoleIds,
         },
         HttpStatus.BAD_GATEWAY,
@@ -317,7 +363,7 @@ export class DiscordRoleManagementService {
     this.logger.debug(`Updated roles for user ${userId}: +${rolesToAdd.length} -${rolesToRemove.length}`);
 
     return {
-      message: 'Roles updated successfully',
+      message: 'Cargos atualizados com sucesso.',
       updatedRoles: updatedRoles.map(this.mapToRoleDto),
     };
   }
@@ -376,5 +422,13 @@ export class DiscordRoleManagementService {
 
   private getAutomatedRoleIds(): string[] {
     return [...DISCORD_AUTOMATED_ROLE_IDS, ...PERMISSION_GROUP_DISCORD_ROLE_IDS];
+  }
+
+  private isUnknownDiscordMemberError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null || !('code' in error)) {
+      return false;
+    }
+
+    return error.code === 10007 || error.code === '10007';
   }
 }

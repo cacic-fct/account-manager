@@ -18,6 +18,7 @@ import { RejectDocumentDialogComponent } from './reject-document-dialog.componen
 import { environment } from '../../../environments/environment';
 import { LoggerService } from '../../shared/services/logger.service';
 import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-admin-student-verification',
@@ -46,6 +47,7 @@ export class AdminStudentVerificationComponent implements OnInit {
 
   documents = signal<StudentDocument[]>([]);
   loading = signal(true);
+  loadError = signal<string | null>(null);
 
   displayedColumns: string[] = ['fullName', 'email', 'fileName', 'authCode', 'submissionDate', 'status', 'actions'];
 
@@ -55,6 +57,7 @@ export class AdminStudentVerificationComponent implements OnInit {
 
   loadPendingDocuments(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     this.studentVerificationService.getPendingDocuments().subscribe({
       next: (documents) => {
         this.documents.set(documents);
@@ -62,7 +65,12 @@ export class AdminStudentVerificationComponent implements OnInit {
       },
       error: (error) => {
         this.logger.error('Error loading student verification documents', error);
-        this.documents.set([]);
+        this.loadError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar os documentos pendentes. Atualize a lista para tentar novamente.',
+          ),
+        );
         this.loading.set(false);
       },
     });
@@ -116,7 +124,11 @@ export class AdminStudentVerificationComponent implements OnInit {
         },
         error: (error) => {
           this.logger.error('Error downloading student verification document', error);
-          this.snackBar.open('Erro ao baixar documento. Tente novamente.', 'Fechar', { duration: 5000 });
+          this.snackBar.open(
+            getApiErrorMessage(error, 'Não foi possível baixar o documento. Tente novamente em instantes.'),
+            'Fechar',
+            { duration: 6000 },
+          );
         },
       });
   }
@@ -131,7 +143,15 @@ export class AdminStudentVerificationComponent implements OnInit {
       },
       error: (error) => {
         this.logger.error('Error approving student verification document', error);
-        this.snackBar.open('Erro ao aprovar documento. Tente novamente.', 'Fechar', { duration: 5000 });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se o documento foi aprovado. A lista será atualizada; confira o status antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
+        this.loadPendingDocuments();
       },
     });
   }
@@ -153,7 +173,15 @@ export class AdminStudentVerificationComponent implements OnInit {
           },
           error: (error) => {
             this.logger.error('Error rejecting student verification document', error);
-            this.snackBar.open('Erro ao rejeitar documento. Tente novamente.', 'Fechar', { duration: 5000 });
+            this.snackBar.open(
+              getApiErrorMessage(
+                error,
+                'Não foi possível verificar se o documento foi rejeitado. A lista será atualizada; confira o status antes de tentar novamente.',
+              ),
+              'Fechar',
+              { duration: 8000 },
+            );
+            this.loadPendingDocuments();
           },
         });
       }

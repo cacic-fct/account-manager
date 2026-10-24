@@ -12,7 +12,7 @@ export class AuthGuard implements CanActivate {
     const session: AuthSession = request.session;
 
     if (!session?.user?.keycloakId) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException('Entre na sua conta para continuar.');
     }
 
     return true;

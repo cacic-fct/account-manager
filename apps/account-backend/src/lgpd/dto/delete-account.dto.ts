@@ -6,8 +6,8 @@ export class DeleteAccountRequestDto {
     description: 'Confirmation text that user wants to delete their account',
     example: 'DELETE',
   })
-  @IsString()
-  @MaxLength(32)
+  @IsString({ message: 'Digite o texto de confirmação para solicitar a exclusão da conta.' })
+  @MaxLength(32, { message: 'Confirmação de exclusão: use no máximo 32 caracteres.' })
   confirmation!: string;
 
   @ApiPropertyOptional({
@@ -15,8 +15,8 @@ export class DeleteAccountRequestDto {
     example: 'No longer need the service',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(1000)
+  @IsString({ message: 'Justificativa: descreva o motivo da exclusão.' })
+  @MaxLength(1000, { message: 'Justificativa: use no máximo 1000 caracteres.' })
   reason?: string;
 }
 

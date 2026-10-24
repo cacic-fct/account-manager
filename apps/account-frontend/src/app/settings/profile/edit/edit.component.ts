@@ -1,21 +1,33 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { ProfileDataHelpComponent } from '../../../shared/components/profile-data-help/profile-data-help.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../../shared/services/auth/auth.service';
 import type { User } from '@cacic/shared-types';
 import { ProfileFormComponent } from '../../../shared/components/profile-form/profile-form.component';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { describeProfileSaveError } from '../../../shared/components/profile-form/profile-save-error';
 
 @Component({
   selector: 'app-edit',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatCardModule, MatButtonModule, ProfileFormComponent],
+  imports: [
+    MatIconModule,
+    MatTooltipModule,
+    MatDialogModule,
+    ProfileDataHelpComponent,
+    MatButtonModule,
+    ProfileFormComponent,
+  ],
   templateUrl: './edit.component.html',
   styleUrl: './edit.component.scss',
 })
 export class EditProfileComponent {
+  readonly dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
@@ -34,6 +46,7 @@ export class EditProfileComponent {
       enrollmentNumber: currentUser.enrollmentNumber || '',
       isForeigner: currentUser.isForeigner || false,
       identityDocument: currentUser.identityDocument || '',
+      passportCountry: currentUser.passportCountry,
       unespRole: currentUser.unespRole,
     };
   });
@@ -64,6 +77,11 @@ export class EditProfileComponent {
 
   onProfileSaveError(error: unknown): void {
     this.logger.error('Profile update failed', error, { operation: 'profile-update' });
+    this.isSubmitting.set(false);
+    this.snackBar.open(describeProfileSaveError(error, true).message, 'Fechar', {
+      duration: 7000,
+      panelClass: ['error-snackbar'],
+    });
   }
 
   cancel(): void {

@@ -1,63 +1,29 @@
-<mat-toolbar color="primary" class="toolbar">
-  <button mat-icon-button routerLink="/applications">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-  <span>Opções</span>
-  <span class="spacer"></span>
-  <button mat-icon-button (click)="logout()">
-    <mat-icon>logout</mat-icon>
-  </button>
-</mat-toolbar>
-<div class="settings-container">
-  <div class="profile-section">
-    @if (currentUser(); as currentUserData) {
-      <img [src]="user().avatarUrl" alt="Avatar" class="avatar" (error)="onImageError($event)" />
-      <h3>{{ user().name }}</h3>
-      <h4>{{ user().email }}</h4>
-    } @else {
-      <div
-        class="avatar"
-        style="background-color: #f0f0f0; display: flex; align-items: center; justify-content: center">
-        <mat-icon>person</mat-icon>
-      </div>
-      <h3>Loading...</h3>
-    }
+<header class="page-header">
+  <div class="header-content">
+    <a class="brand" routerLink="/applications" aria-label="Conta CACiC — aplicativos">
+      <app-cacic-logo class="logo" fillColor="currentColor" />
+      <span>Conta CACiC</span>
+    </a>
+    <a mat-button routerLink="/applications"><mat-icon>apps</mat-icon>Aplicativos</a>
   </div>
-
-  @if (isAdmin()) {
-    <mat-list>
-      <mat-list-item routerLink="/admin">
-        <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
-        <h4>Administração</h4>
-      </mat-list-item>
-    </mat-list>
-
-    <mat-divider></mat-divider>
-  }
-
-  <mat-list>
-    <mat-list-item routerLink="/settings/profile/edit">
-      <mat-icon matListItemIcon>person</mat-icon>
-      <h4>Perfil</h4>
-    </mat-list-item>
-
-    <mat-list-item routerLink="/settings/privacy">
-      <mat-icon matListItemIcon>front_hand</mat-icon>
-      <h4>Privacidade</h4>
-    </mat-list-item>
-    <mat-list-item routerLink="/settings/security">
-      <mat-icon matListItemIcon>shield_lock</mat-icon>
-      <h4>Código off-line</h4>
-    </mat-list-item>
-    <mat-list-item routerLink="/settings/linked-accounts">
-      <mat-icon matListItemIcon>link</mat-icon>
-      <h4>Integrações</h4>
-    </mat-list-item>
-    <mat-list-item routerLink="/settings/permissions">
-      <mat-icon matListItemIcon>key</mat-icon>
-      <h4>Permissões</h4>
-    </mat-list-item>
-  </mat-list>
-
-  <mat-divider></mat-divider>
-</div>
+</header>
+<main class="navigation-page">
+  <header class="page-heading">
+    <h1>Configurações</h1>
+    @if (currentUser(); as user) {
+      <div class="account-identity">
+        <span class="account-name">{{ displayName() }}</span>
+        <span>{{ user.email }}</span>
+      </div>
+    }
+  </header>
+  <app-settings-navigation [groups]="groups" label="Configurações da conta" />
+  <footer class="page-footer">
+    <div class="header-actions">
+      @if (isAdmin()) {
+        <a mat-button routerLink="/admin"><mat-icon>admin_panel_settings</mat-icon>Administração</a>
+      }
+      <button mat-button type="button" (click)="logout()"><mat-icon>logout</mat-icon>Sair</button>
+    </div>
+  </footer>
+</main>

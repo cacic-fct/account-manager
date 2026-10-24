@@ -37,6 +37,6 @@ import { StudentVerificationRateLimitService } from './services/student-verifica
     PdfVerificationService,
     StudentVerificationRateLimitService,
   ],
-  exports: [StudentVerificationService],
+  exports: [StudentVerificationService, DocumentManagementService],
 })
 export class StudentVerificationModule {}

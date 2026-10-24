@@ -36,7 +36,7 @@ export class DiscordSettingsService {
    */
   async updateServerSetting(key: string, dto: UpdateServerSettingDto): Promise<ServerSettingDto> {
     if (!SUPPORTED_SETTING_KEYS.has(key)) {
-      throw new BadRequestException('Unsupported Discord server setting.');
+      throw new BadRequestException('Configuração do servidor do Discord inválida.');
     }
 
     const settingValue = this.normalizeSettingValue(key, dto.value);
@@ -78,7 +78,7 @@ export class DiscordSettingsService {
     try {
       url = new URL(normalized);
     } catch {
-      throw new BadRequestException('Discord invite link must be a valid absolute URL.');
+      throw new BadRequestException('Informe um endereço de convite do Discord válido.');
     }
 
     const isDiscordShortLink = url.hostname === 'discord.gg' && /^\/[A-Za-z0-9-]+\/?$/.test(url.pathname);
@@ -93,7 +93,7 @@ export class DiscordSettingsService {
       url.hash ||
       (!isDiscordShortLink && !isDiscordInviteLink)
     ) {
-      throw new BadRequestException('Discord invite link must use an official HTTPS Discord invite URL.');
+      throw new BadRequestException('Use um link HTTPS oficial de convite do Discord.');
     }
 
     return url.toString();

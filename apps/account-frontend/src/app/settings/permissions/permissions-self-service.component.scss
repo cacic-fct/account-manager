@@ -9,7 +9,8 @@
 }
 
 .page-container {
-  width: min(1180px, 100%);
+  box-sizing: border-box;
+  width: min(var(--app-content-max), 100%);
   margin: 0 auto;
   padding: 24px;
 }

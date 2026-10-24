@@ -8,12 +8,12 @@ import { AuthModule } from '../auth/auth.module';
 import { JwtModule } from '../auth/jwt/jwt.module';
 import { DiscordServicesModule } from '../discord/services/discord-services.module';
 import { AdminCleanupController } from '../common/controllers/admin-cleanup.controller';
-import { CleanupSchedulerService } from '../common/services/cleanup-scheduler.service';
+import { LgpdCleanupService } from '../common/services/lgpd-cleanup.service';
 
 @Module({
   imports: [AuthModule, JwtModule, DiscordServicesModule, BullModule.registerQueue({ name: LGPD_QUEUE })],
   controllers: [LgpdController, AdminCleanupController],
-  providers: [LgpdService, LgpdProcessor, CleanupSchedulerService],
-  exports: [LgpdService],
+  providers: [LgpdService, LgpdProcessor, LgpdCleanupService],
+  exports: [LgpdService, LgpdCleanupService],
 })
 export class LgpdModule {}

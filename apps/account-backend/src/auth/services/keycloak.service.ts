@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { KeycloakUnespRoleVerificationOperations } from './keycloak/keycloak-unesp-role-verification.operations';
+import { KeycloakOnboardingOperations } from './keycloak/keycloak-onboarding.operations';
 
 export type { KeycloakFederatedIdentity, KeycloakUserData } from './keycloak/keycloak.types';
 
 @Injectable()
-export class KeycloakService extends KeycloakUnespRoleVerificationOperations {}
+export class KeycloakService extends KeycloakOnboardingOperations {}

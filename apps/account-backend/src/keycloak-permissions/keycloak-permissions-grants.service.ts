@@ -10,7 +10,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
@@ -24,6 +26,7 @@ import {
   normalizePermission,
   normalizeValidityWindow,
   parsePermissionOrThrow,
+  PERMISSION_SYNC_ERROR_MESSAGE,
 } from './keycloak-permissions.helpers';
 import { DB_MANAGED_ROLE_FILTER, GRANT_SELECT, type GrantRecord } from './keycloak-permissions.records';
 import { KeycloakPermissionsCatalogService } from './keycloak-permissions-catalog.service';
@@ -31,6 +34,8 @@ import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.serv
 
 @Injectable()
 export class KeycloakPermissionsGrantsService {
+  private readonly logger = new Logger(KeycloakPermissionsGrantsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
@@ -40,8 +45,15 @@ export class KeycloakPermissionsGrantsService {
   ) {}
 
   async searchUsers(query: string): Promise<KeycloakPermissionUser[]> {
-    const users = await this.keycloakService.searchUsers(query, { max: 20 });
-    return users.map((user) => mapKeycloakUser(user));
+    try {
+      const users = await this.keycloakService.searchUsers(query, { max: 20 });
+      return users.map((user) => mapKeycloakUser(user));
+    } catch (error) {
+      this.logger.error('Failed to search accounts for permission management', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível pesquisar contas agora. Tente novamente em alguns minutos.',
+      );
+    }
   }
 
   async listUserGrants(userId: string): Promise<KeycloakPermissionGrant[]> {
@@ -63,7 +75,7 @@ export class KeycloakPermissionsGrantsService {
     const permission = normalizePermission(input.permission);
     await this.catalog.assertPermissionsKnown([permission]);
     if (!actorId) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException('Entre novamente para continuar.');
     }
     await this.assertActorCanAssignPermission(actorId, permission);
 
@@ -74,9 +86,17 @@ export class KeycloakPermissionsGrantsService {
     }
 
     const validity = normalizeValidityWindow(input.validFrom, input.validUntil);
-    const user = await this.keycloakService.getUserBasicInfo(userId);
+    let user: Awaited<ReturnType<KeycloakService['getUserBasicInfo']>>;
+    try {
+      user = await this.keycloakService.getUserBasicInfo(userId);
+    } catch (error) {
+      this.logger.error('Failed to look up the account for a permission grant', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar a conta agora. Tente novamente em alguns minutos.',
+      );
+    }
     if (!user) {
-      throw new NotFoundException(`Usuário ${userId} não foi encontrado no Keycloak.`);
+      throw new NotFoundException('A conta informada não foi encontrada.');
     }
 
     const existingGrant = await this.findNonDeletedDirectGrant(userId, permission);
@@ -133,7 +153,7 @@ export class KeycloakPermissionsGrantsService {
     const nextPermission = input.permission ? normalizePermission(input.permission) : existingGrant.permission;
     await this.catalog.assertPermissionsKnown([nextPermission]);
     if (!actorId) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException('Entre novamente para continuar.');
     }
 
     const parsedPermission = parsePermissionOrThrow(nextPermission);
@@ -172,11 +192,18 @@ export class KeycloakPermissionsGrantsService {
 
     const removedPreviousPermission = wasActive && nextPermission !== existingGrant.permission;
     if (removedPreviousPermission) {
-      await this.keycloakService.removeUserClientRoles(
-        existingGrant.userId,
-        [existingGrant.roleName],
-        existingGrant.clientId,
-      );
+      try {
+        await this.keycloakService.removeUserClientRoles(
+          existingGrant.userId,
+          [existingGrant.roleName],
+          existingGrant.clientId,
+        );
+      } catch (error) {
+        this.logger.error('Failed to update an existing permission in the authentication service', error);
+        throw new ServiceUnavailableException(
+          'Não foi possível atualizar a permissão agora. Atualize a lista antes de tentar novamente.',
+        );
+      }
     }
 
     let grant: GrantRecord;
@@ -210,9 +237,14 @@ export class KeycloakPermissionsGrantsService {
       throw error;
     }
 
-    await this.sync.syncGrantAfterWrite(grant, {
-      removeIfPreviouslyActive: wasActive,
-    });
+    try {
+      await this.sync.syncGrantAfterWrite(grant, {
+        removeIfPreviouslyActive: wasActive,
+      });
+    } catch (error) {
+      this.logger.error('Failed to synchronize an updated permission', error);
+      throw new ServiceUnavailableException(PERMISSION_SYNC_ERROR_MESSAGE);
+    }
     return this.getGrantOrThrow(id);
   }
 
@@ -226,7 +258,7 @@ export class KeycloakPermissionsGrantsService {
     const grant = await this.getDirectGrantRecordOrThrow(id);
     if (options.enforceActorPermission !== false) {
       if (!actorId) {
-        throw new ForbiddenException('Authentication required');
+        throw new ForbiddenException('Entre novamente para continuar.');
       }
       await this.assertActorCanRevokePermission(actorId, grant.permission);
     }
@@ -261,10 +293,13 @@ export class KeycloakPermissionsGrantsService {
       await this.prisma.keycloakPermissionGrant.update({
         where: { id },
         data: {
-          lastSyncError: error instanceof Error ? error.message : String(error),
+          lastSyncError: 'Não foi possível remover a permissão do sistema de autenticação. Ela pode continuar ativa.',
         },
       });
-      throw error;
+      this.logger.error('Failed to revoke a Keycloak permission grant', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível remover a permissão agora. Ela pode continuar ativa; atualize a lista antes de tentar novamente.',
+      );
     }
   }
 
@@ -281,7 +316,7 @@ export class KeycloakPermissionsGrantsService {
     });
 
     if (!grant) {
-      throw new NotFoundException(`Permissão ${grantId} não foi encontrada.`);
+      throw new NotFoundException('Permissão não encontrada.');
     }
 
     await this.deleteGrant(grantId, userId, { enforceActorPermission: false });
@@ -305,7 +340,7 @@ export class KeycloakPermissionsGrantsService {
     });
 
     if (!grant) {
-      throw new NotFoundException(`Concessão ${id} não foi encontrada.`);
+      throw new NotFoundException('Concessão não encontrada.');
     }
 
     return grant;

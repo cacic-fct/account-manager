@@ -12,7 +12,7 @@ export class ConfirmAccountMergeDto implements ConfirmAccountMergeRequest {
     description: 'Email address that should remain primary after the merge',
     example: 'user@unesp.br',
   })
-  @IsEmail()
+  @IsEmail({}, { message: 'Informe um endereço de e-mail válido para escolher a conta principal.' })
   primaryEmail!: string;
 }
 
@@ -29,18 +29,18 @@ export class AdminCreateAccountMergeDto implements AdminCreateAccountMergeReques
     description: 'Keycloak id of the first account. It wins only when both accounts have the same merge score.',
     example: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
   })
-  @IsString()
-  @IsNotEmpty()
-  @IsUUID()
+  @IsString({ message: 'Informe uma conta válida para iniciar a unificação.' })
+  @IsNotEmpty({ message: 'Informe uma conta válida para iniciar a unificação.' })
+  @IsUUID(undefined, { message: 'Informe uma conta válida para iniciar a unificação.' })
   requesterUserId!: string;
 
   @ApiProperty({
     description: 'Keycloak id of the other account to merge.',
     example: 'ee2f238b-afc1-4012-ae23-6f9b604a119e',
   })
-  @IsString()
-  @IsNotEmpty()
-  @IsUUID()
+  @IsString({ message: 'Informe a outra conta da unificação.' })
+  @IsNotEmpty({ message: 'Informe a outra conta da unificação.' })
+  @IsUUID(undefined, { message: 'Informe a outra conta da unificação.' })
   candidateUserId!: string;
 }
 

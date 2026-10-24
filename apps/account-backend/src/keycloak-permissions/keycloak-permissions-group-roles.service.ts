@@ -3,7 +3,7 @@ import {
   PermissionGroupRoleGrant,
   PermissionGroupRoleGrantUpdateRequest,
 } from '@cacic/shared-types';
-import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
 import { KeycloakService } from '../auth/services/keycloak.service';
@@ -20,6 +20,8 @@ import { KeycloakPermissionsSyncService } from './keycloak-permissions-sync.serv
 
 @Injectable()
 export class KeycloakPermissionsGroupRolesService {
+  private readonly logger = new Logger(KeycloakPermissionsGroupRolesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly keycloakService: KeycloakService,
@@ -80,7 +82,7 @@ export class KeycloakPermissionsGroupRolesService {
     await this.catalog.assertPermissionsKnown(permissions);
 
     if (!actorId) {
-      throw new ForbiddenException('Authentication required');
+      throw new ForbiddenException('Entre novamente para continuar.');
     }
 
     const existingDbGrants = await this.prisma.keycloakGroupPermissionGrant.findMany({
@@ -190,7 +192,7 @@ export class KeycloakPermissionsGroupRolesService {
     }
 
     throw new ServiceUnavailableException(
-      `Permissões do grupo indisponíveis para: ${requestedUnavailableClientIds.join(', ')}.`,
+      'Algumas permissões deste grupo estão indisponíveis agora. Atualize a lista e tente novamente em alguns minutos.',
     );
   }
 
@@ -210,7 +212,10 @@ export class KeycloakPermissionsGroupRolesService {
         return;
       }
 
-      throw error;
+      this.logger.error('Failed to update the permission group in the authentication service', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível atualizar as permissões do grupo agora. Atualize a lista antes de tentar novamente.',
+      );
     }
   }
 }

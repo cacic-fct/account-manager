@@ -18,7 +18,7 @@
   } @else if (hasLoadError()) {
     <section class="surface" role="alert">
       <h2>Não foi possível consultar seu acesso</h2>
-      <p>Tente novamente para ver suas contas e o convite.</p>
+      <p>{{ loadErrorMessage() }}</p>
       <button mat-stroked-button (click)="retryLoading()"><mat-icon>refresh</mat-icon>Tentar novamente</button>
     </section>
   } @else if (!discordStatus()?.isLinked) {
@@ -31,7 +31,7 @@
   } @else {
     <section class="surface access-surface" aria-labelledby="access-title">
       <div class="section-heading row access-summary">
-        <img ngSrc="/assets/discord.svg" width="32" height="32" alt="" class="discord-mark" />
+        <img ngSrc="assets/discord.svg" width="32" height="32" alt="" class="discord-mark" />
         <div>
           <h2 id="access-title">{{ accessLabel() }}</h2>
           @switch (discordStatus()?.eligibleForRole) {
@@ -98,9 +98,9 @@
     @if (discordStatus()?.eligibleForRole !== 'student') {
       <section class="support-section">
         <h2>Você estuda no BCC?</h2>
-        <p>Verifique sua matrícula para receber o acesso de estudante.</p>
+        <p>Verifique seu vínculo com a Unesp para receber o acesso de estudante.</p>
         <a mat-stroked-button routerLink="/settings/linked-accounts/unesp"
-          ><mat-icon>school</mat-icon>Verificar matrícula</a
+          ><mat-icon>school</mat-icon>Verificar vínculo estudantil</a
         >
       </section>
     }

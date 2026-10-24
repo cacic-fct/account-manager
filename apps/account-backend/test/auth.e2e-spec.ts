@@ -15,6 +15,7 @@ import { UserService } from '../src/auth/services/user.service';
 import { TotpService } from '../src/totp/totp.service';
 import { TotpController } from '../src/totp/totp.controller';
 import { RedisService } from '../src/redis/redis.service';
+import { KeycloakConnectionException } from '../src/auth/exceptions/keycloak-connection.exception';
 import { createAuthTestConfigService, createKeycloakUser, createUserServiceFake } from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
@@ -166,6 +167,41 @@ describe('Authentication (fast e2e)', () => {
 
   afterAll(async () => {
     await app?.close();
+  });
+
+  it.each(['check', 'me'])('returns 401 for /auth/%s without a session', async (endpoint) => {
+    await request(app.getHttpServer()).get(`/api/auth/${endpoint}`).expect(401);
+  });
+
+  it.each(['check', 'me'])('rejects a disabled account consistently on /auth/%s', async (endpoint) => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post('/api/auth/password-login').send({ email: 'aluno@unesp.br', password: '1' }).expect(200);
+    keycloakService.getUserBasicInfo.mockResolvedValueOnce({
+      id: '22222222-2222-2222-2222-222222222222',
+      email: 'aluno@unesp.br',
+      enabled: false,
+    });
+
+    const response = await agent.get(`/api/auth/${endpoint}`).expect(403);
+
+    expect(response.body).toMatchObject({ code: 'ACCOUNT_DISABLED', message: 'Esta conta está desativada.' });
+  });
+
+  it('returns 401 when the session account has been deleted', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post('/api/auth/password-login').send({ email: 'aluno@unesp.br', password: '1' }).expect(200);
+    keycloakService.getUserBasicInfo.mockResolvedValueOnce(null);
+
+    await agent.get('/api/auth/check').expect(401);
+  });
+
+  it('reports a Keycloak outage as 503 and permits the session once validation recovers', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post('/api/auth/password-login').send({ email: 'aluno@unesp.br', password: '1' }).expect(200);
+    keycloakService.getUserBasicInfo.mockRejectedValueOnce(new KeycloakConnectionException());
+
+    await agent.get('/api/auth/check').expect(503);
+    await agent.get('/api/auth/check').expect(200).expect({ isAuthenticated: true, isOnboarded: true });
   });
 
   it('redirects OAuth login with PKCE and safe return URL session state', async () => {

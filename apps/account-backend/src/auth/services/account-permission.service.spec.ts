@@ -1,4 +1,9 @@
-import { AccountManagerPermission, PermissionGroupKey, buildKeycloakPermissionId } from '@cacic/shared-types';
+import {
+  ACCOUNT_MANAGER_ADMIN_PERMISSIONS,
+  AccountManagerPermission,
+  PermissionGroupKey,
+  buildKeycloakPermissionId,
+} from '@cacic/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { KeycloakService } from './keycloak.service';
 import { AccountPermissionService } from './account-permission.service';
@@ -130,6 +135,50 @@ const createContext = () => {
 };
 
 describe('AccountPermissionService', () => {
+  it.each(ACCOUNT_MANAGER_ADMIN_PERMISSIONS)(
+    'inherits %s for permission checks and delegation without individual database grants',
+    async (permission) => {
+      const { keycloakService, prisma, service } = createContext();
+      keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+      keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
+
+      await expect(service.hasAnyActivePermission('actor-1', [permission])).resolves.toBe(true);
+      await expect(service.hasAllActivePermissions('actor-1', [permission])).resolves.toBe(true);
+      await expect(service.canAssignPermission('actor-1', permission)).resolves.toBe(true);
+      await expect(service.canRevokePermission('actor-1', permission)).resolves.toBe(true);
+      expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+      expect(prisma.keycloakGroupPermissionGrant.findFirst).not.toHaveBeenCalled();
+    },
+  );
+
+  it('inherits the complete Account Manager admin permission catalog for combined checks', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+
+    await expect(service.hasAllActivePermissions('actor-1', ACCOUNT_MANAGER_ADMIN_PERMISSIONS)).resolves.toBe(true);
+    await expect(service.hasAccountManagerAdminAccess('actor-1')).resolves.toBe(true);
+    await expect(service.hasDiscordAdminAccess('actor-1')).resolves.toBe(true);
+    await expect(service.hasAnyActivePermission('actor-1', [])).resolves.toBe(false);
+    await expect(service.hasAllActivePermissions('actor-1', [])).resolves.toBe(false);
+  });
+
+  it('stops inheriting all admin permissions when the live Account Manager super-admin role is removed', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+    keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
+    await expect(service.hasAllActivePermissions('actor-1', ACCOUNT_MANAGER_ADMIN_PERMISSIONS)).resolves.toBe(true);
+
+    keycloakService.getUserRoles.mockResolvedValue([]);
+    keycloakService.getUserClientRoles.mockResolvedValue([]);
+    await expect(service.hasAnyActivePermission('actor-1', ACCOUNT_MANAGER_ADMIN_PERMISSIONS)).resolves.toBe(false);
+    await expect(
+      service.canAssignPermission('actor-1', AccountManagerPermission.DiscordManagementUpdate),
+    ).resolves.toBe(false);
+    await expect(
+      service.canRevokePermission('actor-1', AccountManagerPermission.DiscordManagementUpdate),
+    ).resolves.toBe(false);
+  });
+
   it('checks active direct grants without adding db-backed super-admin', async () => {
     const { prisma, service } = createContext();
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({
@@ -312,17 +361,46 @@ describe('AccountPermissionService', () => {
     expect(findFirstArgs.where.permission.in).toContain(AccountManagerPermission.PermissionGrantAssign);
   });
 
-  it('requires db-backed assign and revoke permissions before app role changes', async () => {
-    const { keycloakService, prisma, service } = createContext();
-    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
-    keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
+  it.each(['cacic-account-manager', 'cacic-event-manager', 'cacic-voto'])(
+    'lets Keycloak super-admins inherit assign and revoke permissions when managing %s',
+    async (clientId) => {
+      const { keycloakService, prisma, service } = createContext();
+      keycloakService.getUserRoles.mockResolvedValue(['access', 'super-admin']);
+      keycloakService.getUserClientRoles.mockResolvedValue(['access', 'super-admin']);
 
-    await expect(service.canAssignPermission('actor-1', AccountManagerPermission.PermissionGrantAssign)).resolves.toBe(
-      false,
+      for (const roleName of ['access', 'super-admin', 'permission-grant#assign', 'permission-grant#revoke']) {
+        const permission = buildKeycloakPermissionId(clientId, roleName);
+        await expect(service.canAssignPermission('actor-1', permission)).resolves.toBe(true);
+        await expect(service.canRevokePermission('actor-1', permission)).resolves.toBe(true);
+      }
+
+      expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps Account Manager super-admin inheritance scoped to permissions held in the target app', async () => {
+    const { keycloakService, service } = createContext();
+    keycloakService.getUserRoles.mockResolvedValue(['super-admin']);
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(clientId === 'cacic-account-manager' ? ['super-admin'] : []),
     );
-    await expect(service.canRevokePermission('actor-1', AccountManagerPermission.PermissionGrantRevoke)).resolves.toBe(
-      false,
+
+    for (const roleName of ['access', 'super-admin', 'events#publish']) {
+      const permission = buildKeycloakPermissionId('cacic-event-manager', roleName);
+      await expect(service.canAssignPermission('actor-1', permission)).resolves.toBe(false);
+      await expect(service.canRevokePermission('actor-1', permission)).resolves.toBe(false);
+    }
+  });
+
+  it('does not inherit Account Manager assign or revoke permissions from another app super-admin role', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(clientId === 'cacic-event-manager' ? ['super-admin'] : []),
     );
+    const permission = buildKeycloakPermissionId('cacic-event-manager', 'events#publish');
+
+    await expect(service.canAssignPermission('actor-1', permission)).resolves.toBe(false);
+    await expect(service.canRevokePermission('actor-1', permission)).resolves.toBe(false);
     expect(prisma.keycloakPermissionGrant.findFirst).toHaveBeenCalled();
   });
 
@@ -480,7 +558,9 @@ describe('AccountPermissionService', () => {
     );
     await expect(service.canAssignPermission('actor-1', AccountManagerPermission.Access)).resolves.toBe(false);
     await expect(service.canAssignPermission('actor-1', 'cacic-event-manager:events#publish')).resolves.toBe(false);
-    keycloakService.getUserClientRoles.mockResolvedValue(['super-admin']);
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(clientId === 'cacic-event-manager' ? ['super-admin'] : []),
+    );
     await expect(service.canAssignPermission('actor-1', AccountManagerPermission.PermissionGrantRead)).resolves.toBe(
       false,
     );
