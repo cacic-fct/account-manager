@@ -1,16 +1,35 @@
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 import { KeycloakErrorResponse, KeycloakFederatedIdentity, KeycloakUserData } from './keycloak.types';
 import { KeycloakAdminOperations } from './keycloak-admin.operations';
 
 export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
   private readonly userUpdateListeners = new Set<(userId: string) => Promise<void>>();
+  private readonly pendingUserUpdates = new Map<string, Promise<void>>();
+
+  protected async serializeUserUpdate(userId: string, update: () => Promise<void>): Promise<void> {
+    const previous = this.pendingUserUpdates.get(userId) ?? Promise.resolve();
+    const request = previous.then(update);
+    const completion = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.pendingUserUpdates.set(userId, completion);
+    try {
+      await request;
+    } finally {
+      if (this.pendingUserUpdates.get(userId) === completion) {
+        this.pendingUserUpdates.delete(userId);
+      }
+    }
+  }
 
   onUserUpdated(listener: (userId: string) => Promise<void>): () => void {
     this.userUpdateListeners.add(listener);
     return () => this.userUpdateListeners.delete(listener);
   }
 
-  private async notifyUserUpdated(userId: string): Promise<void> {
+  protected async notifyUserUpdated(userId: string): Promise<void> {
     for (const listener of this.userUpdateListeners) {
       try {
         await listener(userId);
@@ -24,10 +43,19 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
   async updateUserAttributes(
     userId: string,
     attributes: Record<string, string | string[]>,
-    options: { skipValidation?: boolean } = {},
+    options: { skipValidation?: boolean; mode?: 'merge' | 'replace' } = {},
+  ): Promise<void> {
+    await this.serializeUserUpdate(userId, () => this.saveUserAttributes(userId, attributes, options));
+    await this.notifyUserUpdated(userId);
+  }
+
+  protected async saveUserAttributes(
+    userId: string,
+    attributes: Record<string, string | string[]>,
+    options: { skipValidation?: boolean; mode?: 'merge' | 'replace' },
   ): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
+    const userUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}`;
 
     const getUserResponse = await this.fetchWithTimeout(userUrl, {
       headers: {
@@ -50,12 +78,12 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       throw new Error('Failed to get current user data');
     }
 
-    const currentUser = (await getUserResponse.json()) as KeycloakUserData;
+    const currentUser = await this.readUserData(getUserResponse, userId);
 
     const requiredAttributes = ['identity-document', 'phone', 'fullName'];
 
     const updatedAttributes = {
-      ...currentUser.attributes,
+      ...(options.mode === 'replace' ? {} : currentUser.attributes),
       ...attributes,
     };
 
@@ -118,7 +146,12 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...currentUser,
+        // User-profile validation needs the root profile fields when replacing attributes.
+        // Do not replay enabled, emailVerified, requiredActions, or other security state.
+        username: currentUser.username,
+        email: currentUser.email,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
         attributes: formattedAttributes,
       }),
     });
@@ -130,31 +163,67 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         status: updateResponse.status,
         statusText: updateResponse.statusText,
         responseHeaders: this.readResponseDebugHeaders(updateResponse),
-        error: errorText,
       });
 
+      let errorData: KeycloakErrorResponse | undefined;
       try {
-        const errorData = JSON.parse(errorText) as KeycloakErrorResponse;
-
-        if (errorData.errors && Array.isArray(errorData.errors)) {
-          const validationErrors = errorData.errors.map((err) => `${err.field}: ${err.errorMessage}`).join(', ');
-
-          throw new Error(`Validation failed: ${validationErrors}`);
-        }
+        errorData = JSON.parse(errorText) as KeycloakErrorResponse;
       } catch {
         // If parsing fails, use original error below.
+      }
+      if (Array.isArray(errorData?.errors)) {
+        const validationErrors = errorData.errors.map((err) => `${err.field}: ${err.errorMessage}`).join(', ');
+        throw new Error(`Validation failed: ${validationErrors}`);
       }
 
       throw new Error(`Failed to update user attributes: ${updateResponse.status} ${updateResponse.statusText}`);
     }
+    // Another replica may update unrelated attributes before the verification read.
+    // Replacement also needs to verify the removal of keys omitted by the caller.
+    const expectedKeys = new Set([
+      ...Object.keys(attributes),
+      ...(options.mode === 'replace' ? Object.keys(currentUser.attributes ?? {}) : []),
+    ]);
+    const expectedAttributes = Object.fromEntries(
+      [...expectedKeys].map((key) => [key, formattedAttributes[key] ?? []]),
+    );
+    await this.verifyUserAttributes(userUrl, userId, adminToken, expectedAttributes);
+  }
 
-    await this.notifyUserUpdated(userId);
+  private async verifyUserAttributes(
+    userUrl: string,
+    userId: string,
+    adminToken: string,
+    expected: Record<string, string[]>,
+  ): Promise<void> {
+    const response = await this.fetchWithTimeout(userUrl, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    if (!response.ok) {
+      throw new KeycloakConnectionException('Unable to confirm saved account attributes');
+    }
+    const saved = await this.readUserData(response, userId);
+    // Keycloak represents these fields at the root, rather than in attributes.
+    const rootAttributes = new Set(['username', 'email', 'firstName', 'lastName']);
+    const unsavedKeys = Object.keys(expected).filter((key) => {
+      if (rootAttributes.has(key)) return false;
+      const expectedValues = expected[key].filter((value) => value.trim() !== '');
+      const actualValues = saved.attributes?.[key]?.filter((value) => value.trim() !== '') ?? [];
+      return JSON.stringify(expectedValues) !== JSON.stringify(actualValues);
+    });
+    if (unsavedKeys.length > 0) {
+      this.logger.error('Keycloak did not persist user attributes; check User Profile permissions', {
+        userId,
+        unsavedKeys,
+      });
+      throw new KeycloakConnectionException('Authentication service did not persist the requested account attributes');
+    }
   }
 
   async getUserAttributes(userId: string): Promise<Record<string, string[]>> {
     try {
       const adminToken = await this.getAdminToken();
-      const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
+      const userUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}`;
 
       this.logger.debug('Getting user attributes', { userId, userUrl });
 
@@ -183,7 +252,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         throw new Error(`Failed to get user attributes: ${response.status} ${response.statusText}`);
       }
 
-      const userData = (await response.json()) as KeycloakUserData;
+      const userData = await this.readUserData(response, userId);
 
       this.logger.debug('User attributes retrieved', {
         id: userData.id,
@@ -208,8 +277,12 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
   }
 
   async findUserByEmail(email: string): Promise<KeycloakUserData | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return null;
+    }
     const adminToken = await this.getAdminToken();
-    const usersUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users?email=${encodeURIComponent(email)}&exact=true`;
+    const usersUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users?email=${encodeURIComponent(normalizedEmail)}&exact=true&first=0&max=2&briefRepresentation=false`;
 
     const response = await this.fetchWithTimeout(usersUrl, {
       headers: {
@@ -232,8 +305,14 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       throw new Error('Failed to find user by email');
     }
 
-    const users = (await response.json()) as KeycloakUserData[];
-    return users.length > 0 ? users[0] : null;
+    const users = await this.readUserList(response);
+    if (!Array.isArray(users) || users.some((user) => user.email?.trim().toLowerCase() !== normalizedEmail)) {
+      throw new KeycloakConnectionException('Authentication service returned invalid email lookup results');
+    }
+    if (users.length > 1) {
+      throw new ConflictException('Mais de uma conta foi encontrada com este e-mail. Entre em contato com o suporte.');
+    }
+    return users[0] ?? null;
   }
 
   async searchUsers(query: string, options: { max?: number } = {}): Promise<KeycloakUserData[]> {
@@ -243,8 +322,8 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       return [];
     }
 
+    const max = this.getSearchLimit(options.max);
     const adminToken = await this.getAdminToken();
-    const max = Math.min(Math.max(options.max ?? 10, 1), 50);
     const requestUrls = new Set<string>();
 
     const addSearchUrl = (params: Record<string, string>) => {
@@ -255,13 +334,18 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         ...params,
       });
 
-      requestUrls.add(`${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`);
+      requestUrls.add(
+        `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users?${searchParams.toString()}`,
+      );
     };
 
     addSearchUrl({ search: normalizedQuery });
-    addSearchUrl({ q: `identity-document:${normalizedQuery}` });
-    addSearchUrl({ q: `identityDocument:${normalizedQuery}` });
-    addSearchUrl({ q: `fullName:${normalizedQuery}` });
+    // eslint-disable-next-line no-control-regex -- Control characters cannot be used in Keycloak attribute queries.
+    if (!/[\\\u0000-\u001f]/.test(normalizedQuery)) {
+      addSearchUrl({ q: this.buildAttributeQuery('identity-document', normalizedQuery) });
+      addSearchUrl({ q: this.buildAttributeQuery('identityDocument', normalizedQuery) });
+      addSearchUrl({ q: this.buildAttributeQuery('fullName', normalizedQuery) });
+    }
 
     if (normalizedQuery.includes('@')) {
       addSearchUrl({ email: normalizedQuery });
@@ -291,11 +375,16 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
           throw new Error(`Failed to search users: ${response.status} ${response.statusText}`);
         }
 
-        return (await response.json()) as KeycloakUserData[];
+        return this.readUserList(response);
       }),
     );
 
     const usersById = new Map<string, KeycloakUserData>();
+    const successfulResponses = responses.filter((response) => response.status === 'fulfilled');
+    if (successfulResponses.length === 0) {
+      const failure = responses.find((response) => response.status === 'rejected');
+      throw failure?.reason ?? new KeycloakConnectionException('Authentication service user search failed');
+    }
 
     for (const response of responses) {
       if (response.status === 'rejected') {
@@ -323,15 +412,15 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       return [];
     }
 
-    const adminToken = await this.getAdminToken();
-    const max = Math.min(Math.max(options.max ?? 10, 1), 50);
+    const max = this.getSearchLimit(options.max);
     const searchParams = new URLSearchParams({
       first: '0',
       max: String(max),
       briefRepresentation: 'false',
-      q: `${normalizedAttributeName}:${normalizedAttributeValue}`,
+      q: this.buildAttributeQuery(normalizedAttributeName, normalizedAttributeValue),
     });
-    const usersUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users?${searchParams.toString()}`;
+    const usersUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users?${searchParams.toString()}`;
+    const adminToken = await this.getAdminToken();
 
     const response = await this.fetchWithTimeout(usersUrl, {
       headers: {
@@ -354,22 +443,81 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       throw new Error(`Failed to search users by attribute: ${response.status} ${response.statusText}`);
     }
 
-    return (await response.json()) as KeycloakUserData[];
+    return this.readUserList(response);
+  }
+
+  private async readUserList(response: Response): Promise<KeycloakUserData[]> {
+    const users: unknown = await response.json();
+    if (
+      !Array.isArray(users) ||
+      users.some((user: unknown) => {
+        if (!user || typeof user !== 'object' || Array.isArray(user)) return true;
+        if (!('id' in user) || typeof user.id !== 'string' || !user.id.trim()) return true;
+        return 'email' in user && typeof user.email !== 'string';
+      })
+    ) {
+      throw new KeycloakConnectionException('Authentication service returned invalid user search results');
+    }
+    return users as KeycloakUserData[];
+  }
+
+  private getSearchLimit(max = 10): number {
+    if (!Number.isInteger(max) || max < 1) {
+      throw new BadRequestException('O limite de resultados deve ser um número inteiro positivo.');
+    }
+    return Math.min(max, 50);
+  }
+
+  private async readUserData(response: Response, userId: string): Promise<KeycloakUserData> {
+    const data: unknown = await response.json();
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !('id' in data) || data.id !== userId) {
+      throw new KeycloakConnectionException('Authentication service returned invalid account data');
+    }
+    const user = data as KeycloakUserData;
+    if (
+      user.attributes &&
+      (typeof user.attributes !== 'object' ||
+        Array.isArray(user.attributes) ||
+        Object.values(user.attributes).some(
+          (values) => !Array.isArray(values) || values.some((value) => typeof value !== 'string'),
+        ))
+    ) {
+      throw new KeycloakConnectionException('Authentication service returned invalid account attributes');
+    }
+    return user;
+  }
+
+  private buildAttributeQuery(name: string, value: string): string {
+    // Keycloak's q parameter has its own grammar, independent of URL encoding.
+    // Backslashes cannot be represented reliably by the 26.2 parser.
+    // eslint-disable-next-line no-control-regex -- Reject control characters before building a Keycloak attribute query.
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || /[\\\u0000-\u001f]/.test(value)) {
+      throw new BadRequestException('A busca por atributo contém caracteres inválidos.');
+    }
+    return `${name}:"${value.replace(/"/g, '\\"')}"`;
   }
 
   async getUserBasicInfo(userId: string): Promise<KeycloakUserData | null> {
+    if (!userId) {
+      throw new Error('Keycloak user ID is required');
+    }
+
     const adminToken = await this.getAdminToken();
-    const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
+    const userUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}`;
 
     this.logger.debug('Getting basic user info', { userId });
 
     const response = await this.fetchWithTimeout(userUrl, {
+      cache: 'no-store',
+      redirect: 'error',
       headers: {
+        Accept: 'application/json',
         Authorization: `Bearer ${adminToken}`,
+        'Cache-Control': 'no-cache, no-store',
       },
     });
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       if (response.status === 404) {
         this.logger.warn('User not found in Keycloak', { userId });
         return null;
@@ -389,18 +537,35 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       throw new Error(`Failed to get basic user info: ${response.status} ${response.statusText}`);
     }
 
-    const userData = (await response.json()) as KeycloakUserData;
+    const userData: unknown = await response.json();
+
+    // Account status is meaningful only for the exact identity we requested.
+    if (
+      !userData ||
+      typeof userData !== 'object' ||
+      Array.isArray(userData) ||
+      !('id' in userData) ||
+      userData.id !== userId ||
+      ('enabled' in userData && typeof userData.enabled !== 'boolean')
+    ) {
+      throw new KeycloakConnectionException('Authentication service returned invalid account data');
+    }
 
     this.logger.debug('Basic user info retrieved', {
       id: userData.id,
     });
 
-    return userData;
+    return userData as KeycloakUserData;
   }
 
   async updateUser(userId: string, data: Partial<KeycloakUserData>): Promise<void> {
+    await this.serializeUserUpdate(userId, () => this.saveUser(userId, data));
+    await this.notifyUserUpdated(userId);
+  }
+
+  private async saveUser(userId: string, data: Partial<KeycloakUserData>): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
+    const userUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}`;
 
     const currentResponse = await this.fetchWithTimeout(userUrl, {
       headers: {
@@ -425,7 +590,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       );
     }
 
-    const currentUser = (await currentResponse.json()) as KeycloakUserData;
+    const currentUser = await this.readUserData(currentResponse, userId);
 
     const updateResponse = await this.fetchWithTimeout(userUrl, {
       method: 'PUT',
@@ -434,8 +599,14 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...currentUser,
         ...data,
+        ...(data.attributes && {
+          username: data.username ?? currentUser.username,
+          email: data.email ?? currentUser.email,
+          firstName: data.firstName ?? currentUser.firstName,
+          lastName: data.lastName ?? currentUser.lastName,
+          attributes: { ...currentUser.attributes, ...data.attributes },
+        }),
       }),
     });
 
@@ -453,8 +624,6 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
       throw new Error(`Failed to update user: ${updateResponse.status} ${updateResponse.statusText}`);
     }
-
-    await this.notifyUserUpdated(userId);
   }
 
   async setUserEnabled(userId: string, enabled: boolean): Promise<void> {
@@ -463,7 +632,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
   async getFederatedIdentities(userId: string): Promise<KeycloakFederatedIdentity[]> {
     const adminToken = await this.getAdminToken();
-    const identitiesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity`;
+    const identitiesUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/federated-identity`;
 
     const response = await this.fetchWithTimeout(identitiesUrl, {
       headers: {
@@ -495,7 +664,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
   async addFederatedIdentity(userId: string, identity: KeycloakFederatedIdentity): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const identityUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity/${encodeURIComponent(
+    const identityUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/federated-identity/${encodeURIComponent(
       identity.identityProvider,
     )}`;
 
@@ -508,7 +677,19 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       body: JSON.stringify(identity),
     });
 
-    if (!response.ok && response.status !== 409) {
+    if (response.status === 409) {
+      const existingIdentities = await this.getFederatedIdentities(userId);
+      if (
+        existingIdentities.some(
+          (existing) => existing.identityProvider === identity.identityProvider && existing.userId === identity.userId,
+        )
+      ) {
+        return;
+      }
+      throw new ConflictException('Esta conta já possui outro vínculo com o provedor de identidade.');
+    }
+
+    if (!response.ok) {
       const details = await this.readTokenError(response);
 
       this.logger.error('Failed to add federated identity', {
@@ -527,7 +708,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
   async removeFederatedIdentity(userId: string, identityProvider: string): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const identityUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/federated-identity/${encodeURIComponent(
+    const identityUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/federated-identity/${encodeURIComponent(
       identityProvider,
     )}`;
 
@@ -557,7 +738,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
 
   async deleteUser(userId: string): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const userUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}`;
+    const userUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}`;
 
     this.logger.debug('Deleting user from Keycloak', { userId });
 
@@ -571,6 +752,7 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
     if (!response.ok) {
       if (response.status === 404) {
         this.logger.warn('User not found in Keycloak, may have been already deleted', { userId });
+        await this.notifyUserUpdated(userId);
         return;
       }
 

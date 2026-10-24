@@ -3,7 +3,7 @@ import { KeycloakService } from '../../auth/services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FeatureFlagService } from '../../feature-flags/feature-flags.service';
 import { StatusManagementService } from './status-management.service';
-import { BadRequestException } from '@nestjs/common';
+import { ServiceUnavailableException } from '@nestjs/common';
 
 type FindFirstArgs = {
   where: {
@@ -295,13 +295,13 @@ describe('StatusManagementService', () => {
     const { service, prisma } = createContext();
     prisma.studentVerificationDocument.findFirst.mockRejectedValue(new Error('database unavailable'));
 
-    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('wraps non-Error database failures when reading verification status', async () => {
     const { service, prisma } = createContext();
     prisma.studentVerificationDocument.findFirst.mockRejectedValue('database unavailable');
 
-    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getVerificationStatus('user-1')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });

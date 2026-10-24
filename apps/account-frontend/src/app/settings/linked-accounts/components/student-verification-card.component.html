@@ -25,8 +25,8 @@
       </div>
     } @else if (hasLoadError()) {
       <div class="surface">
-        <h2>Não conseguimos consultar sua matrícula</h2>
-        <p>Tente novamente para continuar a verificação.</p>
+        <h2>Não conseguimos consultar sua verificação</h2>
+        <p>{{ loadErrorMessage() }}</p>
         <button mat-stroked-button (click)="loadVerificationStatus()">
           <mat-icon>refresh</mat-icon>Tentar novamente
         </button>
@@ -44,7 +44,7 @@
                 </p>
               }
               @case ('approved') {
-                <p>Tudo certo! Sua matrícula foi verificada.</p>
+                <p>Tudo certo! Seu vínculo como estudante foi verificado.</p>
               }
               @case ('not_required') {
                 <p>A verificação está dispensada por enquanto. Você não precisa enviar um documento.</p>

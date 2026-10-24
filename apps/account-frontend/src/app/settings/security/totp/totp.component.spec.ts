@@ -150,7 +150,11 @@ describe(TotpComponent.name, () => {
     expect(fixture.componentInstance.seed()).toEqual(seed);
     expect(fixture.componentInstance.isRotating()).toBe(false);
     expect(dialog.open).not.toHaveBeenCalled();
-    expect(snackBar.open).toHaveBeenCalledWith('Erro ao trocar código secreto', 'Fechar', expect.any(Object));
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Não foi possível confirmar a troca do código secreto. Atualize a página para ver qual código está ativo antes de usá-lo.',
+      'Fechar',
+      expect.any(Object),
+    );
     fixture.componentInstance.retry();
     expect(api.rotateTotpSeed).toHaveBeenCalledTimes(1);
   });

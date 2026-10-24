@@ -57,6 +57,7 @@ function buildTestEnv() {
   return {
     ...process.env,
     NODE_ENV: 'test',
+    KEYCLOAK_ISOLATED_TEST_REALM: 'true',
     KEYCLOAK_URL: keycloakUrl,
     KEYCLOAK_REALM: 'cacic-sso',
     KEYCLOAK_CLIENT_ID: 'cacic-account-manager',

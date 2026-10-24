@@ -12,7 +12,13 @@ export async function assertKeycloakAccessTokenActive(
   accessToken: string,
   options: KeycloakIntrospectionOptions,
 ): Promise<void> {
-  if (!options.clientSecret || options.authMethod === 'none') {
+  if (
+    !options.clientId.trim() ||
+    !options.clientSecret ||
+    (options.authMethod !== undefined &&
+      options.authMethod !== 'client_secret_basic' &&
+      options.authMethod !== 'client_secret_post')
+  ) {
     throw new ServiceUnavailableException('Keycloak introspection requires confidential client authentication.');
   }
 
@@ -30,8 +36,10 @@ export async function assertKeycloakAccessTokenActive(
   try {
     const configuredTimeout = Number(options.timeoutMs ?? 10_000);
     const timeoutMs = Number.isSafeInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 10_000;
-    const response = await fetch(`${options.realmUrl}/protocol/openid-connect/token/introspect`, {
+    const response = await fetch(`${options.realmUrl.replace(/\/+$/, '')}/protocol/openid-connect/token/introspect`, {
       method: 'POST',
+      cache: 'no-store',
+      redirect: 'error',
       headers,
       body: body.toString(),
       signal: AbortSignal.timeout(timeoutMs),
@@ -47,9 +55,13 @@ export async function assertKeycloakAccessTokenActive(
   if (
     !introspection ||
     typeof introspection !== 'object' ||
+    Array.isArray(introspection) ||
     !('active' in introspection) ||
-    introspection.active !== true
+    typeof introspection.active !== 'boolean'
   ) {
+    throw new ServiceUnavailableException('Keycloak returned an invalid introspection response.');
+  }
+  if (!introspection.active) {
     throw new UnauthorizedException('Token is not active.');
   }
 }

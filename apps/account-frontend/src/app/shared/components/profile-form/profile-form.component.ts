@@ -38,6 +38,7 @@ import { isUnespEmail } from '@cacic/shared-utils';
 import { ProfileFormPersonalStepComponent } from './profile-form-personal-step.component';
 import { ProfileFormAcademicStepComponent } from './profile-form-academic-step.component';
 import { describeProfileSaveError, type ProfileSaveError } from './profile-save-error';
+import { getApiErrorMessage } from '../../utils/api-error-message';
 
 export interface ProfileFormData {
   fullname: string;
@@ -124,6 +125,9 @@ export class ProfileFormComponent implements OnInit {
   isEditMode = input<boolean>(false);
   layoutMode = input<'stepper' | 'all-in-one'>('stepper');
 
+  showCancel = input(false);
+  cancelled = output<void>();
+
   // Outputs
   formValid = output<boolean>();
   formData = output<ProfileFormData>();
@@ -139,6 +143,7 @@ export class ProfileFormComponent implements OnInit {
   isSubmitting = signal(false);
   readonly submissionError = signal<ProfileSaveError | null>(null);
   readonly copyFeedback = signal('');
+  protected readonly roleRequirementError = signal<string | null>(null);
   readonly saveButtonLabel = computed(() => {
     if (this.isSubmitting()) return 'Salvando...';
     return this.submissionError() ? 'Tentar salvar novamente' : 'Salvar';
@@ -323,19 +328,29 @@ export class ProfileFormComponent implements OnInit {
     });
   }
 
-  private loadUnespRoleRequirement(): void {
-    this.apiService.checkUnespRoleRequired().subscribe({
-      next: (response) => {
-        this.shouldShowUnespRoleSelection.set(response.shouldShowUnespRoleSelection);
+  protected loadUnespRoleRequirement(): void {
+    this.roleRequirementError.set(null);
+    this.apiService
+      .checkUnespRoleRequired()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          this.shouldShowUnespRoleSelection.set(response.shouldShowUnespRoleSelection);
 
-        if (response.shouldShowUnespRoleSelection) {
-          this.applyDefaultUnespRole();
-        }
-      },
-      error: (error) => {
-        this.logger.error('Error checking Unesp role requirement', error);
-      },
-    });
+          if (response.shouldShowUnespRoleSelection) {
+            this.applyDefaultUnespRole();
+          }
+        },
+        error: (error) => {
+          this.logger.error('Error checking Unesp role requirement', error);
+          this.roleRequirementError.set(
+            getApiErrorMessage(
+              error,
+              'Não foi possível carregar as opções de vínculo com a Unesp. Tente novamente antes de salvar o perfil.',
+            ),
+          );
+        },
+      });
   }
 
   private applyDefaultUnespRole(): void {

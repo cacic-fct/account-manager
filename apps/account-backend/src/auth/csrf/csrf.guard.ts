@@ -62,7 +62,7 @@ export class CsrfGuard implements CanActivate {
 
     // Validate tokens
     if (!this.csrfService.validateToken(tokenFromRequest as string, tokenFromSession as string)) {
-      throw new ForbiddenException('Invalid or missing CSRF token. Please refresh the page and try again.');
+      throw new ForbiddenException('A verificação de segurança falhou. Atualize a página e tente novamente.');
     }
 
     return true;

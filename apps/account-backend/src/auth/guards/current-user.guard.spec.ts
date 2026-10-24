@@ -1,4 +1,10 @@
-import { ExecutionContext, ForbiddenException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { KeycloakConnectionException } from '../exceptions/keycloak-connection.exception';
 import { KeycloakService } from '../services/keycloak.service';
@@ -34,7 +40,28 @@ describe(CurrentUserGuard.name, () => {
   it('rejects an explicitly disabled Keycloak account', async () => {
     getUserBasicInfo.mockResolvedValue({ id: 'session-user', email: 'user@example.test', enabled: false });
 
-    await expect(guard.canActivate(context)).rejects.toThrow(new ForbiddenException('Session user is disabled'));
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      response: {
+        statusCode: 403,
+        code: 'ACCOUNT_DISABLED',
+        message: 'Esta conta está desativada.',
+      },
+    });
+  });
+
+  it('does not mistake an expired or missing session for a disabled account', async () => {
+    const expiredContext = {
+      switchToHttp: () => ({ getRequest: () => ({ session: {} }) }),
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(expiredContext)).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(getUserBasicInfo).not.toHaveBeenCalled();
+  });
+
+  it('permits an account when Keycloak omits the optional enabled flag', async () => {
+    getUserBasicInfo.mockResolvedValue({ id: 'session-user', email: 'user@example.test' });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
   it('rejects a session whose account no longer exists', async () => {
@@ -57,6 +84,19 @@ describe(CurrentUserGuard.name, () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     getUserBasicInfo.mockRejectedValue(new Error('Invalid user response'));
 
-    await expect(guard.canActivate(context)).rejects.toThrow(new ForbiddenException('Unable to validate current user'));
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('still rejects attempts to modify another account before consulting Keycloak', async () => {
+    reflector.getAllAndOverride.mockReturnValue({ source: 'body', field: 'userId' });
+    const otherUserContext = {
+      ...context,
+      switchToHttp: () => ({
+        getRequest: () => ({ session: { user: { keycloakId: 'session-user' } }, body: { userId: 'other-user' } }),
+      }),
+    } as unknown as ExecutionContext;
+
+    await expect(guard.canActivate(otherUserContext)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(getUserBasicInfo).not.toHaveBeenCalled();
   });
 });

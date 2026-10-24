@@ -1,7 +1,35 @@
 @use '@angular/material' as mat;
 
 @import '@fontsource-variable/inter/index.css';
-@import '@fontsource/material-icons/index.css';
+@import '@fontsource/material-symbols-outlined/latin-400.css';
+
+// Shared content measures: forms, navigation/catalog, and dense admin workspaces.
+:root {
+  --app-content-narrow: 50rem;
+  --app-content-max: 77.5rem;
+  --app-content-wide: 90rem;
+  --app-page-gutter: 32px;
+}
+@media (max-width: 600px) {
+  :root {
+    --app-page-gutter: 16px;
+  }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+// Keep page toolbar controls within the same global limit on ultrawide displays.
+mat-toolbar.toolbar {
+  padding-inline: max(16px, calc((100% - var(--app-content-wide)) / 2));
+}
 
 html {
   color-scheme: light dark;
@@ -41,8 +69,8 @@ body {
   --mat-snack-bar-button-color: white;
 }
 
-.material-icons {
-  font-family: 'Material Icons';
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -53,4 +81,13 @@ body {
   word-wrap: normal;
   white-space: nowrap;
   direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+}
+
+// Keep list typography from replacing the icon font or resetting local icon sizes.
+.mat-mdc-list-base .mat-mdc-list-item .mat-icon.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  line-height: 1;
+  letter-spacing: normal;
 }

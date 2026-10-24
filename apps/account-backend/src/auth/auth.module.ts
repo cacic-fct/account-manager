@@ -9,6 +9,7 @@ import { AccountLinkingProcessor } from './account-linking/account-linking.proce
 import { ACCOUNT_MERGE_QUEUE } from './account-linking/account-linking.queue';
 import { KeycloakService } from './services/keycloak.service';
 import { UserService } from './services/user.service';
+import { UserSchemaReconciliationService } from './services/user-schema-reconciliation.service';
 import { EventManagerProfileSyncService } from './services/event-manager-profile-sync.service';
 import { FileValidationService } from './services/file-validation.service';
 import { RateLimitService } from './services/rate-limit.service';
@@ -30,6 +31,7 @@ import { RedisModule } from '../redis/redis.module';
   providers: [
     KeycloakService,
     UserService,
+    UserSchemaReconciliationService,
     EventManagerProfileSyncService,
     AccountLinkingService,
     AccountLinkingProcessor,
@@ -46,6 +48,7 @@ import { RedisModule } from '../redis/redis.module';
   ],
   exports: [
     UserService,
+    UserSchemaReconciliationService,
     KeycloakService,
     EventManagerProfileSyncService,
     AccountLinkingService,

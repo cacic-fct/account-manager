@@ -174,7 +174,7 @@ describe('DiscordRoleManagementService', () => {
     const { service } = createContext();
 
     await expect(service.syncRolesFromDiscord(createClient(null), 'guild-1')).rejects.toMatchObject({
-      response: 'Guild not found',
+      response: 'Servidor do Discord não encontrado.',
       status: HttpStatus.NOT_FOUND,
     });
   });
@@ -248,7 +248,7 @@ describe('DiscordRoleManagementService', () => {
         enabledRoleIds: ['role-safe', 'role-dangerous'],
       }),
     ).rejects.toMatchObject({
-      response: 'Some roles are not selectable: Admin Role',
+      response: 'Alguns cargos não estão disponíveis para seleção: Admin Role. Atualize a lista e tente novamente.',
       status: HttpStatus.BAD_REQUEST,
     });
 
@@ -286,7 +286,7 @@ describe('DiscordRoleManagementService', () => {
         enabledRoleIds: ['missing-role'],
       }),
     ).rejects.toMatchObject({
-      response: 'Some roles are not selectable: missing-role',
+      response: 'Alguns cargos não estão disponíveis para seleção: missing-role. Atualize a lista e tente novamente.',
       status: HttpStatus.BAD_REQUEST,
     });
   });
@@ -299,7 +299,9 @@ describe('DiscordRoleManagementService', () => {
     await expect(
       service.updateUserRoles('user-1', { selectedRoleIds: ['role-dangerous'] }, {} as Client, 'guild-1'),
     ).rejects.toMatchObject({
-      response: 'Some roles are not selectable',
+      response: {
+        message: 'Um ou mais cargos não estão disponíveis. Atualize a lista e tente novamente.',
+      },
       status: HttpStatus.BAD_REQUEST,
     });
 
@@ -323,7 +325,9 @@ describe('DiscordRoleManagementService', () => {
     await expect(
       service.updateUserRoles('user-1', { selectedRoleIds: [] }, createClient({}), 'guild-1'),
     ).rejects.toMatchObject({
-      response: 'Discord account not linked',
+      response: {
+        message: 'Vincule sua conta do Discord antes de gerenciar seus cargos.',
+      },
       status: HttpStatus.BAD_REQUEST,
     });
   });
@@ -356,14 +360,18 @@ describe('DiscordRoleManagementService', () => {
     const { prisma, service } = createContext();
 
     await expect(service.getUserRoles('user-1', createClient({}), 'guild-1')).rejects.toMatchObject({
-      response: 'Discord account not linked',
+      response: {
+        message: 'Vincule sua conta do Discord antes de gerenciar seus cargos.',
+      },
       status: HttpStatus.BAD_REQUEST,
     });
 
     prisma.discordLink.findFirst.mockResolvedValue(createDiscordLink());
     await expect(service.getUserRoles('user-1', createClient(null), 'guild-1')).rejects.toMatchObject({
-      response: 'Discord guild not found',
-      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      response: {
+        message: 'Não foi possível acessar o servidor do Discord agora. Tente novamente em alguns minutos.',
+      },
+      status: HttpStatus.SERVICE_UNAVAILABLE,
     });
 
     await expect(
@@ -371,13 +379,15 @@ describe('DiscordRoleManagementService', () => {
         'user-1',
         createClient({
           members: {
-            fetch: jest.fn<Promise<unknown>, [string]>().mockRejectedValue(new Error('missing')),
+            fetch: jest.fn<Promise<unknown>, [string]>().mockRejectedValue({ code: 10007 }),
           },
         }),
         'guild-1',
       ),
     ).rejects.toMatchObject({
-      response: 'User not found in Discord server. Please rejoin the server.',
+      response: {
+        message: 'Sua conta não está no servidor do Discord. Entre no servidor e tente novamente.',
+      },
       status: HttpStatus.BAD_REQUEST,
     });
   });
@@ -387,8 +397,10 @@ describe('DiscordRoleManagementService', () => {
     prisma.discordLink.findFirst.mockRejectedValue(new Error('database down'));
 
     await expect(service.getUserRoles('user-1', createClient({}), 'guild-1')).rejects.toMatchObject({
-      response: 'Failed to fetch user Discord roles',
-      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      response: {
+        message: 'Não foi possível consultar seus cargos do Discord. Tente novamente em alguns minutos.',
+      },
+      status: HttpStatus.SERVICE_UNAVAILABLE,
     });
   });
 
@@ -434,7 +446,7 @@ describe('DiscordRoleManagementService', () => {
     ).rejects.toMatchObject({
       status: HttpStatus.BAD_GATEWAY,
       response: {
-        message: 'Discord role update completed only partially.',
+        message: 'Alguns cargos foram atualizados e outros não. Atualize a lista para conferir o estado atual.',
         failedRoleIds: ['role-old', 'role-new'],
       },
     });

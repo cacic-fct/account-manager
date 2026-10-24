@@ -23,6 +23,7 @@ import {
   BadRequestException,
   Logger,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { DeleteAccountRequest, LgpdRequest } from '@prisma/client';
@@ -122,7 +123,9 @@ export class LgpdService {
           errorMessage: this.serializeFailureDetails('lgpdQueue.add.process-data-request', error),
         },
       });
-      throw new InternalServerErrorException('Não foi possível enfileirar a solicitação de dados.');
+      throw new InternalServerErrorException(
+        'Não foi possível iniciar a geração do arquivo de dados. Tente novamente mais tarde. Se o problema continuar, fale com o suporte.',
+      );
     }
 
     return this.toDto(saved);
@@ -182,8 +185,23 @@ export class LgpdService {
         stream,
         fileName: request.fileName || 'dados-lgpd.zip',
       };
-    } catch {
-      throw new NotFoundException('Arquivo não pôde ser baixado do servidor');
+    } catch (error) {
+      this.logger.error('Failed to retrieve LGPD archive for download', {
+        operation: 'download',
+        requestId: request.id,
+        ...(error instanceof S3ServiceError && { statusCode: error.statusCode, retryable: error.retryable }),
+      });
+      if (
+        error instanceof S3ServiceError &&
+        (error.statusCode === 404 || ['NotFound', 'NoSuchKey'].includes(error.providerCode ?? ''))
+      ) {
+        throw new NotFoundException(
+          'O arquivo de dados não está disponível. Fale com o suporte para solicitar outra cópia.',
+        );
+      }
+      throw new ServiceUnavailableException(
+        'Não foi possível baixar o arquivo de dados agora. Tente novamente em alguns minutos. Se o problema continuar, fale com o suporte.',
+      );
     }
   }
 
@@ -269,7 +287,7 @@ export class LgpdService {
         where: { id: requestId, status: 'processing' },
         data: {
           status: 'failed',
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorMessage: this.getErrorMessage(error),
         },
       });
     }
@@ -372,7 +390,7 @@ export class LgpdService {
         data_expiracao: req.expiresAt,
         nome_arquivo: req.fileName,
         tamanho_arquivo: req.fileSize,
-        mensagem_erro: req.errorMessage,
+        mensagem_erro: req.errorMessage ? this.getSafeLgpdRequestErrorMessage() : undefined,
       }));
     } catch (error) {
       this.logger.error('Error collecting LGPD request history', error);
@@ -401,7 +419,7 @@ export class LgpdService {
       optionalWarnings.push('contas_discord_vinculadas');
       data.contas_discord_vinculadas = {
         erro: 'Erro ao coletar dados de contas Discord',
-        detalhes: error instanceof Error ? error.message : 'Unknown error',
+        detalhes: 'Não foi possível coletar esses dados durante a geração do arquivo.',
       };
     }
 
@@ -433,7 +451,7 @@ export class LgpdService {
           this.logger.error(`Error collecting external LGPD data from ${backend.name}`, error);
           externalData[category] = {
             erro: `Erro ao coletar dados de ${backend.name}`,
-            detalhes: error instanceof Error ? error.message : 'Unknown error',
+            detalhes: 'Não foi possível coletar esses dados durante a geração do arquivo.',
             data_erro: new Date().toISOString(),
           };
           errors.push(category);
@@ -843,7 +861,9 @@ export class LgpdService {
           errorMessage: this.serializeFailureDetails('lgpdQueue.add.account-deletion', error),
         },
       });
-      throw new InternalServerErrorException('Não foi possível enfileirar a solicitação de exclusão de conta.');
+      throw new InternalServerErrorException(
+        'A solicitação de exclusão foi registrada, mas não pôde ser agendada. Confira o status antes de tentar novamente.',
+      );
     }
 
     return {
@@ -1260,13 +1280,16 @@ export class LgpdService {
     } catch (error) {
       // Keep the terminal local cancellation and retain a durable reconciliation error. No worker
       // can claim this row, so a later repair process can safely retry the external cancellation.
+      this.logger.error('Failed to reconcile cancelled account deletion', { requestId, error });
       await this.prisma.deleteAccountRequest.updateMany({
         where: { id: requestId, status: 'completed', cancelledAt: cancellationTime },
         data: {
           errorMessage: this.serializeFailureDetails('undoAccountDeletionRequest.reconcile', error),
         },
       });
-      throw error;
+      throw new ServiceUnavailableException(
+        'O cancelamento foi registrado, mas a conta pode continuar desativada em alguns sistemas. Confira o acesso antes de tentar novamente.',
+      );
     }
 
     const updated = await this.prisma.deleteAccountRequest.findUniqueOrThrow({
@@ -1309,7 +1332,9 @@ export class LgpdService {
           errorMessage: this.serializeFailureDetails('lgpdQueue.add.hard-delete-now', error),
         },
       });
-      throw new InternalServerErrorException('Não foi possível enfileirar a exclusão imediata da conta.');
+      throw new InternalServerErrorException(
+        'Não foi possível agendar a exclusão imediata. Confira o status do pedido antes de tentar novamente.',
+      );
     }
 
     const updated = await this.prisma.deleteAccountRequest.findUniqueOrThrow({
@@ -1564,7 +1589,7 @@ export class LgpdService {
       softDeletedAt: request.softDeletedAt ?? undefined,
       scheduledHardDeleteAt: request.scheduledHardDeleteAt ?? undefined,
       completedAt: request.completedAt ?? undefined,
-      errorMessage: request.errorMessage ?? undefined,
+      errorMessage: request.errorMessage ? this.toSafeAccountDeletionErrorMessage(request.errorMessage) : undefined,
       createdAt: request.createdAt,
     };
   }
@@ -1577,7 +1602,7 @@ export class LgpdService {
       status: request.status,
       fileName: request.fileName ?? undefined,
       fileSize: request.fileSize ?? undefined,
-      errorMessage: request.errorMessage ?? undefined,
+      errorMessage: request.errorMessage ? this.getSafeLgpdRequestErrorMessage() : undefined,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       downloadedAt: request.downloadedAt ?? undefined,
@@ -1599,7 +1624,93 @@ export class LgpdService {
 
   private validateUserOwnership(requestUserId: string, sessionUserId: string): void {
     if (requestUserId !== sessionUserId) {
-      throw new Error('Acesso negado: usuário não pode acessar dados de outro usuário');
+      throw new NotFoundException('Solicitação não encontrada.');
     }
+  }
+
+  private getSafeLgpdRequestErrorMessage(): string {
+    return 'Não foi possível gerar o arquivo com seus dados. Fale com o suporte para solicitar uma nova tentativa.';
+  }
+
+  private toSafeAccountDeletionErrorMessage(errorMessage: string): string {
+    try {
+      const details: unknown = JSON.parse(errorMessage);
+      if (!this.isRecord(details)) {
+        return 'O pedido de exclusão não foi concluído. Confira o acesso à conta antes de tentar novamente.';
+      }
+
+      if (Array.isArray(details['failures'])) {
+        const failures = details['failures']
+          .filter((failure): failure is Record<string, unknown> => this.isRecord(failure))
+          .map((failure) => ({
+            service: this.safeDeletionServiceLabel(failure['service']),
+            operation: this.safeDeletionOperationLabel(failure['operation']),
+          }));
+        const failedOperations = new Set(failures.map((failure) => failure.operation));
+        const failedSteps = failures.map((failure) => `${failure.service}: ${failure.operation}`);
+        const pendingSteps = Array.isArray(details['remainingServices'])
+          ? details['remainingServices']
+              .filter((service): service is string => typeof service === 'string')
+              .map((service) => this.safeDeletionOperationLabel(service))
+              .filter((operation) => !failedOperations.has(operation))
+          : [];
+        const steps = [...new Set([...failedSteps, ...pendingSteps])];
+        const stepSummary = steps.length > 0 ? ` Etapas: ${steps.join('; ')}.` : '';
+        const partialState =
+          details['partialState'] === 'partially_disabled' ? ' A conta pode ter sido desativada parcialmente.' : '';
+        return `A exclusão ficou incompleta.${stepSummary}${partialState} Confira o acesso antes de tentar novamente.`;
+      }
+
+      const operation = typeof details['operation'] === 'string' ? details['operation'] : '';
+      if (operation === 'undoAccountDeletionRequest.reconcile') {
+        return 'O cancelamento foi registrado, mas a conta pode continuar desativada em alguns sistemas. Confira o acesso antes de tentar novamente.';
+      }
+      if (operation === 'lgpdQueue.add.account-deletion') {
+        return 'A solicitação de exclusão foi registrada, mas não pôde ser agendada. Confira o status antes de tentar novamente.';
+      }
+      if (operation === 'lgpdQueue.add.hard-delete-now') {
+        return 'Não foi possível agendar a exclusão imediata. Confira a solicitação antes de tentar novamente.';
+      }
+      if (operation === 'processAccountHardDeletion') {
+        return 'A exclusão definitiva ficou incompleta. Confira o acesso antes de tentar novamente.';
+      }
+    } catch {
+      // Older rows may contain a plain provider error instead of structured failure details.
+    }
+
+    return 'O pedido de exclusão não foi concluído. Confira o acesso à conta antes de tentar novamente.';
+  }
+
+  private safeDeletionServiceLabel(service: unknown): string {
+    const labels: Record<string, string> = {
+      'soft-deletion': 'desativação da conta',
+      'external-backends': 'serviços integrados',
+      'application-data': 'dados da aplicação',
+      'user-service': 'dados do usuário',
+      keycloak: 'serviço de autenticação',
+    };
+    return typeof service === 'string' && Object.prototype.hasOwnProperty.call(labels, service)
+      ? labels[service]
+      : 'serviço integrado';
+  }
+
+  private safeDeletionOperationLabel(operation: unknown): string {
+    const labels: Record<string, string> = {
+      apply: 'desativar a conta',
+      cancel: 'cancelar a exclusão',
+      clearDeletionAttributes: 'limpar os dados de agendamento',
+      'setUserEnabled.compensate': 'restaurar o acesso à conta',
+      delete: 'excluir os dados',
+      deleteUserApplicationData: 'excluir os dados da aplicação',
+      deleteUserData: 'excluir os dados do usuário',
+      deleteUser: 'excluir a conta',
+      'external-backends.delete': 'excluir os dados nos serviços integrados',
+      'application-data.deleteUserApplicationData': 'excluir os dados da aplicação',
+      'user-service.deleteUserData': 'excluir os dados do usuário',
+      'keycloak.deleteUser': 'excluir a conta no serviço de autenticação',
+    };
+    return typeof operation === 'string' && Object.prototype.hasOwnProperty.call(labels, operation)
+      ? labels[operation]
+      : 'concluir uma etapa';
   }
 }

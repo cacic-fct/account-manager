@@ -254,11 +254,14 @@ describe('PermissionsComponent', () => {
 
     expect(apiService.createKeycloakPermissionGrant).toHaveBeenCalledTimes(2);
     expect(TestBed.inject(MatSnackBar).open).toHaveBeenCalledWith(
-      '1 aplicada(s), 1 falha(s). Revise vínculos duplicados.',
+      '1 alteração foi confirmada. 1 alteração ainda está sem confirmação. Confira o estado atualizado de cada pessoa antes de tentar novamente.',
       'Fechar',
-      { duration: 6000 },
+      { duration: 10000 },
     );
-    expect(component.directGrantForm.controls.permissions.value).toEqual([]);
+    expect(apiService.getKeycloakPermissionGrants).toHaveBeenCalledWith(mockKeycloakPermissionUsers[0].id);
+    expect(component.directGrantForm.controls.permissions.value).toEqual(
+      mockKeycloakPermissionCatalog.slice(0, 2).map((entry) => entry.permission),
+    );
   });
 
   it('keeps group selection separate from direct grants and their draft form', () => {
@@ -428,7 +431,7 @@ describe('PermissionsComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Não foi possível consultar o acesso no Keycloak.');
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível consultar o acesso atual no Keycloak.');
     expect(fixture.nativeElement.textContent).not.toContain('Nenhuma permissão nos sistemas gerenciados.');
   });
 

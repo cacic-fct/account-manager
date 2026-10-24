@@ -1,14 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { LgpdService } from '../../lgpd/lgpd.service';
 
 @Injectable()
-export class CleanupSchedulerService {
-  private readonly logger = new Logger(CleanupSchedulerService.name);
+export class LgpdCleanupService {
+  private readonly logger = new Logger(LgpdCleanupService.name);
 
   constructor(private readonly lgpdService: LgpdService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async cleanupExpiredLgpdFiles(): Promise<void> {
     try {
       const recoveredSoftDeletions = await this.lgpdService.enqueuePendingSoftDeletions();
@@ -37,6 +35,7 @@ export class CleanupSchedulerService {
       }
     } catch (error) {
       this.logger.error('Failed to clean up expired LGPD files', error);
+      throw error;
     }
   }
 }

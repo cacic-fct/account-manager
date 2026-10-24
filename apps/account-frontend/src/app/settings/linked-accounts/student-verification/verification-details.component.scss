@@ -52,7 +52,7 @@
 }
 
 .content-wrapper {
-  max-width: 800px;
+  max-width: var(--app-content-narrow);
   margin: 0 auto;
   padding: 24px 16px;
   display: flex;

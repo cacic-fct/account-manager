@@ -12,6 +12,7 @@ import { ApiService, ServerSetting } from '../../../shared/services/api.service'
 import { toSignal } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-discord-admin',
@@ -37,6 +38,7 @@ export class DiscordAdminComponent implements OnInit {
   private readonly inviteSettingKey = 'student_invite_link';
 
   isLoading = signal(false);
+  loadError = signal<string | null>(null);
   settings = signal<ServerSetting[]>([]);
   isSaving = signal(false);
   inviteLinkControl = new FormControl('', { nonNullable: true });
@@ -59,6 +61,7 @@ export class DiscordAdminComponent implements OnInit {
 
   loadSettings(): void {
     this.isLoading.set(true);
+    this.loadError.set(null);
     this.apiService.getServerSettings().subscribe({
       next: (settings: ServerSetting[]) => {
         this.setSettings(settings);
@@ -66,21 +69,31 @@ export class DiscordAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error loading server settings', error);
-        this.snackBar.open('Não foi possível carregar o convite do Discord.', 'Fechar', { duration: 5000 });
+        this.loadError.set(
+          getApiErrorMessage(error, 'Não foi possível carregar o convite do Discord. Atualize para tentar novamente.'),
+        );
         this.isLoading.set(false);
       },
     });
   }
 
-  refreshSettings(): void {
+  refreshSettings(showSuccessMessage = true): void {
+    this.isLoading.set(true);
+    this.loadError.set(null);
     this.apiService.getServerSettingsFresh().subscribe({
       next: (settings: ServerSetting[]) => {
         this.setSettings(settings);
-        this.snackBar.open('Convite atualizado.', 'Fechar', { duration: 3000 });
+        this.isLoading.set(false);
+        if (showSuccessMessage) {
+          this.snackBar.open('Convite atualizado.', 'Fechar', { duration: 3000 });
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error refreshing settings', error);
-        this.snackBar.open('Não foi possível atualizar o convite.', 'Fechar', { duration: 5000 });
+        this.loadError.set(
+          getApiErrorMessage(error, 'Não foi possível atualizar o convite. Tente novamente antes de continuar.'),
+        );
+        this.isLoading.set(false);
       },
     });
   }
@@ -109,10 +122,16 @@ export class DiscordAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error saving setting', error);
-        this.snackBar.open('Não foi possível salvar o convite.', 'Fechar', {
-          duration: 5000,
-        });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se o convite foi salvo. Atualize o convite antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.isSaving.set(false);
+        this.refreshSettings(false);
       },
     });
   }

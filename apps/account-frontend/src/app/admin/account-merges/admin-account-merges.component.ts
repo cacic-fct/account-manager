@@ -25,6 +25,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../shared/services/api.service';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 import { KeycloakPermissionsPersonPickerComponent } from '../keycloak-permissions/keycloak-permissions-person-picker.component';
 
 @Component({
@@ -68,9 +69,14 @@ export class AdminAccountMergesComponent implements OnDestroy {
   protected readonly secondSearching = signal(false);
   protected readonly creating = signal(false);
   protected readonly confirming = signal(false);
+  protected readonly canceling = signal(false);
   protected readonly mergeRequest = signal<AccountMergeRequest | null>(null);
   protected readonly selectedPrimaryEmail = signal('');
   protected readonly mergeUpdatesFailed = signal(false);
+  protected readonly mergeUpdatesError = signal<string | null>(null);
+  protected readonly requestStateStale = signal(false);
+  protected readonly requestStateError = signal<string | null>(null);
+  protected readonly refreshingRequestState = signal(false);
   protected readonly isProcessing = computed(() => {
     const status = this.mergeRequest()?.status;
     return status === 'pending_score' || status === 'processing' || status === 'pending_merge';
@@ -82,6 +88,7 @@ export class AdminAccountMergesComponent implements OnDestroy {
   });
 
   private mergeUpdatesSubscription?: Subscription;
+  private mergeRequestRefreshId = 0;
 
   ngOnDestroy(): void {
     this.stopMergeUpdates();
@@ -98,7 +105,15 @@ export class AdminAccountMergesComponent implements OnDestroy {
   protected createMergeRequest(): void {
     const requester = this.firstUser();
     const candidate = this.secondUser();
-    if (!requester || !candidate || requester.id === candidate.id) {
+    if (
+      !requester ||
+      !candidate ||
+      requester.id === candidate.id ||
+      this.mergeRequest() !== null ||
+      this.creating() ||
+      this.requestStateStale() ||
+      this.refreshingRequestState()
+    ) {
       return;
     }
 
@@ -111,9 +126,16 @@ export class AdminAccountMergesComponent implements OnDestroy {
           this.selectedPrimaryEmail.set(request.primaryEmailOptions[0] || '');
           this.creating.set(false);
         },
-        error: () => {
+        error: (error: unknown) => {
           this.creating.set(false);
-          this.snackBar.open('Não foi possível iniciar a unificação das contas.', 'Fechar', { duration: 6000 });
+          this.snackBar.open(
+            getApiErrorMessage(
+              error,
+              'Não foi possível verificar se a solicitação foi criada. Confira a situação das contas antes de tentar novamente.',
+            ),
+            'Fechar',
+            { duration: 8000 },
+          );
         },
       });
   }
@@ -121,7 +143,15 @@ export class AdminAccountMergesComponent implements OnDestroy {
   protected confirmMerge(): void {
     const request = this.mergeRequest();
     const primaryEmail = this.selectedPrimaryEmail();
-    if (!request || !primaryEmail) {
+    if (
+      !request ||
+      request.status !== 'pending' ||
+      !primaryEmail ||
+      this.confirming() ||
+      this.canceling() ||
+      this.requestStateStale() ||
+      this.refreshingRequestState()
+    ) {
       return;
     }
 
@@ -135,38 +165,118 @@ export class AdminAccountMergesComponent implements OnDestroy {
           duration: 6000,
         });
       },
-      error: () => {
+      error: (error: unknown) => {
         this.confirming.set(false);
-        this.snackBar.open('Não foi possível confirmar a unificação.', 'Fechar', { duration: 6000 });
+        this.requestStateStale.set(true);
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a unificação foi iniciada. Aguarde a atualização do status antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
+        this.refreshMergeRequest(request.id);
       },
     });
   }
 
   protected cancelMerge(): void {
     const request = this.mergeRequest();
-    if (!request) {
+    if (
+      !request ||
+      request.status !== 'pending' ||
+      this.canceling() ||
+      this.confirming() ||
+      this.requestStateStale() ||
+      this.refreshingRequestState()
+    ) {
       return;
     }
 
+    this.canceling.set(true);
     this.apiService.cancelAdminAccountMerge(request.id).subscribe({
       next: () => {
         this.stopMergeUpdates();
+        this.canceling.set(false);
         this.mergeRequest.set(null);
         this.selectedPrimaryEmail.set('');
       },
-      error: () => {
-        this.snackBar.open('Não foi possível cancelar a unificação.', 'Fechar', { duration: 6000 });
+      error: (error: unknown) => {
+        this.canceling.set(false);
+        this.requestStateStale.set(true);
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a solicitação foi cancelada. Aguarde a atualização do status antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
+        this.refreshMergeRequest(request.id);
+      },
+    });
+  }
+
+  protected refreshMergeRequest(requestId: string): void {
+    if (this.mergeRequest()?.id !== requestId || this.refreshingRequestState()) {
+      return;
+    }
+
+    const refreshId = ++this.mergeRequestRefreshId;
+    this.stopMergeUpdates();
+    this.refreshingRequestState.set(true);
+    this.requestStateStale.set(true);
+    this.requestStateError.set(null);
+    this.apiService.getAdminAccountMergeRequest(requestId).subscribe({
+      next: (request) => {
+        if (refreshId !== this.mergeRequestRefreshId || this.mergeRequest()?.id !== requestId) {
+          return;
+        }
+
+        this.mergeRequest.set(request);
+        this.selectedPrimaryEmail.set(request.selectedPrimaryEmail ?? this.selectedPrimaryEmail());
+        this.requestStateStale.set(false);
+        this.requestStateError.set(null);
+        this.refreshingRequestState.set(false);
+        if (['pending_score', 'processing', 'pending_merge'].includes(request.status)) {
+          this.startMergeUpdates(request.id);
+        } else {
+          this.stopMergeUpdates();
+        }
+      },
+      error: (error: unknown) => {
+        if (refreshId !== this.mergeRequestRefreshId || this.mergeRequest()?.id !== requestId) {
+          return;
+        }
+
+        this.requestStateError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível atualizar o status da solicitação. Tente atualizar novamente antes de continuar.',
+          ),
+        );
+        this.refreshingRequestState.set(false);
       },
     });
   }
 
   protected reset(): void {
+    if (this.confirming() || this.canceling() || this.requestStateStale() || this.refreshingRequestState()) {
+      return;
+    }
+
+    this.mergeRequestRefreshId++;
     this.stopMergeUpdates();
     this.mergeRequest.set(null);
     this.selectedPrimaryEmail.set('');
     this.firstUser.set(null);
     this.secondUser.set(null);
     this.mergeUpdatesFailed.set(false);
+    this.mergeUpdatesError.set(null);
+    this.requestStateStale.set(false);
+    this.requestStateError.set(null);
+    this.refreshingRequestState.set(false);
   }
 
   protected progressValue(score: number): number {
@@ -185,14 +295,19 @@ export class AdminAccountMergesComponent implements OnDestroy {
     }
 
     searching.set(true);
+    users.set([]);
     this.apiService.searchKeycloakPermissionUsers(query).subscribe({
       next: (results) => {
         users.set(results.filter((user) => user.enabled !== false));
         searching.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         searching.set(false);
-        this.snackBar.open('Erro ao buscar contas no Keycloak.', 'Fechar', { duration: 5000 });
+        this.snackBar.open(
+          getApiErrorMessage(error, 'Não foi possível buscar contas no Keycloak. Tente novamente em instantes.'),
+          'Fechar',
+          { duration: 6000 },
+        );
       },
     });
   }
@@ -200,28 +315,44 @@ export class AdminAccountMergesComponent implements OnDestroy {
   private startMergeUpdates(requestId: string): void {
     this.stopMergeUpdates();
     this.mergeUpdatesFailed.set(false);
+    this.mergeUpdatesError.set(null);
     if (!this.isBrowser) {
       return;
     }
 
     this.mergeUpdatesSubscription = this.apiService.watchAdminAccountMergeRequest(requestId).subscribe({
       next: (delta) => {
+        if (this.mergeRequest()?.id !== requestId || this.requestStateStale()) {
+          return;
+        }
+
         const request = { ...this.mergeRequest(), ...delta } as AccountMergeRequest;
         this.mergeRequest.set(request);
         if (!['pending_score', 'processing', 'pending_merge'].includes(request.status)) {
           this.stopMergeUpdates();
         }
       },
-      error: () => {
+      error: (error: unknown) => {
+        if (this.mergeRequest()?.id !== requestId || this.requestStateStale()) {
+          return;
+        }
+
         this.mergeUpdatesFailed.set(true);
-        this.snackBar.open('Não foi possível acompanhar a unificação em tempo real.', 'Fechar', { duration: 7000 });
+        const message = getApiErrorMessage(
+          error,
+          'Não foi possível acompanhar o andamento da unificação em tempo real. Atualize o status antes de decidir o próximo passo.',
+        );
+        this.mergeUpdatesError.set(message);
+        this.snackBar.open(message, 'Fechar', { duration: 8000 });
       },
     });
   }
 
   protected retryMergeUpdates(): void {
     const requestId = this.mergeRequest()?.id;
-    if (requestId) this.startMergeUpdates(requestId);
+    if (requestId && !this.requestStateStale() && !this.refreshingRequestState()) {
+      this.startMergeUpdates(requestId);
+    }
   }
 
   private stopMergeUpdates(): void {

@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Interval } from '@nestjs/schedule';
 import type { StudentVerificationDocument } from '@prisma/client';
 import { S3Service } from '../../common/services/s3.service';
 import { Readable } from 'stream';
@@ -61,7 +60,6 @@ export class DocumentManagementService {
     this.logger.debug('Cleaned up sensitive data for approved student verification document');
   }
 
-  @Interval(24 * 60 * 60 * 1000)
   async cleanupExpiredDocuments(): Promise<void> {
     const now = Date.now();
     const pendingCutoff = new Date(now - this.pendingRetentionMs);
@@ -114,6 +112,7 @@ export class DocumentManagementService {
       this.logger.warn(
         `Student verification retention attempted ${attempted} document(s): ${cleaned} cleaned, ${failed} retained for retry`,
       );
+      throw new Error(`Student document retention failed for ${failed} document(s)`);
     }
   }
 

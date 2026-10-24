@@ -19,7 +19,7 @@ import { NecordModule } from 'necord';
 import { GatewayIntentBits } from 'discord.js';
 import { PrismaModule } from './prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
-import { ScheduleModule } from '@nestjs/schedule';
+import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { GrpcModule } from './grpc/grpc.module';
 import { OperationalMetricsController } from './common/controllers/operational-metrics.controller';
 import { OperationalMetricsService } from './common/services/operational-metrics.service';
@@ -48,7 +48,7 @@ if (!/^\d+$/.test(redisPortValue) || Number(redisPortValue) < 1 || Number(redisP
         }),
       },
     }),
-    ScheduleModule.forRoot(),
+    BackgroundJobsModule,
     AuthModule,
     KeycloakPermissionsModule,
     CommonModule,

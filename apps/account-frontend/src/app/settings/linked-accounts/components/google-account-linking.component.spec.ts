@@ -122,20 +122,26 @@ describe('GoogleAccountLinkingComponent', () => {
     const component = fixture.componentInstance as unknown as Harness;
     expect(component.isLoading()).toBe(false);
     expect(snackBar.open).toHaveBeenCalledWith('Não foi possível vincular a conta Google.', 'OK', { duration: 7000 });
-    expect(snackBar.open).toHaveBeenCalledWith('Solicitação de unificação expirada ou inválida.', 'OK', {
-      duration: 7000,
-    });
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Não foi possível abrir esta solicitação de unificação. Ela pode ter expirado; tente vincular a conta novamente.',
+      'Fechar',
+      {
+        duration: 7000,
+      },
+    );
 
     component.mergeRequest.set(mergeRequest);
     component.selectedPrimaryEmail.set(mergeRequest.primaryEmailOptions[0]);
     apiService.watchAccountMergeRequest.mockReturnValue(throwError(() => new Error('stream unavailable')));
     component.confirmMerge();
 
-    expect(snackBar.open).toHaveBeenCalledWith('Não foi possível acompanhar a unificação em tempo real.', 'OK', {
-      duration: 7000,
-    });
     expect(snackBar.open).toHaveBeenCalledWith(
-      'Não foi possível recuperar o status da unificação.',
+      'A atualização em tempo real parou. Vamos consultar o andamento da unificação…',
+      'Fechar',
+      { duration: 7000 },
+    );
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Não foi possível consultar o status da unificação. Tente novamente.',
       'Tentar novamente',
       { duration: 7000 },
     );

@@ -10,6 +10,18 @@
   "editUsernameAllowed": false,
   "bruteForceProtected": false,
   "requiredCredentials": ["password"],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"unmanagedAttributePolicy\":\"ADMIN_EDIT\",\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
   "roles": {
     "realm": [
       {
@@ -151,6 +163,40 @@
     }
   ],
   "clientScopes": [
+    {
+      "name": "basic",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "auth_time",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "AUTH_TIME",
+            "id.token.claim": "true",
+            "introspection.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "auth_time",
+            "jsonType.label": "long"
+          }
+        },
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
     {
       "name": "profile",
       "protocol": "openid-connect",
@@ -600,6 +646,7 @@
         "post.logout.redirect.uris": "https://localhost:4200/*##https://127.0.0.1:4200/*##http://localhost:4200/*##http://127.0.0.1:4200/*"
       },
       "defaultClientScopes": [
+        "basic",
         "web-origins",
         "acr",
         "profile",
@@ -662,6 +709,7 @@
         "post.logout.redirect.uris": "https://localhost:4200/*##https://127.0.0.1:4200/*##https://localhost:4201/*##https://127.0.0.1:4201/*##http://localhost:4200/*##http://127.0.0.1:4200/*##http://localhost:4201/*##http://127.0.0.1:4201/*"
       },
       "defaultClientScopes": [
+        "basic",
         "web-origins",
         "acr",
         "profile",
@@ -685,7 +733,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": ["roles", "profile", "email"],
+      "defaultClientScopes": ["basic", "roles", "profile", "email"],
       "optionalClientScopes": []
     },
     {
@@ -700,7 +748,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": ["roles", "profile", "email", "cacic-event-manager-audience"],
+      "defaultClientScopes": ["basic", "roles", "profile", "email", "cacic-event-manager-audience"],
       "optionalClientScopes": []
     },
     {
@@ -715,7 +763,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": ["roles", "profile", "email", "cacic-account-manager-audience"],
+      "defaultClientScopes": ["basic", "roles", "profile", "email", "cacic-account-manager-audience"],
       "optionalClientScopes": []
     },
     {
@@ -730,7 +778,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": ["roles", "profile", "email", "cacic-account-manager-audience"],
+      "defaultClientScopes": ["basic", "roles", "profile", "email", "cacic-account-manager-audience"],
       "optionalClientScopes": []
     },
     {

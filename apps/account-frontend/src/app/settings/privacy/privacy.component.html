@@ -1,25 +1,14 @@
-<mat-toolbar color="primary" class="toolbar">
-  <button mat-icon-button routerLink="/settings">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-  <span>Privacidade</span>
-</mat-toolbar>
-
-<div class="settings-container">
-  <mat-list>
-    <mat-list-item routerLink="/settings/privacy/analytics">
-      <mat-icon matListItemIcon>timeline</mat-icon>
-      <span matListItemTitle>Análise</span>
-      <span matListItemLine>Rastreamento e diagnóstico</span>
-    </mat-list-item>
-    <mat-list-item routerLink="/settings/privacy/lgpd">
-      <mat-icon matListItemIcon>article_person</mat-icon>
-      <span matListItemTitle>Meus dados</span>
-      <span matListItemLine>Solicitações LGPD</span>
-    </mat-list-item>
-    <a mat-list-item href="https://cacic.com.br/legal/privacy-policy" target="_blank" rel="noopener">
-      <mat-icon matListItemIcon>front_hand</mat-icon>
-      <span matListItemTitle>Política de privacidade</span>
-    </a>
-  </mat-list>
-</div>
+<header class="page-header">
+  <div class="header-content">
+    <a mat-button routerLink="/settings"><mat-icon>arrow_back</mat-icon>Configurações</a>
+  </div>
+</header>
+<main class="navigation-page">
+  <header class="page-heading"><h1>Privacidade</h1></header>
+  <app-settings-navigation [groups]="groups" label="Privacidade" />
+  <footer class="page-footer">
+    <a href="https://cacic.com.br/legal/privacy-policy" target="_blank" rel="noopener"
+      >Política de privacidade <span class="sr-only">(abre em nova aba)</span></a
+    >
+  </footer>
+</main>

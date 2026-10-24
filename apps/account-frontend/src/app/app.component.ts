@@ -2,7 +2,6 @@ import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CookieBannerComponent, CookieBannerOptions } from '@cacic-fct/account-manager-cookie-banner/angular';
 import { hasAcceptedCookieBanner } from '@cacic-fct/account-manager-cookie-banner';
-import { MatIconRegistry } from '@angular/material/icon';
 import { PrivacyDirectiveService } from './shared/services/privacy-directive.service';
 import { AuthService } from './shared/services/auth/auth.service';
 import { LoggerService } from './shared/services/logger.service';
@@ -17,7 +16,6 @@ import type { PrivacyDirectives } from './shared/interfaces/privacy-directive.in
 export class AppComponent {
   title = 'cacic-account-manager';
 
-  iconRegistry = inject(MatIconRegistry);
   private privacyDirectiveService = inject(PrivacyDirectiveService);
   private authService = inject(AuthService);
   private logger = inject(LoggerService);
@@ -27,8 +25,6 @@ export class AppComponent {
   cookieBannerConfig: CookieBannerOptions;
 
   constructor() {
-    this.iconRegistry.setDefaultFontSetClass('material-icons');
-
     // Fetch privacy directives
     this.privacyDirectiveService.fetchDirectives().subscribe({
       next: (directives) => {

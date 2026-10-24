@@ -128,7 +128,7 @@ export class DiscordManagedRoleOverridesService {
     });
 
     if (!override) {
-      throw new NotFoundException('Discord managed role override not found');
+      throw new NotFoundException('Exceção de cargo do Discord não encontrada.');
     }
 
     return override;

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { createApiBaseUrl } from '../../config/app.config';
 
@@ -29,17 +29,21 @@ export class DiscordOAuthService {
    */
   getDiscordAuthUrl(userId: string): { authUrl: string; state: string } {
     if (typeof userId !== 'string' || !userId.trim()) {
-      throw new BadRequestException('User ID is required');
+      throw new BadRequestException('Entre novamente para vincular sua conta do Discord.');
     }
 
     const clientId = process.env.DISCORD_CLIENT_ID;
     if (!clientId) {
-      throw new BadRequestException('Discord client ID not configured');
+      throw new ServiceUnavailableException(
+        'A vinculação com o Discord não está disponível agora. Fale com o suporte.',
+      );
     }
 
     const backendUrl = process.env.BACKEND_URL;
     if (!backendUrl) {
-      throw new BadRequestException('BACKEND_URL environment variable not configured');
+      throw new ServiceUnavailableException(
+        'A vinculação com o Discord não está disponível agora. Fale com o suporte.',
+      );
     }
 
     const redirectUri = this.discordCallbackUrl(backendUrl);
@@ -67,14 +71,14 @@ export class DiscordOAuthService {
       const expected = Buffer.from(expectedState, 'utf-8');
 
       if (provided.length !== expected.length) {
-        throw new BadRequestException('Invalid state parameter');
+        throw new BadRequestException('A tentativa de vinculação expirou ou é inválida. Inicie novamente.');
       }
 
       if (!timingSafeEqual(provided, expected)) {
-        throw new BadRequestException('Invalid state parameter');
+        throw new BadRequestException('A tentativa de vinculação expirou ou é inválida. Inicie novamente.');
       }
     } catch {
-      throw new BadRequestException('Invalid state parameter');
+      throw new BadRequestException('A tentativa de vinculação expirou ou é inválida. Inicie novamente.');
     }
   }
 
@@ -86,12 +90,16 @@ export class DiscordOAuthService {
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      throw new BadRequestException('Discord OAuth credentials not configured');
+      throw new ServiceUnavailableException(
+        'A vinculação com o Discord não está disponível agora. Fale com o suporte.',
+      );
     }
 
     const backendUrl = process.env.BACKEND_URL;
     if (!backendUrl) {
-      throw new BadRequestException('BACKEND_URL environment variable not configured');
+      throw new ServiceUnavailableException(
+        'A vinculação com o Discord não está disponível agora. Fale com o suporte.',
+      );
     }
 
     const redirectUri = this.discordCallbackUrl(backendUrl);
@@ -103,17 +111,22 @@ export class DiscordOAuthService {
     params.append('code', code);
     params.append('redirect_uri', redirectUri);
 
-    const response = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-      signal: AbortSignal.timeout(10_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch('https://discord.com/api/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException('Não foi possível conectar ao Discord. Tente novamente em alguns minutos.');
+    }
 
     if (!response.ok) {
-      throw new BadRequestException('Failed to exchange Discord OAuth code');
+      throw new BadRequestException('A tentativa de vinculação expirou. Inicie novamente.');
     }
 
     return (await response.json()) as DiscordTokenResponse;
@@ -123,15 +136,20 @@ export class DiscordOAuthService {
    * Get Discord user information using access token
    */
   async getDiscordUserInfo(accessToken: string): Promise<DiscordUser> {
-    const response = await fetch('https://discord.com/api/users/@me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch('https://discord.com/api/users/@me', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException('Não foi possível conectar ao Discord. Tente novamente em alguns minutos.');
+    }
 
     if (!response.ok) {
-      throw new BadRequestException('Failed to get Discord user information');
+      throw new BadRequestException('Não foi possível verificar a conta do Discord. Inicie a vinculação novamente.');
     }
 
     return (await response.json()) as DiscordUser;

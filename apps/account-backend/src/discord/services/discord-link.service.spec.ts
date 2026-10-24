@@ -1,5 +1,5 @@
 import type { DiscordLink } from '@prisma/client';
-import { DiscordLinkService } from './discord-link.service';
+import { DiscordAccountAlreadyLinkedException, DiscordLinkService } from './discord-link.service';
 
 const createLink = (): DiscordLink => ({
   id: 'link-1',
@@ -77,6 +77,23 @@ describe('DiscordLinkService synchronized responses', () => {
     await expect(service.linkDiscordAccount('user-1', { code: 'code', state: 'state' })).resolves.toMatchObject({
       assignedRole: 'unesp',
     });
+  });
+
+  it('preserves the linked-account redirect signal without revealing who owns the account', async () => {
+    const { prisma, service } = createContext();
+    prisma.discordLink.findFirst.mockResolvedValueOnce({ ...createLink(), userId: 'another-user' });
+
+    const error = await service
+      .linkDiscordAccount('user-1', { code: 'code', state: 'state' })
+      .catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(DiscordAccountAlreadyLinkedException);
+    if (error instanceof DiscordAccountAlreadyLinkedException) {
+      expect(error.getStatus()).toBe(400);
+      expect(error.message).toBe(
+        'Esta conta do Discord não pode ser vinculada. Use outra conta ou fale com o suporte.',
+      );
+    }
   });
 
   it('returns the reconciled category after restoring a link', async () => {

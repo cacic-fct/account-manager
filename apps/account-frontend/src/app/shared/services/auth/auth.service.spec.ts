@@ -169,6 +169,58 @@ describe('AuthService password login', () => {
     expect(service.isLoading()).toBe(false);
   });
 
+  it.each([403, 503])('does not attempt silent sign-in after an auth check returns %s', async (status) => {
+    sessionStorage.removeItem('cacic.silentLoginAttempted');
+    apiService.checkAuth.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+    const service = TestBed.inject(AuthService);
+    service.updateCurrentUser(currentUser);
+
+    await service.runInitialLoginSequence();
+
+    expect(silentSso.check).not.toHaveBeenCalled();
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.currentUser()).toBeNull();
+    expect(service.isLoading()).toBe(false);
+    expect(apiService.clearAuthCache).toHaveBeenCalled();
+    expect(csrfService.clearToken).toHaveBeenCalled();
+  });
+
+  it('attempts silent sign-in after an expired session returns 401', async () => {
+    sessionStorage.removeItem('cacic.silentLoginAttempted');
+    apiService.checkAuth.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+    silentSso.check.mockResolvedValue('unauthenticated');
+    const service = TestBed.inject(AuthService);
+
+    await service.runInitialLoginSequence();
+
+    expect(silentSso.check).toHaveBeenCalledOnce();
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.isLoading()).toBe(false);
+  });
+
+  it.each([401, 403])('clears authentication if loading the current user returns %s', async (status) => {
+    apiService.checkAuth.mockReturnValue(of({ isAuthenticated: true, isOnboarded: true }));
+    apiService.getCurrentUser.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+    const service = TestBed.inject(AuthService);
+
+    await service.runInitialLoginSequence();
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.currentUser()).toBeNull();
+    expect(csrfService.clearToken).toHaveBeenCalled();
+  });
+
+  it('clears the previous identity when a refreshed session is unauthenticated', async () => {
+    const service = TestBed.inject(AuthService);
+    service.updateCurrentUser(currentUser);
+
+    await service.refreshAuthStatus();
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.currentUser()).toBeNull();
+    expect(csrfService.clearToken).toHaveBeenCalled();
+  });
+
   it('clears the user after local logout even when global logout is incomplete', () => {
     const service = TestBed.inject(AuthService);
     service.updateCurrentUser(currentUser);

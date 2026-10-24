@@ -11,6 +11,10 @@
 }
 
 .content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--app-content-max);
+  margin-inline: auto;
   flex: 1;
   padding: 20px;
   overflow-y: auto;

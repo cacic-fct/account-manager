@@ -209,7 +209,17 @@ export class DiscordRoleController {
     @Session() session: AuthSession,
   ): Promise<DiscordManagedRoleOverrideDto> {
     const override = await this.managedRoleOverridesService.createOverride(dto, session.user?.keycloakId);
-    await this.discordRoleService.syncUserDiscordRoles(override.userId, 'admin-discord-managed-role-override-updated');
+    try {
+      await this.discordRoleService.syncUserDiscordRoles(
+        override.userId,
+        'admin-discord-managed-role-override-updated',
+      );
+    } catch (error) {
+      this.logger.error('Failed to synchronize Discord roles after creating an admin override', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível atualizar os cargos depois de salvar a alteração. Atualize a página para conferir o estado atual.',
+      );
+    }
 
     return override;
   }
@@ -233,7 +243,17 @@ export class DiscordRoleController {
     @Session() session: AuthSession,
   ): Promise<DiscordManagedRoleOverrideDto> {
     const override = await this.managedRoleOverridesService.updateOverride(id, dto, session.user?.keycloakId);
-    await this.discordRoleService.syncUserDiscordRoles(override.userId, 'admin-discord-managed-role-override-updated');
+    try {
+      await this.discordRoleService.syncUserDiscordRoles(
+        override.userId,
+        'admin-discord-managed-role-override-updated',
+      );
+    } catch (error) {
+      this.logger.error('Failed to synchronize Discord roles after updating an admin override', error);
+      throw new ServiceUnavailableException(
+        'Não foi possível atualizar os cargos depois de salvar a alteração. Atualize a página para conferir o estado atual.',
+      );
+    }
 
     return override;
   }
@@ -306,7 +326,7 @@ export class DiscordRoleController {
     try {
       // Check if user is authenticated
       if (!session?.user?.keycloakId) {
-        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('Entre novamente para continuar.', HttpStatus.UNAUTHORIZED);
       }
 
       const userId: string = session.user.keycloakId;
@@ -314,7 +334,9 @@ export class DiscordRoleController {
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
       if (!guildId) {
-        throw new HttpException('Discord guild ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new ServiceUnavailableException(
+          'A integração com o servidor do Discord está indisponível. Tente novamente mais tarde.',
+        );
       }
 
       return await this.roleManagementService.getUserRoles(userId, client, guildId);
@@ -380,7 +402,7 @@ export class DiscordRoleController {
     try {
       // Check if user is authenticated
       if (!session?.user?.keycloakId) {
-        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('Entre novamente para continuar.', HttpStatus.UNAUTHORIZED);
       }
 
       const userId: string = session.user.keycloakId;
@@ -393,7 +415,7 @@ export class DiscordRoleController {
 
         throw new HttpException(
           {
-            message: `Too many attempts. Please wait ${remainingSeconds}s before trying again.`,
+            message: `Muitas tentativas. Aguarde ${remainingSeconds}s antes de tentar novamente.`,
             attempts,
             cooldownSeconds: remainingSeconds,
           },
@@ -405,7 +427,9 @@ export class DiscordRoleController {
       const guildId = this.configService.get<string>('DISCORD_GUILD_ID');
 
       if (!guildId) {
-        throw new HttpException('Discord guild ID not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new ServiceUnavailableException(
+          'A integração com o servidor do Discord está indisponível. Tente novamente mais tarde.',
+        );
       }
 
       try {

@@ -54,6 +54,11 @@ export class AuthService {
             return;
           }
 
+          if (!status.isAuthenticated) {
+            this.completeUnauthenticatedAuthCheck();
+            return;
+          }
+
           this.authStatusSignal.set(status);
           this.isAuthenticatedSubject$.next(status.isAuthenticated);
           this.isDoneLoadingSubject$.next(true);
@@ -68,18 +73,17 @@ export class AuthService {
             this.loadCurrentUser();
           }
         }),
-        catchError(() => {
-          if (attemptSilentLogin && this.trySilentLogin()) {
+        catchError((error: unknown) => {
+          if (
+            attemptSilentLogin &&
+            error instanceof HttpErrorResponse &&
+            error.status === 401 &&
+            this.trySilentLogin()
+          ) {
             return of(null);
           }
 
-          this.authStatusSignal.set({
-            isAuthenticated: false,
-            isOnboarded: false,
-          });
-          this.isAuthenticatedSubject$.next(false);
-          this.isDoneLoadingSubject$.next(true);
-          this.isLoadingSignal.set(false);
+          this.completeUnauthenticatedAuthCheck();
           return of(null);
         }),
       )
@@ -102,6 +106,9 @@ export class AuthService {
         catchError((error) => {
           this.logger.error('Error loading current user', error, { operation: 'auth-load-user' });
           this.currentUserSignal.set(null);
+          if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+            this.completeUnauthenticatedAuthCheck();
+          }
           return of(null);
         }),
       )
@@ -210,6 +217,9 @@ export class AuthService {
   }
 
   private completeUnauthenticatedAuthCheck(): void {
+    this.csrfService.clearToken();
+    this.apiService.clearAuthCache();
+    this.currentUserSignal.set(null);
     this.authStatusSignal.set({
       isAuthenticated: false,
       isOnboarded: false,
@@ -385,6 +395,11 @@ export class AuthService {
               operation: 'auth-refresh',
               isAuthenticated: status.isAuthenticated,
             });
+            if (!status.isAuthenticated) {
+              this.completeUnauthenticatedAuthCheck();
+              return;
+            }
+
             this.authStatusSignal.set(status);
             this.isAuthenticatedSubject$.next(status.isAuthenticated);
 
@@ -397,13 +412,7 @@ export class AuthService {
           }),
           catchError((error) => {
             this.logger.error('Error refreshing auth status', error, { operation: 'auth-refresh' });
-            this.authStatusSignal.set({
-              isAuthenticated: false,
-              isOnboarded: false,
-            });
-            this.isAuthenticatedSubject$.next(false);
-            this.isLoadingSignal.set(false);
-            this.isDoneLoadingSubject$.next(true);
+            this.completeUnauthenticatedAuthCheck();
             return of(null);
           }),
         )

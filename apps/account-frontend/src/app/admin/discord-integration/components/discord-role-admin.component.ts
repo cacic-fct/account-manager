@@ -22,6 +22,7 @@ import { ApiService } from '../../../shared/services/api.service';
 import { normalizeDiscordRoleColor } from '../../../shared/utils/discord-role-color.util';
 import type { DiscordRole, SelectableRoles } from '@cacic/shared-types';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-discord-role-admin',
@@ -56,6 +57,7 @@ export class DiscordRoleAdminComponent implements OnInit {
 
   // State signals
   isLoading = signal<boolean>(true);
+  loadError = signal<string | null>(null);
   isSaving = signal<boolean>(false);
   isSyncing = signal<boolean>(false);
   selectableRoles = signal<SelectableRoles | null>(null);
@@ -118,8 +120,13 @@ export class DiscordRoleAdminComponent implements OnInit {
     this.loadRoles();
   }
 
+  protected refreshRoles(): void {
+    this.loadRoles();
+  }
+
   private loadRoles(): void {
     this.isLoading.set(true);
+    this.loadError.set(null);
     this.apiService.getDiscordRolesAdmin().subscribe({
       next: (roles: SelectableRoles) => {
         this.selectableRoles.set(roles);
@@ -128,11 +135,10 @@ export class DiscordRoleAdminComponent implements OnInit {
       },
       error: (error) => {
         this.logger.error('Error loading Discord roles', error, { operation: 'discord-role-admin' });
+        this.loadError.set(
+          getApiErrorMessage(error, 'Não foi possível carregar os cargos do Discord. Atualize para tentar novamente.'),
+        );
         this.isLoading.set(false);
-        this.snackBar.open('Não foi possível carregar os cargos.', 'Fechar', {
-          duration: 5000,
-          panelClass: ['error-snackbar'],
-        });
       },
     });
   }
@@ -344,8 +350,16 @@ export class DiscordRoleAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error updating role selection', error, { operation: 'discord-role-admin' });
-        this.snackBar.open('Não foi possível salvar os cargos.', 'Fechar', { duration: 5000 });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se os cargos foram atualizados. A configuração será recarregada antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.isSaving.set(false);
+        this.loadRoles();
       },
     });
   }
@@ -390,8 +404,16 @@ export class DiscordRoleAdminComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.logger.error('Error syncing Discord roles', error, { operation: 'discord-role-admin' });
-        this.snackBar.open('Não foi possível sincronizar os cargos.', 'Fechar', { duration: 5000 });
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a sincronização foi concluída. Os cargos serão recarregados antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.isSyncing.set(false);
+        this.loadRoles();
       },
     });
   }

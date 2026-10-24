@@ -4,7 +4,7 @@ import {
   PermissionGroupKey,
   buildKeycloakPermissionId,
 } from '@cacic/shared-types';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { KeycloakClientRoleNotFoundException } from '../auth/exceptions/keycloak-client-role-not-found.exception';
 import { AccountPermissionService } from '../auth/services/account-permission.service';
@@ -519,7 +519,8 @@ describe('KeycloakPermissionsService', () => {
 
     await expect(service.createGrant({ userId: 'user-1', permission }, 'admin-1')).rejects.toMatchObject({
       response: {
-        message: 'Catálogo de permissões indisponível para: cacic-event-manager.',
+        message:
+          'Não foi possível consultar algumas permissões agora. Atualize a lista e tente novamente em alguns minutos.',
       },
     });
 
@@ -801,7 +802,8 @@ describe('KeycloakPermissionsService', () => {
       service.updatePermissionGroupRoleGrants(PermissionGroupKey.Cacic, { permissions: [eventPermission] }, 'admin-1'),
     ).rejects.toMatchObject({
       response: {
-        message: 'Permissões do grupo indisponíveis para: cacic-event-manager.',
+        message:
+          'Algumas permissões deste grupo estão indisponíveis agora. Atualize a lista e tente novamente em alguns minutos.',
       },
     });
 
@@ -1401,19 +1403,40 @@ describe('KeycloakPermissionsService', () => {
     );
   });
 
-  it('keeps direct grants visible for retry when Keycloak role removal fails', async () => {
+  it('keeps direct grants visible and returns a safe recovery message when role removal fails', async () => {
     const { keycloakService, prisma, service } = createContext();
     const grant = createGrant();
+    const providerError = new Error('Keycloak down at https://private-keycloak.internal/admin');
+    const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     prisma.keycloakPermissionGrant.findFirst.mockResolvedValueOnce(grant);
-    keycloakService.removeUserClientRoles.mockRejectedValueOnce(new Error('Keycloak down'));
+    keycloakService.removeUserClientRoles.mockRejectedValueOnce(providerError);
 
-    await expect(service.deleteGrant(grant.id, 'admin-1')).rejects.toThrow('Keycloak down');
+    try {
+      await expect(service.deleteGrant(grant.id, 'admin-1')).rejects.toThrow(
+        'Não foi possível remover a permissão agora. Ela pode continuar ativa; atualize a lista antes de tentar novamente.',
+      );
 
-    const failureUpdateArgs = getMockArg<{
-      data: { deletedAt?: Date; lastSyncError: string };
-    }>(prisma.keycloakPermissionGrant.update);
-    expect(failureUpdateArgs.data.deletedAt).toBeUndefined();
-    expect(failureUpdateArgs.data.lastSyncError).toBe('Keycloak down');
+      const failureUpdateArgs = getMockArg<{
+        data: { deletedAt?: Date; lastSyncError: string };
+      }>(prisma.keycloakPermissionGrant.update);
+      expect(failureUpdateArgs.data.deletedAt).toBeUndefined();
+      expect(failureUpdateArgs.data.lastSyncError).not.toContain(providerError.message);
+      expect(failureUpdateArgs.data.lastSyncError).toContain('Não foi possível remover a permissão');
+      expect(log).toHaveBeenCalledWith('Failed to revoke a Keycloak permission grant', providerError);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('does not expose persisted provider errors in permission grant lists', async () => {
+    const { prisma, service } = createContext();
+    const providerError = 'https://private-keycloak.internal/admin?token=secret';
+    prisma.keycloakPermissionGrant.findMany.mockResolvedValueOnce([createGrant({ lastSyncError: providerError })]);
+
+    const [grant] = await service.listUserGrants('user-1');
+
+    expect(grant?.lastSyncError).toContain('A permissão foi salva');
+    expect(grant?.lastSyncError).not.toContain(providerError);
   });
 
   it('marks direct grants deleted when the external Keycloak role is already gone', async () => {

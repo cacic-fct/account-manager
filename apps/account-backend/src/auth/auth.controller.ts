@@ -65,6 +65,7 @@ export interface AuthSession {
   };
   oauthState?: string;
   oauthCodeVerifier?: string;
+  oauthAuthenticationStartedAt?: number;
   redirectTo?: string;
   silentLogin?: boolean;
   accountLinkingState?: string;
@@ -391,7 +392,7 @@ export class AuthController {
       .filter(Boolean);
 
     if (!allowedSources.includes(source)) {
-      throw new HttpException('Password login is not available from this network.', HttpStatus.FORBIDDEN);
+      throw new HttpException('O acesso por senha não está disponível nesta rede.', HttpStatus.FORBIDDEN);
     }
 
     const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -404,7 +405,10 @@ export class AuthController {
       ]);
 
       if (emailAttempts > 5 || sourceAttempts > 20) {
-        throw new HttpException('Too many login attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+        throw new HttpException(
+          'Você tentou entrar muitas vezes em pouco tempo. Aguarde alguns minutos e tente novamente.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
     } catch (error) {
       if (error instanceof HttpException) {
@@ -525,6 +529,7 @@ export class AuthController {
     session.oauthState = state;
     session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = prompt === 'none';
+    session.oauthAuthenticationStartedAt = prompt === 'login' ? Date.now() : undefined;
     delete session.totpRotationAuthenticatedAt;
     if (prompt !== 'login') {
       delete session.pendingTotpRotationUserId;
@@ -584,6 +589,7 @@ export class AuthController {
     session.oauthState = state;
     session.oauthCodeVerifier = pkce.verifier;
     session.silentLogin = true;
+    delete session.oauthAuthenticationStartedAt;
     delete session.pendingTotpRotationUserId;
     delete session.totpRotationAuthenticatedAt;
 
@@ -642,7 +648,7 @@ export class AuthController {
 
     try {
       const tokens = await this.keycloakService.exchangePasswordForTokens(email, body.password);
-      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
+      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token, tokens.id_token);
       const authenticated = await this.createSessionFromKeycloakUser(request, tokens, keycloakUser, 'Password login');
 
       const redirectUrl = this.resolvePostLoginRedirectUrl(authenticated.user.isOnboarded, body.returnTo);
@@ -768,6 +774,8 @@ export class AuthController {
 
       // Clear the state from session after successful validation
       const codeVerifier = session.oauthCodeVerifier;
+      const authenticationStartedAt = session.oauthAuthenticationStartedAt;
+      delete session.oauthAuthenticationStartedAt;
       const requestedReturnUrl = this.resolveSafeReturnUrl(session.redirectTo);
       const totpRotationUserId = session.pendingTotpRotationUserId;
       delete session.pendingTotpRotationUserId;
@@ -777,7 +785,9 @@ export class AuthController {
 
       const redirectUri = this.authCallbackUrl();
       const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
-      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token);
+      const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token, tokens.id_token, {
+        authenticatedAfter: authenticationStartedAt,
+      });
       if (totpRotationUserId && keycloakUser.sub !== totpRotationUserId) {
         throw new HttpException('TOTP rotation requires the same account', HttpStatus.FORBIDDEN);
       }
@@ -794,6 +804,7 @@ export class AuthController {
       return;
     } catch (error) {
       delete session.redirectTo;
+      delete session.oauthAuthenticationStartedAt;
       delete session.oauthState;
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
@@ -825,6 +836,8 @@ export class AuthController {
     description: 'Service Unavailable - Unable to connect to authentication service',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
+  @ApiResponse({ status: 403, description: 'Account disabled in Keycloak (ACCOUNT_DISABLED)' })
   @SkipCsrf()
   @Get('me')
   async getCurrentUser(@Session() session: AuthSession) {
@@ -1054,6 +1067,8 @@ export class AuthController {
     description: 'Service Unavailable - Unable to connect to authentication service',
   })
   @Auth()
+  @UseGuards(CurrentUserGuard)
+  @ApiResponse({ status: 403, description: 'Account disabled in Keycloak (ACCOUNT_DISABLED)' })
   @SkipCsrf()
   @Get('check')
   async checkAuth(@Session() session: AuthSession) {

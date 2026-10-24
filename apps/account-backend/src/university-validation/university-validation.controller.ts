@@ -163,7 +163,7 @@ export class UniversityValidationController {
     enrollmentNumber?: string;
   }> {
     if (!pdfFile) {
-      throw new BadRequestException('PDF file is required');
+      throw new BadRequestException('Arquivo PDF é obrigatório');
     }
 
     this.fileValidationService.validateFile(pdfFile);
@@ -171,7 +171,7 @@ export class UniversityValidationController {
     // AuthGuard ensures user is authenticated
     const userId = session.user?.keycloakId;
     if (!userId) {
-      throw new BadRequestException('User authentication required');
+      throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
     }
 
     await this.universityVerificationRateLimit.consumeCaptchaRequest(userId);
@@ -270,7 +270,7 @@ export class UniversityValidationController {
     // AuthGuard ensures user is authenticated
     const userId = session.user?.keycloakId;
     if (!userId) {
-      throw new BadRequestException('User authentication required');
+      throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
     }
 
     await this.universityValidationService.clearSession(paramSessionId, userId);
@@ -306,7 +306,7 @@ export class UniversityValidationController {
     // AuthGuard ensures user is authenticated
     const userId = session.user?.keycloakId;
     if (!userId) {
-      throw new BadRequestException('User authentication required');
+      throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
     }
 
     return this.captchaService.getCooldownStatus(userId);
@@ -352,7 +352,7 @@ export class UniversityValidationController {
     // AuthGuard ensures user is authenticated
     const userId = session.user?.keycloakId;
     if (!userId) {
-      throw new BadRequestException('User authentication required');
+      throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
     }
 
     try {
@@ -371,7 +371,10 @@ export class UniversityValidationController {
 
       const user = await this.userService.findById(userId);
       if (!user) {
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          'Não foi possível encontrar sua conta. Entre novamente para continuar.',
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       // CRITICAL: Always fetch fresh user attributes from Keycloak to avoid caching issues
@@ -394,7 +397,7 @@ export class UniversityValidationController {
 
       // Ensure we have an enrollment number
       if (!enrollmentNumber) {
-        throw new UnprocessableEntityException('Número de matrícula não encontrado no perfil do usuário');
+        throw new UnprocessableEntityException('Registro acadêmico (RA) não encontrado no perfil do usuário');
       }
 
       this.logger.debug('About to call validateDocument with stored session:', {
@@ -486,7 +489,7 @@ export class UniversityValidationController {
       // AuthGuard ensures user is authenticated
       const userId = userSession.user?.keycloakId;
       if (!userId) {
-        throw new BadRequestException('User authentication required');
+        throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
       }
 
       await this.universityVerificationRateLimit.consumeCaptchaRequest(userId);
@@ -539,7 +542,7 @@ export class UniversityValidationController {
       if (error instanceof ExternalVerificationUnavailableError) {
         const userId = userSession.user?.keycloakId;
         if (!userId) {
-          throw new BadRequestException('User authentication required');
+          throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
         }
         return await this.queueManualFallback(file, userId);
       }
@@ -585,13 +588,15 @@ export class UniversityValidationController {
     // AuthGuard ensures user is authenticated
     const userId = session.user?.keycloakId;
     if (!userId) {
-      throw new BadRequestException('User authentication required');
+      throw new BadRequestException('Entre novamente na sua conta para continuar a validação.');
     }
 
     const { sessionId } = body;
 
     if (!sessionId) {
-      throw new BadRequestException('SessionId is required');
+      throw new BadRequestException(
+        'Não foi possível identificar esta validação. Envie o PDF novamente para recomeçar.',
+      );
     }
 
     this.logger.debug('Refreshing university captcha');

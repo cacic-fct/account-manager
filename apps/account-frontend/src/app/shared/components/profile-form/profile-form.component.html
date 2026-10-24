@@ -1,4 +1,10 @@
 <div class="profile-form-container">
+  @if (roleRequirementError(); as message) {
+    <div class="save-error">
+      <p role="alert">{{ message }}</p>
+      <button mat-button type="button" (click)="loadUnespRoleRequirement()">Tentar novamente</button>
+    </div>
+  }
   @if (isStepperLayout()) {
     <mat-stepper class="profile-stepper" [linear]="true">
       <ng-template matStepperIcon="edit">
@@ -60,7 +66,7 @@
   @if (isAllInOneLayout()) {
     <div class="all-in-one-layout">
       <section class="form-section">
-        <h3 class="section-title">Dados pessoais</h3>
+        <h2 class="section-title">Dados pessoais</h2>
         <app-profile-form-personal-step
           [formGroup]="personalGroup"
           [isUnespUser]="isUnespUser()"
@@ -72,7 +78,7 @@
       </section>
       @if (shouldShowUnespRoleSelection()) {
         <section class="form-section">
-          <h3 class="section-title">Dados acadêmicos</h3>
+          <h2 class="section-title">Dados acadêmicos</h2>
           <app-profile-form-academic-step
             [formGroup]="academicGroup"
             [shouldShowUnespRoleSelection]="shouldShowUnespRoleSelection()"
@@ -87,7 +93,10 @@
 
       <ng-container [ngTemplateOutlet]="saveErrorNotice" />
 
-      <div class="step-actions">
+      <div class="step-actions form-footer">
+        @if (showCancel()) {
+          <button mat-button type="button" (click)="cancelled.emit()" [disabled]="isSubmitting()">Cancelar</button>
+        }
         <button
           mat-flat-button
           color="primary"

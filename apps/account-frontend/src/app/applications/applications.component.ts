@@ -15,6 +15,7 @@ import { ApiService } from '../shared/services/api.service';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
 import { DiscordIntegrationCardComponent } from '../settings/linked-accounts/components/discord-integration-card.component';
 import { LoggerService } from '../shared/services/logger.service';
+import { getApiErrorMessage } from '../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-applications',
@@ -45,6 +46,7 @@ export class ApplicationsComponent implements OnInit {
   readonly applications = signal<Application[]>([]);
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);
+  readonly loadErrorMessage = signal('');
   readonly searchTerm = signal('');
   readonly pictureFailed = signal(false);
   readonly isAdmin = computed(() => this.currentUser()?.isAdmin ?? false);
@@ -81,6 +83,9 @@ export class ApplicationsComponent implements OnInit {
         },
         error: (error: unknown) => {
           this.logger.error('Error loading applications', error);
+          this.loadErrorMessage.set(
+            getApiErrorMessage(error, 'Tente atualizar a lista novamente em alguns instantes.'),
+          );
           this.hasLoadError.set(true);
           this.isLoading.set(false);
         },

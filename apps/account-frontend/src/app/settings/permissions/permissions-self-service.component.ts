@@ -20,6 +20,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 import { formatLocalizedDate } from '../../shared/utils/date-fns';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-permissions-self-service',
@@ -49,6 +50,7 @@ export class PermissionsSelfServiceComponent implements OnInit {
   });
   protected loading = signal(true);
   protected deletingId = signal<string | null>(null);
+  protected loadErrorMessage = signal('');
 
   protected memberships = computed(() => this.access().memberships);
   protected grants = computed(() => this.access().grants);
@@ -134,13 +136,20 @@ export class PermissionsSelfServiceComponent implements OnInit {
 
   private loadAccess(): void {
     this.loading.set(true);
+    this.loadErrorMessage.set('');
     this.apiService.getSelfServicePermissions().subscribe({
       next: (access) => {
         this.access.set(access);
         this.loading.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao carregar permissões.', 'Fechar', {
+      error: (error) => {
+        this.loadErrorMessage.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar suas permissões. Clique em Atualizar permissões para tentar novamente.',
+          ),
+        );
+        this.snackBar.open(this.loadErrorMessage(), 'Fechar', {
           duration: 5000,
         });
         this.loading.set(false);
@@ -158,10 +167,17 @@ export class PermissionsSelfServiceComponent implements OnInit {
         this.deletingId.set(null);
         this.loadAccess();
       },
-      error: () => {
-        this.snackBar.open('Erro ao remover vínculo.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível remover seu vínculo. Atualize a lista e confira se ele continua ativo antes de tentar novamente.',
+          ),
+          'Fechar',
+          {
+            duration: 5000,
+          },
+        );
         this.deletingId.set(null);
       },
     });
@@ -177,10 +193,17 @@ export class PermissionsSelfServiceComponent implements OnInit {
         this.deletingId.set(null);
         this.loadAccess();
       },
-      error: () => {
-        this.snackBar.open('Erro ao remover permissão.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível remover esta permissão. Atualize a lista e confira se ela ainda aparece antes de tentar novamente.',
+          ),
+          'Fechar',
+          {
+            duration: 5000,
+          },
+        );
         this.deletingId.set(null);
       },
     });

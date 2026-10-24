@@ -13,6 +13,7 @@ import { ApiService } from '../../../shared/services/api.service';
 import { PrivacyService } from '../../../shared/services/privacy.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 interface PrivacyToggle {
   key: string;
@@ -45,7 +46,6 @@ export class AnalyticsComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private logger = inject(LoggerService);
 
-  // Remove the loading state - show options immediately
   isUpdating = signal(false);
 
   // Track individual toggle loading states
@@ -53,6 +53,8 @@ export class AnalyticsComponent implements OnInit {
 
   // Use privacy service for settings
   privacySettings = this.privacyService.settings;
+  privacyLoadError = this.privacyService.loadError;
+  privacyLoading = this.privacyService.isLoading;
 
   // Define base toggle configurations
   private baseToggles: Omit<PrivacyToggle, 'enabled' | 'loading'>[] = [
@@ -98,7 +100,7 @@ export class AnalyticsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // Load settings in background without showing loading spinner
+    // Wait for the saved preferences before showing editable controls.
     this.loadPrivacySettings();
   }
 
@@ -113,10 +115,14 @@ export class AnalyticsComponent implements OnInit {
         },
         error: (error) => {
           this.logger.error('Error loading privacy settings', error, { operation: 'privacy-settings' });
-          this.snackBar.open('Erro ao carregar configurações de privacidade', 'Fechar', {
-            duration: 5000,
-            panelClass: ['error-snackbar'],
-          });
+          this.snackBar.open(
+            getApiErrorMessage(error, 'Não foi possível carregar suas preferências de privacidade. Tente novamente.'),
+            'Fechar',
+            {
+              duration: 5000,
+              panelClass: ['error-snackbar'],
+            },
+          );
         },
       });
   }
@@ -132,7 +138,7 @@ export class AnalyticsComponent implements OnInit {
       .updateSetting(toggleKey, enabled)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (setting) => {
+        next: () => {
           // Clear loading state - the computed signal will automatically update with new settings
           this.toggleLoadingStates.update((states) => ({
             ...states,
@@ -153,10 +159,17 @@ export class AnalyticsComponent implements OnInit {
             [toggleKey]: false,
           }));
 
-          this.snackBar.open('Erro ao atualizar configuração de privacidade', 'Fechar', {
-            duration: 5000,
-            panelClass: ['error-snackbar'],
-          });
+          this.snackBar.open(
+            getApiErrorMessage(
+              error,
+              'Não foi possível salvar sua preferência de privacidade. Confira a opção atual e tente novamente.',
+            ),
+            'Fechar',
+            {
+              duration: 5000,
+              panelClass: ['error-snackbar'],
+            },
+          );
         },
       });
   }

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { VerificationStatusDto } from '../dto/student-verification.dto';
 import { KeycloakService } from '../../auth/services/keycloak.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -100,7 +100,9 @@ export class StatusManagementService {
         }`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new BadRequestException('Erro ao verificar status de verificação');
+      throw new ServiceUnavailableException(
+        'Não foi possível consultar o status da verificação agora. Tente novamente em alguns minutos.',
+      );
     }
   }
 

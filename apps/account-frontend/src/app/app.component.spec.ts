@@ -1,6 +1,5 @@
 import { provideZonelessChangeDetection, signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AppComponent } from './app.component';
@@ -45,12 +44,6 @@ describe('AppComponent', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        {
-          provide: MatIconRegistry,
-          useValue: {
-            setDefaultFontSetClass: () => undefined,
-          },
-        },
         {
           provide: AuthService,
           useValue: {

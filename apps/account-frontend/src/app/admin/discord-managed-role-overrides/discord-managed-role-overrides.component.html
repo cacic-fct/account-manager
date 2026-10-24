@@ -21,6 +21,15 @@
       <mat-spinner diameter="42"></mat-spinner>
       <p>Carregando exceções do Discord.</p>
     </div>
+  } @else if (loadError(); as errorMessage) {
+    <div class="empty-state" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ errorMessage }}</p>
+      <button mat-stroked-button type="button" (click)="refresh()">
+        <mat-icon>refresh</mat-icon>
+        Atualizar lista
+      </button>
+    </div>
   } @else {
     <section class="tab-grid">
       <mat-card class="tool-card override-editor-card">

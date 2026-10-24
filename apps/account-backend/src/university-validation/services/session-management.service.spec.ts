@@ -74,6 +74,22 @@ describe('SessionManagementService', () => {
     expect(afterRestart?.enrollmentNumber).toBe('123');
   });
 
+  it('preserves live sessions when a replica at capacity reads a session from another replica', async () => {
+    const redis = createSharedRedis();
+    const config = createConfig({ UNIVERSITY_EXTERNAL_MAX_SESSIONS: '1' });
+    const serviceA = new SessionManagementService(config, redis);
+    const serviceB = new SessionManagementService(config, redis);
+    await serviceA.storeSession(createSession('first', 'user-1'));
+    await serviceB.storeSession(createSession('second', 'user-2'));
+
+    await expect(serviceA.getOwnedSession('second', 'user-2')).resolves.toMatchObject({ sessionId: 'second' });
+    await expect(serviceB.getOwnedSession('first', 'user-1')).resolves.toMatchObject({ sessionId: 'first' });
+    await serviceA.storeSession(createSession('third', 'user-3'));
+
+    await expect(serviceB.getSession('first')).resolves.toBeUndefined();
+    await expect(serviceB.getOwnedSession('second', 'user-2')).resolves.toMatchObject({ sessionId: 'second' });
+  });
+
   it('expires sessions from Redis after the configured TTL', async () => {
     jest.useFakeTimers();
     try {
@@ -83,6 +99,25 @@ describe('SessionManagementService', () => {
 
       jest.advanceTimersByTime(1001);
       await expect(service.getSession('expiring')).resolves.toBeUndefined();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps only timestamps locally and prunes metadata without a timer', async () => {
+    jest.useFakeTimers();
+    try {
+      const redis = createSharedRedis();
+      const service = new SessionManagementService(createConfig({ UNIVERSITY_EXTERNAL_SESSION_TTL_MS: '1000' }), redis);
+      const session = createSession('expired', 'user-1');
+      await service.storeSession(session);
+      // Mutating the request's object must not mutate a retained process-local copy.
+      session.authCode = 'changed';
+      await expect(service.getSession('expired')).resolves.toMatchObject({ authCode: 'AAAA-BBBB' });
+      jest.advanceTimersByTime(1001);
+      await service.storeSession(createSession('new', 'user-2'));
+      await expect(service.getSession('expired')).resolves.toBeUndefined();
+      await expect(service.getSession('new')).resolves.toMatchObject({ sessionId: 'new' });
     } finally {
       jest.useRealTimers();
     }

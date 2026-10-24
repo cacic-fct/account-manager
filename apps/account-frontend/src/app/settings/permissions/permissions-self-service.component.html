@@ -21,6 +21,14 @@
       <mat-spinner diameter="42"></mat-spinner>
       <p>Carregando permissões.</p>
     </div>
+  } @else if (loadErrorMessage()) {
+    <section class="empty-state" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ loadErrorMessage() }}</p>
+      <button mat-stroked-button type="button" (click)="refresh()">
+        <mat-icon>refresh</mat-icon>Atualizar permissões
+      </button>
+    </section>
   } @else if (!hasAccess()) {
     <div class="empty-state">
       <mat-icon>key_off</mat-icon>

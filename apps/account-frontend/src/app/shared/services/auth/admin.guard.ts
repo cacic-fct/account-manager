@@ -4,6 +4,8 @@ import { Observable, catchError, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../api.service';
 import { AuthService } from './auth.service';
 import { LoggerService } from '../logger.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { getApiErrorMessage } from '../../utils/api-error-message';
 
 @Service()
 export class AdminGuard implements CanActivate {
@@ -11,6 +13,7 @@ export class AdminGuard implements CanActivate {
   private authService = inject(AuthService);
   private router = inject(Router);
   private logger = inject(LoggerService);
+  private readonly snackBar = inject(MatSnackBar);
 
   canActivate(): Observable<boolean> {
     // First check if user is authenticated
@@ -31,12 +34,25 @@ export class AdminGuard implements CanActivate {
               return true;
             } else {
               this.logger.warn('Admin access denied', { operation: 'admin-guard' });
+              this.snackBar.open(
+                'Sua conta não tem acesso à administração. Peça a um administrador para conferir suas permissões.',
+                'Fechar',
+                { duration: 8000 },
+              );
               this.router.navigateByUrl('/applications');
               return false;
             }
           }),
           catchError((error) => {
             this.logger.error('Error checking admin status', error, { operation: 'admin-guard' });
+            this.snackBar.open(
+              getApiErrorMessage(
+                error,
+                'Não foi possível verificar seu acesso à administração. Tente abrir esta área novamente em alguns instantes.',
+              ),
+              'Fechar',
+              { duration: 8000 },
+            );
             this.router.navigateByUrl('/applications');
             return of(false);
           }),

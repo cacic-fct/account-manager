@@ -1,11 +1,13 @@
 import { Injector, Service, computed, effect, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from './api.service';
 import type { BulkUpdatePrivacySettings, PrivacySetting } from '@cacic/shared-types';
-import { Observable, from, of } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { AuthService } from './auth/auth.service';
 import { LoggerService } from './logger.service';
 import { trackCacicAccountPrivacySettingDisabled } from '../../analytics/account-umami-tracking';
+import { getApiErrorMessage } from '../utils/api-error-message';
 
 const ANALYTICS_SETTING_KEYS = new Set(['analytics_tracking', 'error_debugging', 'performance_monitoring']);
 
@@ -26,11 +28,13 @@ export class PrivacyService {
   private _settings = signal<PrivacySetting | null>(null);
   private _isLoading = signal(false);
   private _lastUpdated = signal<Date | null>(null);
+  private readonly _loadError = signal<string | null>(null);
 
   // Public signals
   settings = this._settings.asReadonly();
   isLoading = this._isLoading.asReadonly();
   lastUpdated = this._lastUpdated.asReadonly();
+  readonly loadError = this._loadError.asReadonly();
 
   // Computed preferences for easy access
   preferences = computed<PrivacyPreferences>(() => {
@@ -64,10 +68,12 @@ export class PrivacyService {
    */
   loadSettings(): Observable<PrivacySetting | null> {
     if (!this.authService.isAuthenticated()) {
+      this._loadError.set('Entre novamente na sua conta para carregar suas preferências de privacidade.');
       return of(null);
     }
 
     this._isLoading.set(true);
+    this._loadError.set(null);
 
     return this.apiService.getPrivacySettings().pipe(
       tap((settings) => {
@@ -77,6 +83,12 @@ export class PrivacyService {
       }),
       catchError((error) => {
         this.logger.error('Error loading privacy settings', error);
+        this._loadError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar suas preferências de privacidade. Tente novamente antes de alterar as opções.',
+          ),
+        );
         this._isLoading.set(false);
         return of(null);
       }),
@@ -167,11 +179,7 @@ export class PrivacyService {
    */
   updateSetting(key: string, enabled: boolean): Observable<PrivacySetting> {
     if (!this.authService.isAuthenticated()) {
-      return of().pipe(
-        tap(() => {
-          throw new Error('Not authenticated');
-        }),
-      );
+      return throwError(() => new HttpErrorResponse({ status: 401 }));
     }
 
     const updateData = { enabled };
@@ -194,11 +202,7 @@ export class PrivacyService {
    */
   bulkUpdateSettings(updates: Array<{ key: string; enabled: boolean }>): Observable<PrivacySetting> {
     if (!this.authService.isAuthenticated()) {
-      return of().pipe(
-        tap(() => {
-          throw new Error('Not authenticated');
-        }),
-      );
+      return throwError(() => new HttpErrorResponse({ status: 401 }));
     }
 
     const bulkData = updates.reduce<BulkUpdatePrivacySettings>((acc, update) => {
@@ -222,6 +226,7 @@ export class PrivacyService {
    */
   clearSettings(): void {
     this._settings.set(null);
+    this._loadError.set(null);
     this._lastUpdated.set(null);
     this._isLoading.set(false);
   }

@@ -100,15 +100,15 @@ export class DiscordManagedRoleOverrideCreateDto {
     description: 'Keycloak user ID that receives the override',
     example: 'f7be3c57-83c8-4f9b-9a21-e4040c44b84f',
   })
-  @IsString()
-  @MaxLength(128)
+  @IsString({ message: 'Selecione uma pessoa válida.' })
+  @MaxLength(128, { message: 'A pessoa selecionada é inválida. Faça a busca e selecione novamente.' })
   userId!: string;
 
   @ApiProperty({
     enum: DISCORD_MANAGED_ROLE_CATEGORIES,
     example: 'student',
   })
-  @IsIn(DISCORD_MANAGED_ROLE_CATEGORIES)
+  @IsIn(DISCORD_MANAGED_ROLE_CATEGORIES, { message: 'Categoria do cargo: selecione uma das opções disponíveis.' })
   roleCategory!: DiscordManagedRoleCategory;
 
   @ApiPropertyOptional({
@@ -116,8 +116,8 @@ export class DiscordManagedRoleOverrideCreateDto {
     example: 'Aluno confirmado manualmente.',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @IsString({ message: 'Justificativa: descreva o motivo da alteração.' })
+  @MaxLength(500, { message: 'Justificativa: use no máximo 500 caracteres.' })
   reason?: string;
 }
 
@@ -127,7 +127,7 @@ export class DiscordManagedRoleOverrideUpdateDto {
     example: 'student',
   })
   @IsOptional()
-  @IsIn(DISCORD_MANAGED_ROLE_CATEGORIES)
+  @IsIn(DISCORD_MANAGED_ROLE_CATEGORIES, { message: 'Categoria do cargo: selecione uma das opções disponíveis.' })
   roleCategory?: DiscordManagedRoleCategory;
 
   @ApiPropertyOptional({
@@ -135,7 +135,7 @@ export class DiscordManagedRoleOverrideUpdateDto {
     example: 'Aluno confirmado manualmente.',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @IsString({ message: 'Justificativa: descreva o motivo da alteração.' })
+  @MaxLength(500, { message: 'Justificativa: use no máximo 500 caracteres.' })
   reason?: string;
 }

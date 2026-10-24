@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
-import { HttpErrorResponse } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -17,6 +16,7 @@ import { environment } from '../../../../environments/environment';
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { DateFnsPipe } from '../../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-student-verification-card',
@@ -39,6 +39,7 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
 
   isLoading = signal(false);
   hasLoadError = signal(false);
+  loadErrorMessage = signal('');
   verificationStatus = signal<VerificationStatus | null>(null);
   uploading = signal(false);
   selectedFile = signal<File | null>(null);
@@ -83,19 +84,21 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
   loadVerificationStatus(): void {
     this.isLoading.set(true);
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
 
     this.studentVerificationService.getVerificationStatus().subscribe({
       next: (status: VerificationStatus) => {
         this.verificationStatus.set(status);
         this.isLoading.set(false);
+        this.hasLoadError.set(false);
+        this.loadErrorMessage.set('');
       },
       error: (error) => {
         this.logger.error('Error loading verification status', error, { operation: 'student-verification' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
-        this.showErrorBanner(
-          'Erro de conexão',
-          'Não foi possível carregar o status de verificação. Verifique sua conexão.',
+        this.loadErrorMessage.set(
+          getApiErrorMessage(error, 'Não foi possível carregar o status da sua verificação. Tente novamente.'),
         );
       },
     });
@@ -239,15 +242,13 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
         this.selectedFile.set(null);
         this.hasAttemptedValidation.set(false); // Reset attempt flag on success
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.uploading.set(false);
         this.logger.error('Upload error', error, { operation: 'student-verification-upload' });
-
-        let errorMessage = 'Erro ao enviar documento. Tente novamente.';
-        if (error?.error?.message) {
-          errorMessage = error.error.message;
-        }
-
+        const errorMessage = getApiErrorMessage(
+          error,
+          'Não foi possível enviar seu documento. Confira se o PDF está válido e tente novamente.',
+        );
         this.showErrorBanner('Erro no envio', errorMessage);
       },
     });
@@ -259,14 +260,35 @@ export class StudentVerificationCardComponent implements OnInit, OnDestroy {
 
     switch (errorType) {
       case 'network':
-        title = 'Erro de conexão';
-        message = 'Verifique sua conexão e tente novamente.';
+      case 'NETWORK_ERROR':
+        title = 'Não foi possível concluir a validação';
+        message = error || 'Tente validar o documento novamente em alguns instantes.';
         break;
       case 'validation':
         title = 'Falha na validação';
         break;
       case 'captcha':
+      case 'CAPTCHA_ERROR':
         title = 'Erro no captcha';
+        break;
+      case 'UNESP_NETWORK_ERROR':
+        title = 'Erro de conexão com a universidade';
+        message = 'Não foi possível consultar o sistema da universidade. Tente novamente em alguns instantes.';
+        break;
+      case 'PDF_PROCESSING_ERROR':
+        title = 'Não foi possível processar o PDF';
+        break;
+      case 'AUTH_CODE_NOT_FOUND':
+        title = 'Código de autenticidade não encontrado';
+        break;
+      case 'ENROLLMENT_NOT_FOUND':
+        title = 'Registro acadêmico (RA) não encontrado';
+        break;
+      case 'INVALID_DOCUMENT':
+        title = 'Documento inválido';
+        break;
+      case 'COOLDOWN_ACTIVE':
+        title = 'Aguarde para tentar novamente';
         break;
       default:
         title = 'Erro na validação';

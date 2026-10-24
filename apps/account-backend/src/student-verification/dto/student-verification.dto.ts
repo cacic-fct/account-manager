@@ -27,14 +27,14 @@ export class VerificationStatusDto implements StudentVerificationStatusResponse 
 }
 
 export class UpdateVerificationStatusDto implements StudentVerificationUpdateRequest {
-  @IsEnum(['approved', 'rejected'])
+  @IsEnum(['approved', 'rejected'], { message: 'Aprove ou rejeite o documento.' })
   status!: 'approved' | 'rejected';
 
   @ValidateIf((dto: UpdateVerificationStatusDto) => dto.status === 'rejected')
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/\S/)
-  @MaxLength(1000)
+  @IsString({ message: 'Explique por que o documento foi rejeitado.' })
+  @IsNotEmpty({ message: 'Explique por que o documento foi rejeitado.' })
+  @Matches(/\S/, { message: 'Explique por que o documento foi rejeitado.' })
+  @MaxLength(1000, { message: 'Motivo da rejeição: use no máximo 1000 caracteres.' })
   rejectionReason?: string;
 }
 

@@ -36,6 +36,20 @@ describe('UserVerificationService', () => {
     await expect(service.isExternalUser('user-1')).rejects.toThrow('determinar o tipo de vínculo');
   });
 
+  it('saves verification and its evidence metadata together', async () => {
+    const { service, keycloak } = createService();
+    await service.setVerificationStatus('user-1', true, 'unesp_student');
+    expect(keycloak.verifyUserUnespRole).toHaveBeenCalledWith('user-1', 'university-validation-system', 'document');
+    expect(keycloak.setUnespRoleVerified).not.toHaveBeenCalled();
+  });
+
+  it('revokes verification without creating new verification evidence', async () => {
+    const { service, keycloak } = createService();
+    await service.setVerificationStatus('user-1', false, 'unesp_student');
+    expect(keycloak.setUnespRoleVerified).toHaveBeenCalledWith('user-1', false);
+    expect(keycloak.verifyUserUnespRole).not.toHaveBeenCalled();
+  });
+
   it('does not verify an external user on name alone', async () => {
     const { service, pdf } = createService();
     pdf.checkFullnameInPdf.mockResolvedValue(true);

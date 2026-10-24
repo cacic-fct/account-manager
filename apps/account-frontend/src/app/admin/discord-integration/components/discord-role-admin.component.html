@@ -13,6 +13,15 @@
         <mat-spinner diameter="40"></mat-spinner>
         <p>Carregando cargos do Discord...</p>
       </div>
+    } @else if (loadError(); as errorMessage) {
+      <div class="loading-container" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        <p>{{ errorMessage }}</p>
+        <button mat-stroked-button type="button" (click)="refreshRoles()">
+          <mat-icon>refresh</mat-icon>
+          Atualizar cargos
+        </button>
+      </div>
     } @else {
       <div class="toolbar-row">
         <div>

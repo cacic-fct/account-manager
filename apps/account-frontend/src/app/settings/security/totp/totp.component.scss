@@ -1,5 +1,5 @@
 .totp-container {
-  max-width: 760px;
+  max-width: var(--app-content-narrow);
   margin: 0 auto;
   padding: 1rem;
 }
@@ -97,6 +97,11 @@
   p {
     color: var(--mat-sys-on-surface-variant);
   }
+}
+
+.error-message {
+  margin: 0;
+  color: var(--mat-sys-error);
 }
 
 button {

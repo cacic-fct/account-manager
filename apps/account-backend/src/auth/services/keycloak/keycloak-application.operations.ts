@@ -5,7 +5,7 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
   async getUserApplications(userId: string): Promise<KeycloakApplication[]> {
     try {
       const adminToken = await this.getAdminToken();
-      const clientsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/clients`;
+      const clientsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/clients`;
 
       this.logger.debug('Getting applications for user', { userId });
 
@@ -67,7 +67,7 @@ export abstract class KeycloakApplicationOperations extends KeycloakRoleGroupOpe
       return applications;
     } catch (error) {
       this.logger.error('Error getting user applications', error);
-      return [];
+      throw error;
     }
   }
 }

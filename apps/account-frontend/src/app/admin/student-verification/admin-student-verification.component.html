@@ -21,6 +21,15 @@
           <mat-icon>refresh</mat-icon>
           <p>Carregando documentos...</p>
         </div>
+      } @else if (loadError(); as errorMessage) {
+        <div class="empty-content" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          <p>{{ errorMessage }}</p>
+          <button mat-stroked-button type="button" (click)="loadPendingDocuments()">
+            <mat-icon>refresh</mat-icon>
+            Atualizar lista
+          </button>
+        </div>
       } @else if (documents().length === 0) {
         <div class="empty-content">
           <mat-icon>description</mat-icon>

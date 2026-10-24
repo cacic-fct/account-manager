@@ -1,0 +1,27 @@
+h3 {
+  font: var(--mat-sys-title-medium);
+  margin: 24px 0 16px;
+}
+h3:first-child {
+  margin-top: 0;
+}
+.privacy-section {
+  display: grid;
+  gap: 20px;
+}
+.privacy-item {
+  display: flex;
+  gap: 16px;
+}
+.privacy-icon {
+  color: var(--mat-sys-primary);
+  flex-shrink: 0;
+}
+.privacy-title {
+  font: var(--mat-sys-title-small);
+  margin-bottom: 4px;
+}
+.privacy-description {
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}

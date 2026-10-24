@@ -203,7 +203,7 @@ export class DocumentValidationService {
 
       const errorMessage = isExternal
         ? 'Nome no documento não confere com o nome cadastrado'
-        : 'Documento não confere com os dados cadastrados (matrícula e/ou nome)';
+        : 'Documento não confere com os dados cadastrados (registro acadêmico (RA) e/ou nome)';
 
       return {
         success: verificationResult,

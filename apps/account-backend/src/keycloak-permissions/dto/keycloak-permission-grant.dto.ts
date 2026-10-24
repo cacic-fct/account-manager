@@ -17,16 +17,16 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
     description: 'Keycloak user id that will receive the direct role grant.',
     example: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
   })
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: 'Selecione uma pessoa válida.' })
+  @MinLength(1, { message: 'Selecione uma pessoa.' })
   userId!: string;
 
   @ApiProperty({
     description: 'Canonical client role id in the form clientId:roleName.',
     example: 'cacic-account-manager:permission-grant#read',
   })
-  @IsString()
-  @MinLength(3)
+  @IsString({ message: 'Selecione uma permissão válida.' })
+  @MinLength(3, { message: 'Selecione uma permissão válida.' })
   permission!: string;
 
   @ApiPropertyOptional({
@@ -35,7 +35,7 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de início: informe uma data e hora válidas.' })
   validFrom?: string | null;
 
   @ApiPropertyOptional({
@@ -44,7 +44,7 @@ export class KeycloakPermissionGrantCreateDto implements KeycloakPermissionGrant
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de término: informe uma data e hora válidas.' })
   validUntil?: string | null;
 }
 
@@ -54,8 +54,8 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
     example: 'cacic-account-manager:permission-grant#read',
   })
   @IsOptional()
-  @IsString()
-  @MinLength(3)
+  @IsString({ message: 'Selecione uma permissão válida.' })
+  @MinLength(3, { message: 'Selecione uma permissão válida.' })
   permission?: string;
 
   @ApiPropertyOptional({
@@ -64,7 +64,7 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de início: informe uma data e hora válidas.' })
   validFrom?: string | null;
 
   @ApiPropertyOptional({
@@ -73,7 +73,7 @@ export class KeycloakPermissionGrantUpdateDto implements KeycloakPermissionGrant
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de término: informe uma data e hora válidas.' })
   validUntil?: string | null;
 }
 
@@ -83,9 +83,9 @@ export class PermissionGroupRoleGrantUpdateDto implements PermissionGroupRoleGra
     description: 'Canonical client role ids that should remain enabled for the group.',
     example: ['cacic-account-manager:permission-grant#read', 'cacic-event-manager:event#read'],
   })
-  @IsArray()
-  @ArrayUnique()
-  @IsString({ each: true })
+  @IsArray({ message: 'Selecione as permissões na lista.' })
+  @ArrayUnique({ message: 'Remova as permissões repetidas.' })
+  @IsString({ each: true, message: 'Selecione apenas permissões válidas.' })
   permissions!: string[];
 }
 
@@ -94,8 +94,8 @@ export class PermissionGroupMembershipCreateDto implements PermissionGroupMember
     description: 'Keycloak user id that will join the managed group.',
     example: '6f81382a-4f5d-4e39-a8af-0f2685b8a987',
   })
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: 'Selecione uma pessoa válida.' })
+  @MinLength(1, { message: 'Selecione uma pessoa.' })
   userId!: string;
 
   @ApiProperty({
@@ -103,14 +103,14 @@ export class PermissionGroupMembershipCreateDto implements PermissionGroupMember
     description: 'Managed permission group.',
     example: PermissionGroupKey.Cacic,
   })
-  @IsIn(permissionGroups)
+  @IsIn(permissionGroups, { message: 'Grupo: selecione uma das opções disponíveis.' })
   groupKey!: PermissionGroupMembershipCreateRequest['groupKey'];
 
   @ApiProperty({
     description: 'Membership start timestamp.',
     example: '2026-01-01T00:00:00.000Z',
   })
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de início: informe uma data e hora válidas.' })
   validFrom!: string;
 
   @ApiPropertyOptional({
@@ -119,7 +119,7 @@ export class PermissionGroupMembershipCreateDto implements PermissionGroupMember
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de término: informe uma data e hora válidas.' })
   validUntil?: string | null;
 }
 
@@ -128,7 +128,7 @@ export class PermissionGroupMembershipUpdateDto implements PermissionGroupMember
     description: 'Membership start timestamp.',
     example: '2026-01-01T00:00:00.000Z',
   })
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de início: informe uma data e hora válidas.' })
   validFrom!: string;
 
   @ApiPropertyOptional({
@@ -137,6 +137,6 @@ export class PermissionGroupMembershipUpdateDto implements PermissionGroupMember
     nullable: true,
   })
   @IsOptional()
-  @IsISO8601()
+  @IsISO8601({}, { message: 'Data de término: informe uma data e hora válidas.' })
   validUntil?: string | null;
 }

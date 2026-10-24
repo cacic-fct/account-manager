@@ -12,9 +12,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { DiscordRoleOptionComponent } from '../../../../../shared/components/discord-role-option.component';
 import { ApiService } from '../../../../../shared/services/api.service';
 import { LoggerService } from '../../../../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../../../../shared/utils/api-error-message';
 import type { DiscordRole, UserRoles, RoleSelectionResponse } from '@cacic/shared-types';
 
 type RoleSelectionErrorAction = 'login' | 'link' | 'retry';
+
+const MAX_COOLDOWN_ATTEMPTS = 30;
 
 @Component({
   selector: 'app-discord-role-selection',
@@ -168,13 +171,25 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
     }
   }
 
-  private setCooldown(attempts: number): void {
-    const cooldownSeconds = Math.pow(2, attempts); // 2^n seconds
+  private setCooldownFromError(error: unknown): number {
+    const body: unknown = error instanceof HttpErrorResponse ? error.error : null;
+    const metadata = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    // Match the server's bounded exponential backoff when metadata is missing.
+    const attempts =
+      this.readCooldownInteger(metadata['attempts'], MAX_COOLDOWN_ATTEMPTS) ??
+      Math.min(this.updateAttempts() + 1, MAX_COOLDOWN_ATTEMPTS);
+    const cooldownSeconds =
+      this.readCooldownInteger(metadata['cooldownSeconds'], 2 ** MAX_COOLDOWN_ATTEMPTS) ?? 2 ** attempts;
     const cooldownEnd = Date.now() + cooldownSeconds * 1000;
 
     this.updateAttempts.set(attempts);
     this.cooldownEndTime.set(cooldownEnd);
     this.remainingCooldown.set(cooldownSeconds);
+    return cooldownSeconds;
+  }
+
+  private readCooldownInteger(value: unknown, maximum: number): number | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= maximum ? value : undefined;
   }
 
   private clearCooldown(): void {
@@ -194,14 +209,18 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         // Initialize selected roles with user's current roles
         this.loadUserRoles();
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.logger.error('Error loading available Discord roles', error, { operation: 'discord-role-selection' });
         this.availableRoles.set([]);
         this.userRoles.set(null);
         this.initialSelectedIds.set(new Set());
         this.errorAction.set('retry');
-        this.errorMessage.set('Não foi possível carregar os cargos disponíveis. Tente novamente.');
-        this.snackBar.open('Não foi possível carregar os cargos disponíveis.', 'Fechar', { duration: 5000 });
+        const errorMessage = getApiErrorMessage(
+          error,
+          'Não foi possível carregar os cargos disponíveis no servidor. Tente novamente.',
+        );
+        this.errorMessage.set(errorMessage);
+        this.snackBar.open(errorMessage, 'Fechar', { duration: 5000 });
         this.isLoading.set(false);
       },
     });
@@ -242,19 +261,19 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
 
         this.isLoading.set(false);
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.logger.error('Error loading user Discord roles', error, { operation: 'discord-role-selection' });
         let errorMessage = 'Não foi possível carregar seus cargos atuais. Tente novamente.';
         let errorAction: RoleSelectionErrorAction = 'retry';
 
-        if (error.status === 400) {
-          errorMessage = 'Vincule sua conta do Discord para gerenciar seus cargos.';
+        if (error instanceof HttpErrorResponse && error.status === 400) {
+          errorMessage = getApiErrorMessage(error, 'Vincule sua conta do Discord para gerenciar seus cargos.');
           errorAction = 'link';
-        } else if (error.status === 401) {
-          errorMessage = 'Faça login para gerenciar seus cargos do Discord.';
+        } else if (error instanceof HttpErrorResponse && error.status === 401) {
+          errorMessage = getApiErrorMessage(error, 'Entre novamente para gerenciar seus cargos do Discord.');
           errorAction = 'login';
-        } else if (error.status === 500) {
-          errorMessage = 'Erro no servidor. Tente novamente mais tarde.';
+        } else {
+          errorMessage = getApiErrorMessage(error, 'Não foi possível carregar seus cargos atuais. Tente novamente.');
         }
 
         this.errorMessage.set(errorMessage);
@@ -309,30 +328,15 @@ export class DiscordRoleSelectionComponent implements OnInit, OnDestroy {
         // Trigger form change detection after successful update
         this.formChangeSignal.update((val) => val + 1);
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.logger.error('Error updating Discord roles', error, { operation: 'discord-role-selection' });
-        let errorMessage = 'Não foi possível atualizar seus cargos do Discord. Tente novamente.';
-
-        // Handle cooldown from backend
-        if (error.status === 429) {
-          const attempts = error.error?.attempts || this.updateAttempts() + 1;
-          const cooldownSeconds = error.error?.cooldownSeconds || Math.pow(2, attempts);
-
-          this.setCooldown(attempts);
-          errorMessage = `Muitas tentativas. Aguarde ${cooldownSeconds}s antes de tentar novamente.`;
-        } else {
-          // Increment attempts on other errors and set cooldown
-          const newAttempts = this.updateAttempts() + 1;
-          this.setCooldown(newAttempts);
-
-          if (error.status === 400) {
-            errorMessage = error.error?.message || 'Alguns cargos não puderam ser atribuídos. Confira sua seleção.';
-          }
-        }
+        const cooldownSeconds = this.setCooldownFromError(error);
+        const errorMessage = getApiErrorMessage(
+          error,
+          `Não foi possível confirmar a atualização dos cargos. Aguarde ${cooldownSeconds} segundos e atualize a lista antes de tentar novamente.`,
+        );
 
         this.updateErrorMessage.set(errorMessage);
-        // Clear error message after 5 seconds
-        setTimeout(() => this.updateErrorMessage.set(''), 5000);
 
         // Re-enable form
         this.roleForm.enable();

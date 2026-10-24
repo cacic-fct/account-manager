@@ -20,14 +20,17 @@ describe('Keycloak user update notifications', () => {
     const service = new TestKeycloakService();
     service.request
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1', attributes: {} })))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'user-1', attributes: { unespRoleVerified: ['false'] } })),
+      );
     return service;
   };
 
   it('awaits synchronization after saving verification attributes', async () => {
     const service = createService();
     const listener = jest.fn<Promise<void>, [string]>().mockImplementation(() => {
-      expect(service.request).toHaveBeenCalledTimes(2);
+      expect(service.request).toHaveBeenCalledTimes(3);
       return Promise.resolve();
     });
     service.onUserUpdated(listener);
@@ -55,6 +58,15 @@ describe('Keycloak user update notifications', () => {
 
     await service.deleteUser('user-1');
 
+    expect(listener).toHaveBeenCalledWith('user-1');
+  });
+
+  it('notifies consumers when an account is already absent during deletion', async () => {
+    const service = new TestKeycloakService();
+    service.request.mockResolvedValue(new Response(null, { status: 404 }));
+    const listener = jest.fn<Promise<void>, [string]>().mockResolvedValue();
+    service.onUserUpdated(listener);
+    await service.deleteUser('user-1');
     expect(listener).toHaveBeenCalledWith('user-1');
   });
 

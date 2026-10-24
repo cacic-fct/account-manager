@@ -64,14 +64,14 @@ export class LinkDiscordRequestDto {
     description: 'Discord authorization code',
     example: 'abc123def456',
   })
-  @IsString()
+  @IsString({ message: 'Não foi possível validar a conexão com o Discord. Inicie a conexão novamente.' })
   code!: string;
 
   @ApiProperty({
     description: 'State parameter for OAuth security',
     example: 'random-state-string',
   })
-  @IsString()
+  @IsString({ message: 'Não foi possível validar a conexão com o Discord. Inicie a conexão novamente.' })
   state!: string;
 }
 
@@ -117,6 +117,6 @@ export class UnlinkDiscordRequestDto {
     description: 'Discord link ID to unlink',
     example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   })
-  @IsString()
+  @IsString({ message: 'Selecione a conta do Discord que deseja desconectar.' })
   linkId!: string;
 }

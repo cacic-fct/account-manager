@@ -127,6 +127,54 @@ describe('CaptchaManagementService', () => {
     expect(sessions.deleteSession).toHaveBeenCalledWith('session-1');
   });
 
+  it('asks the user to refresh an expired CAPTCHA session in Portuguese', async () => {
+    const { service, sessions } = createContext();
+    sessions.getOwnedSession.mockReturnValue({
+      sessionId: 'session-1',
+      userId: 'user-1',
+      authCode: null,
+      hiddenInputs: null,
+      pageUrl: null,
+      formActionUrl: null,
+    });
+
+    await expect(service.validateDocument('session-1', '12345678', 'A1B2', 'user-1')).resolves.toMatchObject({
+      success: false,
+      error: 'A sessão de validação expirou. Gere um novo captcha e tente novamente.',
+    });
+  });
+
+  it('does not echo the upstream response content type in a validation error', async () => {
+    const { service, sessions } = createContext();
+    const privateResponseType = 'application/json; internal-token=secret';
+    const axiosInstance = {
+      post: jest.fn().mockResolvedValue({
+        status: 200,
+        headers: { 'content-type': privateResponseType },
+        data: Buffer.from('private response'),
+      }),
+    };
+    sessions.getOwnedSession.mockReturnValue({
+      sessionId: 'session-1',
+      userId: 'user-1',
+      authCode: 'AAAA-BBBB-CCCC-DDDD-1111-2222-3333-4444',
+      hiddenInputs: { token: 'opaque' },
+      pageUrl: 'https://sistemas.unesp.br/academico/publico/documento.action',
+      formActionUrl: 'https://sistemas.unesp.br/academico/publico/documento.emitir.action',
+      axiosInstance: axiosInstance as unknown as AxiosInstance,
+      cookieJar: {
+        getCookieString: jest.fn().mockResolvedValue('JSESSIONID=opaque'),
+        setCookie: jest.fn().mockResolvedValue(undefined),
+      } as unknown as CookieJar,
+      createdAt: new Date(),
+    });
+
+    const result = await service.validateDocument('session-1', '12345678', 'A1B2', 'user-1');
+
+    expect(result.error).toBe('A universidade retornou um formato inesperado. Gere um novo captcha e tente novamente.');
+    expect(result.error).not.toContain(privateResponseType);
+  });
+
   it('serializes refresh and validation transitions for the same provider session', async () => {
     const { service, sessions, documentValidation } = createContext();
     const providerPdf = Buffer.from('%PDF-provider');

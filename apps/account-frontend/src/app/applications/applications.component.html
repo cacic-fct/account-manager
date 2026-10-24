@@ -75,7 +75,7 @@
         <div class="empty-state" role="alert">
           <mat-icon>cloud_off</mat-icon>
           <h2>Não foi possível atualizar os aplicativos</h2>
-          <p>Verifique sua conexão e tente novamente.</p>
+          <p>{{ loadErrorMessage() }}</p>
           <button matButton="outlined" (click)="loadApplications()">Tentar novamente</button>
         </div>
       }

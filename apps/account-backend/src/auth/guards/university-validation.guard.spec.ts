@@ -101,7 +101,7 @@ describe('UniversityValidationGuard', () => {
 
     await expect(guard.canActivate(createExecutionContext(null))).rejects.toMatchObject({
       response: {
-        message: 'Authentication required',
+        message: 'Entre na sua conta para continuar.',
       },
     });
 
@@ -182,7 +182,7 @@ describe('UniversityValidationGuard', () => {
 
     await expect(guard.canActivate(createExecutionContext())).rejects.toMatchObject({
       response: {
-        message: 'Unable to verify university validation status',
+        message: 'Não foi possível consultar sua verificação estudantil agora. Tente novamente em alguns instantes.',
       },
     });
   });

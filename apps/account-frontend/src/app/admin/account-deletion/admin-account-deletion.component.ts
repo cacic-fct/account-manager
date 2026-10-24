@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService, AdminDeleteAccountRequest } from '../../shared/services/api.service';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog.component';
 import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-admin-account-deletion',
@@ -38,6 +39,7 @@ export class AdminAccountDeletionComponent implements OnInit {
 
   protected requests = signal<AdminDeleteAccountRequest[]>([]);
   protected loading = signal(true);
+  protected loadError = signal<string | null>(null);
   protected actionRequestId = signal<string | null>(null);
   protected displayedColumns = ['email', 'createdAt', 'softDeletedAt', 'scheduledHardDeleteAt', 'status', 'actions'];
 
@@ -47,13 +49,19 @@ export class AdminAccountDeletionComponent implements OnInit {
 
   protected loadRequests(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     this.apiService.getPendingAccountDeletionRequests().subscribe({
       next: (requests) => {
         this.requests.set(requests);
         this.loading.set(false);
       },
-      error: () => {
-        this.snackBar.open('Erro ao carregar solicitações de exclusão.', 'Fechar', { duration: 5000 });
+      error: (error: unknown) => {
+        this.loadError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível carregar as solicitações de exclusão. Atualize a lista para tentar novamente.',
+          ),
+        );
         this.loading.set(false);
       },
     });
@@ -116,11 +124,17 @@ export class AdminAccountDeletionComponent implements OnInit {
         this.actionRequestId.set(null);
         this.loadRequests();
       },
-      error: () => {
-        this.snackBar.open('Erro ao reativar conta.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a conta foi reativada. A lista será atualizada; confira o status antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.actionRequestId.set(null);
+        this.loadRequests();
       },
     });
   }
@@ -135,11 +149,17 @@ export class AdminAccountDeletionComponent implements OnInit {
         this.actionRequestId.set(null);
         this.loadRequests();
       },
-      error: () => {
-        this.snackBar.open('Erro ao agendar exclusão imediata.', 'Fechar', {
-          duration: 5000,
-        });
+      error: (error: unknown) => {
+        this.snackBar.open(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se a exclusão imediata foi processada. A lista será atualizada; confira o status antes de tentar novamente.',
+          ),
+          'Fechar',
+          { duration: 8000 },
+        );
         this.actionRequestId.set(null);
+        this.loadRequests();
       },
     });
   }

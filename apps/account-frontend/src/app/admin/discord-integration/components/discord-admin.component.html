@@ -10,6 +10,15 @@
         <mat-spinner diameter="32"></mat-spinner>
         <p>Carregando convite...</p>
       </div>
+    } @else if (loadError(); as errorMessage) {
+      <div class="loading-container" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        <p>{{ errorMessage }}</p>
+        <button mat-stroked-button type="button" (click)="refreshSettings()">
+          <mat-icon>refresh</mat-icon>
+          Atualizar convite
+        </button>
+      </div>
     } @else {
       <div class="invite-editor">
         <mat-form-field appearance="outline">

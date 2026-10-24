@@ -11,6 +11,7 @@ import {
   VerificationStatus,
 } from '../../shared/services/student-verification/student-verification.service';
 import { DateFnsPipe } from '../../shared/utils/date-fns.pipe';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-student-verification-status',
@@ -32,6 +33,7 @@ export class StudentVerificationStatusComponent implements OnInit {
 
   verificationStatus = signal<VerificationStatus | null>(null);
   loading = signal(true);
+  loadErrorMessage = signal('');
 
   ngOnInit(): void {
     this.loadVerificationStatus();
@@ -39,13 +41,18 @@ export class StudentVerificationStatusComponent implements OnInit {
 
   loadVerificationStatus(): void {
     this.loading.set(true);
+    this.loadErrorMessage.set('');
     this.studentVerificationService.getVerificationStatus().subscribe({
       next: (status: VerificationStatus) => {
         this.verificationStatus.set(status);
         this.loading.set(false);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.loading.set(false);
+        this.verificationStatus.set(null);
+        this.loadErrorMessage.set(
+          getApiErrorMessage(error, 'Não foi possível carregar o status da verificação. Tente novamente.'),
+        );
       },
     });
   }

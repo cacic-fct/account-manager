@@ -20,44 +20,44 @@ export class CreateUserProfileDto {
     example: 'João Silva Santos',
     minLength: 2,
   })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
-  @MaxLength(200)
+  @IsString({ message: 'Nome completo: informe um nome válido.' })
+  @IsNotEmpty({ message: 'Nome completo: preencha este campo.' })
+  @MinLength(2, { message: 'Nome completo: informe ao menos 2 caracteres.' })
+  @MaxLength(200, { message: 'Nome completo: use no máximo 200 caracteres.' })
   fullname!: string;
 
   @ApiProperty({
     description: 'Phone number in international format',
     example: '+5511999887766',
   })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(32)
+  @IsString({ message: 'Telefone: informe o número com o código do país.' })
+  @IsNotEmpty({ message: 'Telefone: preencha este campo.' })
+  @MaxLength(32, { message: 'Telefone: use no máximo 32 caracteres.' })
   phone!: string;
 
   @ApiPropertyOptional({
-    description: 'Student enrollment number (only for Unesp students)',
+    description: 'Student academic record number (only for Unesp students)',
     example: '12345678',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(64)
+  @IsString({ message: 'Registro acadêmico (RA): confira o número informado.' })
+  @MaxLength(64, { message: 'Registro acadêmico (RA): use no máximo 64 caracteres.' })
   enrollmentNumber?: string;
 
   @ApiProperty({
     description: 'Identity document (CPF for Brazilians, Passport for foreigners)',
     example: '12345678901',
   })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(64)
+  @IsString({ message: 'CPF ou passaporte: informe o número do documento.' })
+  @IsNotEmpty({ message: 'CPF ou passaporte: preencha este campo.' })
+  @MaxLength(64, { message: 'CPF ou passaporte: use no máximo 64 caracteres.' })
   identityDocument!: string;
 
   @ApiProperty({
     description: 'Whether the user is a foreigner (uses passport instead of CPF)',
     example: false,
   })
-  @IsBoolean()
+  @IsBoolean({ message: 'Tipo de documento: selecione CPF ou passaporte.' })
   isForeigner!: boolean;
 
   @ApiPropertyOptional({
@@ -68,9 +68,9 @@ export class CreateUserProfileDto {
   })
   @ValidateIf((profile: CreateUserProfileDto) => profile.isForeigner || profile.passportCountry !== undefined)
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
-  @IsString()
-  @IsNotEmpty()
-  @IsISO31661Alpha2()
+  @IsString({ message: 'País emissor do passaporte: selecione um país válido.' })
+  @IsNotEmpty({ message: 'País emissor do passaporte: preencha este campo.' })
+  @IsISO31661Alpha2({ message: 'País emissor do passaporte: selecione um país válido.' })
   passportCountry?: string;
 
   @ApiPropertyOptional({
@@ -79,7 +79,7 @@ export class CreateUserProfileDto {
     example: UnespRole.ALUNO_GRADUACAO,
   })
   @IsOptional()
-  @IsEnum(UnespRole)
+  @IsEnum(UnespRole, { message: 'Vínculo com a Unesp: selecione uma das opções disponíveis.' })
   unespRole?: UnespRole;
 }
 
@@ -134,7 +134,7 @@ export class UserProfileDto {
   phone!: string;
 
   @ApiPropertyOptional({
-    description: 'Student enrollment number (only for Unesp students)',
+    description: 'Student academic record number (only for Unesp students)',
     example: '12345678',
   })
   enrollmentNumber?: string;
@@ -233,8 +233,8 @@ export class PasswordLoginDto {
     description: 'User email address',
     example: 'aluno@unesp.br',
   })
-  @IsEmail()
-  @MaxLength(320)
+  @IsEmail({}, { message: 'E-mail: informe um endereço de e-mail válido.' })
+  @MaxLength(320, { message: 'E-mail: use no máximo 320 caracteres.' })
   email!: string;
 
   @ApiProperty({
@@ -242,10 +242,10 @@ export class PasswordLoginDto {
     example: '1',
     minLength: 1,
   })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
-  @MaxLength(256)
+  @IsString({ message: 'Senha: informe sua senha.' })
+  @IsNotEmpty({ message: 'Senha: preencha este campo.' })
+  @MinLength(1, { message: 'Senha: informe sua senha.' })
+  @MaxLength(256, { message: 'Senha: use no máximo 256 caracteres.' })
   password!: string;
 
   @ApiPropertyOptional({
@@ -253,8 +253,10 @@ export class PasswordLoginDto {
     example: '/applications',
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(2048)
+  @IsString({
+    message: 'Não foi possível identificar a página de destino. Acesse o serviço pela lista de aplicativos.',
+  })
+  @MaxLength(2048, { message: 'O endereço de destino é muito longo. Acesse o serviço pela lista de aplicativos.' })
   returnTo?: string;
 }
 
@@ -367,6 +369,6 @@ export class LogoutRequestDto {
     example: 'https://account.cacic.com.br/app/',
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Não foi possível identificar a página de saída. Atualize a página e tente sair novamente.' })
   postLogoutRedirectUri?: string;
 }

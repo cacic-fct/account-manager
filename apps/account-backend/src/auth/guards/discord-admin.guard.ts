@@ -21,7 +21,7 @@ export class DiscordAdminGuard implements CanActivate {
     const userId = request.session?.user?.keycloakId;
 
     if (!userId) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException('Entre na sua conta para continuar.');
     }
 
     try {
@@ -30,14 +30,18 @@ export class DiscordAdminGuard implements CanActivate {
         return true;
       }
 
-      throw new ForbiddenException('Discord admin permission missing');
+      throw new ForbiddenException(
+        'Sua conta não tem permissão para administrar o Discord. Peça a um administrador para revisar seu acesso.',
+      );
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
       }
 
       this.logger.error('Discord admin permission verification failed', error);
-      throw new ForbiddenException('Unable to verify Discord admin permission');
+      throw new ForbiddenException(
+        'Não foi possível verificar seu acesso à administração do Discord. Tente novamente em alguns instantes.',
+      );
     }
   }
 }

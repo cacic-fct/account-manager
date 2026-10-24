@@ -43,7 +43,9 @@ export class AccountPermissionGuard implements CanActivate {
     ]);
 
     if (!config || config.permissions.length === 0) {
-      throw new ForbiddenException('Required Account Manager permissions are not configured');
+      throw new ForbiddenException(
+        'O acesso a esta ação ainda não foi configurado. Peça ao administrador do sistema para revisar as permissões.',
+      );
     }
 
     await this.currentUserGuard.canActivate(context);
@@ -52,7 +54,7 @@ export class AccountPermissionGuard implements CanActivate {
     const userId = request.session?.user?.keycloakId;
 
     if (!userId) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException('Entre na sua conta para continuar.');
     }
 
     try {
@@ -62,7 +64,9 @@ export class AccountPermissionGuard implements CanActivate {
           : await this.accountPermissionService.hasAnyActivePermission(userId, config.permissions);
 
       if (!hasPermission && !(await this.accountPermissionService.hasAccountManagerSuperAdminAccess(userId))) {
-        throw new ForbiddenException('Required Account Manager permission missing');
+        throw new ForbiddenException(
+          'Sua conta não tem a permissão necessária para esta ação. Peça a um administrador para revisar seu acesso.',
+        );
       }
 
       return true;
@@ -72,7 +76,9 @@ export class AccountPermissionGuard implements CanActivate {
       }
 
       this.logger.error('Account permission verification failed', error);
-      throw new ForbiddenException('Unable to verify Account Manager permissions');
+      throw new ForbiddenException(
+        'Não foi possível verificar suas permissões agora. Tente novamente em alguns instantes.',
+      );
     }
   }
 }

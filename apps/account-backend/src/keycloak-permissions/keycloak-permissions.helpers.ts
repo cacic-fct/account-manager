@@ -27,6 +27,11 @@ import {
   type NormalizedValidityWindow,
 } from './keycloak-permissions.records';
 
+export const PERMISSION_SYNC_ERROR_MESSAGE =
+  'A permissão foi salva, mas ainda não foi aplicada no sistema de autenticação. Atualize a lista; se o problema continuar, peça a um administrador para sincronizar as permissões.';
+export const MEMBERSHIP_SYNC_ERROR_MESSAGE =
+  'O vínculo foi salvo, mas as permissões ainda não foram atualizadas em todos os serviços. Atualize a lista; se o problema continuar, peça a um administrador para sincronizar as permissões.';
+
 export function normalizePermission(permission: string): string {
   const normalizedPermission = permission.trim();
   const parsedPermission = parseKeycloakPermissionId(normalizedPermission);
@@ -182,7 +187,7 @@ export function mapGrant(grant: GrantRecord): KeycloakPermissionGrant {
     updatedAt: grant.updatedAt.toISOString(),
     updatedById: grant.updatedById ?? undefined,
     lastSyncedAt: grant.lastSyncedAt?.toISOString(),
-    lastSyncError: grant.lastSyncError ?? undefined,
+    lastSyncError: grant.lastSyncError ? PERMISSION_SYNC_ERROR_MESSAGE : undefined,
   };
 }
 
@@ -202,7 +207,7 @@ export function mapGroupRoleGrant(grant: GroupRoleGrantRecord): PermissionGroupR
     updatedAt: grant.updatedAt.toISOString(),
     updatedById: grant.updatedById ?? undefined,
     lastSyncedAt: grant.lastSyncedAt?.toISOString(),
-    lastSyncError: grant.lastSyncError ?? undefined,
+    lastSyncError: grant.lastSyncError ? PERMISSION_SYNC_ERROR_MESSAGE : undefined,
   };
 }
 
@@ -226,7 +231,7 @@ export function mapMembership(membership: MembershipRecord): PermissionGroupMemb
     updatedAt: membership.updatedAt.toISOString(),
     updatedById: membership.updatedById ?? undefined,
     lastSyncedAt: membership.lastSyncedAt?.toISOString(),
-    lastSyncError: membership.lastSyncError ?? undefined,
+    lastSyncError: membership.lastSyncError ? MEMBERSHIP_SYNC_ERROR_MESSAGE : undefined,
   };
 }
 

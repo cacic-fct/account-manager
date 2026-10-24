@@ -33,6 +33,19 @@
         </div>
       }
 
+      @if (hasStatusLoadError()) {
+        <div class="status-banner error" role="alert">
+          <div class="status-content">
+            <mat-icon class="status-icon">error_outline</mat-icon>
+            <div class="status-text">
+              <h3>Não foi possível consultar sua verificação</h3>
+              <p>{{ statusLoadErrorMessage() }}</p>
+            </div>
+          </div>
+          <button mat-button type="button" (click)="loadVerificationStatus()">Tentar novamente</button>
+        </div>
+      }
+
       @if (verificationNotRequired()) {
         <div class="info-section">
           <h3>Verificação dispensada</h3>
@@ -118,7 +131,11 @@
         {{ verificationNotRequired() ? 'Voltar' : 'Cancelar' }}
       </button>
       @if (!verificationNotRequired()) {
-        <button mat-stroked-button color="primary" (click)="openUniversityValidation()" [disabled]="uploading()">
+        <button
+          mat-stroked-button
+          color="primary"
+          (click)="openUniversityValidation()"
+          [disabled]="uploading() || hasStatusLoadError()">
           <mat-icon>{{ isDevelopment && useManualFallback() ? 'upload' : 'verified' }}</mat-icon>
           {{ isDevelopment && useManualFallback() ? 'Enviar para Aprovação Manual' : 'Validar' }}
         </button>

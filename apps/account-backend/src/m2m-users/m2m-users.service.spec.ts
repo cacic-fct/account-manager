@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { KeycloakService, KeycloakUserData } from '../auth/services/keycloak.service';
 import { M2MUsersService } from './m2m-users.service';
 
@@ -57,6 +58,24 @@ describe('M2MUsersService', () => {
     expect(keycloak.searchUsersByAttribute).toHaveBeenCalledTimes(2);
     expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(1, 'enrollmentNumber', '24123456', { max: 50 });
     expect(keycloak.searchUsersByAttribute).toHaveBeenNthCalledWith(2, 'enrollmentNumber', '99999999', { max: 50 });
+  });
+
+  it('returns a safe retry message when an account lookup service fails', async () => {
+    const providerError = new Error('https://private-keycloak.internal/admin?token=secret');
+    const log = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    keycloak.searchUsersByAttribute.mockRejectedValueOnce(providerError);
+
+    try {
+      await expect(service.lookupByEnrollmentNumbers(['24123456'])).rejects.toThrow(
+        'Não foi possível concluir a consulta de contas agora. Tente novamente em alguns minutos.',
+      );
+      expect(log).toHaveBeenCalledWith('Keycloak user attribute lookup failed.', {
+        attributeName: 'enrollmentNumber',
+        error: providerError.message,
+      });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('matches private identifiers without echoing unmatched values', async () => {

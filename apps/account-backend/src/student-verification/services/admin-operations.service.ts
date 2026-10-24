@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { Prisma, StudentVerificationDocument } from '@prisma/client';
 import { UpdateVerificationStatusDto } from '../dto/student-verification.dto';
 import { KeycloakService } from '../../auth/services/keycloak.service';
@@ -191,8 +197,8 @@ export class AdminOperationsService {
         `Failed to set unespRoleVerified for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new BadRequestException(
-        'Não foi possível marcar o usuário como verificado no CACiC SSO. A aprovação foi cancelada.',
+      throw new ServiceUnavailableException(
+        'Não foi possível atualizar a verificação no sistema de autenticação. A aprovação não foi registrada. Tente novamente mais tarde.',
       );
     }
   }

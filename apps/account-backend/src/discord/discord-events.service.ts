@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Context, On, Once, ContextOf } from 'necord';
-import { Cron } from '@nestjs/schedule';
 import type { Client, GuildMember } from 'discord.js';
 import { DiscordBotService } from './discord-bot.service';
 import { DiscordClientService } from './services/discord-client.service';
@@ -89,16 +88,6 @@ export class DiscordEventsService {
         'discord-member-roles-cleared',
       );
     }
-  }
-
-  @Cron('* * * * *', { waitForCompletion: true })
-  public async syncManagedRoles(): Promise<void> {
-    await this.discordRoleService.syncAllLinkedMemberRoles('scheduled-discord-managed-role-sync');
-  }
-
-  @Cron('15 4 * * *')
-  public async enforceManagedRolePolicy(): Promise<void> {
-    await this.discordRoleService.syncAllGuildMemberRoleState('scheduled-discord-managed-role-hard-enforcement');
   }
 
   private didRolesChange(oldMember: Pick<GuildMember, 'roles'>, newMember: Pick<GuildMember, 'roles'>) {

@@ -1,3 +1,4 @@
+import { ProfileDataHelpComponent } from '../shared/components/profile-data-help/profile-data-help.component';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, computed, signal, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgOptimizedImage } from '@angular/common';
@@ -18,10 +19,12 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDivider } from '@angular/material/divider';
+import { getApiErrorMessage } from '../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-onboarding',
   imports: [
+    ProfileDataHelpComponent,
     MatToolbarModule,
     MatCardModule,
     MatButtonModule,
@@ -134,6 +137,11 @@ export class OnboardingComponent implements OnInit {
         },
         error: (error) => {
           this.logger.error('Error loading current user', error);
+          this.snackBar.open(
+            getApiErrorMessage(error, 'Não foi possível atualizar seus dados. Confira o formulário antes de salvar.'),
+            'Fechar',
+            { duration: 8000 },
+          );
           // Fallback continues with cached user data from initialFormData computed
           this.profileDataReady.set(true);
         },

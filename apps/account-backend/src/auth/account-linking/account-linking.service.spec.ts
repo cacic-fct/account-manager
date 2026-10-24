@@ -372,7 +372,7 @@ describe('AccountLinkingService', () => {
     const { service, accountMergeRequest } = createConfirmationService(new Date(Date.now() - 60_000));
 
     await expect(service.confirmMerge('merge-request', 'requester-user', 'requester@example.org')).rejects.toThrow(
-      'Merge request expired',
+      'O prazo para confirmar este pedido terminou. Inicie uma nova unificação.',
     );
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
@@ -385,7 +385,7 @@ describe('AccountLinkingService', () => {
     const { service, accountMergeRequest } = createConfirmationService(new Date(Date.now() - 60_000));
 
     await expect(service.confirmAdminMerge('merge-request', 'requester@example.org', 'admin-user')).rejects.toThrow(
-      'Merge request expired',
+      'O prazo para confirmar este pedido terminou. Inicie uma nova unificação.',
     );
 
     expect(accountMergeRequest.updateMany).toHaveBeenCalledWith({
@@ -404,7 +404,7 @@ describe('AccountLinkingService', () => {
     ]);
 
     await expect(service.processScoreAndMerge('merge-request')).rejects.toThrow(
-      'Account merge is blocked while an account deletion request is active',
+      'Não é possível unir contas enquanto houver um pedido de exclusão ativo. Resolva o pedido de exclusão primeiro.',
     );
 
     expect(keycloakService.updateUserAttributes).not.toHaveBeenCalled();
@@ -447,7 +447,7 @@ describe('AccountLinkingService', () => {
     );
 
     await expect(service.createMergeRequest('user-a', 'user-b')).rejects.toThrow(
-      'One of these accounts already has an active merge request',
+      'Já existe um pedido de unificação ativo para uma dessas contas. Atualize a página para acompanhar o andamento.',
     );
     expect(transaction.$executeRaw).toHaveBeenCalled();
     expect(accountMergeRequest.create).not.toHaveBeenCalled();
@@ -478,6 +478,33 @@ describe('AccountLinkingService', () => {
       }),
     );
     delete process.env.ACCOUNT_MERGE_GRPC_BACKENDS;
+  });
+
+  it('hides external provider errors from account merge request snapshots', async () => {
+    const { service, prisma } = createService({ email: ['primary@example.org'] }, { email: ['secondary@example.org'] });
+    const providerError = 'https://private-backend.internal/score?token=secret';
+    prisma.accountMergeRequest.findUnique.mockResolvedValueOnce({
+      id: 'merge-request',
+      requesterUserId: primaryUserId,
+      candidateUserId: secondaryUserId,
+      primaryUserId: null,
+      secondaryUserId: null,
+      selectedPrimaryEmail: null,
+      secondaryEmails: [],
+      status: 'pending_score',
+      scoreBreakdown: [],
+      externalScores: [{ backend: 'private-backend', scores: {}, error: providerError }],
+      expiresAt: new Date(Date.now() + 60_000),
+      completedAt: null,
+      createdAt: new Date(),
+    });
+
+    const request = await service.getAdminRequest('merge-request');
+
+    expect(request.externalScores[0]?.error).toBe(
+      'Não foi possível consultar uma pontuação de serviço integrado. Atualize a página em alguns minutos; se o problema continuar, fale com o suporte.',
+    );
+    expect(request.externalScores[0]?.error).not.toContain(providerError);
   });
 
   it('recovers a pending score job with a deterministic queue id', async () => {
@@ -547,7 +574,7 @@ describe('AccountLinkingService', () => {
     expect(keycloakService.updateUserAttributes).toHaveBeenCalledWith(
       primaryUserId,
       { email: ['primary@example.org'] },
-      { skipValidation: true },
+      { skipValidation: true, mode: 'replace' },
     );
     expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(primaryUserId, true);
     expect(keycloakService.setUserEnabled).toHaveBeenCalledWith(secondaryUserId, true);

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,6 +24,7 @@ import { UniversityValidationDialogComponent } from '../components/university-va
 import { TransientBannerController } from '../../../shared/ui/transient-banner.controller';
 import { LoggerService } from '../../../shared/services/logger.service';
 import { formatLocalizedDate } from '../../../shared/utils/date-fns';
+import { getApiErrorMessage } from '../../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-student-verification-details',
@@ -55,6 +55,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
   isLoading = signal(false);
   uploading = signal(false);
   hasLoadError = signal(false);
+  loadErrorMessage = signal('');
   verificationStatus = signal<VerificationStatus | null>(null);
 
   selectedFile = signal<File | null>(null);
@@ -82,16 +83,23 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
   loadVerificationStatus(): void {
     this.isLoading.set(true);
     this.hasLoadError.set(false);
+    this.loadErrorMessage.set('');
 
     this.verificationService.getVerificationStatus().subscribe({
       next: (status) => {
         this.verificationStatus.set(status);
         this.isLoading.set(false);
+        this.hasLoadError.set(false);
+        this.loadErrorMessage.set('');
       },
       error: (error) => {
         this.logger.error('Error loading verification status', error, { operation: 'student-verification' });
         this.hasLoadError.set(true);
         this.isLoading.set(false);
+        this.verificationStatus.set(null);
+        this.loadErrorMessage.set(
+          getApiErrorMessage(error, 'Não foi possível carregar o status da sua verificação. Tente novamente.'),
+        );
       },
     });
   }
@@ -201,7 +209,7 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
       next: (response: UploadResponse) => {
         this.handleUploadSuccess(response);
       },
-      error: (error: HttpErrorResponse) => {
+      error: (error: unknown) => {
         this.handleUploadError(error);
       },
     });
@@ -228,14 +236,35 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
 
     switch (errorType) {
       case 'network':
-        title = 'Erro de conexão';
-        message = 'Verifique sua conexão e tente novamente.';
+      case 'NETWORK_ERROR':
+        title = 'Não foi possível concluir a validação';
+        message = error || 'Tente validar o documento novamente em alguns instantes.';
         break;
       case 'validation':
         title = 'Falha na validação';
         break;
       case 'captcha':
+      case 'CAPTCHA_ERROR':
         title = 'Erro no captcha';
+        break;
+      case 'UNESP_NETWORK_ERROR':
+        title = 'Erro de conexão com a universidade';
+        message = 'Não foi possível consultar o sistema da universidade. Tente novamente em alguns instantes.';
+        break;
+      case 'PDF_PROCESSING_ERROR':
+        title = 'Não foi possível processar o PDF';
+        break;
+      case 'AUTH_CODE_NOT_FOUND':
+        title = 'Código de autenticidade não encontrado';
+        break;
+      case 'ENROLLMENT_NOT_FOUND':
+        title = 'Registro acadêmico (RA) não encontrado';
+        break;
+      case 'INVALID_DOCUMENT':
+        title = 'Documento inválido';
+        break;
+      case 'COOLDOWN_ACTIVE':
+        title = 'Aguarde para tentar novamente';
         break;
       default:
         title = 'Erro na validação';
@@ -245,17 +274,13 @@ export class StudentVerificationDetailsComponent implements OnInit, OnDestroy {
     this.banners.showError(title, message);
   }
 
-  private handleUploadError(error: HttpErrorResponse): void {
+  private handleUploadError(error: unknown): void {
     this.uploading.set(false);
     this.logger.error('Upload error', error, { operation: 'student-verification-upload' });
-
-    let errorMessage = 'Falha no upload. Tente novamente.';
-    if (error.status === 400) {
-      errorMessage = error.error?.message || 'Arquivo inválido.';
-    } else if (error.status === 413) {
-      errorMessage = 'Arquivo muito grande. Máximo 10MB.';
-    }
-
+    const errorMessage = getApiErrorMessage(
+      error,
+      'Não foi possível enviar o documento. Selecione um PDF válido de até 10 MB e tente novamente.',
+    );
     this.banners.showError('Erro no upload', errorMessage);
   }
 

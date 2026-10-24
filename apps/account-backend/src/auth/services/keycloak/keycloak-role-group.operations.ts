@@ -3,44 +3,7 @@ import { KeycloakUserOperations } from './keycloak-user.operations';
 
 export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations {
   async getUserGroups(userId: string): Promise<string[]> {
-    const adminToken = await this.getAdminToken();
-    const userGroupsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups`;
-
-    this.logger.debug('Getting user groups', { userId });
-
-    const response = await this.fetchWithTimeout(userGroupsUrl, {
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        this.logger.warn('User not found when getting groups', { userId });
-        return [];
-      }
-
-      const details = await this.readTokenError(response);
-
-      this.logger.error('Failed to get user groups', {
-        status: response.status,
-        statusText: response.statusText,
-        userId,
-        userGroupsUrl,
-        contentType: details.contentType,
-        responseHeaders: details.headers,
-      });
-
-      throw new Error(`Failed to get user groups: ${response.status} ${response.statusText}`);
-    }
-
-    const groups = (await response.json()) as Array<{ name: string }>;
-
-    this.logger.debug('User groups retrieved', {
-      userId,
-      groups: groups.map((g) => g.name),
-    });
-
+    const groups = await this.getUserGroupMemberships(userId);
     return groups.map((group) => group.name);
   }
 
@@ -50,7 +13,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
     const pageSize = 100;
 
     for (let first = 0; ; first += pageSize) {
-      const url = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${encodeURIComponent(userId)}/groups?first=${first}&max=${pageSize}&briefRepresentation=true`;
+      const url = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/groups?first=${first}&max=${pageSize}&briefRepresentation=true`;
       const response = await this.fetchWithTimeout(url, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -82,7 +45,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
   async getUserClientRoles(userId: string, clientId = this.clientId): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}/composite`;
+    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}/composite`;
 
     this.logger.debug('Getting user client roles including inherited', {
       userId,
@@ -133,7 +96,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
   async getUserDirectClientRoles(userId: string, clientId = this.clientId): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
+    const userRolesUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}`;
 
     this.logger.debug('Getting direct user client roles', {
       userId,
@@ -190,7 +153,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId);
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}`;
 
     const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'POST',
@@ -228,7 +191,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId);
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/role-mappings/clients/${clientUuid}`;
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}`;
 
     const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'DELETE',
@@ -264,7 +227,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
   async addUserToGroupId(userId: string, groupId: string, groupLabel = groupId): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/groups/${encodeURIComponent(groupId)}`;
 
     const response = await this.fetchWithTimeout(groupUrl, {
       method: 'PUT',
@@ -298,7 +261,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
   async removeUserFromGroupId(userId: string, groupId: string, groupLabel = groupId): Promise<void> {
     const adminToken = await this.getAdminToken();
-    const groupUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`;
+    const groupUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users/${encodeURIComponent(userId)}/groups/${encodeURIComponent(groupId)}`;
 
     const response = await this.fetchWithTimeout(groupUrl, {
       method: 'DELETE',
@@ -334,7 +297,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
   ): Promise<string[]> {
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const rolesUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}${options.effective ? '/composite' : ''}`;
+    const rolesUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/groups/${encodeURIComponent(groupId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}${options.effective ? '/composite' : ''}`;
 
     const response = await this.fetchWithTimeout(rolesUrl, {
       headers: {
@@ -379,7 +342,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/groups/${encodeURIComponent(groupId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}`;
 
     const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'POST',
@@ -417,7 +380,7 @@ export abstract class KeycloakRoleGroupOperations extends KeycloakUserOperations
 
     const adminToken = await this.getAdminToken();
     const clientUuid = await this.getClientUuid(clientId, adminToken);
-    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${this.realm}/groups/${groupId}/role-mappings/clients/${clientUuid}`;
+    const roleMappingsUrl = `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/groups/${encodeURIComponent(groupId)}/role-mappings/clients/${encodeURIComponent(clientUuid)}`;
 
     const response = await this.fetchWithTimeout(roleMappingsUrl, {
       method: 'DELETE',

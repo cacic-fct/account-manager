@@ -9,6 +9,7 @@ import { ApiService } from '../../shared/services/api.service';
 import { AuthService } from '../../shared/services/auth/auth.service';
 import { RouterLink } from '@angular/router';
 import { LoggerService } from '../../shared/services/logger.service';
+import { getApiErrorMessage } from '../../shared/utils/api-error-message';
 
 @Component({
   selector: 'app-discord-integration',
@@ -36,9 +37,14 @@ export class DiscordIntegrationComponent implements OnInit {
   // Discord admin status
   isDiscordAdmin = signal<boolean>(false);
   isCheckingAdmin = signal<boolean>(true);
+  adminStatusError = signal<string | null>(null);
 
   ngOnInit(): void {
     // Check Discord admin status
+    this.checkDiscordAdminStatus();
+  }
+
+  protected retryAdminStatusCheck(): void {
     this.checkDiscordAdminStatus();
   }
 
@@ -51,14 +57,21 @@ export class DiscordIntegrationComponent implements OnInit {
     }
 
     this.isCheckingAdmin.set(true);
+    this.adminStatusError.set(null);
     this.apiService.getDiscordAdminStatus().subscribe({
       next: (response) => {
         this.isDiscordAdmin.set(response.isAdmin);
+        this.adminStatusError.set(null);
         this.isCheckingAdmin.set(false);
       },
       error: (error) => {
         this.logger.error('Error checking Discord admin status', error);
-        this.isDiscordAdmin.set(false);
+        this.adminStatusError.set(
+          getApiErrorMessage(
+            error,
+            'Não foi possível verificar se sua conta tem acesso administrativo ao Discord. Tente novamente em instantes.',
+          ),
+        );
         this.isCheckingAdmin.set(false);
       },
     });
