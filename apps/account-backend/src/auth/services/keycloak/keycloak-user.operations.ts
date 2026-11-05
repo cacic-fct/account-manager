@@ -555,7 +555,56 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       id: userData.id,
     });
 
-    return userData as KeycloakUserData;
+    const user = userData as KeycloakUserData;
+    if (user.enabled === false) {
+      // The single-user endpoint also reports enabled=false for temporary login
+      // lockouts. Confirm the persisted flag through Keycloak's exact ID search,
+      // which does not apply that override, before rejecting an existing session.
+      const enabled = await this.getPersistedUserEnabled(userId, adminToken);
+      this.logger.warn('Confirmed Keycloak account status after a disabled user response', {
+        userId,
+        enabled,
+        responseHeaders: this.readResponseDebugHeaders(response),
+      });
+      return { ...user, enabled };
+    }
+
+    return user;
+  }
+
+  private async getPersistedUserEnabled(userId: string, adminToken: string): Promise<boolean> {
+    const query = new URLSearchParams({ search: `id:${userId}`, briefRepresentation: 'true', max: '2' });
+    const response = await this.fetchWithTimeout(
+      `${this.keycloakUrl}/admin/realms/${encodeURIComponent(this.realm)}/users?${query.toString()}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+          'Cache-Control': 'no-cache, no-store',
+        },
+      },
+    );
+    if (response.status !== 200) {
+      throw new KeycloakConnectionException('Unable to confirm account status');
+    }
+
+    const users: unknown = await response.json();
+    if (!Array.isArray(users) || users.length !== 1) {
+      throw new KeycloakConnectionException('Authentication service returned invalid account status');
+    }
+    const user: unknown = users[0];
+    if (
+      !user ||
+      typeof user !== 'object' ||
+      Array.isArray(user) ||
+      !('id' in user) ||
+      user.id !== userId ||
+      !('enabled' in user) ||
+      typeof user.enabled !== 'boolean'
+    ) {
+      throw new KeycloakConnectionException('Authentication service returned invalid account status');
+    }
+    return user.enabled;
   }
 
   async updateUser(userId: string, data: Partial<KeycloakUserData>): Promise<void> {

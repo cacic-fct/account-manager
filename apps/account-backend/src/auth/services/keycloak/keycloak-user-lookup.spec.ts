@@ -104,6 +104,7 @@ describe('Keycloak account lookup and status validation', () => {
 
   it('reports a disabled account only for a matching ID and an explicit boolean false', async () => {
     mockLookup(jsonResponse({ id: userId, enabled: false }));
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: userId, enabled: false }]));
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({
       status: 403,
@@ -159,12 +160,61 @@ describe('Keycloak account lookup and status validation', () => {
 
   it('reads the current account state again after an account is re-enabled', async () => {
     mockLookup(jsonResponse({ id: userId, enabled: false }));
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: userId, enabled: false }]));
     mockLookup(jsonResponse({ id: userId, enabled: true }));
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({ status: 403 });
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
+
+  it('permits an enabled account when the single-user endpoint reports a temporary or stale disabled state', async () => {
+    mockLookup(jsonResponse({ id: userId, enabled: false, email: 'admin@example.test' }));
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: userId, enabled: true }]));
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+
+    const confirmationRequest = fetchMock.mock.calls[2]?.[0];
+    if (typeof confirmationRequest !== 'string') throw new Error('Expected an account confirmation URL');
+    const confirmationUrl = new URL(confirmationRequest);
+    expect(confirmationUrl.pathname).toBe('/admin/realms/cacic/users');
+    expect(confirmationUrl.searchParams.get('search')).toBe(`id:${userId}`);
+    expect(confirmationUrl.searchParams.get('briefRepresentation')).toBe('true');
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      cache: 'no-store',
+      redirect: 'error',
+      headers: { Authorization: 'Bearer admin-token', 'Cache-Control': 'no-cache, no-store' },
+    });
+  });
+
+  it.each([
+    [],
+    [{ id: 'another-user', enabled: true }],
+    [{ id: userId }],
+    [{ id: userId, enabled: 'true' }],
+    [{ id: userId, enabled: null }],
+    [
+      { id: userId, enabled: true },
+      { id: userId, enabled: false },
+    ],
+    { id: userId, enabled: true },
+    null,
+  ])('fails closed when disabled status cannot be confirmed: %j', async (body) => {
+    mockLookup(jsonResponse({ id: userId, enabled: false }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({ status: 503 });
+  });
+
+  it.each([401, 403, 404, 429, 500])(
+    'reports status confirmation failures (%s) as service failures',
+    async (status) => {
+      mockLookup(jsonResponse({ id: userId, enabled: false }));
+      fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'upstream failure' }, status));
+
+      await expect(guard.canActivate(context)).rejects.toMatchObject({ status: 503 });
+    },
+  );
 
   it('rejects an empty user ID before making a request', async () => {
     await expect(service.getUserBasicInfo('')).rejects.toThrow('Keycloak user ID is required');

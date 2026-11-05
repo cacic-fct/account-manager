@@ -1,6 +1,9 @@
+import { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { CurrentUserGuard } from '../src/auth/guards/current-user.guard';
+import { createPkceChallenge } from '../src/auth/pkce.utils';
 import { KeycloakService } from '../src/auth/services/keycloak.service';
 import { waitForKeycloakRealm } from './auth-test-helpers';
-import { createPkceChallenge } from '../src/auth/pkce.utils';
 
 // Only run through the isolated Compose test realm; never mutate a configured production realm.
 const studentId = '22222222-2222-2222-2222-222222222222';
@@ -58,6 +61,88 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
         externalId,
         { displayName: before.attributes?.displayName ?? [] },
         { skipValidation: true },
+      );
+    }
+  });
+
+  it('keeps an existing session usable during a login lockout while still rejecting account deactivation', async () => {
+    const baseUrl = process.env.KEYCLOAK_URL;
+    const tokenResponse = await fetch(`${baseUrl}/realms/master/protocol/openid-connect/token`, {
+      method: 'POST',
+      body: new URLSearchParams({
+        grant_type: 'password',
+        client_id: 'admin-cli',
+        username: 'admin',
+        password: 'admin',
+      }),
+    });
+    expect(tokenResponse.status).toBe(200);
+    const rootToken = (await tokenResponse.json()) as { access_token: string };
+    const realmUrl = `${baseUrl}/admin/realms/cacic-sso`;
+    const headers = { Authorization: `Bearer ${rootToken.access_token}`, 'Content-Type': 'application/json' };
+    const realmResponse = await fetch(realmUrl, { headers });
+    expect(realmResponse.status).toBe(200);
+    const realm = (await realmResponse.json()) as Record<string, unknown>;
+    const settings = [
+      'bruteForceProtected',
+      'permanentLockout',
+      'failureFactor',
+      'waitIncrementSeconds',
+      'minimumQuickLoginWaitSeconds',
+      'maxFailureWaitSeconds',
+    ];
+    const originalSettings = Object.fromEntries(settings.map((key) => [key, realm[key]]));
+    const guard = new CurrentUserGuard(service, new Reflector());
+    const context = {
+      getHandler: () => jest.fn(),
+      getClass: () => class TestController {},
+      switchToHttp: () => ({ getRequest: () => ({ session: { user: { keycloakId: externalId } } }) }),
+    } as unknown as ExecutionContext;
+    const lockoutUrl = `${realmUrl}/attack-detection/brute-force/users/${externalId}`;
+
+    try {
+      const update = await fetch(realmUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          bruteForceProtected: true,
+          permanentLockout: false,
+          failureFactor: 1,
+          waitIncrementSeconds: 120,
+          minimumQuickLoginWaitSeconds: 120,
+          maxFailureWaitSeconds: 120,
+        }),
+      });
+      expect(update.status).toBe(204);
+      await expect(service.exchangePasswordForTokens('externo@gmail.com', 'wrong-password')).rejects.toThrow();
+
+      // Keycloak records failed logins asynchronously. Poll the isolated fixture
+      // until its single-user endpoint exhibits the false disabled flag.
+      let locked = false;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const response = await fetch(`${realmUrl}/users/${externalId}`, { headers });
+        expect(response.status).toBe(200);
+        const user = (await response.json()) as { enabled: boolean };
+        if (user.enabled === false) {
+          locked = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(locked).toBe(true);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      // Validation must not clear the login lockout or change the user record.
+      const lockoutResponse = await fetch(lockoutUrl, { headers });
+      expect(lockoutResponse.status).toBe(200);
+      expect(await lockoutResponse.json()).toMatchObject({ disabled: true });
+
+      await service.setUserEnabled(externalId, false);
+      await expect(guard.canActivate(context)).rejects.toMatchObject({ response: { code: 'ACCOUNT_DISABLED' } });
+    } finally {
+      expect((await fetch(lockoutUrl, { method: 'DELETE', headers })).status).toBe(204);
+      await service.setUserEnabled(externalId, true);
+      expect((await fetch(realmUrl, { method: 'PUT', headers, body: JSON.stringify(originalSettings) })).status).toBe(
+        204,
       );
     }
   });

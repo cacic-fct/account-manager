@@ -170,7 +170,12 @@ describe('Authentication (fast e2e)', () => {
   });
 
   it.each(['check', 'me'])('returns 401 for /auth/%s without a session', async (endpoint) => {
-    await request(app.getHttpServer()).get(`/api/auth/${endpoint}`).expect(401);
+    await request(app.getHttpServer())
+      .get(`/api/auth/${endpoint}`)
+      .expect('Cache-Control', 'no-store, private')
+      .expect('Vary', /Cookie/)
+      .expect('Vary', /Authorization/)
+      .expect(401);
   });
 
   it.each(['check', 'me'])('rejects a disabled account consistently on /auth/%s', async (endpoint) => {
@@ -182,7 +187,7 @@ describe('Authentication (fast e2e)', () => {
       enabled: false,
     });
 
-    const response = await agent.get(`/api/auth/${endpoint}`).expect(403);
+    const response = await agent.get(`/api/auth/${endpoint}`).expect('Cache-Control', 'no-store, private').expect(403);
 
     expect(response.body).toMatchObject({ code: 'ACCOUNT_DISABLED', message: 'Esta conta está desativada.' });
   });
@@ -201,7 +206,11 @@ describe('Authentication (fast e2e)', () => {
     keycloakService.getUserBasicInfo.mockRejectedValueOnce(new KeycloakConnectionException());
 
     await agent.get('/api/auth/check').expect(503);
-    await agent.get('/api/auth/check').expect(200).expect({ isAuthenticated: true, isOnboarded: true });
+    await agent
+      .get('/api/auth/check')
+      .expect('Cache-Control', 'no-store, private')
+      .expect(200)
+      .expect({ isAuthenticated: true, isOnboarded: true });
   });
 
   it('redirects OAuth login with PKCE and safe return URL session state', async () => {
