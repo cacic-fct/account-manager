@@ -15,6 +15,8 @@ import {
   PermissionGroupMembership,
   PermissionGroupMembershipStatus,
   PermissionGroupRoleGrant,
+  VOTING_KEYCLOAK_ROLE_LABELS,
+  VOTING_PERMISSION_CLIENT_ID,
 } from '@cacic/shared-types';
 import { BadRequestException } from '@nestjs/common';
 import { KeycloakUserData } from '../auth/services/keycloak.service';
@@ -248,7 +250,11 @@ export function fallbackAccountManagerDefinitions(): KeycloakPermissionDefinitio
   }));
 }
 
-export function getRoleLabel(roleName: string): string {
+export function getRoleLabel(roleName: string, clientId?: string): string {
+  if (clientId === VOTING_PERMISSION_CLIENT_ID && Object.hasOwn(VOTING_KEYCLOAK_ROLE_LABELS, roleName)) {
+    return VOTING_KEYCLOAK_ROLE_LABELS[roleName];
+  }
+
   const labels: Record<string, string> = {
     access: 'Acesso',
     'super-admin': 'Super Admin - Permissões totais (PERIGOSO!)',

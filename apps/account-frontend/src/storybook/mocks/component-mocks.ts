@@ -7,6 +7,8 @@ import {
   PERMISSION_GROUP_CATALOG,
   PermissionGroupKey,
   UnespRole,
+  VOTING_KEYCLOAK_ROLE_LABELS,
+  VOTING_PERMISSION_CLIENT_ID,
   buildKeycloakPermissionId,
   parseKeycloakPermissionId,
   type Application,
@@ -94,8 +96,9 @@ export const mockKeycloakPermissionCatalog: KeycloakPermissionDefinition[] = [
   ),
   createPermissionDefinition('cacic-event-manager', 'events#read', 'Ler eventos'),
   createPermissionDefinition('cacic-event-manager', 'events#publish', 'Publicar eventos'),
-  createPermissionDefinition('cacic-voto', 'elections#read', 'Ler eleições'),
-  createPermissionDefinition('cacic-voto', 'elections#manage', 'Gerenciar eleições'),
+  ...Object.entries(VOTING_KEYCLOAK_ROLE_LABELS).map(([roleName, label]) =>
+    createPermissionDefinition(VOTING_PERMISSION_CLIENT_ID, roleName, label),
+  ),
 ];
 
 export const mockPermissionGroupCatalog: PermissionGroupDefinition[] = [...PERMISSION_GROUP_CATALOG];
