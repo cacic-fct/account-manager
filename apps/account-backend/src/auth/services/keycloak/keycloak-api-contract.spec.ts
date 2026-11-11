@@ -15,6 +15,7 @@ describe('Keycloak API contracts', () => {
   const originalFetch = global.fetch;
   let service: KeycloakService;
   let fetchMock: jest.MockedFunction<typeof fetch>;
+  let warnSpy: jest.SpyInstance | undefined;
 
   beforeEach(() => {
     process.env = {
@@ -28,7 +29,7 @@ describe('Keycloak API contracts', () => {
       KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD: 'client_secret_basic',
     };
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
     service = new KeycloakService();
     jest.spyOn(service, 'getAdminToken').mockResolvedValue('admin-token');
@@ -449,7 +450,7 @@ describe('Keycloak API contracts', () => {
       expect(requestUrl(0).pathname).toBe('/realms/cacic%20realm/protocol/openid-connect/certs');
       expect(requestUrl(1)).toEqual(requestUrl(0));
       expect(fetchMock.mock.calls[1][1]?.signal).toBe(fetchMock.mock.calls[0][1]?.signal);
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(warnSpy).toHaveBeenCalledWith(
         'Keycloak signing-key endpoint returned an error',
         expect.objectContaining({ status: 503 }),
       );
@@ -460,7 +461,7 @@ describe('Keycloak API contracts', () => {
       fetchMock.mockReset().mockResolvedValueOnce(json({}, 403));
 
       await expect(service.getUserInfo('access', idToken())).rejects.toMatchObject({
-        cause: expect.objectContaining({ message: 'Keycloak signing-key endpoint returned HTTP 403' }),
+        cause: { message: 'Keycloak signing-key endpoint returned HTTP 403' },
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
