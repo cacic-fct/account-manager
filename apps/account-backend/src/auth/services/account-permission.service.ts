@@ -116,6 +116,10 @@ export class AccountPermissionService {
       return false;
     }
 
+    if (isKeycloakBackedPermission(permission)) {
+      return this.hasAnyEffectiveKeycloakPermission(actorId, [permission], now);
+    }
+
     return this.hasAnyDbManagedPermission(actorId, [permission], now);
   }
 
@@ -377,7 +381,7 @@ export class AccountPermissionService {
 
   private async hasKeycloakBackedPermission(userId: string, permission: string): Promise<boolean> {
     const parsedPermission = parseKeycloakPermissionId(permission);
-    if (!parsedPermission || !isKeycloakBackedRoleName(parsedPermission.roleName)) {
+    if (!parsedPermission || !isKeycloakBackedPermission(permission)) {
       return false;
     }
 

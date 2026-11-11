@@ -336,6 +336,31 @@ describe('AccountPermissionService', () => {
     expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
   });
 
+  it('checks Voto poll permissions against live Keycloak roles', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({ id: 'scheduled-record' });
+    keycloakService.getUserClientRoles.mockResolvedValue(['poll#read']);
+
+    await expect(service.hasAnyActivePermission('user-1', ['cacic-voto:poll#read'])).resolves.toBe(true);
+    await expect(service.hasAnyActivePermission('user-1', ['cacic-voto:poll#edit'])).resolves.toBe(false);
+    await expect(
+      service.hasAllActivePermissions('user-1', ['cacic-voto:poll#read', 'cacic-voto:poll#edit']),
+    ).resolves.toBe(false);
+    expect(keycloakService.getUserClientRoles).toHaveBeenCalledWith('user-1', 'cacic-voto');
+    expect(prisma.keycloakPermissionGrant.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('delegates Voto poll roles only while the actor holds the role in Keycloak', async () => {
+    const { keycloakService, prisma, service } = createContext();
+    prisma.keycloakPermissionGrant.findFirst.mockResolvedValue({ id: 'managed-grant' });
+    keycloakService.getUserClientRoles.mockImplementation((_userId, clientId) =>
+      Promise.resolve(clientId === 'cacic-voto' ? ['poll#read'] : []),
+    );
+
+    await expect(service.canAssignPermission('actor-1', 'cacic-voto:poll#read')).resolves.toBe(true);
+    await expect(service.canAssignPermission('actor-1', 'cacic-voto:poll#edit')).resolves.toBe(false);
+  });
+
   it('falls back to database permissions when Keycloak bootstrap role lookup fails', async () => {
     const { keycloakService, prisma, service } = createContext();
     keycloakService.getUserRoles.mockRejectedValue(new Error('Keycloak down'));

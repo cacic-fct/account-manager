@@ -1,5 +1,6 @@
 import { KeycloakUser } from '../../interfaces/auth.interface';
 import { UnauthorizedException } from '@nestjs/common';
+import { setTimeout as delay } from 'node:timers/promises';
 import * as jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
 import { KeycloakBaseOperations } from './keycloak-base.operations';
@@ -9,11 +10,55 @@ import { KeycloakConnectionException } from '../../exceptions/keycloak-connectio
 export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   private readonly idTokenKeys = jwksClient({
     jwksUri: `${this.keycloakUrl}/realms/${encodeURIComponent(this.realm)}/protocol/openid-connect/certs`,
-    timeout: 10_000,
+    fetcher: (uri) => this.fetchIdentitySigningKeys(uri),
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 10,
   });
+
+  private async fetchIdentitySigningKeys(uri: string): Promise<{ keys: unknown[] }> {
+    const signal = AbortSignal.timeout(this.readPositiveInteger('KEYCLOAK_REQUEST_TIMEOUT_MS', 10_000));
+    const options: RequestInit = {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      redirect: 'error',
+      signal,
+    };
+
+    const fetchKeys = async () => {
+      const response = await fetch(uri, options);
+      if (!response.ok) {
+        this.logger.warn('Keycloak signing-key endpoint returned an error', {
+          status: response.status,
+          requestId: response.headers.get('x-request-id'),
+          cfRay: response.headers.get('cf-ray'),
+        });
+        await response.body?.cancel().catch(() => undefined);
+      }
+      return response;
+    };
+
+    let response = await fetchKeys().catch((error: unknown) => {
+      if (signal.aborted || !this.isConnectionError(error)) throw error;
+      return null;
+    });
+
+    // Retry the public, idempotent GET once within the original timeout.
+    if (!response || [502, 503, 504].includes(response.status)) {
+      await delay(150, undefined, { signal });
+      response = await fetchKeys();
+    }
+
+    if (!response.ok) {
+      throw new Error(`Keycloak signing-key endpoint returned HTTP ${response.status}`);
+    }
+
+    const body: unknown = await response.json();
+    if (!body || typeof body !== 'object' || !('keys' in body) || !Array.isArray(body.keys)) {
+      throw new Error('Keycloak signing-key endpoint returned an invalid key set');
+    }
+    return { keys: body.keys };
+  }
 
   getAuthUrl(
     redirectUri: string,
@@ -261,7 +306,10 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
       if (error instanceof Error && error.name === 'SigningKeyNotFoundError') {
         throw new UnauthorizedException('Invalid Keycloak identity token signing key');
       }
-      throw new KeycloakConnectionException('Unable to retrieve Keycloak identity signing keys');
+      throw new KeycloakConnectionException(
+        'Unable to retrieve Keycloak identity signing keys',
+        error instanceof Error ? error : undefined,
+      );
     }
 
     try {

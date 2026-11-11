@@ -148,6 +148,7 @@ describe('AuthController TOTP rotation login', () => {
   it('does not authorize rotation when Keycloak returns a different account', async () => {
     const { controller, keycloakService } = createController();
     const session = createSession();
+    session.silentLogin = false;
     session.pendingTotpRotationUserId = 'user-1';
     const request = { session } as unknown as AuthRequest;
     const { res, redirect } = createRedirectResponse();
@@ -163,7 +164,9 @@ describe('AuthController TOTP rotation login', () => {
     expect(session.pendingTotpRotationUserId).toBeUndefined();
     expect(session.totpRotationAuthenticatedAt).toBeUndefined();
     expect(session.regenerate).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
+    expect(redirect).toHaveBeenCalledWith(
+      expect.stringMatching(/^http:\/\/localhost:4200\/auth-error\?ref=[a-f0-9]{16}$/),
+    );
   });
 });
 
@@ -183,7 +186,29 @@ describe('AuthController OAuth callback cleanup', () => {
     expect(session.redirectTo).toBeUndefined();
     expect(session.pendingTotpRotationUserId).toBeUndefined();
     expect(keycloakService.exchangeCodeForTokens).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/login?error=auth_failed');
+    expect(redirect).toHaveBeenCalledWith(
+      expect.stringMatching(/^http:\/\/localhost:4200\/auth-error\?ref=[a-f0-9]{16}$/),
+    );
+  });
+
+  it('completes a silent SSO check when identity verification fails', async () => {
+    const { controller, keycloakService } = createController();
+    const session = createSession();
+    session.silentLogin = true;
+    session.redirectTo = 'http://localhost:4200/silent-check-sso.html';
+    const request = { session } as unknown as AuthRequest;
+    const { res, redirect } = createRedirectResponse();
+    keycloakService.exchangeCodeForTokens.mockResolvedValue({
+      access_token: 'access',
+      refresh_token: 'refresh',
+      id_token: 'id',
+    });
+    keycloakService.getUserInfo.mockRejectedValue(new Error('Signing-key lookup failed'));
+
+    await controller.callback('code', 'pending-state', '', session, request, res);
+
+    expect(session.user).toBeUndefined();
+    expect(redirect).toHaveBeenCalledWith('http://localhost:4200/silent-check-sso.html?sso=none');
   });
 
   it.each([false, true])(

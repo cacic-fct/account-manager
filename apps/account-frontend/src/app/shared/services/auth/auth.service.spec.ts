@@ -198,6 +198,20 @@ describe('AuthService password login', () => {
     expect(service.isLoading()).toBe(false);
   });
 
+  it('stays on the sign-in error page without starting another SSO attempt', async () => {
+    const originalUrl = window.location.href;
+    window.history.replaceState(null, '', '/app/auth-error?ref=7cf0d45b9ec8a123');
+    sessionStorage.removeItem('cacic.silentLoginAttempted');
+    apiService.checkAuth.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 401 })));
+
+    try {
+      await TestBed.inject(AuthService).runInitialLoginSequence();
+      expect(silentSso.check).not.toHaveBeenCalled();
+    } finally {
+      window.history.replaceState(null, '', originalUrl);
+    }
+  });
+
   it.each([401, 403])('clears authentication if loading the current user returns %s', async (status) => {
     apiService.checkAuth.mockReturnValue(of({ isAuthenticated: true, isOnboarded: true }));
     apiService.getCurrentUser.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));

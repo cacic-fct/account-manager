@@ -53,7 +53,7 @@ export class KeycloakPermissionsCatalogService {
               clientId: client.clientId,
               clientLabel: client.label,
               roleName: role.name,
-              label: getRoleLabel(role.name),
+              label: getRoleLabel(role.name, client.clientId),
               description: role.description,
               composite: role.composite,
               source: 'keycloak' as const,
@@ -184,7 +184,7 @@ export class KeycloakPermissionsCatalogService {
             clientId: result.client.clientId,
             clientLabel: result.client.label,
             roleName,
-            label: getRoleLabel(roleName),
+            label: getRoleLabel(roleName, result.client.clientId),
             source: 'keycloak' as const,
           })),
       );

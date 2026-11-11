@@ -1,3 +1,15 @@
+export const VOTING_PERMISSION_CLIENT_ID = 'cacic-voto';
+
+export const VOTING_KEYCLOAK_ROLE_LABELS: Readonly<Record<string, string>> = {
+  'poll#read': 'Ler votações',
+  'poll#create': 'Criar votações',
+  'poll#edit': 'Editar votações',
+  'poll#delete': 'Excluir votações',
+  'poll#publish': 'Publicar votações',
+  'poll#kiosk': 'Operar votação em quiosque',
+  'election-observer': 'Observar eleições',
+};
+
 export const KEYCLOAK_PERMISSION_CLIENTS = [
   {
     clientId: 'cacic-account-manager',
@@ -8,7 +20,7 @@ export const KEYCLOAK_PERMISSION_CLIENTS = [
     label: 'CACiC Event Manager',
   },
   {
-    clientId: 'cacic-voto',
+    clientId: VOTING_PERMISSION_CLIENT_ID,
     label: 'CACiC Voto',
   },
 ] as const;
@@ -90,9 +102,15 @@ export function isKeycloakBackedRoleName(roleName: string): boolean {
 
 export function isKeycloakBackedPermission(permission: string): boolean {
   const parsedPermission = parseKeycloakPermissionId(permission);
-  return parsedPermission
-    ? isKeycloakBackedRoleName(parsedPermission.roleName)
-    : isKeycloakBackedRoleName(permission.trim());
+  if (!parsedPermission) {
+    return isKeycloakBackedRoleName(permission.trim());
+  }
+
+  return (
+    isKeycloakBackedRoleName(parsedPermission.roleName) ||
+    (parsedPermission.clientId === VOTING_PERMISSION_CLIENT_ID &&
+      Object.hasOwn(VOTING_KEYCLOAK_ROLE_LABELS, parsedPermission.roleName))
+  );
 }
 
 export const AccountManagerPermission = {

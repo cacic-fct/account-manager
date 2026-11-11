@@ -54,3 +54,13 @@ To force Google login in a local production-like test, set:
 ```bash
 KEYCLOAK_LOGIN_IDP_HINT=google
 ```
+
+## CACiC Voto permissions
+
+In a shared realm, register the Voto browser client `cacic-voto` and its
+`access`, `super-admin`, `election-observer`, and `poll#read`, `poll#create`,
+`poll#edit`, `poll#delete`, `poll#publish`, and `poll#kiosk` client roles.
+Account Manager discovers those roles from Keycloak and can synchronize
+scheduled user and group assignments. CACiC Voto reads its effective roles
+directly from Keycloak. A scheduled assignment takes effect for Voto once it
+has been synchronized and appears in the user's session claims.

@@ -181,6 +181,7 @@ export class AuthService {
     const currentUrl = new URL(window.location.href);
     if (
       currentUrl.searchParams.get('sso') === 'none' ||
+      currentUrl.pathname.replace(/\/$/, '') === this.resolveApplicationReturnPath('/auth-error') ||
       sessionStorage.getItem(this.silentLoginAttemptKey) === 'true'
     ) {
       return false;
