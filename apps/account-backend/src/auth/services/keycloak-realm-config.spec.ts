@@ -52,6 +52,18 @@ describe('Keycloak custom attribute permissions', () => {
     expect(importedProfile).toEqual(sourceProfile);
     expect(importedProfile).toMatchObject({ unmanagedAttributePolicy: 'ADMIN_EDIT' });
   });
+
+  it.each(['createdAt', 'updatedAt', 'userSchemaVersion', 'passportCountry'])(
+    'manages %s without relying on the unmanaged attribute policy',
+    (name) => {
+      const component = realm.components['org.keycloak.userprofile.UserProfileProvider'][0];
+      const profile = JSON.parse(component.config['kc.user.profile.config'][0]) as { attributes: { name: string }[] };
+      expect(profile.attributes.find((attribute) => attribute.name === name)).toMatchObject({
+        permissions: { view: ['admin'], edit: ['admin'] },
+        multivalued: false,
+      });
+    },
+  );
 });
 
 describe('Keycloak realm introspection audience', () => {

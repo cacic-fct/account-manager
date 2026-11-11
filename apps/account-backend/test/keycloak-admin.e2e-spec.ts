@@ -26,6 +26,21 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
     service = new KeycloakService();
   });
 
+  async function getRealmAdminHeaders(): Promise<Record<string, string>> {
+    const response = await fetch(`${process.env.KEYCLOAK_URL}/realms/master/protocol/openid-connect/token`, {
+      method: 'POST',
+      body: new URLSearchParams({
+        grant_type: 'password',
+        client_id: 'admin-cli',
+        username: 'admin',
+        password: 'admin',
+      }),
+    });
+    expect(response.status).toBe(200);
+    const token = (await response.json()) as { access_token: string };
+    return { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' };
+  }
+
   it('validates discovery, exact email lookups, attributes, group paths, and effective roles', async () => {
     await expect(service.isRealmReachable()).resolves.toBe(true);
     await expect(service.findUserByEmail(' ALUNO@UNESP.BR ')).resolves.toMatchObject({ id: studentId });
@@ -65,21 +80,44 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
     }
   });
 
-  it('keeps an existing session usable during a login lockout while still rejecting account deactivation', async () => {
-    const baseUrl = process.env.KEYCLOAK_URL;
-    const tokenResponse = await fetch(`${baseUrl}/realms/master/protocol/openid-connect/token`, {
+  it('persists account metadata when unmanaged attributes are disabled', async () => {
+    const usersUrl = `${process.env.KEYCLOAK_URL}/admin/realms/cacic-sso/users`;
+    const profileUrl = `${usersUrl}/profile`;
+    const headers = await getRealmAdminHeaders();
+    const profileResponse = await fetch(profileUrl, { headers });
+    expect(profileResponse.status).toBe(200);
+    const profile = (await profileResponse.json()) as Record<string, unknown>;
+    const configureProfile = (configuration: Record<string, unknown>) =>
+      fetch(profileUrl, { method: 'PUT', headers, body: JSON.stringify(configuration) });
+
+    const created = await fetch(usersUrl, {
       method: 'POST',
-      body: new URLSearchParams({
-        grant_type: 'password',
-        client_id: 'admin-cli',
-        username: 'admin',
-        password: 'admin',
-      }),
+      headers,
+      body: JSON.stringify({ username: 'metadata-test', email: 'metadata-test@example.test', enabled: true }),
     });
-    expect(tokenResponse.status).toBe(200);
-    const rootToken = (await tokenResponse.json()) as { access_token: string };
-    const realmUrl = `${baseUrl}/admin/realms/cacic-sso`;
-    const headers = { Authorization: `Bearer ${rootToken.access_token}`, 'Content-Type': 'application/json' };
+    expect(created.status).toBe(201);
+    const userId = created.headers.get('location')?.split('/').pop();
+    if (!userId) throw new Error('Missing ID for metadata test user');
+
+    try {
+      expect((await configureProfile({ ...profile, unmanagedAttributePolicy: null })).status).toBe(200);
+      const attributes = {
+        createdAt: ['2026-11-01T00:00:00.000Z'],
+        updatedAt: ['2026-11-11T00:00:00.000Z'],
+        userSchemaVersion: ['1'],
+        passportCountry: ['AR'],
+      };
+      await service.updateUserAttributes(userId, attributes, { skipValidation: true });
+      await expect(service.getUserAttributes(userId)).resolves.toMatchObject(attributes);
+    } finally {
+      expect((await configureProfile(profile)).status).toBe(200);
+      await service.deleteUser(userId);
+    }
+  });
+
+  it('keeps an existing session usable during a login lockout while still rejecting account deactivation', async () => {
+    const realmUrl = `${process.env.KEYCLOAK_URL}/admin/realms/cacic-sso`;
+    const headers = await getRealmAdminHeaders();
     const realmResponse = await fetch(realmUrl, { headers });
     expect(realmResponse.status).toBe(200);
     const realm = (await realmResponse.json()) as Record<string, unknown>;

@@ -195,8 +195,7 @@ export class AuthController {
   }
 
   private resolveSafePostLogoutRedirectUri(postLogoutRedirectUri?: string): string {
-    const resolvedUrl =
-      this.resolveSafeReturnUrl(postLogoutRedirectUri) ?? new URL(this.appConfig.frontendUrl).toString();
+    const resolvedUrl = this.resolveSafeReturnUrl(postLogoutRedirectUri) ?? this.resolveFrontendPath('/');
 
     const normalizedUrl = new URL(resolvedUrl);
     normalizedUrl.username = '';

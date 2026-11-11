@@ -165,6 +165,30 @@ describe(UserService.name, () => {
     expect(profile.isOnboarded).toBe(true);
   });
 
+  it.each(['User Test', ''])('keeps the saved profile when OAuth provides no changes (%j)', async (name) => {
+    const updatedAt = '2026-08-23T12:00:00.000Z';
+    keycloak.getUserAttributes.mockResolvedValue({
+      email: ['user@example.test'],
+      fullName: ['User Test'],
+      displayName: ['User Test'],
+      updatedAt: [updatedAt],
+    });
+
+    const profile = await service.updateFromKeycloakOAuth({
+      sub: 'user-1',
+      email: 'user@example.test',
+      email_verified: true,
+      name,
+      preferred_username: 'user',
+      given_name: '',
+      family_name: '',
+    });
+
+    expect(keycloak.updateUserAttributes).not.toHaveBeenCalled();
+    expect(profile.displayName).toBe('User Test');
+    expect(profile.updatedAt.toISOString()).toBe(updatedAt);
+  });
+
   it('does not report completed user creation when mandatory attributes fail to persist', async () => {
     keycloak.getUserBasicInfo.mockResolvedValue(null);
     keycloak.updateUserAttributes.mockRejectedValue(new Error('write failed'));

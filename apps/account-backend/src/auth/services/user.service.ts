@@ -528,41 +528,32 @@ export class UserService {
         attributeCount: Object.keys(currentAttributes).length,
       });
 
-      // Always update display name and picture from OAuth
       const displayName =
-        keycloakUser.name || `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
-
-      const updatedAttributes: Record<string, string[]> = {
-        // Patch OAuth fields only, so an earlier snapshot cannot replay a stale
-        // onboarding flag or schema version over a concurrent profile completion.
-        displayName: [displayName],
-        updatedAt: [new Date().toISOString()],
-        // Always update picture if available from OAuth
-        ...(keycloakUser.picture && { picture: [keycloakUser.picture] }),
-      };
-
-      this.logger.debug('Updated attributes to be stored', {
-        userId: keycloakUser.sub,
-        willStorePicture: !!updatedAttributes.picture,
-      });
-
-      // For Unesp users, also update fullName if it's empty or if we got a new name from OAuth
-      const isUnespUser = await this.isUnespUser(keycloakUser.email, keycloakUser.sub);
-      if (isUnespUser && displayName) {
-        // Only update fullName if it's currently empty or if this is a substantial update
-        const currentFullName = currentAttributes.fullName?.[0];
-        if (!currentFullName || currentFullName.trim() === '') {
-          updatedAttributes.fullName = [displayName];
-        }
+        keycloakUser.name?.trim() || `${keycloakUser.given_name || ''} ${keycloakUser.family_name || ''}`.trim();
+      const picture = keycloakUser.picture?.trim();
+      // Send only changed OAuth fields. In particular, a sign-in by itself
+      // should not advance the profile's modification time.
+      const patch: Record<string, string[]> = {};
+      if (displayName && displayName !== currentAttributes.displayName?.[0]) {
+        patch.displayName = [displayName];
+      }
+      if (picture && picture !== currentAttributes.picture?.[0]) {
+        patch.picture = [picture];
+      }
+      if (
+        displayName &&
+        !currentAttributes.fullName?.[0]?.trim() &&
+        (await this.isUnespUser(keycloakUser.email, keycloakUser.sub))
+      ) {
+        patch.fullName = [displayName];
       }
 
-      await this.keycloakService.updateUserAttributes(
-        keycloakUser.sub,
-        updatedAttributes,
-        { skipValidation: true }, // Skip validation since we're just updating OAuth data
-      );
-
-      const refreshedAttributes = await this.keycloakService.reconcileUserOnboarding(keycloakUser.sub);
+      let refreshedAttributes = currentAttributes;
+      if (Object.keys(patch).length > 0) {
+        patch.updatedAt = [new Date().toISOString()];
+        await this.keycloakService.updateUserAttributes(keycloakUser.sub, patch, { skipValidation: true });
+        refreshedAttributes = await this.keycloakService.reconcileUserOnboarding(keycloakUser.sub);
+      }
       const profile = this.attributesToUserProfile(keycloakUser.sub, refreshedAttributes);
       await this.upsertLeanUser(profile);
       return profile;
