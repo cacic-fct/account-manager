@@ -129,6 +129,24 @@ export function createUserServiceFake(): Pick<
   };
 }
 
+export async function getRealmAdminHeaders(keycloakUrl: string): Promise<Record<string, string>> {
+  if (process.env.KEYCLOAK_ISOLATED_TEST_REALM !== 'true' || new URL(keycloakUrl).hostname !== 'localhost') {
+    throw new Error('Realm admin access requires the isolated localhost test realm');
+  }
+  const response = await fetch(`${keycloakUrl}/realms/master/protocol/openid-connect/token`, {
+    method: 'POST',
+    body: new URLSearchParams({
+      grant_type: 'password',
+      client_id: 'admin-cli',
+      username: 'admin',
+      password: 'admin',
+    }),
+  });
+  expect(response.status).toBe(200);
+  const token = (await response.json()) as { access_token: string };
+  return { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' };
+}
+
 export async function waitForKeycloakRealm(keycloakBaseUrl: string): Promise<void> {
   const metadataUrl = `${keycloakBaseUrl}/realms/cacic-sso/.well-known/openid-configuration`;
   const timeoutAt = Date.now() + 60_000;

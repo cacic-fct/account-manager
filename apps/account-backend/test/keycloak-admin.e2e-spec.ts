@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { CurrentUserGuard } from '../src/auth/guards/current-user.guard';
 import { createPkceChallenge } from '../src/auth/pkce.utils';
 import { KeycloakService } from '../src/auth/services/keycloak.service';
-import { authorizeKeycloakBrowser, waitForKeycloakRealm } from './auth-test-helpers';
+import { authorizeKeycloakBrowser, getRealmAdminHeaders, waitForKeycloakRealm } from './auth-test-helpers';
 
 // Only run through the isolated Compose test realm; never mutate a configured production realm.
 const studentId = '22222222-2222-2222-2222-222222222222';
@@ -25,21 +25,6 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
     await waitForKeycloakRealm(baseUrl);
     service = new KeycloakService();
   });
-
-  async function getRealmAdminHeaders(): Promise<Record<string, string>> {
-    const response = await fetch(`${process.env.KEYCLOAK_URL}/realms/master/protocol/openid-connect/token`, {
-      method: 'POST',
-      body: new URLSearchParams({
-        grant_type: 'password',
-        client_id: 'admin-cli',
-        username: 'admin',
-        password: 'admin',
-      }),
-    });
-    expect(response.status).toBe(200);
-    const token = (await response.json()) as { access_token: string };
-    return { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' };
-  }
 
   it('validates discovery, exact email lookups, attributes, group paths, and effective roles', async () => {
     await expect(service.isRealmReachable()).resolves.toBe(true);
@@ -83,7 +68,7 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
   it('persists account metadata when unmanaged attributes are disabled', async () => {
     const usersUrl = `${process.env.KEYCLOAK_URL}/admin/realms/cacic-sso/users`;
     const profileUrl = `${usersUrl}/profile`;
-    const headers = await getRealmAdminHeaders();
+    const headers = await getRealmAdminHeaders(process.env.KEYCLOAK_URL ?? '');
     const profileResponse = await fetch(profileUrl, { headers });
     expect(profileResponse.status).toBe(200);
     const profile = (await profileResponse.json()) as Record<string, unknown>;
@@ -117,7 +102,7 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
 
   it('keeps an existing session usable during a login lockout while still rejecting account deactivation', async () => {
     const realmUrl = `${process.env.KEYCLOAK_URL}/admin/realms/cacic-sso`;
-    const headers = await getRealmAdminHeaders();
+    const headers = await getRealmAdminHeaders(process.env.KEYCLOAK_URL ?? '');
     const realmResponse = await fetch(realmUrl, { headers });
     expect(realmResponse.status).toBe(200);
     const realm = (await realmResponse.json()) as Record<string, unknown>;

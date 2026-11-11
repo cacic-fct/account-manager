@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
 import { generateKeyPairSync } from 'node:crypto';
+import { createServer } from 'node:http';
+import { gzipSync, zstdCompressSync } from 'node:zlib';
 import { sign } from 'jsonwebtoken';
 import { KeycloakConnectionException } from '../../exceptions/keycloak-connection.exception';
 import { KeycloakService } from '../keycloak.service';
@@ -16,6 +18,7 @@ describe('Keycloak API contracts', () => {
   let service: KeycloakService;
   let fetchMock: jest.MockedFunction<typeof fetch>;
   let warnSpy: jest.SpyInstance | undefined;
+  let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     process.env = {
@@ -28,7 +31,7 @@ describe('Keycloak API contracts', () => {
       KEYCLOAK_ADMIN_CLIENT_SECRET: 'admin-secret',
       KEYCLOAK_TOKEN_ENDPOINT_AUTH_METHOD: 'client_secret_basic',
     };
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
     service = new KeycloakService();
@@ -193,6 +196,10 @@ describe('Keycloak API contracts', () => {
       service.updateUserAttributes('user-1', { unespRoleVerified: ['false'] }, { skipValidation: true }),
     ).rejects.toThrow('did not persist');
     expect(notify).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('did not return the requested values for: unespRoleVerified'),
+      { userId: 'user-1', unsavedKeys: ['unespRoleVerified'] },
+    );
   });
 
   it('accepts a saved patch when another replica changes an unrelated attribute before verification', async () => {
@@ -430,6 +437,54 @@ describe('Keycloak API contracts', () => {
 
     it('accepts a verified identity token bound to matching userinfo', async () => {
       await expect(service.getUserInfo('access', idToken())).resolves.toMatchObject({ sub: 'user-1' });
+    });
+
+    it.each([
+      { encoding: 'zstd', compress: zstdCompressSync },
+      { encoding: 'gzip', compress: gzipSync },
+    ])('verifies an ID token using $encoding-compressed signing keys over HTTP', async ({ encoding, compress }) => {
+      const oidcPath = '/realms/cacic%20realm/protocol/openid-connect';
+      const jwks = JSON.stringify({
+        keys: [{ ...keys.publicKey.export({ format: 'jwk' }), kid: 'test-key', alg: 'RS256', use: 'sig' }],
+      });
+      const server = createServer((request, response) => {
+        response.setHeader('Content-Type', 'application/json');
+        switch (request.url) {
+          case `${oidcPath}/certs`:
+            response.setHeader('Content-Encoding', encoding);
+            response.end(compress(jwks));
+            break;
+          case `${oidcPath}/token/introspect`:
+            response.end(JSON.stringify({ active: true }));
+            break;
+          case `${oidcPath}/userinfo`:
+            response.end(JSON.stringify({ sub: 'user-1' }));
+            break;
+          default:
+            response.writeHead(404).end();
+        }
+      });
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', resolve);
+      });
+
+      try {
+        const address = server.address();
+        if (!address || typeof address === 'string') throw new Error('Expected a TCP listener');
+        const origin = `http://127.0.0.1:${address.port}`;
+        process.env.KEYCLOAK_URL = origin;
+        global.fetch = originalFetch;
+        service = new KeycloakService();
+
+        await expect(
+          service.getUserInfo('access', idToken({ iss: `${origin}/realms/cacic%20realm` })),
+        ).resolves.toMatchObject({ sub: 'user-1' });
+      } finally {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => (error ? reject(error) : resolve()));
+        });
+      }
     });
 
     it('retries an unavailable signing-key endpoint and verifies the returned key', async () => {

@@ -212,10 +212,11 @@ export abstract class KeycloakUserOperations extends KeycloakAdminOperations {
       return JSON.stringify(expectedValues) !== JSON.stringify(actualValues);
     });
     if (unsavedKeys.length > 0) {
-      this.logger.error('Keycloak did not persist user attributes; check User Profile permissions', {
-        userId,
-        unsavedKeys,
-      });
+      this.logger.error(
+        `Keycloak accepted the update but did not return the requested values for: ${unsavedKeys.join(', ')}. ` +
+          'Check that these attributes are defined in Realm settings > User profile and grant admins view and edit access.',
+        { userId, unsavedKeys },
+      );
       throw new KeycloakConnectionException('Authentication service did not persist the requested account attributes');
     }
   }

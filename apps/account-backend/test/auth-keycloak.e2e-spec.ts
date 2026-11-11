@@ -14,10 +14,11 @@ import { UserService } from '../src/auth/services/user.service';
 import type { KeycloakUser } from '../src/auth/interfaces/auth.interface';
 import { TotpService } from '../src/totp/totp.service';
 import { RedisService } from '../src/redis/redis.service';
+import { PrismaService } from '../src/prisma/prisma.service';
 import {
   authorizeKeycloakBrowser,
   createAuthTestConfigService,
-  createUserServiceFake,
+  getRealmAdminHeaders,
   waitForKeycloakRealm,
 } from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
@@ -62,10 +63,8 @@ describe('Keycloak authentication (e2e)', () => {
             KEYCLOAK_M2M_REQUIRE_SERVICE_ACCOUNT: 'true',
           }),
         },
-        {
-          provide: UserService,
-          useValue: createUserServiceFake(),
-        },
+        UserService,
+        { provide: PrismaService, useValue: { user: { upsert: jest.fn().mockResolvedValue({}) } } },
         {
           provide: AccountPermissionService,
           useValue: {
@@ -152,7 +151,7 @@ describe('Keycloak authentication (e2e)', () => {
   });
 
   it.each([
-    { username: 'professor@unesp.br', isOnboarded: false, page: 'onboarding' },
+    { username: 'externo@gmail.com', isOnboarded: false, page: 'onboarding' },
     { username: 'aluno@unesp.br', isOnboarded: true, page: 'applications' },
   ])(
     'persists the OAuth callback session for $username and redirects to $page',
@@ -172,6 +171,67 @@ describe('Keycloak authentication (e2e)', () => {
       await agent.get('/api/auth/check').expect(200).expect({ isAuthenticated: true, isOnboarded });
     },
   );
+
+  it('persists OAuth profile changes with unmanaged attributes disabled and keeps the timestamp on repeat login', async () => {
+    const keycloak = app.get(KeycloakService);
+    const usersUrl = `${keycloakUrl}/admin/realms/cacic-sso/users`;
+    const profileUrl = `${usersUrl}/profile`;
+    const headers = await getRealmAdminHeaders(keycloakUrl);
+    const profileResponse = await fetch(profileUrl, { headers });
+    expect(profileResponse.status).toBe(200);
+    const profile = (await profileResponse.json()) as { attributes: { name: string }[] };
+    const configureProfile = (configuration: object) =>
+      fetch(profileUrl, { method: 'PUT', headers, body: JSON.stringify(configuration) });
+    const email = 'oauth-profile-test@example.test';
+    const created = await fetch(usersUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        username: email,
+        email,
+        enabled: true,
+        emailVerified: true,
+        firstName: 'OAuth',
+        lastName: 'Profile',
+        credentials: [{ type: 'password', value: '1', temporary: false }],
+      }),
+    });
+    expect(created.status).toBe(201);
+    const userId = created.headers.get('location')?.split('/').pop();
+    if (!userId) throw new Error('Missing ID for the OAuth profile test user');
+
+    async function signIn() {
+      const agent = request.agent(app.getHttpServer());
+      const authorization = await agent.get('/api/auth/login/redirect').expect(302);
+      const callback = await authorizeKeycloakBrowser(authorization.headers.location, email);
+      await agent.get(callback.pathname + callback.search).expect(302);
+      await agent.get('/api/auth/check').expect(200).expect({ isAuthenticated: true, isOnboarded: false });
+    }
+
+    try {
+      // In production displayName is managed. Use updatedAt from the realm import
+      // so a missing definition breaks the real callback's write and read-back.
+      const strictProfile = {
+        ...profile,
+        unmanagedAttributePolicy: null,
+        attributes: [...profile.attributes, { name: 'displayName', permissions: { view: ['admin'], edit: ['admin'] } }],
+      };
+      expect((await configureProfile(strictProfile)).status).toBe(200);
+
+      await signIn();
+      const saved = await keycloak.getUserAttributes(userId);
+      expect(saved).toMatchObject({
+        displayName: ['OAuth Profile'],
+        updatedAt: [expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)],
+      });
+
+      await signIn();
+      await expect(keycloak.getUserAttributes(userId)).resolves.toMatchObject({ updatedAt: saved.updatedAt });
+    } finally {
+      expect((await configureProfile(profile)).status).toBe(200);
+      await keycloak.deleteUser(userId);
+    }
+  });
 
   it('reads default imported userinfo claims from real Keycloak direct grants', async () => {
     const keycloakService = app.get(KeycloakService);
