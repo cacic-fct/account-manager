@@ -90,10 +90,15 @@ export abstract class KeycloakBaseOperations {
     return process.env.NODE_ENV === 'production';
   }
 
-  protected async fetchWithTimeout(input: string | URL | Request, init: RequestInit = {}): Promise<Response> {
+  protected async fetchWithTimeout(
+    input: string | URL,
+    init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {},
+  ): Promise<Response> {
     try {
       const response = await fetch(input, {
         ...init,
+        // Request uncompressed responses from Keycloak.
+        headers: { ...init.headers, 'Accept-Encoding': 'identity' },
         cache: 'no-store',
         redirect: 'error',
         signal: init.signal ?? AbortSignal.timeout(this.requestTimeoutMs),
@@ -169,6 +174,7 @@ export abstract class KeycloakBaseOperations {
 
     try {
       const response = await fetch(configurationUrl, {
+        headers: { 'Accept-Encoding': 'identity' },
         signal: abortController.signal,
         cache: 'no-store',
         redirect: 'error',

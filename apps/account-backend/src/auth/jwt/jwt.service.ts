@@ -320,6 +320,7 @@ export class JwtService {
         redirect: 'error',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept-Encoding': 'identity',
         },
         body: body.toString(),
         signal: AbortSignal.timeout(10_000),

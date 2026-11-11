@@ -19,7 +19,7 @@ export abstract class KeycloakLoginOperations extends KeycloakBaseOperations {
   private async fetchIdentitySigningKeys(uri: string): Promise<{ keys: unknown[] }> {
     const signal = AbortSignal.timeout(this.readPositiveInteger('KEYCLOAK_REQUEST_TIMEOUT_MS', 10_000));
     const options: RequestInit = {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', 'Accept-Encoding': 'identity' },
       cache: 'no-store',
       redirect: 'error',
       signal,

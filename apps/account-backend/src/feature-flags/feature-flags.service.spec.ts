@@ -66,6 +66,7 @@ describe('FeatureFlagService', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('https://unleash.cacic.com.br/api/frontend', expect.any(Object));
     expect(getFetchInit(fetchMock).headers).toMatchObject({
+      'Accept-Encoding': 'identity',
       Authorization: 'client-key',
       'UNLEASH-APPNAME': 'account-manager-backend-test',
       'UNLEASH-ENVIRONMENT': 'production',

@@ -447,7 +447,9 @@ describe('Keycloak API contracts', () => {
       const jwks = JSON.stringify({
         keys: [{ ...keys.publicKey.export({ format: 'jwk' }), kid: 'test-key', alg: 'RS256', use: 'sig' }],
       });
+      const acceptedEncodings: (string | undefined)[] = [];
       const server = createServer((request, response) => {
+        acceptedEncodings.push(request.headers['accept-encoding']);
         response.setHeader('Content-Type', 'application/json');
         switch (request.url) {
           case `${oidcPath}/certs`:
@@ -480,6 +482,7 @@ describe('Keycloak API contracts', () => {
         await expect(
           service.getUserInfo('access', idToken({ iss: `${origin}/realms/cacic%20realm` })),
         ).resolves.toMatchObject({ sub: 'user-1' });
+        expect(acceptedEncodings).toEqual(['identity', 'identity', 'identity']);
       } finally {
         await new Promise<void>((resolve, reject) => {
           server.close((error) => (error ? reject(error) : resolve()));

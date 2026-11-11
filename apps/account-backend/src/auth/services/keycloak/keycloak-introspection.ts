@@ -23,7 +23,10 @@ export async function assertKeycloakAccessTokenActive(
   }
 
   const body = new URLSearchParams({ token: accessToken, token_type_hint: 'access_token' });
-  const headers: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept-Encoding': 'identity',
+  };
   if (options.authMethod === 'client_secret_post') {
     body.set('client_id', options.clientId);
     body.set('client_secret', options.clientSecret);
