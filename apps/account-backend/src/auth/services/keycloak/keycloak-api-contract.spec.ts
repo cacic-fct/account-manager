@@ -431,6 +431,40 @@ describe('Keycloak API contracts', () => {
       await expect(service.getUserInfo('access', idToken())).resolves.toMatchObject({ sub: 'user-1' });
     });
 
+    it('retries an unavailable signing-key endpoint and verifies the returned key', async () => {
+      service = new KeycloakService();
+      fetchMock
+        .mockReset()
+        .mockResolvedValueOnce(json({}, 503))
+        .mockResolvedValueOnce(
+          json({
+            keys: [{ ...keys.publicKey.export({ format: 'jwk' }), kid: 'test-key', alg: 'RS256', use: 'sig' }],
+          }),
+        )
+        .mockResolvedValueOnce(json({ active: true }))
+        .mockResolvedValueOnce(json({ sub: 'user-1' }));
+
+      await expect(service.getUserInfo('access', idToken())).resolves.toMatchObject({ sub: 'user-1' });
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(requestUrl(0).pathname).toBe('/realms/cacic%20realm/protocol/openid-connect/certs');
+      expect(requestUrl(1)).toEqual(requestUrl(0));
+      expect(fetchMock.mock.calls[1][1]?.signal).toBe(fetchMock.mock.calls[0][1]?.signal);
+      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+        'Keycloak signing-key endpoint returned an error',
+        expect.objectContaining({ status: 503 }),
+      );
+    });
+
+    it('preserves the upstream signing-key error without retrying HTTP 403', async () => {
+      service = new KeycloakService();
+      fetchMock.mockReset().mockResolvedValueOnce(json({}, 403));
+
+      await expect(service.getUserInfo('access', idToken())).rejects.toMatchObject({
+        cause: expect.objectContaining({ message: 'Keycloak signing-key endpoint returned HTTP 403' }),
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it.each([
       { iss: 'https://another-issuer.example.test' },
       { aud: 'another-client' },

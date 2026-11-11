@@ -35,7 +35,14 @@ function collectClientPaths(routeConfig: Routes, parentPath = ''): string[] {
 }
 
 export const serverRoutes: ServerRoute[] = [
-  ...[...new Set(collectClientPaths(routes))].map((path): ServerRoute => ({ path, renderMode: RenderMode.Client })),
+  {
+    path: 'auth-error',
+    renderMode: RenderMode.Server,
+    headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' },
+  },
+  ...[...new Set(collectClientPaths(routes))]
+    .filter((path) => path !== 'auth-error')
+    .map((path): ServerRoute => ({ path, renderMode: RenderMode.Client })),
   {
     path: '**',
     renderMode: RenderMode.Server,

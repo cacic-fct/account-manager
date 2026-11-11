@@ -28,4 +28,12 @@ describe('Server routes', () => {
     });
     expect(new Set(serverRoutes.map((route) => route.path)).size).toBe(serverRoutes.length);
   });
+
+  it('server-renders the sign-in error page and prevents caching and indexing', () => {
+    expect(serverRoutes.find((route) => route.path === 'auth-error')).toEqual({
+      path: 'auth-error',
+      renderMode: RenderMode.Server,
+      headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' },
+    });
+  });
 });

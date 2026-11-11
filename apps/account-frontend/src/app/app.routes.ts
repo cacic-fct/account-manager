@@ -21,6 +21,12 @@ export const routes: Routes = [
   },
   loginRoute,
   {
+    path: 'auth-error',
+    title: 'Falha ao entrar | Conta CACiC',
+    data: { signInError: true },
+    loadComponent: () => import('./not-found/not-found.component').then((m) => m.NotFoundComponent),
+  },
+  {
     path: 'onboarding',
     canActivate: [OnboardingGuard],
     loadComponent: () => import('./onboarding/onboarding.component').then((m) => m.OnboardingComponent),

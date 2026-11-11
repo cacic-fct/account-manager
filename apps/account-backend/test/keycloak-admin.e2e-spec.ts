@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { CurrentUserGuard } from '../src/auth/guards/current-user.guard';
 import { createPkceChallenge } from '../src/auth/pkce.utils';
 import { KeycloakService } from '../src/auth/services/keycloak.service';
-import { waitForKeycloakRealm } from './auth-test-helpers';
+import { authorizeKeycloakBrowser, waitForKeycloakRealm } from './auth-test-helpers';
 
 // Only run through the isolated Compose test realm; never mutate a configured production realm.
 const studentId = '22222222-2222-2222-2222-222222222222';
@@ -180,32 +180,14 @@ describe('Keycloak Admin REST contracts (e2e)', () => {
     const redirectUri = 'http://localhost:3000/api/auth/callback';
     const pkce = createPkceChallenge();
     const requestedAt = Date.now();
-    const authorization = await fetch(
+    const callback = await authorizeKeycloakBrowser(
       service.getAuthUrl(redirectUri, 'test-state', {
         prompt: 'login',
         maxAge: 0,
         codeChallenge: pkce.challenge,
       }),
-      { redirect: 'manual' },
+      'aluno@unesp.br',
     );
-    expect(authorization.status).toBe(200);
-    const html = await authorization.text();
-    const action = /<form[^>]*action="([^"]+)"/.exec(html)?.[1]?.replace(/&amp;/g, '&');
-    if (!action) throw new Error('Keycloak did not return a login form');
-    const cookies = authorization.headers
-      .getSetCookie()
-      .map((cookie) => cookie.split(';', 1)[0])
-      .join('; ');
-    const login = await fetch(action, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
-      body: new URLSearchParams({ username: 'aluno@unesp.br', password: '1', credentialId: '' }).toString(),
-    });
-    expect(login.status).toBe(302);
-    const location = login.headers.get('location');
-    if (!location) throw new Error('Keycloak did not return an authorization redirect');
-    const callback = new URL(location);
     expect(callback.origin + callback.pathname).toBe(redirectUri);
     expect(callback.searchParams.get('state')).toBe('test-state');
     const code = callback.searchParams.get('code');

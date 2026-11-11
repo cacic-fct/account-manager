@@ -37,6 +37,34 @@ export function createKeycloakUser(input: { sub: string; email: string; name: st
   };
 }
 
+export async function authorizeKeycloakBrowser(authorizationUrl: string, username: string): Promise<URL> {
+  const authorizationOrigin = new URL(authorizationUrl).origin;
+  if (new URL(authorizationOrigin).hostname !== 'localhost') {
+    throw new Error('Browser login requires the isolated localhost Keycloak realm');
+  }
+  const authorization = await fetch(authorizationUrl, { redirect: 'manual' });
+  expect(authorization.status).toBe(200);
+  const html = await authorization.text();
+  const action = /<form[^>]*action="([^"]+)"/.exec(html)?.[1]?.replace(/&amp;/g, '&');
+  if (!action || new URL(action).origin !== authorizationOrigin) {
+    throw new Error('Keycloak did not return a local login form');
+  }
+  const cookies = authorization.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(';', 1)[0])
+    .join('; ');
+  const login = await fetch(action, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+    body: new URLSearchParams({ username, password: '1', credentialId: '' }),
+  });
+  expect(login.status).toBe(302);
+  const location = login.headers.get('location');
+  if (!location) throw new Error('Keycloak did not return an authorization redirect');
+  return new URL(location);
+}
+
 export function createUserServiceFake(): Pick<
   UserService,
   'findByKeycloakId' | 'createFromKeycloak' | 'updateFromKeycloakOAuth' | 'checkOnboardingStatus'

@@ -718,6 +718,8 @@ export class AuthController {
     @Req() request: AuthRequest,
     @Res() res: Response,
   ) {
+    let stage = 'validate-state';
+    let silentReturnUrl: string | undefined;
     try {
       if (oauthError) {
         if (!state || !session.oauthState || !this.secureCompare(state, session.oauthState)) {
@@ -743,10 +745,9 @@ export class AuthController {
           return;
         }
 
-        this.logger.warn('OAuth callback returned an error', {
-          error: oauthError,
-        });
-        await redirectAfterSessionSave(session, res, this.resolveFrontendPath('/login?error=auth_failed'));
+        const reference = randomBytes(8).toString('hex');
+        this.logger.warn('OAuth callback returned an error', { error: oauthError, reference });
+        await redirectAfterSessionSave(session, res, this.loginFailureUrl(reference));
         return;
       }
 
@@ -777,6 +778,9 @@ export class AuthController {
       const authenticationStartedAt = session.oauthAuthenticationStartedAt;
       delete session.oauthAuthenticationStartedAt;
       const requestedReturnUrl = this.resolveSafeReturnUrl(session.redirectTo);
+      if (session.silentLogin) {
+        silentReturnUrl = requestedReturnUrl ?? this.appConfig.frontendUrl;
+      }
       const totpRotationUserId = session.pendingTotpRotationUserId;
       delete session.pendingTotpRotationUserId;
       delete session.oauthState;
@@ -784,13 +788,16 @@ export class AuthController {
       delete session.silentLogin;
 
       const redirectUri = this.authCallbackUrl();
+      stage = 'exchange-code';
       const tokens = await this.keycloakService.exchangeCodeForTokens(code, redirectUri, codeVerifier);
+      stage = 'verify-identity';
       const keycloakUser = await this.keycloakService.getUserInfo(tokens.access_token, tokens.id_token, {
         authenticatedAfter: authenticationStartedAt,
       });
       if (totpRotationUserId && keycloakUser.sub !== totpRotationUserId) {
         throw new HttpException('TOTP rotation requires the same account', HttpStatus.FORBIDDEN);
       }
+      stage = 'establish-session';
       const authenticated = await this.createSessionFromKeycloakUser(request, tokens, keycloakUser, 'OAuth callback');
       if (totpRotationUserId) {
         authenticated.session.totpRotationAuthenticatedAt = Date.now();
@@ -800,6 +807,7 @@ export class AuthController {
         requestedReturnUrl ?? undefined,
       );
 
+      stage = 'save-session';
       await redirectAfterSessionSave(authenticated.session, res, redirectUrl);
       return;
     } catch (error) {
@@ -809,9 +817,19 @@ export class AuthController {
       delete session.oauthCodeVerifier;
       delete session.silentLogin;
       delete session.pendingTotpRotationUserId;
-      this.logger.error('Auth callback error', error);
-      await redirectAfterSessionSave(session, res, this.resolveFrontendPath('/login?error=auth_failed'));
+      const reference = randomBytes(8).toString('hex');
+      this.logger.error('Auth callback error', { reference, stage }, error);
+
+      const failureUrl = silentReturnUrl ? new URL(silentReturnUrl) : new URL(this.loginFailureUrl(reference));
+      if (silentReturnUrl) {
+        failureUrl.searchParams.set('sso', 'none');
+      }
+      await redirectAfterSessionSave(session, res, failureUrl.toString());
     }
+  }
+
+  private loginFailureUrl(reference: string): string {
+    return this.resolveFrontendPath(`/auth-error?ref=${reference}`);
   }
 
   @ApiOperation({

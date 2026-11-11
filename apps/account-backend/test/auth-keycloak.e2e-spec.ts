@@ -14,7 +14,12 @@ import { UserService } from '../src/auth/services/user.service';
 import type { KeycloakUser } from '../src/auth/interfaces/auth.interface';
 import { TotpService } from '../src/totp/totp.service';
 import { RedisService } from '../src/redis/redis.service';
-import { createAuthTestConfigService, createUserServiceFake, waitForKeycloakRealm } from './auth-test-helpers';
+import {
+  authorizeKeycloakBrowser,
+  createAuthTestConfigService,
+  createUserServiceFake,
+  waitForKeycloakRealm,
+} from './auth-test-helpers';
 import { configureAccountBackendTestApp } from './support/account-backend-test-app';
 
 const keycloakUrl = process.env.KEYCLOAK_URL ?? 'http://localhost:18080';
@@ -145,6 +150,28 @@ describe('Keycloak authentication (e2e)', () => {
       isOnboarded: true,
     });
   });
+
+  it.each([
+    { username: 'professor@unesp.br', isOnboarded: false, page: 'onboarding' },
+    { username: 'aluno@unesp.br', isOnboarded: true, page: 'applications' },
+  ])(
+    'persists the OAuth callback session for $username and redirects to $page',
+    async ({ username, isOnboarded, page }) => {
+      const agent = request.agent(app.getHttpServer());
+      const authorization = await agent
+        .get('/api/auth/login/redirect')
+        .query({ returnTo: '/app/applications' })
+        .expect(302);
+      const callback = await authorizeKeycloakBrowser(authorization.headers.location, username);
+
+      await agent
+        .get(callback.pathname + callback.search)
+        .expect(302)
+        .expect('Location', `http://localhost:4200/app/${page}`);
+
+      await agent.get('/api/auth/check').expect(200).expect({ isAuthenticated: true, isOnboarded });
+    },
+  );
 
   it('reads default imported userinfo claims from real Keycloak direct grants', async () => {
     const keycloakService = app.get(KeycloakService);

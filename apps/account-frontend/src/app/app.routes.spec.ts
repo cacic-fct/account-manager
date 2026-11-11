@@ -52,4 +52,19 @@ describe('Not-found routing', () => {
     expect(TestBed.inject(Router).url).toBe(url);
     expect(harness.routeNativeElement?.querySelector('a')?.getAttribute('href')).toBe('/app/');
   });
+
+  it('shows the sign-in error with only the safe diagnostic details', async () => {
+    const harness = await RouterTestingHarness.create();
+    const reference = '7cf0d45b9ec8a123';
+
+    await harness.navigateByUrl(`/auth-error?ref=${reference}&code=private`, NotFoundComponent);
+
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Não foi possível entrar.');
+    expect(harness.routeNativeElement?.querySelector('a')?.getAttribute('href')).toBe('/app/?sso=none');
+    expect(JSON.parse(harness.routeNativeElement?.querySelector('code')?.textContent ?? '')).toEqual({
+      code: 'auth_failed',
+      reference,
+    });
+    expect(canActivate).not.toHaveBeenCalled();
+  });
 });
