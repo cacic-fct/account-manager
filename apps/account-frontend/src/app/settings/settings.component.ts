@@ -3,7 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../shared/services/auth/auth.service';
-import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
+import { AccountNavbarComponent } from '../shared/components/account-navbar/account-navbar.component';
 import {
   SettingsNavigationComponent,
   SettingsNavigationGroup,
@@ -13,7 +13,7 @@ import {
   selector: 'app-settings',
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
-  imports: [MatIconModule, MatButtonModule, RouterLink, CacicLogoComponent, SettingsNavigationComponent],
+  imports: [MatIconModule, MatButtonModule, RouterLink, AccountNavbarComponent, SettingsNavigationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsComponent {

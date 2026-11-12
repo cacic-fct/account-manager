@@ -1,45 +1,39 @@
 <a class="skip-link" href="#applications-content" (click)="content.focus(); $event.preventDefault()"
   >Ir para aplicativos</a
 >
-<header class="header">
-  <div class="header-content">
-    <a routerLink="/applications" class="brand" aria-label="Conta CACiC — aplicativos">
-      <app-cacic-logo class="logo" fillColor="currentColor" />
-      <span>Conta CACiC</span>
-    </a>
-    <button
-      matButton="outlined"
-      [matMenuTriggerFor]="accountMenu"
-      class="account-button"
-      [attr.aria-label]="'Abrir menu da conta de ' + userDisplayName()">
-      <span class="account-identity">
-        @if (currentUser()?.picture; as picture) {
-          @if (!pictureFailed()) {
-            <img [ngSrc]="picture" width="40" height="40" alt="" class="avatar" (error)="pictureFailed.set(true)" />
-          } @else {
-            <span class="avatar avatar-initials" aria-hidden="true">{{ userInitials() }}</span>
-          }
+<app-account-navbar>
+  <button
+    matButton="outlined"
+    [matMenuTriggerFor]="accountMenu"
+    class="account-button"
+    [attr.aria-label]="'Abrir menu da conta de ' + userDisplayName()">
+    <span class="account-identity">
+      @if (currentUser()?.picture; as picture) {
+        @if (!pictureFailed()) {
+          <img [ngSrc]="picture" width="40" height="40" alt="" class="avatar" (error)="pictureFailed.set(true)" />
         } @else {
           <span class="avatar avatar-initials" aria-hidden="true">{{ userInitials() }}</span>
         }
-        <span class="account-label">{{ userShortName() }}</span>
-      </span>
-      <mat-icon iconPositionEnd>expand_more</mat-icon>
-    </button>
-    <mat-menu #accountMenu="matMenu">
-      <div class="menu-identity">
-        <strong>{{ userDisplayName() }}</strong>
-        <span>{{ currentUser()?.email }}</span>
-      </div>
-      <a mat-menu-item routerLink="/settings/profile/edit"><mat-icon>person</mat-icon>Meu perfil</a>
-      <a mat-menu-item routerLink="/settings"><mat-icon>settings</mat-icon>Configurações da conta</a>
-      @if (isAdmin()) {
-        <a mat-menu-item routerLink="/admin"><mat-icon>admin_panel_settings</mat-icon>Administração</a>
+      } @else {
+        <span class="avatar avatar-initials" aria-hidden="true">{{ userInitials() }}</span>
       }
-      <button mat-menu-item (click)="authService.logout()"><mat-icon>logout</mat-icon>Sair da conta</button>
-    </mat-menu>
-  </div>
-</header>
+      <span class="account-label">{{ userShortName() }}</span>
+    </span>
+    <mat-icon iconPositionEnd>expand_more</mat-icon>
+  </button>
+  <mat-menu #accountMenu="matMenu">
+    <div class="menu-identity">
+      <strong>{{ userDisplayName() }}</strong>
+      <span>{{ currentUser()?.email }}</span>
+    </div>
+    <a mat-menu-item routerLink="/settings/profile/edit"><mat-icon>person</mat-icon>Meu perfil</a>
+    <a mat-menu-item routerLink="/settings"><mat-icon>settings</mat-icon>Configurações da conta</a>
+    @if (isAdmin()) {
+      <a mat-menu-item routerLink="/admin"><mat-icon>admin_panel_settings</mat-icon>Administração</a>
+    }
+    <button mat-menu-item (click)="authService.logout()"><mat-icon>logout</mat-icon>Sair da conta</button>
+  </mat-menu>
+</app-account-navbar>
 
 <main #content id="applications-content" class="page" tabindex="-1">
   <div class="page-heading">

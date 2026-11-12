@@ -5,6 +5,8 @@ export enum UnespRole {
   PROFESSOR = 'professor',
   PROFESSOR_SUBSTITUTO = 'professor-substituto',
   SERVIDOR_TECNICO_ADMINISTRATIVO = 'servidor-tecnico-administrativo',
+  NAO_APLICAVEL = 'nao-aplicavel',
+  OUTRO = 'outro',
 }
 
 export const UNESP_ROLE_LABELS: Record<UnespRole, string> = {
@@ -14,6 +16,8 @@ export const UNESP_ROLE_LABELS: Record<UnespRole, string> = {
   [UnespRole.PROFESSOR]: 'Professor',
   [UnespRole.PROFESSOR_SUBSTITUTO]: 'Professor substituto',
   [UnespRole.SERVIDOR_TECNICO_ADMINISTRATIVO]: 'Servidor técnico-administrativo',
+  [UnespRole.NAO_APLICAVEL]: 'Não aplicável',
+  [UnespRole.OUTRO]: 'Outro',
 };
 
 export const STUDENT_ROLES = [UnespRole.ALUNO_GRADUACAO, UnespRole.ALUNO_POS_GRADUACAO] as const;

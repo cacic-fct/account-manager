@@ -1,7 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
+import { AccountNavbarComponent } from '../../shared/components/account-navbar/account-navbar.component';
 import {
   SettingsNavigationComponent,
   SettingsNavigationGroup,
@@ -9,7 +7,7 @@ import {
 
 @Component({
   selector: 'app-privacy',
-  imports: [MatButtonModule, MatIconModule, RouterLink, SettingsNavigationComponent],
+  imports: [AccountNavbarComponent, SettingsNavigationComponent],
   templateUrl: './privacy.component.html',
   styleUrl: './privacy.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

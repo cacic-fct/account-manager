@@ -9,6 +9,7 @@ import {
   OnInit,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ClipboardModule } from '@angular/cdk/clipboard';
@@ -113,15 +114,28 @@ export class ProfileFormComponent implements OnInit {
       this.identityFieldLocks();
       this.applyIdentityFieldLocks();
     });
+
+    effect(() => {
+      const { unespRole, enrollmentNumber } = this.savedAcademicData();
+      untracked(() => this.applySavedAcademicData(unespRole, enrollmentNumber));
+    });
   }
 
   // Inputs
   initialData = input<Partial<ProfileFormData>>({});
+  private readonly savedAcademicData = computed(() => {
+    const initial = this.initialData();
+    const user = this.authService.currentUser();
+
+    return {
+      unespRole: (initial.unespRole === undefined ? user?.unespRole : initial.unespRole) || undefined,
+      enrollmentNumber: initial.enrollmentNumber || user?.enrollmentNumber || undefined,
+    };
+  });
   identityFieldLocks = input<IdentityFieldLocks>({
     fullName: false,
     identityDocument: false,
   });
-  defaultUnespRole = input<UnespRole | undefined>(undefined);
   isEditMode = input<boolean>(false);
   layoutMode = input<'stepper' | 'all-in-one'>('stepper');
 
@@ -218,7 +232,7 @@ export class ProfileFormComponent implements OnInit {
     const rawPhone = initial.phone || currentUser?.phone || '';
     const phoneParseResult = this.phoneValidationService.parsePhoneValue(rawPhone, initial.countryCode || 'BR');
 
-    const formData: ProfileFormSnapshot = {
+    const formData: Pick<ProfileFormSnapshot, 'personal'> = {
       personal: {
         fullname: initial.fullname || currentUser?.fullname || currentUser?.displayName || '',
         phone: this.phoneValidationService.formatToNational(
@@ -230,23 +244,33 @@ export class ProfileFormComponent implements OnInit {
         identityDocument: initial.identityDocument || currentUser?.identityDocument || '',
         countryCode: phoneParseResult.country || '',
       },
-      academic: {
-        enrollmentNumber: initial.enrollmentNumber || currentUser?.enrollmentNumber || '',
-        unespRole: initial.unespRole || currentUser?.unespRole || '',
-      },
     };
 
     this.profileForm.patchValue(formData);
 
     // Initialize the signals with current values
     this.countryCodeValue.set(formData.personal.countryCode || '');
-    this.unespRoleValue.set(formData.academic.unespRole || '');
-
-    // Store initial values for verification reset checking
-    this.initialUnespRole = currentUser?.unespRole;
-    this.initialEnrollmentNumber = currentUser?.enrollmentNumber;
+    const { unespRole, enrollmentNumber } = this.savedAcademicData();
+    this.applySavedAcademicData(unespRole, enrollmentNumber);
 
     this.applyIdentityFieldLocks();
+  }
+
+  private applySavedAcademicData(unespRole: UnespRole | undefined, enrollmentNumber: string | undefined): void {
+    this.initialUnespRole = unespRole;
+    this.initialEnrollmentNumber = enrollmentNumber;
+
+    const roleControl = this.academicGroup.get('unespRole');
+    const enrollmentControl = this.academicGroup.get('enrollmentNumber');
+    if (roleControl?.dirty || enrollmentControl?.dirty) {
+      return;
+    }
+
+    const roleValue = unespRole ?? '';
+    const enrollmentValue = unespRole && isStudentRole(unespRole) ? (enrollmentNumber ?? '') : '';
+    if (roleControl?.value !== roleValue || enrollmentControl?.value !== enrollmentValue) {
+      this.academicGroup.patchValue({ unespRole: roleValue, enrollmentNumber: enrollmentValue });
+    }
   }
 
   private applyIdentityFieldLocks(): void {
@@ -336,10 +360,6 @@ export class ProfileFormComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.shouldShowUnespRoleSelection.set(response.shouldShowUnespRoleSelection);
-
-          if (response.shouldShowUnespRoleSelection) {
-            this.applyDefaultUnespRole();
-          }
         },
         error: (error) => {
           this.logger.error('Error checking Unesp role requirement', error);
@@ -351,17 +371,6 @@ export class ProfileFormComponent implements OnInit {
           );
         },
       });
-  }
-
-  private applyDefaultUnespRole(): void {
-    const defaultRole = this.defaultUnespRole();
-    const unespRoleControl = this.academicGroup.get('unespRole');
-
-    if (!defaultRole || unespRoleControl?.value || this.initialUnespRole) {
-      return;
-    }
-
-    unespRoleControl?.setValue(defaultRole);
   }
 
   getFormData(): ProfileFormData {

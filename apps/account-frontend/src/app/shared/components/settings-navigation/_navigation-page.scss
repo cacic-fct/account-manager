@@ -1,33 +1,6 @@
 :host {
   display: block;
 }
-.page-header {
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-}
-.header-content {
-  max-width: var(--app-content-max);
-  margin-inline: auto;
-  padding: 0 var(--app-page-gutter);
-  min-height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: inherit;
-  text-decoration: none;
-  font: var(--mat-sys-title-medium);
-}
-.logo {
-  display: block;
-  width: 72px;
-  height: 44px;
-}
 .header-actions {
   display: flex;
   align-items: center;
@@ -70,17 +43,6 @@ a:focus-visible {
   outline-offset: 4px;
 }
 @media (max-width: 600px) {
-  .header-content {
-    min-height: 72px;
-    gap: 8px;
-  }
-  .logo {
-    width: 56px;
-    height: 36px;
-  }
-  .brand {
-    gap: 8px;
-  }
   .navigation-page {
     padding-top: 28px;
     padding-bottom: 40px;

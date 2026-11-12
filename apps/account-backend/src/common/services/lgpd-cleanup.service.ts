@@ -33,8 +33,13 @@ export class LgpdCleanupService {
       if (cleanedFiles > 0) {
         this.logger.debug(`Cleaned up ${cleanedFiles} expired LGPD file(s)`);
       }
+
+      const purgedRequests = await this.lgpdService.purgeOldExportRequests();
+      if (purgedRequests > 0) {
+        this.logger.debug(`Purged ${purgedRequests} expired or failed LGPD export request(s)`);
+      }
     } catch (error) {
-      this.logger.error('Failed to clean up expired LGPD files', error);
+      this.logger.error('Failed to clean up LGPD exports', error);
       throw error;
     }
   }

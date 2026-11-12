@@ -1,8 +1,4 @@
-<mat-toolbar class="toolbar">
-  <app-cacic-logo class="logo" fillColor="light-dark(#000, #fff)" />
-  <h1 class="title">Conta</h1>
-  <span class="spacer"></span>
-
+<app-account-navbar [linkToApplications]="false">
   <div class="user-info">
     <button matIconButton [matMenuTriggerFor]="menu" class="avatar-btn" aria-label="Abrir menu do usuário">
       @if (currentUser()?.picture; as userPicture) {
@@ -27,7 +23,7 @@
       Sair
     </button>
   </mat-menu>
-</mat-toolbar>
+</app-account-navbar>
 
 <!-- *ngIf="showOnboardingForm" -->
 <div class="onboarding-container">
@@ -40,7 +36,6 @@
           @if (profileDataReady()) {
             <app-profile-form
               [initialData]="initialFormData()"
-              [defaultUnespRole]="defaultUnespRole"
               [identityFieldLocks]="identityFieldLocks()"
               [isEditMode]="false"
               [layoutMode]="'stepper'"

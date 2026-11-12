@@ -176,6 +176,57 @@ describe('LgpdService durability', () => {
     delete process.env.LGPD_DELETION_GRPC_BACKENDS;
   });
 
+  it('removes expired archives while retaining their export records', async () => {
+    const { service, prisma, s3Service } = createContext();
+    const request = createLgpdRequest({
+      status: 'completed',
+      s3Key: 'lgpd/expired.zip',
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    prisma.lgpdRequest.findMany.mockResolvedValueOnce([request]);
+
+    await expect(service.cleanupExpiredFiles()).resolves.toBe(1);
+
+    expect(s3Service.deleteFile).toHaveBeenCalledWith(request.s3Key);
+    expect(prisma.lgpdRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { filePath: null, fileName: null, fileSize: null, s3Key: null, updatedAt: request.updatedAt },
+      }),
+    );
+    expect(prisma.lgpdRequest.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('purges only export records past the three-month cutoff with no remaining S3 key', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-31T12:00:00Z'));
+    try {
+      const { service, prisma, s3Service } = createContext();
+      const cutoff = new Date('2026-02-28T12:00:00Z');
+      const failedRequest = { status: 'failed', updatedAt: { lte: cutoff } };
+      const request = createLgpdRequest({ status: 'failed', updatedAt: cutoff, s3Key: 'lgpd/failed.zip' });
+      prisma.lgpdRequest.findMany.mockResolvedValueOnce([request]);
+      prisma.lgpdRequest.deleteMany.mockResolvedValue({ count: 2 });
+      s3Service.deleteFile.mockRejectedValueOnce(new Error('Storage unavailable'));
+
+      await expect(service.purgeOldExportRequests()).resolves.toBe(2);
+
+      expect(prisma.lgpdRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { ...failedRequest, s3Key: { not: null } } }),
+      );
+      expect(prisma.lgpdRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: request.id, status: 'failed', s3Key: request.s3Key, updatedAt: cutoff },
+        data: { errorMessage: expect.any(String) as unknown, updatedAt: cutoff },
+      });
+      expect(prisma.lgpdRequest.deleteMany).toHaveBeenCalledWith({
+        where: {
+          s3Key: null,
+          OR: [failedRequest, { status: 'completed', expiresAt: { lte: cutoff } }],
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('allows only one concurrent data processor to claim a pending request', async () => {
     const context = createContext();
     let claimCount = 0;

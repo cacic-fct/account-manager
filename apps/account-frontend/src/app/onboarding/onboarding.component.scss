@@ -1,34 +1,7 @@
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 1rem;
-  .logo {
-    height: 40px;
-  }
-  .title {
-    padding-left: 1rem;
-  }
-  .spacer {
-    flex: 1;
-  }
-  .search-box {
-    width: 200px;
-    margin-right: 1rem;
-  }
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-  }
-  .user-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-
-    .user-name {
-      font-weight: 500;
-    }
-  }
+.user-info .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
 }
 
 .onboarding-container {

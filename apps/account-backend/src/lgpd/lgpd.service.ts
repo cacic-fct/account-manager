@@ -12,7 +12,7 @@
  * COMPLIANCE:
  * - Implements LGPD Article 18 (Right to data portability)
  * - Provides structured data export in human-readable format
- * - Maintains audit trail of all requests
+ * - Retains expired and failed export requests for three months
  * - Ensures data minimization and purpose limitation
  */
 
@@ -26,8 +26,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
-import type { DeleteAccountRequest, LgpdRequest } from '@prisma/client';
+import type { DeleteAccountRequest, LgpdRequest, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
+import { subMonths } from 'date-fns';
 import { LgpdRequestDto, LgpdRequestListDto } from './dto/lgpd-request.dto';
 import {
   AdminDeleteAccountRequestDto,
@@ -550,72 +551,68 @@ export class LgpdService {
   }
 
   async cleanupExpiredFiles(): Promise<number> {
-    const now = new Date();
-    const deletedRequestIds: string[] = [];
-    const seenRequestIds = new Set<string>();
+    return this.cleanupExportFiles({ status: 'completed', expiresAt: { lte: new Date() } });
+  }
+
+  async purgeOldExportRequests(): Promise<number> {
+    const cutoff = subMonths(new Date(), 3);
+    const failedRequests = { status: 'failed', updatedAt: { lte: cutoff } } satisfies Prisma.LgpdRequestWhereInput;
+    await this.cleanupExportFiles(failedRequests);
+
+    const { count } = await this.prisma.lgpdRequest.deleteMany({
+      where: {
+        s3Key: null,
+        OR: [failedRequests, { status: 'completed', expiresAt: { lte: cutoff } }],
+      },
+    });
+    return count;
+  }
+
+  private async cleanupExportFiles(where: Prisma.LgpdRequestWhereInput): Promise<number> {
+    let cleanedFiles = 0;
     let cursor: string | undefined;
 
     while (true) {
-      const expiredRequests = await this.prisma.lgpdRequest.findMany({
+      const requests = await this.prisma.lgpdRequest.findMany({
         where: {
-          status: 'completed',
-          expiresAt: { lt: now },
+          ...where,
+          s3Key: { not: null },
           ...(cursor ? { id: { gt: cursor } } : {}),
         },
+        select: { id: true, s3Key: true, updatedAt: true },
         orderBy: { id: 'asc' },
         take: this.cleanupPageSize,
       });
 
-      const newRequests = expiredRequests.filter((request) => !seenRequestIds.has(request.id));
-      if (newRequests.length === 0) {
-        break;
-      }
-
-      for (const request of newRequests) {
-        seenRequestIds.add(request.id);
-        cursor = request.id;
-        if (!request.s3Key) {
+      for (const { id, s3Key, updatedAt } of requests) {
+        if (s3Key === null) {
           continue;
         }
 
         try {
-          await this.s3Service.deleteFile(request.s3Key);
-          deletedRequestIds.push(request.id);
-          this.logger.debug(`Deleted expired LGPD file from S3: ${request.s3Key}`);
+          await this.s3Service.deleteFile(s3Key);
         } catch (error) {
-          this.logger.error(`Error deleting S3 file ${request.s3Key}`, error);
-          // Keep the object reference and persist the failure so the next scheduler run has a
-          // durable retry obligation instead of silently forgetting the object.
+          this.logger.error(`Error deleting S3 file ${s3Key}`, error);
+          // Keep the object reference and retention timestamp so the next run can retry.
           await this.prisma.lgpdRequest.updateMany({
-            where: { id: request.id, status: 'completed', s3Key: request.s3Key },
-            data: { errorMessage: this.serializeFailureDetails('cleanupExpiredFiles', error) },
+            where: { ...where, id, s3Key, updatedAt },
+            data: { errorMessage: this.serializeFailureDetails('cleanupExportFiles', error), updatedAt },
           });
+          continue;
         }
+
+        await this.prisma.lgpdRequest.updateMany({
+          where: { ...where, id, s3Key, updatedAt },
+          data: { filePath: null, fileName: null, fileSize: null, s3Key: null, updatedAt },
+        });
+        cleanedFiles += 1;
       }
 
-      if (newRequests.length < this.cleanupPageSize) {
-        break;
+      if (requests.length < this.cleanupPageSize) {
+        return cleanedFiles;
       }
+      cursor = requests.at(-1)?.id;
     }
-
-    if (deletedRequestIds.length > 0) {
-      await this.prisma.$transaction([
-        this.prisma.lgpdRequest.updateMany({
-          where: { id: { in: deletedRequestIds } },
-          data: {
-            filePath: null,
-            fileName: null,
-            fileSize: null,
-            s3Key: null,
-          },
-        }),
-        this.prisma.lgpdRequest.deleteMany({
-          where: { id: { in: deletedRequestIds } },
-        }),
-      ]);
-    }
-
-    return deletedRequestIds.length;
   }
 
   async cleanupExpiredRequests(): Promise<number> {

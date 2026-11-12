@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
+import { AccountNavbarComponent } from '../shared/components/account-navbar/account-navbar.component';
 import {
   SettingsNavigationComponent,
   SettingsNavigationGroup,
@@ -10,7 +10,7 @@ import {
 
 @Component({
   selector: 'app-admin',
-  imports: [MatIconModule, MatButtonModule, RouterLink, CacicLogoComponent, SettingsNavigationComponent],
+  imports: [MatIconModule, MatButtonModule, RouterLink, AccountNavbarComponent, SettingsNavigationComponent],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

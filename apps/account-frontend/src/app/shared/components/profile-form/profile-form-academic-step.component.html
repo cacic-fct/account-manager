@@ -3,7 +3,6 @@
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Vínculo com a Unesp</mat-label>
       <mat-select formControlName="unespRole">
-        <mat-option value="">Não aplicável</mat-option>
         @for (option of unespRoleOptions(); track option.value) {
           <mat-option [value]="option.value">
             {{ option.label }}

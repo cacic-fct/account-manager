@@ -3,43 +3,6 @@
   min-height: 100%;
 }
 
-.header {
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-}
-
-.header-content {
-  max-width: var(--app-content-max);
-  margin: auto;
-  min-height: 80px;
-  padding: 0 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: inherit;
-  text-decoration: none;
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-// The emblem extends below the wordmark; align the adjacent text to its lettering.
-.brand > span {
-  transform: translateY(2px);
-}
-
-.logo {
-  display: block;
-  width: 72px;
-  height: 44px;
-}
-
 .account-button {
   flex-shrink: 0;
 }
@@ -263,21 +226,6 @@ a:focus-visible {
 }
 
 @media (max-width: 700px) {
-  .header-content {
-    min-height: 72px;
-    padding: 0 16px;
-  }
-
-  .brand {
-    font-size: 1rem;
-    gap: 8px;
-  }
-
-  .logo {
-    width: 64px;
-    height: 38px;
-  }
-
   .page {
     padding: 28px 16px 40px;
   }

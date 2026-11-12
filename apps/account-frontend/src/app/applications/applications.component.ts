@@ -12,7 +12,7 @@ import type { Application } from '@cacic/shared-types';
 import { AppCardComponent } from './component/app-card/app-card.component';
 import { AuthService } from '../shared/services/auth/auth.service';
 import { ApiService } from '../shared/services/api.service';
-import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
+import { AccountNavbarComponent } from '../shared/components/account-navbar/account-navbar.component';
 import { DiscordIntegrationCardComponent } from '../settings/linked-accounts/components/discord-integration-card.component';
 import { LoggerService } from '../shared/services/logger.service';
 import { getApiErrorMessage } from '../shared/utils/api-error-message';
@@ -29,7 +29,7 @@ import { getApiErrorMessage } from '../shared/utils/api-error-message';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    CacicLogoComponent,
+    AccountNavbarComponent,
     DiscordIntegrationCardComponent,
   ],
   templateUrl: './applications.component.html',

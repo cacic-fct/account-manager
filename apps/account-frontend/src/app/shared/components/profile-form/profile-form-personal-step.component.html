@@ -32,14 +32,12 @@
       <mat-select formControlName="countryCode">
         <mat-select-trigger>
           @if (selectedCountry(); as country) {
-            <span aria-hidden="true">{{ countryFlag(country.iso2) }}</span> {{ country.dialCode }}
+            {{ country.dialCode }}
             <span class="sr-only">{{ country.label }}</span>
           }
         </mat-select-trigger>
         @for (option of countryCodeOptions(); track option.iso2) {
-          <mat-option [value]="option.iso2">
-            <span aria-hidden="true">{{ countryFlag(option.iso2) }}</span> {{ option.label }} {{ option.dialCode }}
-          </mat-option>
+          <mat-option [value]="option.iso2"> {{ option.label }} {{ option.dialCode }} </mat-option>
         }
       </mat-select>
     </mat-form-field>

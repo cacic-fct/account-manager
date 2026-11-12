@@ -1,8 +1,4 @@
-<header class="page-header">
-  <div class="header-content">
-    <a mat-button routerLink="/settings"><mat-icon>arrow_back</mat-icon>Configurações</a>
-  </div>
-</header>
+<app-account-navbar backLink="/settings" backLabel="Voltar para configurações" [narrow]="true" />
 <main class="navigation-page">
   <header class="page-heading"><h1>Privacidade</h1></header>
   <app-settings-navigation [groups]="groups" label="Privacidade" />

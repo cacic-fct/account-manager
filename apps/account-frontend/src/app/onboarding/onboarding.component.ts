@@ -12,11 +12,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { ApiService } from '../shared/services/api.service';
 import { AuthService } from '../shared/services/auth/auth.service';
-import { UnespRole, type User } from '@cacic/shared-types';
+import type { User } from '@cacic/shared-types';
 import { ProfileFormComponent } from '../shared/components/profile-form/profile-form.component';
 import { LoggerService } from '../shared/services/logger.service';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { CacicLogoComponent } from '../shared/assets/cacic-logo.component';
+import { AccountNavbarComponent } from '../shared/components/account-navbar/account-navbar.component';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDivider } from '@angular/material/divider';
 import { getApiErrorMessage } from '../shared/utils/api-error-message';
@@ -25,7 +24,6 @@ import { getApiErrorMessage } from '../shared/utils/api-error-message';
   selector: 'app-onboarding',
   imports: [
     ProfileDataHelpComponent,
-    MatToolbarModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -33,7 +31,7 @@ import { getApiErrorMessage } from '../shared/utils/api-error-message';
     MatExpansionModule,
     ProfileFormComponent,
     NgOptimizedImage,
-    CacicLogoComponent,
+    AccountNavbarComponent,
     MatMenuModule,
     MatDivider,
   ],
@@ -50,7 +48,6 @@ export class OnboardingComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   readonly profileDataReady = signal(false);
   currentUser = computed(() => this.authService.currentUser());
-  readonly defaultUnespRole = UnespRole.ALUNO_GRADUACAO;
   userDisplayName = computed(() => {
     const user = this.currentUser();
     if (user) {
