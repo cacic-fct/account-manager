@@ -1,6 +1,11 @@
+
+<p align="left">
+  <img src="https://cdn.jsdelivr.net/gh/cacic-fct/account-manager@main/apps/account-frontend/public/icons/favicon.svg" alt="Logo do Account Manager" width="72">
+</p>
+
 # CACiC Account Manager
 
-Monorepo Nx do gerenciador de contas do CACiC. O projeto centraliza autenticação, onboarding, perfil do usuário, preferências de privacidade, solicitações LGPD, verificação de vínculo estudantil, integração com Discord e contratos para comunicação M2M entre serviços CACiC.
+O projeto centraliza autenticação, onboarding, perfil do usuário, preferências de privacidade, solicitações LGPD, verificação de vínculo estudantil, integração com Discord e contratos para comunicação M2M entre serviços CACiC.
 
 ## Stack
 
@@ -10,7 +15,7 @@ Monorepo Nx do gerenciador de contas do CACiC. O projeto centraliza autenticaç�
 - NestJS no backend, com Swagger, Prisma, PostgreSQL, Redis, BullMQ e sessões HTTP.
 - Keycloak para autenticação, autorização e clientes M2M.
 - Discord API para OAuth, bot e role connections.
-- S3 compatível com SeaweedFS para arquivos de LGPD e documentos.
+- SeaweedFS compatível com S3 para arquivos de LGPD e documentos.
 - Docker Compose para dependências locais e deploy com Traefik.
 
 ## Pré-requisitos
