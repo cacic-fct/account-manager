@@ -1,13 +1,35 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <title>Conta CACiC</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/app/icons/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/app/icons/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#3d3f97" />
+
+    <!-- CACiC Services -->
+    <link rel="preconnect" href="https://a.cacic.com.br" crossorigin />
+    <link rel="preconnect" href="https://unleash.cacic.com.br" crossorigin />
+
+    <!-- SEO -->
+    <meta name="description" content="Gerenciador de contas dos alunos da FCT-Unesp" />
+    <meta
+      name="keywords"
+      content="Gerenciador de contas, FCT-Unesp, Unesp Presidente Prudente, Faculdade de Ciência e Tecnologia, Universidade Estadual Paulista Júlio de Mesquita Filho, CACiC, Centro Acadêmico de Ciência da Computação" />
+
+    <!-- OGP -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Conta CACiC" />
+    <meta property="og:description" content="Gerenciador de contas do CACiC SSO" />
+    <meta property="og:image" content="https://account.cacic.com.br/app/icons/ogp.png" />
   </head>
-  <body class="mat-typography">
-    <app-root></app-root>
-  </body>
+  <app-root></app-root>
 </html>
